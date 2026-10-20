@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, EsvQuarter, EsvYear } from '@/api/types';
+import type { ApiResponse, EsvMonth, EsvQuarter, EsvYear } from '@/api/types';
 import AccountingHeader from '@/components/accounting/AccountingHeader.vue';
 import YearSelect from '@/components/accounting/YearSelect.vue';
+import TextField from '@/components/form/TextField.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
+import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import SwitchTile from '@/components/ui/SwitchTile.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { currentQuarter, dateParts, formatDate, formatDayMonth, monthName, quarterLabel } from '@/utils/dates';
+import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount } from '@/utils/money';
 
 /**
  * Облік, ЄСВ (S-Esv): the year's ЄСВ accrued, paid and left, and a table of months by quarter — what each owes and
- * what was paid, with the quarter's deadline and payment date.
+ * what was paid, with the quarter's deadline and payment date. A tap on a month marks it exempt (the martial-law
+ * window of 2022–2024, a territorial exemption) or due again, with a note.
  */
 const route = useRoute();
 const router = useRouter();
@@ -48,6 +54,47 @@ function deadline(quarter: EsvQuarter): string {
 }
 
 const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
+
+/* Marking a month exempt */
+const canChangeMonths = computed(() => can('update', 'esv-obligations'));
+const editing = ref<EsvMonth | null>(null);
+const monthOpen = ref(false);
+const monthDraft = reactive({ exempt: false, note: '' });
+const monthSaving = ref(false);
+const monthError = ref<unknown>(null);
+
+function openMonth(month: EsvMonth): void {
+    if (!canChangeMonths.value || month.obligation_id === null) {
+        return;
+    }
+
+    editing.value = month;
+    Object.assign(monthDraft, { exempt: month.status === 'exempt', note: month.note ?? '' });
+    monthError.value = null;
+    monthOpen.value = true;
+}
+
+async function saveMonth(): Promise<void> {
+    if (!editing.value?.obligation_id) {
+        return;
+    }
+
+    monthSaving.value = true;
+    monthError.value = null;
+
+    try {
+        await api.patch(path(`esv-obligations/${editing.value.obligation_id}`), {
+            status: monthDraft.exempt ? 'exempt' : 'due',
+            note: monthDraft.note.trim() || null,
+        });
+        monthOpen.value = false;
+        await reload();
+    } catch (caught) {
+        monthError.value = caught;
+    } finally {
+        monthSaving.value = false;
+    }
+}
 </script>
 
 <template>
@@ -96,11 +143,14 @@ const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
                                 <template v-if="quarter.is_annual">{{ quarter.is_paid || compareAmounts(quarter.pending, '0') > 0 || quarter.state === 'overdue' ? ' · ' : '' }}річна декларація, додаток 1</template>
                             </span>
                         </div>
-                        <div
+                        <component
+                            :is="canChangeMonths && month.obligation_id !== null ? 'button' : 'div'"
                             v-for="(month, index) in quarter.months"
                             :key="month.month"
+                            :type="canChangeMonths && month.obligation_id !== null ? 'button' : undefined"
                             :class="[grid, index ? 'border-t border-divider' : '']"
-                            class="py-2.5 text-14"
+                            class="w-full py-2.5 text-left text-14"
+                            @click="openMonth(month)"
                         >
                             <span>{{ monthName(month.month) }}</span>
                             <template v-if="month.status === 'exempt'">
@@ -117,7 +167,7 @@ const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
                                 <Icon v-if="compareAmounts(month.paid, month.amount_due) >= 0 && compareAmounts(month.amount_due, '0') > 0" name="check" :size="20" class="text-positive" />
                                 <span v-else class="size-4.5 rounded-[5px] border-2 border-ink-3" aria-label="Не сплачено" role="img" />
                             </template>
-                        </div>
+                        </component>
                     </template>
                     <div :class="grid" class="border-t border-line bg-paper-light py-3 text-15 font-semibold">
                         <span>Рік</span>
@@ -136,8 +186,19 @@ const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
                 </RouterLink>
                 <p class="m-0 text-13 leading-normal text-ink-3">
                     Можна сплатити більше мінімуму (до 15 мінзарплат): переплата зараховується в наступні квартали.
+                    <template v-if="canChangeMonths">Місяць, звільнений від сплати, позначте дотиком.</template>
                 </p>
             </template>
         </LoadState>
+
+        <BottomSheet v-model:open="monthOpen" :title="editing ? `ЄСВ · ${monthName(editing.month)} ${year}` : 'ЄСВ'">
+            <SwitchTile v-model="monthDraft.exempt" label="Звільнено від сплати" />
+            <TextField v-model="monthDraft.note" label="Підстава" placeholder="Напр., воєнний стан, 2022–2024" />
+            <p class="m-0 text-13 leading-normal text-ink-3">Звільнений місяць нічого не нараховує.</p>
+            <p v-if="monthError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(monthError) }}</p>
+            <template #footer>
+                <PrimaryButton :busy="monthSaving" @click="saveMonth">Зберегти</PrimaryButton>
+            </template>
+        </BottomSheet>
     </TabScreen>
 </template>

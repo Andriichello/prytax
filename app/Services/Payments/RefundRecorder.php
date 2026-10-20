@@ -2,9 +2,11 @@
 
 namespace PryTax\Services\Payments;
 
+use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use PryTax\Enums\PaymentKind;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Account;
 use PryTax\Models\Payment;
@@ -13,13 +15,16 @@ use PryTax\Models\Refund;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Taxes\PeriodLock;
 use PryTax\Services\Taxes\TaxRuleResolver;
+use PryTax\Services\Transfers\HoldingCalculator;
 
 /**
  * Class RefundRecorder.
  *
  * Records money returned to a client from a receipt (design.md §6.6): at the NBU rate of `refunded_at`, in the
- * quarter of that date, which must be open. The refunds of a receipt never exceed its amount, and leave from an
- * account in the receipt's currency.
+ * quarter of that date, which must be open. The refunds of a receipt never exceed its amount, are never earlier than
+ * the receipt, and leave from an account in the receipt's currency. When the receipt's money is on that account,
+ * the refund takes it from there, so it can't be transferred on any more; a refund from another account is paid
+ * from other money. FX gains, which aren't client money, aren't refunded.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Payments
@@ -31,12 +36,14 @@ class RefundRecorder
      *
      * @param PaymentSnapshotter $snapshotter
      * @param TaxRuleResolver $rules
+     * @param HoldingCalculator $holdings
      * @param PeriodLock $lock
      * @param AlertSync $alerts
      */
     public function __construct(
         protected PaymentSnapshotter $snapshotter,
         protected TaxRuleResolver $rules,
+        protected HoldingCalculator $holdings,
         protected PeriodLock $lock,
         protected AlertSync $alerts
     ) {}
@@ -53,18 +60,13 @@ class RefundRecorder
      */
     public function record(Profile $profile, Payment $payment, array $data): Refund
     {
-        $amount = Decimal::of($data['amount']);
-        $refunded = Decimal::of((string) $payment->refunds()->sum('amount'));
-
-        if ($refunded->plus($amount)->isGreaterThan(Decimal::of($payment->amount))) {
+        if ($payment->kind === PaymentKind::FxGain) {
             throw ValidationException::withMessages([
-                'amount' => [__('Refunds can\'t exceed the receipt: :left :currency is left to refund.', [
-                    'left' => Decimal::money(Decimal::of($payment->amount)->minus($refunded)),
-                    'currency' => $payment->currency,
-                ])],
+                'payment_id' => [__('An FX gain isn\'t client money, so it isn\'t refunded.')],
             ]);
         }
 
+        $amount = Decimal::of($data['amount']);
         $account = Account::query()->find($data['from_account_id'] ?? null);
 
         if (!$account || $account->currency !== $payment->currency) {
@@ -74,12 +76,22 @@ class RefundRecorder
         }
 
         $date = CarbonImmutable::parse($data['refunded_at']);
-        $this->lock->assertOpen($profile, $date, $data['correction_note'] ?? null);
+
+        if ($date->lt($payment->received_at)) {
+            throw ValidationException::withMessages([
+                'refunded_at' => [__('A refund can\'t precede its receipt of :date.', ['date' => $payment->received_at->format('d.m.Y')])],
+            ]);
+        }
 
         [$rate, $exchangeRateId, $isManual] = $this->snapshotter->rateOf($payment->currency, $date, $data['nbu_rate'] ?? null);
         $rule = $this->rules->forDate($date, 'refunded_at');
 
         $refund = DB::transaction(function () use ($profile, $payment, $account, $amount, $date, $rate, $exchangeRateId, $isManual, $rule, $data) {
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
+
+            $this->assertRefundable($payment, $account, $amount);
+            $this->lock->assertOpen($profile, $date, $data['correction_note'] ?? null);
+
             $refund = new Refund;
             $refund->forceFill([
                 'profile_id' => $profile->getKey(),
@@ -116,10 +128,49 @@ class RefundRecorder
      */
     public function delete(Profile $profile, Refund $refund, ?string $correctionNote = null): void
     {
-        $this->lock->assertOpen($profile, $refund->refunded_at, $correctionNote);
+        DB::transaction(function () use ($profile, $refund, $correctionNote) {
+            $this->lock->assertOpen($profile, $refund->refunded_at, $correctionNote);
 
-        DB::transaction(fn () => $refund->delete());
+            $refund->delete();
+        });
 
         $this->alerts->syncAfterCommit($profile);
+    }
+
+    /**
+     * Make sure the receipt can refund the amount: its refunds don't exceed it, and the account, when the receipt's
+     * money reached it, still holds that much of it.
+     *
+     * @param Payment $payment
+     * @param Account $account
+     * @param BigDecimal $amount
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function assertRefundable(Payment $payment, Account $account, BigDecimal $amount): void
+    {
+        $refunded = Decimal::of((string) $payment->refunds()->sum('amount'));
+
+        if ($refunded->plus($amount)->isGreaterThan(Decimal::of($payment->amount))) {
+            throw ValidationException::withMessages([
+                'amount' => [__('Refunds can\'t exceed the receipt: :left :currency is left to refund.', [
+                    'left' => Decimal::money(Decimal::of($payment->amount)->minus($refunded)),
+                    'currency' => $payment->currency,
+                ])],
+            ]);
+        }
+
+        $holdings = $this->holdings->holdingsOf($payment);
+
+        if (array_key_exists($account->getKey(), $holdings) && $amount->isGreaterThan($holdings[$account->getKey()])) {
+            throw ValidationException::withMessages([
+                'from_account_id' => [__('The receipt holds only :holding :currency on :account.', [
+                    'holding' => Decimal::money($holdings[$account->getKey()]),
+                    'currency' => $account->currency,
+                    'account' => $account->name,
+                ])],
+            ]);
+        }
     }
 }

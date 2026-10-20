@@ -8,6 +8,7 @@ use Core\Http\Requests\Crud\ShowRequest;
 use Core\Http\Requests\Crud\StoreRequest;
 use Core\Http\Responses\ApiResponse;
 use PryTax\Http\Requests\Payments\AcknowledgeRepatriationRequest;
+use PryTax\Http\Requests\Payments\GroupPaymentsRequest;
 use PryTax\Http\Requests\Payments\PreviewPaymentRequest;
 use PryTax\Http\Requests\Payments\StorePaymentRequest;
 use PryTax\Http\Requests\Payments\UpdatePaymentRequest;
@@ -25,8 +26,8 @@ use PryTax\Services\Payments\PaymentRecorder;
  *
  * Receipts of a profile: `profiles/{profile}/payments`, filtered by `invoice_id`, `kind`, `period_year`,
  * `period_quarter` and more. Creating one answers how it covers its invoice (`meta.invoice`), so the form suggests
- * marking it paid. Also a preview of a receipt before saving it, the path of its money, and dismissing its
- * repatriation notice. POSTs take an `Idempotency-Key`.
+ * marking it paid. Also one wire, which covers several invoices (`payments/group`), a preview of a receipt before
+ * saving it, the path of its money, and dismissing its repatriation notice. POSTs take an `Idempotency-Key`.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -59,6 +60,7 @@ class PaymentController extends TenantController
         'update' => UpdatePaymentRequest::class,
         'destroy' => DestroyRequest::class,
         'preview' => PreviewPaymentRequest::class,
+        'group' => GroupPaymentsRequest::class,
         'flow' => ShowRequest::class,
         'acknowledge' => AcknowledgeRepatriationRequest::class,
     ];
@@ -97,6 +99,23 @@ class PaymentController extends TenantController
         return ApiResponse::created([
             'data' => $this->asResource($payment)->resolve($request),
             'meta' => ['invoice' => $this->recorder->coverage($payment->invoice)],
+        ]);
+    }
+
+    /**
+     * Handle the `group` operation: record one wire, which covers several invoices, and tell how it covers each.
+     *
+     * @param GroupPaymentsRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleGroup(GroupPaymentsRequest $request): ApiResponse
+    {
+        $payments = $this->recorder->recordGroup($this->profileOf($request), $request->validated());
+
+        return ApiResponse::created([
+            'data' => $payments->map(fn (Payment $payment) => $this->asResource($payment)->resolve($request))->all(),
+            'meta' => ['invoices' => $payments->map(fn (Payment $payment) => $this->recorder->coverage($payment->invoice))->all()],
         ]);
     }
 

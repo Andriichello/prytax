@@ -110,6 +110,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
 
                     Route::middleware('idempotent')->group(function () use ($crud, $all) {
                         Route::post('payments/preview', [PaymentController::class, 'preview'])->name('payments.preview');
+                        Route::post('payments/group', [PaymentController::class, 'group'])->name('payments.group');
                         $crud('payments', PaymentController::class, $all, 'payments');
                         $crud('payments/{payment}/refunds', RefundController::class, ['index', 'store', 'show', 'destroy'], 'payments.refunds');
 

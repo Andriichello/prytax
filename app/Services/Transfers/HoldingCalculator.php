@@ -18,10 +18,12 @@ use PryTax\Models\TransferAllocation;
  * holding(P, X) = received_amount, if P landed on X
  *               + Σ over transfers T into X: ROUND(alloc(T, P) / T.amount_sent × T.amount_received, 2)
  *               − Σ over transfers T out of X: alloc(T, P)
+ *               − Σ over refunds R of P from X: R.amount, when P's money reached X
  * ```
  *
  * So a $1 000 receipt moved from Payoneer to Wise with a $15 fee holds $985 on Wise, and a USD → EUR hop leaves a
- * EUR holding, which bounds the next hop.
+ * EUR holding, which bounds the next hop. A refund from an account, which P's money never reached, was paid from
+ * other money, and holds nothing of P back.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Transfers
@@ -57,6 +59,14 @@ class HoldingCalculator
 
             $holdings[$from] = ($holdings[$from] ?? Decimal::zero())->minus(Decimal::of($allocation->amount));
             $holdings[$to] = ($holdings[$to] ?? Decimal::zero())->plus($this->arrived($allocation));
+        }
+
+        $refunds = $payment->relationLoaded('refunds') ? $payment->refunds : $payment->refunds()->get();
+
+        foreach ($refunds as $refund) {
+            if (array_key_exists($refund->from_account_id, $holdings)) {
+                $holdings[$refund->from_account_id] = $holdings[$refund->from_account_id]->minus(Decimal::of($refund->amount));
+            }
         }
 
         return $holdings;
@@ -126,7 +136,7 @@ class HoldingCalculator
             ->where(fn ($query) => $query
                 ->where('received_to_account_id', $account->getKey())
                 ->orWhereHas('allocations.transfer', fn ($transfers) => $transfers->where('to_account_id', $account->getKey())))
-            ->with(['allocations.transfer', 'invoice.client'])
+            ->with(['allocations.transfer', 'refunds', 'invoice.client'])
             ->chronologically()
             ->get()
             ->map(fn (Payment $payment) => [

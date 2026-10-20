@@ -326,4 +326,40 @@ class PaymentControllerTest extends TestCase
         $this->deleteJson($this->profilePath($profile, "payments/{$gain->id}"))->assertForbidden();
         $this->assertModelExists($gain);
     }
+
+    /**
+     * Test that one wire for two invoices is two receipts of one group, with what landed split by the invoiced
+     * amounts, and the coverage of each invoice.
+     *
+     * @return void
+     */
+    public function testRecordsOneWireForSeveralInvoices(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $first = $this->createFrozenInvoice($profile, $wise);
+        $second = $this->createFrozenInvoice($profile, $wise, ['items' => [['quantity' => '40.00']]]);
+
+        $response = $this->postJson($this->profilePath($profile, 'payments/group'), [
+            'receipts' => [
+                ['invoice_id' => $first->id, 'amount' => '3892.50'],
+                ['invoice_id' => $second->id, 'amount' => '1800.00'],
+            ],
+            'received_to_account_id' => $wise->id,
+            'received_amount' => '5677.50',
+            'received_at' => '2026-10-05',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.0.received_amount', '3882.24')
+            ->assertJsonPath('data.1.received_amount', '1795.26')
+            ->assertJsonPath('meta.invoices.0.covers_total', true)
+            ->assertJsonPath('meta.invoices.1.covers_total', true);
+        $this->assertSame($response->json('data.0.receipt_group_id'), $response->json('data.1.receipt_group_id'));
+        $this->assertNotNull($response->json('data.0.receipt_group_id'));
+        $this->assertDatabaseCount('payments', 2);
+    }
 }

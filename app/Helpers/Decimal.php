@@ -133,6 +133,46 @@ final class Decimal
     }
 
     /**
+     * Split an amount into shares in proportion to the weights, to the kopeck, by the largest remainder: each share
+     * is first rounded down, and the kopecks left go to the shares with the largest remainders (the first on a tie),
+     * so the shares always add up to the amount.
+     *
+     * @param BigNumber|int|string|null $amount
+     * @param array<int|string, BigNumber|int|string|null> $weights
+     *
+     * @return array<int|string, string> The shares, as money strings, keyed as the weights.
+     */
+    public static function split(BigNumber|int|string|null $amount, array $weights): array
+    {
+        $kopecks = self::of($amount)->toScale(2, RoundingMode::HalfUp)->getUnscaledValue();
+        $total = self::sum($weights);
+
+        if ($total->isZero()) {
+            return array_map(fn () => '0.00', $weights);
+        }
+
+        $shares = [];
+        $remainders = [];
+
+        foreach ($weights as $key => $weight) {
+            $exact = self::of($weight)->multipliedBy($kopecks)->dividedBy($total, 12, RoundingMode::Down);
+            $shares[$key] = $exact->toScale(0, RoundingMode::Down);
+            $remainders[$key] = $exact->minus($shares[$key]);
+        }
+
+        $left = BigDecimal::of($kopecks)->minus(self::sum($shares))->toInt();
+        $order = array_keys($remainders);
+        usort($order, fn ($first, $second) => $remainders[$second]->compareTo($remainders[$first])
+            ?: array_search($first, array_keys($weights), true) <=> array_search($second, array_keys($weights), true));
+
+        foreach (array_slice($order, 0, $left) as $key) {
+            $shares[$key] = $shares[$key]->plus(1);
+        }
+
+        return array_map(fn (BigDecimal $share) => self::money($share->dividedBy(100, 2)), $shares);
+    }
+
+    /**
      * Get the sum of the values.
      *
      * @param iterable<BigNumber|int|string|null> $values

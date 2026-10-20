@@ -6,6 +6,7 @@ use Closure;
 use Core\Models\Organization;
 use Core\Models\User;
 use Laravel\Sanctum\Sanctum;
+use PryTax\Enums\DeclarationStatus;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Models\Account;
 use PryTax\Models\Client;
@@ -14,9 +15,11 @@ use PryTax\Models\ExchangeRate;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
+use PryTax\Models\TaxPeriod;
 use PryTax\Services\Invoices\InvoiceFreezer;
 use PryTax\Services\Invoices\InvoiceWriter;
 use PryTax\Services\Payments\PaymentRecorder;
+use PryTax\Services\Taxes\DeadlineScheduler;
 
 /**
  * Trait ActsInProfiles.
@@ -109,6 +112,25 @@ trait ActsInProfiles
                 ]);
             }
         }
+    }
+
+    /**
+     * Mark the declaration of the profile's quarter accepted, which locks the quarter.
+     *
+     * @param Profile $profile
+     * @param int $year
+     * @param int $quarter
+     *
+     * @return TaxPeriod
+     */
+    protected function declareQuarter(Profile $profile, int $year, int $quarter): TaxPeriod
+    {
+        return $this->inProfile($profile, function () use ($profile, $year, $quarter) {
+            $period = app(DeadlineScheduler::class)->ensure($profile, $year, $quarter);
+            $period->forceFill(['declaration_status' => DeclarationStatus::Accepted, 'locked_at' => now()])->save();
+
+            return $period;
+        });
     }
 
     /**

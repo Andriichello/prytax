@@ -7,11 +7,11 @@ import LoadState from '@/components/ui/LoadState.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { dateParts, formatDayMonth, monthName, quarterLabel, today } from '@/utils/dates';
-import { compareAmounts, formatAmount } from '@/utils/money';
+import { compareAmounts, formatAmount, sumAmounts } from '@/utils/money';
 
 /**
  * Податки by month: a tax's months grouped by quarter — the month's income, what it accrued (the sum of its receipts'
- * hints; for ЄСВ the month's contribution) and what was paid for it.
+ * hints; for ЄСВ the month's contribution) and what was paid for it, with its share of the quarter's payments.
  */
 const { year, taxType } = defineProps<{ year: number; taxType: TaxType }>();
 
@@ -63,6 +63,10 @@ const grid = 'grid grid-cols-[1.1fr_1fr_1fr_24px] items-center gap-2 px-3.5';
                     <span class="num text-right">
                         {{ compareAmounts(month[taxType].paid, '0') > 0 ? formatAmount(month[taxType].paid) : '—' }}
                         <span v-if="compareAmounts(month[taxType].pending, '0') > 0" class="block text-12 text-warning-text">+{{ formatAmount(month[taxType].pending) }} надісл.</span>
+                        <span v-if="compareAmounts(month[taxType].from_quarter, '0') > 0" class="block text-12 text-ink-3">
+                            <template v-if="compareAmounts(month[taxType].from_quarter, sumAmounts(month[taxType].paid, month[taxType].pending)) === 0">за кв.</template>
+                            <template v-else>з них за кв. {{ formatAmount(month[taxType].from_quarter) }}</template>
+                        </span>
                     </span>
                     <Icon v-if="month[taxType].quarter_state === 'closed'" name="check" :size="18" class="text-positive" />
                     <span v-else />
@@ -72,7 +76,8 @@ const grid = 'grid grid-cols-[1.1fr_1fr_1fr_24px] items-center gap-2 px-3.5';
         <p class="m-0 text-13 leading-normal text-ink-3">
             <template v-if="taxType === 'social_contribution'">ЄСВ — за кожен місяць, крім звільнених.</template>
             <template v-else>Нараховано за місяць — сума підказок його надходжень; до сплати за квартал береться його нарахування.</template>
-            Сплати за квартал по місяцях не розносяться; галочка — квартал закрито.
+            Сплати за квартал розносяться по місяцях з першого: кожен бере те, що ще винен, решта — останньому («за кв.»).
+            Галочка — квартал закрито.
         </p>
     </LoadState>
 </template>

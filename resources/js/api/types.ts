@@ -1747,10 +1747,12 @@ export interface TaxMonthFigures extends TaxMonthQuarterState {
     owed: Amount;
     /** The month's income × the rate. */
     standalone: Amount;
-    /** Paid payments allocated to the month. */
+    /** Paid payments allocated to the month, with its share of the quarter's own ones. */
     paid: Amount;
-    /** Sent payments allocated to the month. */
+    /** Sent payments allocated to the month, with its share of the quarter's own ones. */
     pending: Amount;
+    /** The month's share of the quarter's own payments, spread from its first month, in `paid` and `pending`. */
+    from_quarter: Amount;
 }
 
 /** ЄСВ of a month. */
@@ -1760,6 +1762,8 @@ export interface EsvMonthFigures extends TaxMonthQuarterState {
     owed: Amount;
     paid: Amount;
     pending: Amount;
+    /** The month's share of the quarter's own payments, in `paid` and `pending`. */
+    from_quarter: Amount;
 }
 
 /** A month of `TaxMonths`, in UAH. */

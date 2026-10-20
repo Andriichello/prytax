@@ -1,8 +1,10 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-21: the backend is merged into `main`; every screen of the frontend is built on `dev`; a QA pass
-(review against the specs + browser flows per role) is on `dev-qa-fixes`, on top of `dev`. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is the phase-1 UI scope) and
-`docs/prytax-simplified-design-handoff.md` (the design handoff; the screens are in `docs/prytax-design-handoff/`).
+Status as of 2026-10-21 (late): backend, frontend and the QA pass are merged into `main` (= `dev` = `dev-qa-fixes`);
+the follow-ups of the QA pass (the user's decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене») are
+on `dev-followups`, not merged. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is
+the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design handoff; the screens are in
+`docs/prytax-design-handoff/`).
 
 ## Where things stand
 
@@ -10,14 +12,21 @@ Status as of 2026-10-21: the backend is merged into `main`; every screen of the 
 |---|---|
 | 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
 | 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged) |
-| 3. QA: specs review + browser flows per role | **First pass done** on `dev-qa-fixes` (2026-10-21); see "QA pass" for what is still open |
+| 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
+| 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done** on `dev-followups` (15 commits, not merged); see "Follow-ups" |
 
-- **Branches:** `main` = the audited backend (57 commits). `dev` = `main` + the whole frontend (about 20 commits).
-  `dev-qa-fixes` = `dev` + the QA pass (32 commits), checked out, **not merged** (merge only when the user asks).
-  `backend-phase-1` is merged and can go. No git remote exists, so nothing is pushed.
-- `php artisan test --compact`: **292 tests**, all passing on 2026-10-21 (about 85 s, on MySQL `prytax_test`). Run it
+- **Branches:** `main` = `dev` = `dev-qa-fixes` = backend + frontend + QA pass (fast-forwarded on 2026-10-21, the
+  user asked). `dev-followups` = `main` + this session's 15 commits, checked out, **not merged** (merge only when the
+  user asks). `backend-phase-1` and `dev-qa-fixes` are merged and can go. No git remote exists, so nothing is pushed.
+- **api-core is on branch `feat/remember-login`** in `/var/www/api-core` (2 commits on its `dev`: `remember` on
+  `auth/login`, the `remember_token` migration, docs, tests; all 658 api-core tests pass), **not merged, not pushed**.
+  PryTax runs api-core's working tree (path repository, symlinked), so that branch must stay checked out until it is
+  merged into api-core's `dev`. api-core's commits run GrumPHP (phpcs line length 120, phpmd: no boolean flag
+  arguments, phpstan).
+- `php artisan test --compact`: **300 tests**, all passing on 2026-10-21 (about 90 s, on MySQL `prytax_test`). Run it
   in the foreground with a generous timeout; two runs at once deadlock each other (so parallel agents must not run
-  it). The frontend's only automated check is `npm run typecheck` (clean) plus `npm run build`.
+  it). The frontend: `npm test` (Vitest, 28 tests of `resources/js/utils/*.test.ts`), `npm run typecheck`,
+  `npm run build`.
 - The dev database `prytax` was rebuilt with the demo data at the end of 2026-10-21 (after the QA flows). NBU rates
   get cached by previews (writes on read). `migrate:fresh` leaves old seeds' files in `storage/app/private/files`
   (orphans; harmless).
@@ -25,12 +34,11 @@ Status as of 2026-10-21: the backend is merged into `main`; every screen of the 
 
 ### First steps of the next session
 
-1. **Ask the user** about the open decisions under "QA pass" (paid invoice whose receipt is deleted, Податки's
-   default view, fee statistics screen), then: merging `dev-qa-fixes` into `dev` (and `dev` into `main`), the
-   remaining frontend gaps, or Ukrainian API messages on the backend.
+1. **Ask the user** about merging `dev-followups` into `dev`/`main`, and api-core's `feat/remember-login` into its
+   `dev` (and pushing it). Then what is left: XLSX exports and the yearly PDF summary (need a package, so approval),
+   pixel polish against the mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
 2. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run dev`), sign in as
    `olena@example.com` / `password`.
-3. The open frontend gaps are listed under "Frontend".
 
 ## QA pass (2026-10-21, branch `dev-qa-fixes`)
 
@@ -62,14 +70,50 @@ Decisions taken in the pass (tell the user if they disagree):
   mock's quarters. Δ in the reconciliation stays owed − hints (the two mocks disagree).
 - The invoice editor asks with `window.confirm` before leaving unsaved changes.
 
-Open (not fixed):
-- **Needs a decision:** deleting (or reducing) a receipt of a **paid** invoice is allowed and leaves it "Оплачено"
-  but uncovered (`paid → *` never changes); either block it or let such an invoice return to `sent`.
-- `fees/{year}` (fees and spread by account, route, client — accounting.md's "which platform is best") has no
-  screen; the handoff has none either.
-- Back from an invoice returns to the top of Інвойси (no KeepAlive / scroll restore).
-- `.env`'s `API_CORE_INVITATION_URL` (and the reset URL) point at Vite's 5173; on 8010 rewrite the e-mailed link.
-- The gaps under "Frontend gaps" except those fixed here.
+Everything left open by the pass was settled in "Follow-ups" below.
+
+## Follow-ups (2026-10-21, branch `dev-followups`)
+
+The user decided: (b) a paid invoice returns to unpaid; Податки keeps the specs' default view (`payment`); add a fee
+statistics screen; and go on with the rest. Done, each verified in tests and in headless Chrome:
+
+- **A paid invoice, which a receipt change leaves uncovered, returns to `sent`** (or `ready`, when it was paid without
+  being sent; `paid_at` cleared): deleting, reducing or moving a receipt, or a refund (`InvoiceLifecycle::
+  reopenIfUncovered()`, inside the write's transaction; transitions `paid → sent|ready`). `payments/preview` names it
+  in `reopens_invoice`; the receipt form, the delete sheet and the refund sheet warn first.
+- **Комісії** (`/fees?year=`, from Ще → "Комісії й чистий дохід"): the year's income, fees, spread and net income, by
+  quarter, account (with currency, linked), client (linked) and route, loss % coloured as on Перекази (`FeeRow`).
+  `fees/{year}`'s groups now carry `currency`.
+- **Back returns to the same place:** `App.vue` keeps `InvoicesPage` and `TransfersPage` alive (`KeepAlive`, keyed by
+  the user); on return `usePagedList` re-reads the pages shown and `useLoader` reloads (both on `onActivated`); the
+  invoice filters follow the URL only while the list is shown.
+- **Links to another ФОП's record:** a bare record link opened from outside the app (first navigation) is looked up
+  across the user's profiles (`useCurrentProfile().locate()`, routes' `meta.record`); `?profile=ID` on any path
+  switches the profile and is dropped from the URL.
+- **Dates are typed `дд.мм.рррр`** whatever the device's language (`DateField` is a text input, `parseDisplayDate()`
+  takes `4.1.2026`, `14/10/2026`, `14102026`), with the native calendar under a button (`showPicker()`); a wrong or
+  out-of-range date is told after leaving the field.
+- **Vitest** (approved by the user; `vitest@5.0.3`, pinned to a release a few weeks old): `vitest.config.js` (alias
+  only, not Vite's config), `npm test`. Installing with Node 22's npm crashed (arborist `edgesOut`); Node 24's npm 11
+  worked (it also rewrote the lockfile's flags of optional platform packages, harmless).
+- **Monthly taxes:** `taxes/{year}/months` spreads a quarter's own payments over its months, the earliest first (each
+  takes what it still owes after its own payments; the last month keeps the rest; paid before sent), `from_quarter`
+  per month; the view marks "за кв.".
+- **Ukrainian API:** api-core's `locale` middleware on the `api` group, `api-core.locales = ['uk']` (so users' stored
+  `en` never overrides the SPA's `Accept-Language: uk`; requests without the header stay English, so tests assert
+  English); `lang/uk.json` (every `__()` of `app/` — `LocalizationTest` scans them —, the invitation and reset
+  e-mails, Laravel's mail layout) and `lang/uk/{validation,auth,passwords}.php` (messages without the field's name,
+  as they show under the field). `utils/errors.ts` now shows any Cyrillic message as is and translates only
+  api-core's English-only messages (suspended account, required password update, invitation link, several
+  organizations, throttling); other English falls back to a text by status. Write new messages through `__()` and add
+  them to `lang/uk.json` (the test fails otherwise).
+- **E-mail links follow `APP_URL`** (api-core's default): `.env.example` no longer sets the 5173 URLs; the local `.env`
+  now has `APP_URL=http://localhost:8010` and `SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010` (the old one
+  is backed up only in that session's scratchpad). The invitation e-mail was checked: Ukrainian, link on 8010.
+- **«Запам’ятати мене»** on Вхід (checked by default, as the mock): sends `remember`, which api-core's
+  `feat/remember-login` branch turns into the remember cookie; the published migration
+  `2026_10_21_010000_add_remember_token_to_users_table` adds `users.remember_token`. Verified: with it, a dropped
+  session signs in again from the cookie; without it, back to Вхід.
 
 ## The audit (2026-10-20)
 
@@ -111,7 +155,8 @@ finding was fixed with tests, except the items under "Not done yet". The user de
    not a cursor; infinite scroll pages by number.
 5. **`paid_amount`** of invoices is derived on read (`InvoiceQuery::withPaidAmount()`), never stored.
 6. **Invoice transitions**: draft → ready → sent → paid, ready/sent → cancelled, ready → draft (no receipts), and also
-   **ready → paid**. Paying needs the receipts to cover the total. **Cancelling needs no money kept by receipts**
+   **ready → paid**. Paying needs the receipts to cover the total; a paid invoice, which a receipt change leaves
+   uncovered, returns to sent (or ready, when never sent) by itself (the user's decision of 2026-10-21). **Cancelling needs no money kept by receipts**
    (move them to the replacing invoice, or refund them); refunded receipts stay with their cancelled invoice. Every
    status change locks the invoice row and re-checks the status (a double tap can't number an invoice twice).
 7. **A frozen invoice changes its notes only** (409 otherwise). **`PATCH invoices` requires `If-Unmodified-Since`**
@@ -159,8 +204,9 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 22. **Personal accounts** take no receipts and have no tracked limits; rolling limit windows are `[today − period, today]`.
 23. **The app runs in Europe/Kyiv**; signed file URLs last 15 minutes; CORS exposes `Content-Disposition` and
     `Idempotent-Replayed`.
-24. **API error messages** are English through `__()`, ready for a `lang/uk.json`; api-core's are English too. The
-    frontend must show Ukrainian.
+24. **API messages are Ukrainian for the SPA** (`Accept-Language: uk`, `api-core.locales = ['uk']`, `lang/uk*`) and
+    English without the header; api-core's own error messages stay English by its design, and the SPA translates
+    those few (`utils/errors.ts`).
 25. **Dependencies added (approved by the user)**: `barryvdh/laravel-dompdf` and `brick/math`. CLAUDE.md forbids other
     new dependencies without approval.
 
@@ -168,9 +214,8 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 
 - `SheetImporter` (import of the 2025 Google sheet, design §14 step 7): no sheet format to build against.
 - XLSX exports and the yearly PDF summary (CSV exists; XLSX needs a package and approval).
-- Ukrainian API messages: every `__()` text and api-core's are English; nothing sets the locale (see item 24).
-- "Запам'ятати мене" on login: api-core's session login never sets a remember cookie (needs an api-core change).
-  "Забули пароль?" works; its e-mail links to `{frontend}/reset-password`, a route the SPA must have.
+- "Забули пароль?" works; its e-mail links to `{APP_URL}/reset-password`, a route the SPA has. (Ukrainian messages
+  and «Запам’ятати мене» are done, see "Follow-ups".)
 - design.md "pending" items: Appendix A (a refund reduces the original period), B2 (fee currency / UAH-canonical net
   income), B5 (cascade `tax_payments.period_*` when a receipt's date changes). B1 is used for receipt groups only.
 - A refund saved at a manual rate can't be refreshed (refunds have no update; delete and record it again).
@@ -260,10 +305,9 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app).
   `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
 - **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`) — leave it alone. Serve PryTax
-  from `public/` on 8010 (run in the background): `cd public && APP_URL=http://localhost:8010
-  SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010 API_CORE_PASSWORD_RESET_URL=http://localhost:8010/reset-password
-  php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`. `.env` still
-  says port 8000 and 5173 for those keys (not changed, so the env overrides matter).
+  from `public/` on 8010 (run in the background): `cd public && PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8010
+  ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`. The local `.env` says 8010 now, so no
+  env overrides are needed.
 - **`resources/js/`:**
   - `api/client.ts` (fetch, CSRF cookie, 419 retry, 401 → sign-in, api-core bracketed queries, `Accept-Language: uk`,
     `apiUrl()` for downloads, `newIdempotencyKey()` for receipt/refund/transfer/tax POSTs); `api/types.ts` (every
@@ -310,14 +354,13 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   delete). A new ФОП lands on the taxes settings (opening balances). Forms hide saving from roles that can't save.
   Each screen was compared with its mock in headless Chrome; Облік, Податки and the declaration show the mock's
   figures exactly.
-- **Frontend gaps** (as of 2026-10-21; all still open): (1) links without a profile (`/invoices/{id}` from e-mails, another tab) open in the current
-  ФОП only, else a 404 — consider `?profile=` or a lookup; (2) XLSX exports and the yearly PDF summary aren't built
-  (no backend); (3) native date inputs show the device's format (en-US in headless Chrome, dd.mm.yyyy on a uk
-  phone); (4) no JS test runner (formatters were checked ad hoc) — propose Vitest to the user; (5) `taxes/{year}/
-  months` doesn't spread quarter payments over months, so the monthly view shows "—" for them; (6) no "Запам'ятати
-  мене" (sessions end after `SESSION_LIFETIME`, 120 min); (7) PNG/HTML pixel polish wasn't done screen by screen
-  beyond the comparison above.
-- **Checking the UI in a browser** (the scripts lived in the session scratchpad, which is gone): start
+- **Frontend gaps** (as of 2026-10-21, after the follow-ups): (1) XLSX exports and the yearly PDF summary aren't
+  built (no backend; a package needs approval); (2) PNG/HTML pixel polish wasn't done screen by screen beyond the
+  comparison above. The others (cross-profile links, date format, JS tests, monthly spread, remember me, scroll on
+  back) were done in "Follow-ups".
+- **Checking the UI in a browser** (the scripts live in a session's scratchpad, which goes away; the latest copies,
+  `cdp.mjs`, `act.mjs`, `sweep.mjs`, were in `/tmp/claude-1000/-var-www-prytax/4e9a9efe-…/scratchpad`; run them with
+  Node 22, e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH node act.mjs steps.txt`): start
   `google-chrome --headless=new --remote-debugging-port=9223 --user-data-dir=<scratch dir> about:blank` in the
   background, and drive it with a small Node 22 script (built-in `WebSocket`, no packages) over the DevTools protocol:
   `Emulation.setDeviceMetricsOverride` (390 × 844, scale 2, mobile), `Page.navigate`, `Runtime.evaluate` (fill inputs

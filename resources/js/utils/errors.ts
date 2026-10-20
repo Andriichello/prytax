@@ -34,6 +34,22 @@ const MESSAGES: Record<string, string> = {
     'The project isn\'t one of the client\'s.': 'Цей проєкт належить іншому клієнту.',
     'The receiving account is inactive.': 'Цей рахунок неактивний.',
     'The receiving account is required.': 'Оберіть рахунок для оплати.',
+    'The received amount is required, when the account\'s currency differs.': 'Вкажіть, скільки зараховано: валюта рахунку інша.',
+    'Receipts are recorded for frozen invoices only: ready, sent or paid.': 'Надходження записують лише для зафіксованих інвойсів.',
+    'The invoice is required.': 'Оберіть інвойс.',
+    'The account is required.': 'Оберіть рахунок.',
+    'The account is inactive, so receipts can\'t land on it.': 'Рахунок неактивний, на нього не можна зарахувати кошти.',
+    'A personal account isn\'t a business one, so receipts can\'t land on it.': 'Особистий рахунок не приймає надходжень ФОП.',
+    'The receipt was transferred on or refunded, so its account and received amount can\'t change.': 'Кошти вже переказано або повернено, тож рахунок і суму зарахування змінити не можна.',
+    'An FX gain isn\'t client money, so it isn\'t refunded.': 'Курсовий дохід не є коштами клієнта, його не повертають.',
+    'A receipt is allocated twice.': 'Одне надходження розподілено двічі.',
+    'A receipt is not found.': 'Надходження не знайдено.',
+    'A transfer can\'t be sent after it arrived.': 'Дата відправлення не може бути пізніше за дату зарахування.',
+    'A transfer moves money between two different accounts of the profile.': 'Переказ має бути між двома різними рахунками.',
+    'More can\'t arrive than was sent in the same currency.': 'В одній валюті не може прийти більше, ніж надіслано.',
+    'The allocations exceed the amount sent.': 'Розподілено більше, ніж надіслано.',
+    'The fee of a transfer is less than the amount sent.': 'Комісія має бути меншою за суму переказу.',
+    'Tax payments reference the FX gain of the transfer, so its gain can\'t go away.': 'Сплати податків посилаються на курсовий дохід цього переказу.',
 };
 
 /**
@@ -45,6 +61,19 @@ const PATTERNS: [RegExp, (...groups: string[]) => string][] = [
     [/^The receiving account must be in (\w{3})\.$/, (currency) => `Рахунок для оплати має бути в ${currency}.`],
     [/^Another invoice has the number (.+) already\.$/, (number) => `Інвойс з номером ${number} уже є.`],
     [/^The invoice is (\w+) already\.$/, () => 'Статус інвойсу вже змінено. Оновіть сторінку.'],
+    [/^The NBU rate of (\w{3}) on (\S+) is unavailable\. .*$/, (currency, date) => `НБУ не має курсу ${currency} на ${date}. Введіть курс вручну.`],
+    [/^Quarter (\d) of (\d{4}) is locked by its submitted declaration\. .*$/, (quarter, year) => `${quarter}-й квартал ${year} уже задекларовано. Опишіть уточнення, щоб змінити його.`],
+    [/^Quarter (\d) of (\d{4}) is locked by its submitted declaration, which counts quarter (\d) too\. .*$/, (later, year) => `Декларацію за ${later}-й квартал ${year} уже подано, а вона враховує і цей. Опишіть уточнення.`],
+    [/^The receipt is in (\w{3}), so it belongs to an invoice in \w{3} only\.$/, (currency) => `Надходження в ${currency}, тож належить лише інвойсу в ${currency}.`],
+    [/^The receipt was refunded (\S+) (\w{3}), so its amount can't be less\.$/, (amount, currency) => `З надходження вже повернено ${amount} ${currency}, менше бути не може.`],
+    [/^The receipt is referenced by (.+), so it can't be deleted\.$/, () => 'Надходження вже використано в переказах, поверненнях або сплатах податків, тож видалити його не можна.'],
+    [/^Refunds can't exceed the receipt: (\S+) (\w{3}) is left to refund\.$/, (left, currency) => `Повернення не може перевищувати надходження: лишилося ${left} ${currency}.`],
+    [/^The refund leaves from an account in (\w{3})\.$/, (currency) => `Повернення має йти з рахунку в ${currency}.`],
+    [/^A refund can't precede its receipt of (\S+)\.$/, (date) => `Повернення не може бути раніше за надходження ${date}.`],
+    [/^A receipt of (\S+) can't be moved by an earlier transfer\.$/, (date) => `Надходження ${date} не можна переказати раніше за цю дату.`],
+    [/^The receipt holds only (\S+) (\w{3}) on (.+)\.$/, (amount, currency, account) => `На рахунку ${account} від цього надходження лишилося лише ${amount} ${currency}.`],
+    [/^The fee of a same-currency transfer is the amount sent less the amount received: (\S+)\.$/, (fee) => `Комісія переказу в одній валюті — це різниця сум: ${fee}.`],
+    [/^Money of a receipt of (\S+) was moved on from an account, to which less would arrive\.$/, () => 'Кошти цього надходження вже переказано далі, тож прибути на рахунок має не менше.'],
 ];
 
 const BY_STATUS: Record<number, string> = {

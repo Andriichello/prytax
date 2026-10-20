@@ -198,3 +198,22 @@ export function multiplyAmounts(quantity: string, price: string): string {
 
     return fromUnits(negative ? -rounded : rounded, 2);
 }
+
+/**
+ * a × b for decimals of any scale (an amount by a rate), rounded half up to two decimals.
+ */
+export function multiplyDecimals(a: string, b: string): string {
+    const scaleOf = (value: string): number => value.trim().split('.')[1]?.length ?? 0;
+    const scale = scaleOf(a) + scaleOf(b);
+    const product = units(a, scaleOf(a)) * units(b, scaleOf(b));
+
+    if (scale <= 2) {
+        return fromUnits(product * 10n ** BigInt(2 - scale), 2);
+    }
+
+    const shift = 10n ** BigInt(scale - 2);
+    const negative = product < 0n;
+    const rounded = ((negative ? -product : product) + shift / 2n) / shift;
+
+    return fromUnits(negative ? -rounded : rounded, 2);
+}

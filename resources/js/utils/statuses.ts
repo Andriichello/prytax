@@ -1,4 +1,4 @@
-import type { AlertSeverity, DeclarationStatus, InvoiceStatus, TaxPaymentStatus } from '@/api/types';
+import type { AlertSeverity, DeclarationStatus, InvoiceStatus, TaxPaymentStatus, TaxType } from '@/api/types';
 
 /**
  * The colours of status badges.
@@ -37,4 +37,13 @@ export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {
     sent: { label: 'Надіслано', tone: 'warning' },
     paid: { label: 'Сплачено', tone: 'positive' },
     failed: { label: 'Не пройшов', tone: 'negative' },
+};
+
+/**
+ * The short names of the taxes: ЄП (єдиний податок), ВЗ (військовий збір), ЄСВ.
+ */
+export const TAX_TYPES: Record<TaxType, string> = {
+    single_tax: 'ЄП',
+    military_levy: 'ВЗ',
+    social_contribution: 'ЄСВ',
 };

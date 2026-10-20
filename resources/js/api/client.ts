@@ -180,3 +180,15 @@ export const api = {
         request<T>(path, { method: 'PATCH', body, headers }),
     delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
+
+/**
+ * A key for the `Idempotency-Key` header of a form's POST (receipts, refunds, transfers, tax payments): made once per
+ * form, it makes a repeated tap or a retry after a lost answer return the first result instead of recording twice.
+ */
+export function newIdempotencyKey(): string {
+    if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}

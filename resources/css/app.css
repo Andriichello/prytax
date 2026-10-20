@@ -39,6 +39,7 @@
     --color-accent-soft: #e9edfb;
     --color-switch-off: #b9b6ac;
     --color-handle: #c9c6bc;
+    --color-rail: #dad8d0;
     --color-overlay: rgb(23 25 31 / 0.66);
 
     /* Meaning */
@@ -65,9 +66,12 @@
     --text-16: 16px;
     --text-17: 17px;
     --text-18: 18px;
+    --text-20: 20px;
     --text-22: 22px;
+    --text-26: 26px;
     --text-28: 28px;
     --text-30: 30px;
+    --text-32: 32px;
 
     --radius-badge: 8px;
     --radius-seg: 9px;

@@ -34,16 +34,43 @@ const routes: RouteRecordRaw[] = [
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },
     { path: '/overview', name: 'overview', component: () => import('@/pages/OverviewPage.vue') },
 
-    { path: '/invoices', name: 'invoices', component: comingSoon, meta: { tab: 'invoices', title: 'Інвойси' } },
-    { path: '/invoices/new', name: 'invoice-new', component: comingSoon, meta: { title: 'Новий інвойс' } },
-    { path: '/invoices/:id(\\d+)', name: 'invoice', component: comingSoon, meta: { title: 'Інвойс' } },
+    { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices' } },
+    { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue') },
+    { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue') },
+    { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue') },
+
+    { path: '/payments/new', name: 'payment-new', component: comingSoon, meta: { title: 'Нове надходження' } },
+    { path: '/payments/:id(\\d+)', name: 'payment', component: comingSoon, meta: { title: 'Надходження' } },
+    { path: '/transfers', name: 'transfers', component: comingSoon, meta: { title: 'Перекази' } },
+    { path: '/transfers/new', name: 'transfer-new', component: comingSoon, meta: { title: 'Новий переказ' } },
+    { path: '/transfers/:id(\\d+)', name: 'transfer', component: comingSoon, meta: { title: 'Переказ' } },
+
+    { path: '/accounts', name: 'accounts', component: comingSoon, meta: { title: 'Рахунки' } },
+    { path: '/accounts/new', name: 'account-new', component: comingSoon, meta: { title: 'Новий рахунок' } },
+    { path: '/accounts/:id(\\d+)', name: 'account', component: comingSoon, meta: { title: 'Рахунок' } },
+    { path: '/accounts/:id(\\d+)/edit', name: 'account-edit', component: comingSoon, meta: { title: 'Редагування рахунку' } },
+    { path: '/clients', name: 'clients', component: comingSoon, meta: { title: 'Клієнти' } },
+    { path: '/clients/new', name: 'client-new', component: comingSoon, meta: { title: 'Новий клієнт' } },
+    { path: '/clients/:id(\\d+)', name: 'client', component: comingSoon, meta: { title: 'Клієнт' } },
+    { path: '/clients/:id(\\d+)/edit', name: 'client-edit', component: comingSoon, meta: { title: 'Редагування клієнта' } },
+    { path: '/clients/:clientId(\\d+)/contracts/new', name: 'contract-new', component: comingSoon, meta: { title: 'Новий договір' } },
+    { path: '/clients/:clientId(\\d+)/contracts/:id(\\d+)', name: 'contract', component: comingSoon, meta: { title: 'Договір' } },
 
     { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
-    { path: '/taxes', name: 'taxes', component: comingSoon, meta: { tab: 'taxes', title: 'Податки' } },
-    { path: '/more', name: 'more', component: comingSoon, meta: { tab: 'more', title: 'Ще' } },
+    { path: '/accounting/esv', name: 'accounting-esv', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
+    { path: '/accounting/income-book', name: 'income-book', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
 
+    { path: '/taxes', name: 'taxes', component: comingSoon, meta: { tab: 'taxes', title: 'Податки' } },
+    { path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments', name: 'taxes-by-payment', component: comingSoon, meta: { title: 'Податки за надходженнями' } },
+    { path: '/taxes/payments/new', name: 'tax-payment-new', component: comingSoon, meta: { title: 'Нова сплата податку' } },
+    { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: comingSoon, meta: { title: 'Декларація' } },
+
+    { path: '/more', name: 'more', component: comingSoon, meta: { tab: 'more', title: 'Ще' } },
     { path: '/profiles/new', name: 'profile-new', component: comingSoon, meta: { title: 'Новий ФОП' } },
+    { path: '/settings/profile', name: 'settings-profile', component: comingSoon, meta: { title: 'Профіль ФОП' } },
+    { path: '/settings/numbering', name: 'settings-numbering', component: comingSoon, meta: { title: 'Нумерація інвойсів' } },
     { path: '/settings/taxes', name: 'settings-taxes', component: comingSoon, meta: { title: 'Податки й сповіщення' } },
+    { path: '/users', name: 'users', component: comingSoon, meta: { title: 'Користувачі' } },
 
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];

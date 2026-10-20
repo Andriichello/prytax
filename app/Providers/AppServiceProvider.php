@@ -8,6 +8,7 @@ use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Support\ServiceProvider;
+use PryTax\Http\Middleware\HandleIdempotencyKey;
 use PryTax\Http\Middleware\ResolveProfile;
 use PryTax\Models\Account;
 use PryTax\Models\AccountMovement;
@@ -85,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
         Relation::morphMap(MorphServiceProvider::getMorphMap(self::MODELS));
 
         $this->app['router']->aliasMiddleware(ResolveProfile::ALIAS, ResolveProfile::class);
+        $this->app['router']->aliasMiddleware(HandleIdempotencyKey::ALIAS, HandleIdempotencyKey::class);
 
         // The profile is looked up within the organization, which api-core's middleware sets before it
         $this->callAfterResolving(HttpKernel::class, function (HttpKernel $kernel) {

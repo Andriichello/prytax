@@ -100,6 +100,15 @@ return [
     ],
 
     /*
+     * The API answers in Ukrainian (`lang/uk`), which the SPA asks for with `Accept-Language: uk`. English is
+     * `app.locale`, so a request without the header, or asking for English, gets it. Users' own `locale` ('en' by
+     * api-core's default) isn't listed, so it never overrides the header.
+     *
+     * @see vendor/andriichello/api-core/docs/localization/00-locale-middleware.md
+     */
+    'locales' => ['uk'],
+
+    /*
      * Uploads of invoices (external PDFs) and of signatures.
      */
     'files' => [

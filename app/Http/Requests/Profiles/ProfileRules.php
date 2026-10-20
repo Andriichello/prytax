@@ -83,9 +83,9 @@ trait ProfileRules
                 : preg_match('/^\d{10}$/', (string) $value);
 
             if (!$valid) {
-                $fail(__($kind === TaxIdKind::Passport->value
-                    ? 'The passport is two letters and six digits, or the nine digits of an ID card.'
-                    : 'РНОКПП is 10 digits.'));
+                $fail($kind === TaxIdKind::Passport->value
+                    ? __('The passport is two letters and six digits, or the nine digits of an ID card.')
+                    : __('РНОКПП is 10 digits.'));
             }
         };
     }

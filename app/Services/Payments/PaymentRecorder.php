@@ -440,7 +440,7 @@ class PaymentRecorder
         if (!empty($references)) {
             throw ValidationException::withMessages([
                 'payment' => [__('The receipt is referenced by :references, so it can\'t be deleted.', [
-                    'references' => implode(', ', array_keys($references)),
+                    'references' => implode(', ', array_map(fn (string $reference) => __($reference), array_keys($references))),
                 ])],
             ]);
         }

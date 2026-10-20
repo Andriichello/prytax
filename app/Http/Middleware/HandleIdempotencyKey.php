@@ -62,7 +62,7 @@ class HandleIdempotencyKey
         $lock = Cache::lock("idempotency:{$user->getKey()}:$key", 30);
 
         if (!$lock->get()) {
-            throw new ConflictHttpException('A request with this ' . static::HEADER . ' is in progress.');
+            throw new ConflictHttpException(__('A request with this :header is in progress.', ['header' => static::HEADER]));
         }
 
         try {

@@ -17,7 +17,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Set up the test environment: no request may reach the network, such as the NBU's rates, unless a test fakes
-     * its endpoint.
+     * its endpoint, and pages render without the SPA's built assets.
      *
      * @return void
      */
@@ -26,5 +26,6 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         Http::preventStrayRequests();
+        $this->withoutVite();
     }
 }

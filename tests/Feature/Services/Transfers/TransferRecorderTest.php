@@ -5,12 +5,15 @@ namespace Tests\Feature\Services\Transfers;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use PryTax\Enums\DeclarationStatus;
+use PryTax\Exceptions\PeriodLockedException;
 use PryTax\Models\Account;
 use PryTax\Models\AccountTransfer;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Services\Transfers\AllocationProposer;
 use PryTax\Services\Transfers\HoldingCalculator;
+use PryTax\Services\Transfers\TransferMetrics;
 use PryTax\Services\Transfers\TransferRecorder;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
@@ -244,5 +247,78 @@ class TransferRecorderTest extends TestCase
         $this->assertSame('41.2000', $transfer->nbu_rate);
         $this->assertTrue($transfer->rate_is_manual);
         $this->assertDatabaseCount('exchange_rates', 0);
+    }
+
+    /**
+     * Test that the spread of an FX transfer is only the gap beyond its fee, so a route's loss counts the fee once.
+     *
+     * @return void
+     */
+    public function testCountsOnlyTheGapBeyondTheFeeAsSpread(): void
+    {
+        [$profile, $payment, $payoneer] = $this->receiptOnPayoneer();
+        $bank = $this->createAccount($profile, ['kind' => 'fop_bank', 'name' => 'Bank UAH', 'currency' => 'UAH']);
+        $this->cacheRates(['USD' => ['2026-10-10' => '41.0000']]);
+
+        $transfer = $this->transfer($profile, $payoneer, $bank, '1000.00', '40590.00', [['payment_id' => $payment->id, 'amount' => '1000.00']], [
+            'fee_amount' => '10.00',
+        ]);
+        $stats = $this->inProfile($profile, fn () => app(TransferMetrics::class)->forYear($profile, 2026));
+
+        $this->assertSame('0.00', $transfer->fx_spread);
+        $this->assertSame('410.00', $stats['fees_uah']);
+        $this->assertSame('0.00', $stats['spread_uah']);
+        $this->assertSame('1.00', $stats['routes'][0]['loss_percent']);
+    }
+
+    /**
+     * Test that an FX gain can't move out of its declared quarter with its transfer, while an edit, which leaves the
+     * gain as it is, needs no correction note.
+     *
+     * @return void
+     */
+    public function testKeepsAnFxGainInItsDeclaredQuarter(): void
+    {
+        [$profile, $payment, $payoneer] = $this->receiptOnPayoneer();
+        $payment->forceFill(['received_at' => '2026-09-20', 'nbu_rate_date' => '2026-09-20'])->save();
+        $this->inProfile($profile, fn () => $profile->updateSettings(['income.fx_gain' => 'include']));
+        $bank = $this->createAccount($profile, ['kind' => 'fop_bank', 'name' => 'Bank UAH', 'currency' => 'UAH']);
+        $this->cacheRates(['USD' => ['2026-09-30' => '41.0000', '2026-10-01' => '41.0000']]);
+        $transfer = $this->transfer($profile, $payoneer, $bank, '1000.00', '41500.00', [['payment_id' => $payment->id, 'amount' => '1000.00']], [
+            'received_at' => '2026-09-30',
+        ]);
+        $period = $this->declareQuarter($profile, 2026, 3);
+
+        $this->inProfile($profile, fn () => app(TransferRecorder::class)->update($profile, $transfer, ['note' => 'Продаж валюти']));
+
+        try {
+            $this->inProfile($profile, fn () => app(TransferRecorder::class)->update($profile, $transfer->fresh(), ['received_at' => '2026-10-01']));
+            $this->fail('No exception was thrown.');
+        } catch (PeriodLockedException) {
+            $this->assertSame('2026-09-30', $transfer->fresh()->received_at->toDateString());
+        }
+        $this->assertSame(DeclarationStatus::Accepted, $period->fresh()->declaration_status);
+    }
+
+    /**
+     * Test that a transfer can't carry a receipt, which arrived after it.
+     *
+     * @return void
+     */
+    public function testReturns422WhenATransferCarriesALaterReceipt(): void
+    {
+        [$profile, $payment, $payoneer] = $this->receiptOnPayoneer();
+        $wise = $this->createAccount($profile);
+
+        try {
+            $this->transfer($profile, $payoneer, $wise, '1000.00', '985.00', [['payment_id' => $payment->id, 'amount' => '1000.00']], [
+                'received_at' => '2026-10-01',
+            ]);
+            $this->fail('No exception was thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(['allocations' => ["A receipt of 05.10.2026 can't be moved by an earlier transfer."]], $exception->errors());
+        }
+
+        $this->assertDatabaseCount('account_transfers', 0);
     }
 }

@@ -23,7 +23,7 @@ use PryTax\Services\Rates\NbuRateProvider;
  * Caches the NBU rates of a day for every currency, which the accounts, contracts and invoices of active profiles
  * use, so the receipts of the day find them without calling the NBU (design.md §10). It also retries the NBU for the
  * days of receipts, refunds and transfers saved at a manual rate, so they can take the NBU's rate, once it is
- * published.
+ * published, and fetches the days of transfers' foreign fees, which their losses count in UAH.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
@@ -86,7 +86,8 @@ class FetchNbuRates extends Command
     }
 
     /**
-     * Get the currencies and days of the profiles' receipts, refunds and transfers, which were saved at a manual rate.
+     * Get the currencies and days of the profiles' receipts, refunds and transfers, which were saved at a manual rate,
+     * and of the foreign fees of transfers without a UAH leg.
      *
      * @param Collection<int, int> $profiles
      *
@@ -118,6 +119,16 @@ class FetchNbuRates extends Command
                 $transfer->received_at->toDateString(),
             ]);
 
-        return $payments->merge($refunds)->merge($transfers)->values();
+        // Foreign fees of transfers without a UAH leg are counted in UAH at the NBU rate of their day
+        $fees = AccountTransfer::query()
+            ->withoutGlobalScope(AccountTransfer::PROFILE_SCOPE)
+            ->whereIn('profile_id', $profiles)
+            ->whereNull('nbu_rate')
+            ->whereNotNull('fee_currency')
+            ->where('fee_currency', '<>', 'UAH')
+            ->get(['fee_currency', 'received_at'])
+            ->map(fn (AccountTransfer $transfer) => [$transfer->fee_currency, $transfer->received_at->toDateString()]);
+
+        return $payments->merge($refunds)->merge($transfers)->merge($fees)->values();
     }
 }

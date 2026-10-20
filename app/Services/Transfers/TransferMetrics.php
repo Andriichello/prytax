@@ -8,15 +8,16 @@ use PryTax\Helpers\Decimal;
 use PryTax\Models\AccountTransfer;
 use PryTax\Models\Profile;
 use PryTax\Services\Rates\NbuRateProvider;
-use Throwable;
 
 /**
  * Class TransferMetrics.
  *
  * Fees and FX spread of transfers (design.md §6.4). Loss is the sum of the explicit fees, never "invoiced − landed".
- * The spread of an FX transfer is measured on one date, so NBU drift between the receipt and the withdrawal is left
- * out: `fx_spread = amount_sent × NBU(currency_sent, received_at) − amount_received` on the UAH leg; a negative one is
- * a gain.
+ * The spread of an FX transfer is the gap beyond its explicit fee (accounting.md: "the rest of the gap is spread"),
+ * measured on one date, so NBU drift between the receipt and the withdrawal is left out:
+ * `fx_spread = (amount_sent − fee_amount) × NBU(currency_sent, received_at) − amount_received` on the UAH leg; a
+ * negative one is a gain. Fees are in UAH at the transfer's NBU rate, or at the cached one of its date; a fee, whose
+ * rate isn't cached, is unknown, never a call to the NBU while reading.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Transfers
@@ -45,14 +46,16 @@ class TransferMetrics
             return null;
         }
 
+        // The fee is in the sent currency and isn't converted, so only the rest is sold or bought
+        $converted = Decimal::of($transfer->amount_sent)->minus(Decimal::of($transfer->fee_amount));
+
         if ($transfer->currency_received === 'UAH') {
-            return Decimal::times($transfer->amount_sent, $transfer->nbu_rate)
+            return Decimal::times($converted, $transfer->nbu_rate)
                 ->minus(Decimal::of($transfer->amount_received));
         }
 
         if ($transfer->currency_sent === 'UAH') {
-            return Decimal::of($transfer->amount_sent)
-                ->minus(Decimal::times($transfer->amount_received, $transfer->nbu_rate));
+            return $converted->minus(Decimal::times($transfer->amount_received, $transfer->nbu_rate));
         }
 
         return null;
@@ -71,8 +74,8 @@ class TransferMetrics
     }
 
     /**
-     * Get the fee of the transfer in UAH, at the NBU rate of its currency on `received_at`, or null, when the rate
-     * is unavailable.
+     * Get the fee of the transfer in UAH: at the transfer's NBU rate, when it has a UAH leg, else at the cached NBU
+     * rate of its currency on `received_at`, or null, when that isn't cached.
      *
      * @param AccountTransfer $transfer
      *
@@ -88,13 +91,13 @@ class TransferMetrics
             return Decimal::of($transfer->fee_amount);
         }
 
-        try {
-            $rate = $this->rates->rate($transfer->fee_currency, $transfer->received_at)->rate;
-        } catch (Throwable) {
-            return null;
+        if ($transfer->nbu_rate !== null && $transfer->currency_received === 'UAH') {
+            return Decimal::times($transfer->fee_amount, $transfer->nbu_rate);
         }
 
-        return Decimal::times($transfer->fee_amount, $rate);
+        $rate = $this->rates->cached($transfer->fee_currency, $transfer->received_at)?->rate;
+
+        return $rate === null ? null : Decimal::times($transfer->fee_amount, $rate);
     }
 
     /**
@@ -104,7 +107,7 @@ class TransferMetrics
      * @param Profile $profile
      * @param int $year
      *
-     * @return array{fees_uah: string, spread_uah: string, routes: array<int, array<string, mixed>>}
+     * @return array{fees_uah: string, spread_uah: string, unknown_fees_count: int, routes: array<int, array<string, mixed>>}
      */
     public function forYear(Profile $profile, int $year): array
     {
@@ -118,9 +121,12 @@ class TransferMetrics
         $fees = Decimal::zero();
         $spread = Decimal::zero();
         $routes = [];
+        $unknown = 0;
 
         foreach ($transfers as $transfer) {
-            $fee = $this->feeInUah($transfer) ?? Decimal::zero();
+            $fee = $this->feeInUah($transfer);
+            $unknown += $fee === null ? 1 : 0;
+            $fee ??= Decimal::zero();
             $transferSpread = static::spread($transfer) ?? Decimal::zero();
             $fees = $fees->plus($fee);
             $spread = $spread->plus($transferSpread);
@@ -157,6 +163,8 @@ class TransferMetrics
         return [
             'fees_uah' => Decimal::money($fees),
             'spread_uah' => Decimal::money($spread),
+            // Transfers, whose fees aren't in fees_uah, since the NBU rate of their currency isn't cached
+            'unknown_fees_count' => $unknown,
             'routes' => array_values(array_map(fn (array $route) => [
                 ...$route,
                 'sent' => Decimal::money($route['sent']),

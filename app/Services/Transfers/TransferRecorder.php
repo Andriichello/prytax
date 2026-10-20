@@ -114,15 +114,17 @@ class TransferRecorder
      */
     public function delete(Profile $profile, AccountTransfer $transfer, ?string $correctionNote = null): void
     {
-        $gain = Payment::query()->where('source_transfer_id', $transfer->getKey())->first();
-
-        if ($gain) {
-            $this->lock->assertOpen($profile, $gain->received_at, $correctionNote);
-        }
-
-        DB::transaction(function () use ($transfer) {
+        DB::transaction(function () use ($profile, $transfer, $correctionNote) {
             $payments = $transfer->allocations()->pluck('payment_id')->all();
+            $this->lockPayments($payments);
 
+            $gain = Payment::query()->where('source_transfer_id', $transfer->getKey())->first();
+
+            if ($gain) {
+                $this->deleteFxGain($profile, $gain, $correctionNote);
+            }
+
+            $transfer->allocations()->get()->each->delete();
             $transfer->delete();
 
             $this->assertHoldings($payments);
@@ -158,6 +160,12 @@ class TransferRecorder
         $receivedAt = CarbonImmutable::parse($data['received_at']);
         $isFx = $from->currency !== $to->currency;
 
+        if (!empty($data['sent_at']) && CarbonImmutable::parse($data['sent_at'])->gt($receivedAt)) {
+            throw ValidationException::withMessages([
+                'sent_at' => [__('A transfer can\'t be sent after it arrived.')],
+            ]);
+        }
+
         $fee = $this->fee($isFx, $sent, $received, $data['fee_amount'] ?? null);
         [$nbuRate, $rateIsManual] = $isFx
             ? $this->nbuRate($from->currency, $to->currency, $receivedAt, $data['nbu_rate'] ?? null)
@@ -184,16 +192,25 @@ class TransferRecorder
             'rate_is_manual' => $rateIsManual,
         ]);
 
-        DB::transaction(function () use ($profile, $transfer, $allocations, $from, $data) {
+        DB::transaction(function () use ($profile, $transfer, $allocations, $from, $receivedAt, $data) {
             $previous = $transfer->exists ? $transfer->allocations()->pluck('payment_id')->all() : [];
+            $this->lockPayments([...$previous, ...array_keys($allocations)]);
 
             $transfer->save();
 
             foreach ($allocations as $paymentId => $amount) {
-                $payment = Payment::query()->find($paymentId);
+                $payment = Payment::query()->with(['allocations.transfer', 'refunds'])->find($paymentId);
 
                 if (!$payment) {
                     throw ValidationException::withMessages(['allocations' => [__('A receipt is not found.')]]);
+                }
+
+                if ($payment->received_at->gt($receivedAt)) {
+                    throw ValidationException::withMessages([
+                        'allocations' => [__('A receipt of :date can\'t be moved by an earlier transfer.', [
+                            'date' => $payment->received_at->format('d.m.Y'),
+                        ])],
+                    ]);
                 }
 
                 $holding = $this->holdings->holding($payment, $from, $transfer->getKey());
@@ -209,7 +226,7 @@ class TransferRecorder
                 }
             }
 
-            $transfer->allocations()->delete();
+            $transfer->allocations()->get()->each->delete();
 
             foreach ($allocations as $paymentId => $amount) {
                 $transfer->allocations()->create(['payment_id' => $paymentId, 'amount' => $amount]);
@@ -222,6 +239,21 @@ class TransferRecorder
         $this->alerts->syncAfterCommit($profile);
 
         return $transfer->refresh()->load('allocations');
+    }
+
+    /**
+     * Lock the receipts, whose holdings a transfer or its deletion changes, until the transaction ends, so concurrent
+     * transfers and refunds can't take the same money twice.
+     *
+     * @param array<int, int> $paymentIds
+     *
+     * @return void
+     */
+    protected function lockPayments(array $paymentIds): void
+    {
+        if (!empty($paymentIds)) {
+            Payment::query()->whereKey(array_unique($paymentIds))->orderBy('id')->lockForUpdate()->get();
+        }
     }
 
     /**
@@ -239,7 +271,17 @@ class TransferRecorder
     protected function fee(bool $isFx, $sent, $received, ?string $given): ?BigDecimal
     {
         if ($isFx) {
-            return $given === null || $given === '' ? null : Decimal::of($given);
+            if ($given === null || $given === '') {
+                return null;
+            }
+
+            if (!Decimal::of($given)->isLessThan($sent)) {
+                throw ValidationException::withMessages([
+                    'fee_amount' => [__('The fee of a transfer is less than the amount sent.')],
+                ]);
+            }
+
+            return Decimal::of($given);
         }
 
         $fee = $sent->minus($received);
@@ -340,7 +382,7 @@ class TransferRecorder
      */
     protected function assertHoldings(array $paymentIds): void
     {
-        $payments = Payment::query()->whereKey(array_unique($paymentIds))->with('allocations.transfer')->get();
+        $payments = Payment::query()->whereKey(array_unique($paymentIds))->with(['allocations.transfer', 'refunds'])->get();
 
         foreach ($payments as $payment) {
             foreach ($this->holdings->holdingsOf($payment) as $amount) {
@@ -358,7 +400,8 @@ class TransferRecorder
     /**
      * Create, update or delete the synthetic FX gain receipt of the transfer (design.md §6.5): when the profile
      * counts FX gains, the transfer sells currency into a ФОП account, and less is spread than nothing, the gain is
-     * `−fx_spread` in UAH, dated on the transfer's `received_at`.
+     * `−fx_spread` in UAH, dated on the transfer's `received_at`. A gain, which doesn't change, isn't saved again, so
+     * an edit of a transfer's note needs no correction note; one that moves needs both its quarters open.
      *
      * @param Profile $profile
      * @param AccountTransfer $transfer
@@ -382,11 +425,23 @@ class TransferRecorder
 
         if ($gain === null) {
             if ($existing) {
-                $this->lock->assertOpen($profile, $existing->received_at, $correctionNote);
-                $existing->delete();
+                $this->deleteFxGain($profile, $existing, $correctionNote);
             }
 
             return;
+        }
+
+        $unchanged = $existing
+            && Decimal::of($existing->amount)->isEqualTo($gain)
+            && $existing->received_at->isSameDay($transfer->received_at)
+            && $existing->received_to_account_id === $transfer->to_account_id;
+
+        if ($unchanged) {
+            return;
+        }
+
+        if ($existing) {
+            $this->lock->assertOpen($profile, $existing->received_at, $correctionNote);
         }
 
         $this->lock->assertOpen($profile, $transfer->received_at, $correctionNote);
@@ -395,7 +450,7 @@ class TransferRecorder
             $profile,
             'UAH',
             Decimal::money($gain),
-            '0.00',
+            Decimal::money($gain),
             'UAH',
             $transfer->received_at,
         );
@@ -404,15 +459,40 @@ class TransferRecorder
         $payment->forceFill([
             'profile_id' => $profile->getKey(),
             'kind' => PaymentKind::FxGain,
-            'description' => __('FX gain of the transfer of :date', ['date' => $transfer->received_at->format('d.m.Y')]),
+            'description' => 'Курсова різниця від продажу ' . Decimal::money($transfer->amount_sent) . ' ' . $transfer->currency_sent
+                . ' ' . $transfer->received_at->format('d.m.Y'),
             'currency' => 'UAH',
             'amount' => Decimal::money($gain),
             'received_to_account_id' => $transfer->to_account_id,
+            // An FX gain brings no money of its own: the transfer did, so it adds nothing to balances or limits
             'received_amount' => '0.00',
             'received_currency' => 'UAH',
             'received_at' => $transfer->received_at->toDateString(),
             'source_transfer_id' => $transfer->getKey(),
             ...$snapshot,
         ])->save();
+    }
+
+    /**
+     * Delete the FX gain of a transfer, when its quarter is open and no tax payment references it.
+     *
+     * @param Profile $profile
+     * @param Payment $gain
+     * @param string|null $correctionNote
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function deleteFxGain(Profile $profile, Payment $gain, ?string $correctionNote): void
+    {
+        if ($gain->taxPayments()->exists()) {
+            throw ValidationException::withMessages([
+                'transfer' => [__('Tax payments reference the FX gain of the transfer, so its gain can\'t go away.')],
+            ]);
+        }
+
+        $this->lock->assertOpen($profile, $gain->received_at, $correctionNote);
+
+        $gain->delete();
     }
 }

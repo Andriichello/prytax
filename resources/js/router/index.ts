@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
@@ -26,6 +27,8 @@ const routes: RouteRecordRaw[] = [
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/auth/ForgotPasswordPage.vue'), meta: { guest: true } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
     { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
+    { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue') },
+    { path: '/no-profile', name: 'no-profile', component: () => import('@/pages/NoProfilePage.vue') },
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },
@@ -84,26 +87,65 @@ export const router = createRouter({
     scrollBehavior: (_to, _from, savedPosition) => savedPosition ?? { top: 0 },
 });
 
+/** Why the app couldn't start (the session or the profiles didn't load): App shows it with a retry. */
+export const startupError = ref<unknown>(null);
+
 /**
  * Signed-out people may open only the sign-in pages; signed-in ones work in a profile, chosen before the first page.
+ * A password set by someone else is replaced first (the API refuses everything else until then); an organization
+ * without a ФОП starts with creating one, or tells why there's nothing to show.
  */
 router.beforeEach(async (to) => {
-    const { load } = useSession();
-    const user = await load();
+    const { load, can } = useSession();
 
-    if (to.meta.public) {
-        return true;
+    try {
+        const user = await load();
+
+        if (to.meta.public) {
+            return true;
+        }
+
+        if (to.meta.guest) {
+            return user ? { name: 'home' } : true;
+        }
+
+        if (!user) {
+            return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } };
+        }
+
+        if (user.is_password_update_required) {
+            return to.name === 'change-password' ? true : { name: 'change-password', query: { redirect: to.fullPath } };
+        }
+
+        if (to.name === 'change-password') {
+            return { name: 'home' };
+        }
+
+        const profile = await useCurrentProfile().ensure(user);
+
+        startupError.value = null;
+
+        if (!profile) {
+            const start = can('create', 'profiles') ? 'profile-new' : 'no-profile';
+
+            return to.name === start ? true : { name: start };
+        }
+
+        return to.name === 'no-profile' ? { name: 'home' } : true;
+    } catch (error) {
+        startupError.value = error;
+
+        return false;
     }
+});
 
-    if (to.meta.guest) {
-        return user ? { name: 'home' } : true;
+/*
+ * A page's code, which can't be loaded (the app was deployed anew meanwhile), is loaded with the whole page instead.
+ */
+router.onError((error: unknown, to) => {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (/dynamically imported module|Importing a module script failed|module script/i.test(message)) {
+        window.location.assign(to.fullPath);
     }
-
-    if (!user) {
-        return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } };
-    }
-
-    await useCurrentProfile().ensure(user);
-
-    return true;
 });

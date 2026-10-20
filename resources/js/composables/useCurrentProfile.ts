@@ -123,6 +123,17 @@ function markOneRead(): void {
     }
 }
 
+/**
+ * Set the unread count of the current profile from a fresher source (the notifications' own counts).
+ */
+function setUnreadCount(count: number): void {
+    const profile = profiles.value.find((item) => item.id === currentId.value);
+
+    if (profile) {
+        profile.unread_alerts_count = count;
+    }
+}
+
 export function useCurrentProfile() {
     const profile = computed(() => profiles.value.find((item) => item.id === currentId.value) ?? null);
 
@@ -143,5 +154,6 @@ export function useCurrentProfile() {
         ensure,
         reset,
         markOneRead,
+        setUnreadCount,
     };
 }

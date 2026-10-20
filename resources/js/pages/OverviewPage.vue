@@ -44,7 +44,7 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 
 const isCurrent = computed(() => year.value === now.year && quarter.value === now.quarter);
 const activeCount = computed(() => profiles.value.filter((profile) => profile.is_active).length);
-const hiddenCount = computed(() => (withInactive.value || !data.value ? 0 : profiles.value.length - data.value.profiles.length));
+const hiddenCount = computed(() => (withInactive.value || !data.value ? 0 : data.value.inactive_count));
 
 function step(by: number): void {
     const index = year.value * 4 + (quarter.value - 1) + by;

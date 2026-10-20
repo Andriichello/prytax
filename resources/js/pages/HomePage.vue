@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { api } from '@/api/client';
-import type { ApiResponse, Invoice, OutstandingTotal, Paginated } from '@/api/types';
+import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
 import OpenInvoiceRow from '@/components/invoice/OpenInvoiceRow.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -15,24 +15,26 @@ import { formatMoney } from '@/utils/money';
 import { countOf, INVOICES } from '@/utils/plural';
 
 /**
- * Головна: the open invoices (ready and sent) by month of their period's end, newest month first, ordered by the
- * period's start within a month (design §16).
+ * Головна: the open invoices (ready and sent) by month of their period's end, newest month first, and within a month
+ * by the period's start, the latest first (design §16, ordered as the mock).
  */
-const { profile, profileId, path } = useCurrentProfile();
+const { profile, profileId, path, loadProfiles } = useCurrentProfile();
 const { can } = useSession();
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
     const [invoices, outstanding] = await Promise.all([
-        api.get<Paginated<Invoice>>(path('invoices'), {
+        api.all<Invoice>(path('invoices'), {
             filter: { status: { in: ['ready', 'sent'] } },
             include: ['client'],
-            page: { size: 50 },
         }, signal),
         api.get<ApiResponse<OutstandingTotal[]>>(path('invoices/outstanding'), undefined, signal),
     ]);
 
-    return { invoices: invoices.data, outstanding: outstanding.data };
+    return { invoices, outstanding: outstanding.data };
 }, [profileId]);
+
+// The bell's count: notifications come and go with every write and the nightly check
+onMounted(() => void loadProfiles().catch(() => undefined));
 
 const months = computed(() => {
     const groups = new Map<string, { key: string; title: string; invoices: Invoice[] }>();
@@ -52,7 +54,7 @@ const months = computed(() => {
         .sort((a, b) => b.key.localeCompare(a.key))
         .map((group) => ({
             ...group,
-            invoices: group.invoices.sort((a, b) => a.period_start.localeCompare(b.period_start) || a.id - b.id),
+            invoices: group.invoices.sort((a, b) => b.period_start.localeCompare(a.period_start) || b.id - a.id),
         }));
 });
 

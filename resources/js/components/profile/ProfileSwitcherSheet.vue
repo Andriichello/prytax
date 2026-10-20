@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Profile } from '@/api/types';
 import Avatar from '@/components/ui/Avatar.vue';
@@ -11,15 +11,22 @@ import { formatDate } from '@/utils/dates';
 import { countOf, NOTIFICATIONS } from '@/utils/plural';
 
 /**
- * "Оберіть ФОП": search the organization's profiles and switch the app to one of them.
+ * "Оберіть ФОП": search the organization's profiles and switch the app to one of them. Opening it loads the profiles
+ * again, so their notification counts and correction flags are current.
  */
 const open = defineModel<boolean>('open', { required: true });
 
 const router = useRouter();
 const { can } = useSession();
-const { profiles, profileId, select } = useCurrentProfile();
+const { profiles, profileId, select, loadProfiles } = useCurrentProfile();
 
 const search = ref('');
+
+watch(open, (isOpen) => {
+    if (isOpen) {
+        void loadProfiles().catch(() => undefined);
+    }
+});
 
 const shown = computed(() => {
     const term = search.value.trim().toLowerCase();

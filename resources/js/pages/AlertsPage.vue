@@ -27,7 +27,7 @@ const CATEGORIES: { value: AlertCategory; label: string }[] = [
 
 const route = useRoute();
 const router = useRouter();
-const { profileId, path, markOneRead } = useCurrentProfile();
+const { profileId, path, markOneRead, setUnreadCount } = useCurrentProfile();
 
 const shown = computed<Shown>(() => {
     const value = route.query.show;
@@ -64,7 +64,14 @@ const counts = computed(() => data.value?.counts ?? null);
 watch(data, (loaded) => {
     alerts.value = loaded?.list.data ?? [];
     nextPage.value = loaded?.list.meta.links.next ? 2 : null;
+
+    if (loaded) {
+        setUnreadCount(loaded.counts.unread);
+    }
 });
+
+/** Notifications, whose read is on its way: a second tap meanwhile doesn't count them twice. */
+const reading = new Set<number>();
 
 async function loadMore(): Promise<void> {
     if (nextPage.value === null) {
@@ -86,6 +93,11 @@ async function loadMore(): Promise<void> {
 }
 
 async function markRead(alert: Alert): Promise<void> {
+    if (reading.has(alert.id)) {
+        return;
+    }
+
+    reading.add(alert.id);
     actionError.value = null;
 
     try {
@@ -104,6 +116,8 @@ async function markRead(alert: Alert): Promise<void> {
         markOneRead();
     } catch (caught) {
         actionError.value = caught;
+    } finally {
+        reading.delete(alert.id);
     }
 }
 

@@ -2,13 +2,15 @@
 
 namespace PryTax\Http\Requests\Clients;
 
+use Closure;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
 
 /**
  * Trait ContractRules.
  *
- * Rules of a contract's fields with its hourly rates, whose charge types must be the client's. The client is read
- * from the route, as the parents aren't resolved yet, when the rules are made.
+ * Rules of a contract's fields with its hourly rates, whose charge types must be the client's, and of which only one
+ * starts on a date for a charge type (or the contract's default). The client is read from the route, as the parents
+ * aren't resolved yet, when the rules are made.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Clients
@@ -35,7 +37,7 @@ trait ContractRules
             'payment_terms_days' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
             'description_template' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'is_active' => ['sometimes', 'boolean'],
-            'rates' => ['sometimes', 'array', 'max:50'],
+            'rates' => ['sometimes', 'array', 'max:50', $this->distinctRates()],
             'rates.*.charge_type_id' => [
                 'nullable',
                 'integer',
@@ -44,6 +46,24 @@ trait ContractRules
             'rates.*.effective_from' => ['required', 'date'],
             'rates.*.hourly_rate' => ['required', ...$this->moneyRules(false)],
         ];
+    }
+
+    /**
+     * Rule: no two rates have the same charge type (or none) and start date, which the database refuses too.
+     *
+     * @return Closure
+     */
+    protected function distinctRates(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            $keys = collect(is_array($value) ? $value : [])
+                ->filter(fn (mixed $rate) => is_array($rate) && is_string($rate['effective_from'] ?? null))
+                ->map(fn (array $rate) => (int) ($rate['charge_type_id'] ?? 0) . '@' . substr($rate['effective_from'], 0, 10));
+
+            if ($keys->count() !== $keys->unique()->count()) {
+                $fail(__('Two rates have the same work type and start date.'));
+            }
+        };
     }
 
     /**

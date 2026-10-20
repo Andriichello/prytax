@@ -200,7 +200,7 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'rules' => [Rule::in(NumberingStrategy::values())],
             ],
             'invoice.numbering.scope' => [
-                'default' => NumberingScope::PerClient->value,
+                'default' => NumberingScope::Global->value,
                 'rules' => [Rule::in(NumberingScope::values())],
             ],
             'invoice.numbering.reset' => [

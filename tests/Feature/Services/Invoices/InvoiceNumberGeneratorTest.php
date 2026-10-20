@@ -13,9 +13,9 @@ use Tests\TestCase;
 /**
  * Class InvoiceNumberGeneratorTest.
  *
- * Invoice numbers (design.md §5): `{period end}-{n}` with a counter per client by default, previewed without being
- * allocated, rebuilt with the same `{n}` when a re-frozen draft's date moved, newly allocated when the yearly scope
- * changed, and never touched when the user typed them.
+ * Invoice numbers (design.md §5): `{period end}-{n}` with one counter per ФОП by default, so numbers of two clients
+ * never collide, or one per client, previewed without being allocated, rebuilt with the same `{n}` when a re-frozen
+ * draft's date moved, newly allocated when the yearly scope changed, and never touched when the user typed them.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Invoices
@@ -26,13 +26,33 @@ class InvoiceNumberGeneratorTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that the counters are per client, and a draft's preview allocates nothing.
+     * Test that by default the invoices of all clients share one counter, so two of the same period end differ.
+     *
+     * @return void
+     */
+    public function testNumbersTheInvoicesOfAllClientsWithOneCounterByDefault(): void
+    {
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+
+        $first = $this->createFrozenInvoice($profile, $account);
+        $second = $this->createFrozenInvoice($profile, $account);
+
+        $this->assertNotSame($first->client_id, $second->client_id);
+        $this->assertSame('2026-09-30-1', $first->number);
+        $this->assertSame('2026-09-30-2', $second->number);
+        $this->assertSame('global', $second->sequence_scope_key);
+    }
+
+    /**
+     * Test that the counters can be per client.
      *
      * @return void
      */
     public function testNumbersInvoicesByThePeriodEndAndTheClientsCounter(): void
     {
         $profile = $this->createProfile();
+        $this->inProfile($profile, fn () => $profile->updateSettings(['invoice.numbering.scope' => 'per_client']));
         $account = $this->createAccount($profile);
         [$client, $contract] = $this->createClientWithContract($profile);
         $this->inProfile($profile, fn () => Sequence::setNext($profile, 'invoices:client:' . $client->id, 13));
@@ -70,7 +90,7 @@ class InvoiceNumberGeneratorTest extends TestCase
 
         $this->assertSame('2026-10-31-2', $preview());
         $this->assertSame('2026-10-31-2', $preview());
-        $this->assertSame(2, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:client:' . $invoice->client_id)));
+        $this->assertSame(2, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:global')));
     }
 
     /**
@@ -92,7 +112,7 @@ class InvoiceNumberGeneratorTest extends TestCase
         });
 
         $this->assertSame('2026-10-15-1', $refrozen->number);
-        $this->assertSame(2, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:client:' . $invoice->client_id)));
+        $this->assertSame(2, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:global')));
     }
 
     /**
@@ -117,7 +137,7 @@ class InvoiceNumberGeneratorTest extends TestCase
 
         $this->assertSame('2026-12-31-1', $original);
         $this->assertSame('2027-01-31-1', $refrozen->number);
-        $this->assertSame("client:{$invoice->client_id}:2027", $refrozen->sequence_scope_key);
+        $this->assertSame('global:2027', $refrozen->sequence_scope_key);
     }
 
     /**
@@ -134,7 +154,7 @@ class InvoiceNumberGeneratorTest extends TestCase
 
         $this->assertSame('INV-77', $invoice->number);
         $this->assertNull($invoice->sequence_number);
-        $this->assertSame(1, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:client:' . $invoice->client_id)));
+        $this->assertSame(1, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:global')));
     }
 
     /**

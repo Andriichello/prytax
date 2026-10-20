@@ -61,6 +61,7 @@ function open(user: OrganizationUser | null): void {
     Object.assign(draft, user ? { name: user.name, email: user.email, role: roleOf(user)?.value ?? 'viewer' } : { name: '', email: '', role: 'accountant' });
     sheetError.value = null;
     notice.value = null;
+    confirmingRemoval.value = false;
     sheetOpen.value = true;
 }
 
@@ -87,9 +88,22 @@ async function run(action: () => Promise<unknown>, done: string | null = null): 
 
 const save = () => run(() => (editing.value
     ? api.patch(`users/${editing.value.id}`, { name: draft.name.trim(), roles: [draft.role] })
-    : api.post('users', { name: draft.name.trim(), email: draft.email.trim(), roles: [draft.role], locale: 'uk' })));
+    : api.post('users', { name: draft.name.trim(), email: draft.email.trim(), roles: [draft.role] })));
 const resend = () => run(() => api.post(`users/${editing.value?.id}/invitation`), 'Запрошення надіслано знову.');
-const remove = () => run(() => api.delete(`users/${editing.value?.id}`));
+const confirmingRemoval = ref(false);
+
+/**
+ * Remove the user on the second tap: the first one asks to confirm.
+ */
+function remove(): void {
+    if (!confirmingRemoval.value) {
+        confirmingRemoval.value = true;
+
+        return;
+    }
+
+    void run(() => api.delete(`users/${editing.value?.id}`));
+}
 
 const isSelf = computed(() => editing.value?.id === me.value?.id);
 </script>
@@ -190,7 +204,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     <div v-if="editing && !isSelf" class="grid grid-cols-2 gap-2">
                         <SecondaryButton v-if="isPending(editing)" :busy="busy" @click="resend">Запросити знову</SecondaryButton>
                         <SecondaryButton v-if="can('delete', 'users')" tone="negative" :busy="busy" :class="isPending(editing) ? '' : 'col-span-2'" @click="remove">
-                            Видалити
+                            {{ confirmingRemoval ? 'Так, видалити' : 'Видалити' }}
                         </SecondaryButton>
                     </div>
                 </div>

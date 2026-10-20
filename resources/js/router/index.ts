@@ -19,12 +19,13 @@ declare module 'vue-router' {
  * The SPA's paths. The API links to some of them (notifications' `action_route`, e-mails): `/invoices/{id}`,
  * `/accounts/{id}`, `/payments/{id}`, `/transfers/{id}`, `/transfers/new?from=`, `/clients/{client}/contracts/{id}`,
  * `/taxes?year=`, `/taxes/declaration/{year}/{quarter}`, `/accounting/{year}/{quarter}`, `/accounting/esv?year=`,
- * `/reset-password`. Change them together with the API.
+ * `/reset-password`, `/accept-invitation`. Change them together with the API.
  */
 const routes: RouteRecordRaw[] = [
     { path: '/login', name: 'login', component: () => import('@/pages/auth/LoginPage.vue'), meta: { guest: true } },
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/auth/ForgotPasswordPage.vue'), meta: { guest: true } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
+    { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },

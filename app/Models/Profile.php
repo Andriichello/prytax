@@ -248,9 +248,10 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 ],
                 'cast' => 'int',
             ],
+            // Null takes the tax rule's day (the 19th)
             'taxes.esv_due_day' => [
-                'default' => 19,
-                'rules' => 'integer|min:1|max:28',
+                'default' => null,
+                'rules' => 'nullable|integer|min:1|max:28',
                 'cast' => 'int',
             ],
             'compliance.platform_repatriation' => [

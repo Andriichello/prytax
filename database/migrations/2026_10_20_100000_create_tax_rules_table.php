@@ -29,11 +29,12 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // The rules of 3 група (design.md §1), which every environment needs
+        // The rules of 3 група (design.md §1), which every environment needs. Each ends with its year, so a year, whose
+        // rules (minimum wage, ЄСВ, cap) aren't added by a migration yet, has none, rather than last year's figures
         DB::table('tax_rules')->insert([
             [
                 'effective_from' => '2025-01-01',
-                'effective_to' => null,
+                'effective_to' => '2025-12-31',
                 'single_tax_rate' => '0.0500',
                 'military_levy_rate' => '0.0100',
                 'excess_rate' => '0.1500',
@@ -47,7 +48,7 @@ return new class extends Migration
             ],
             [
                 'effective_from' => '2026-01-01',
-                'effective_to' => null,
+                'effective_to' => '2026-12-31',
                 'single_tax_rate' => '0.0500',
                 'military_levy_rate' => '0.0100',
                 'excess_rate' => '0.1500',

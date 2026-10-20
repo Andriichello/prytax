@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Http\Resources\ProfileResource;
 use PryTax\Models\Profile;
+use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Taxes\DeadlineScheduler;
 use PryTax\Services\Taxes\EsvObligationScheduler;
 
@@ -47,10 +48,12 @@ class ProfileRepository extends CrudRepository
      *
      * @param DeadlineScheduler $deadlines
      * @param EsvObligationScheduler $esv
+     * @param AlertSync $alerts
      */
     public function __construct(
         protected DeadlineScheduler $deadlines,
-        protected EsvObligationScheduler $esv
+        protected EsvObligationScheduler $esv,
+        protected AlertSync $alerts
     ) {}
 
     /**
@@ -69,10 +72,35 @@ class ProfileRepository extends CrudRepository
 
             CurrentProfile::run($profile, function () use ($profile) {
                 $this->deadlines->ensureCurrentAndNext($profile);
-                $this->esv->ensureYear($profile, now()->year);
+                $this->esv->ensureTracked($profile);
             });
 
             return $profile;
         });
+    }
+
+    /**
+     * Update the profile, and follow a change of its registration, closure or activity: its tax periods, ЄСВ months
+     * and notifications (an inactive profile's are resolved).
+     *
+     * @param BaseModel $model
+     * @param array $attributes
+     *
+     * @return bool
+     */
+    public function update(BaseModel $model, array $attributes): bool
+    {
+        /** @var Profile $model */
+        $updated = parent::update($model, $attributes);
+
+        if ($model->wasChanged(['registered_at', 'closed_at', 'is_active'])) {
+            CurrentProfile::run($model, function () use ($model) {
+                $this->deadlines->ensureCurrentAndNext($model);
+                $this->esv->ensureTracked($model);
+                $this->alerts->syncAfterCommit($model);
+            });
+        }
+
+        return $updated;
     }
 }

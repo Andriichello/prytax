@@ -39,6 +39,8 @@ class ProfileFactory extends Factory
             'default_currency' => 'USD',
             'locale' => 'en',
             'is_active' => true,
+            // Its taxes are tracked from the start of 2026 (TaxTracking), the year the tests' records are in
+            'created_at' => '2026-01-01 09:00:00',
         ];
     }
 

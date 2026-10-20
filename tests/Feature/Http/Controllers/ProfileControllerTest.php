@@ -4,8 +4,13 @@ namespace Tests\Feature\Http\Controllers;
 
 use Core\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use PryTax\Models\Alert;
+use PryTax\Models\EsvObligation;
 use PryTax\Models\Profile;
+use PryTax\Services\Alerts\AlertSync;
+use PryTax\Services\Taxes\EsvObligationScheduler;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -127,5 +132,32 @@ class ProfileControllerTest extends TestCase
 
         $this->assertSame('3214704821', $profile->fresh()->tax_id);
         $this->assertTrue($profile->fresh()->is_active);
+    }
+
+    /**
+     * Test that closing a profile drops its ЄСВ months after the closure, and resolves its notifications.
+     *
+     * @return void
+     */
+    public function testFollowsTheClosureOfAProfile(): void
+    {
+        Storage::fake('local');
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        $this->createFrozenInvoice($profile, $account, ['due_at' => '2026-10-10']);
+        $this->inProfile($profile, function () use ($profile) {
+            app(EsvObligationScheduler::class)->ensureTracked($profile);
+            app(AlertSync::class)->sync($profile);
+        });
+        $open = fn () => Alert::query()->withoutGlobalScopes()->where('profile_id', $profile->id)->whereNull('resolved_at')->exists();
+        $this->assertTrue($open());
+
+        $this->patchJson("/api/profiles/{$profile->id}", ['closed_at' => '2026-06-30', 'is_active' => false])->assertOk();
+
+        $months = EsvObligation::query()->withoutGlobalScopes()->where('profile_id', $profile->id)->where('year', 2026)->pluck('month')->all();
+        $this->assertSame([1, 2, 3, 4, 5, 6], $months);
+        $this->assertFalse($open());
     }
 }

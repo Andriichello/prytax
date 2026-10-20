@@ -83,4 +83,22 @@ class DeadlineSchedulerTest extends TestCase
         $this->assertSame('2027-01-15', $period->esv_due_at->toDateString());
         $this->assertDatabaseCount('tax_periods', 1);
     }
+
+    /**
+     * Test that a saved period's deadlines follow a change of the profile's ЄСВ day, and the rule's day is the
+     * default.
+     *
+     * @return void
+     */
+    public function testMovesTheDeadlinesOfASavedPeriodWithTheEsvDay(): void
+    {
+        $profile = $this->createProfile();
+        $period = $this->inProfile($profile, fn () => app(DeadlineScheduler::class)->ensure($profile, 2026, 3));
+        $this->inProfile($profile, fn () => $profile->updateSettings(['taxes.esv_due_day' => 15]));
+
+        $this->inProfile($profile, fn () => app(DeadlineScheduler::class)->ensure($profile, 2026, 3));
+
+        $this->assertSame('2026-10-19', $period->esv_due_at->toDateString());
+        $this->assertSame('2026-10-15', $period->fresh()->esv_due_at->toDateString());
+    }
 }

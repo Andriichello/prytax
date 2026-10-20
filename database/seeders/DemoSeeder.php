@@ -147,6 +147,8 @@ class DemoSeeder extends Seeder
     {
         $profile = new Profile($attributes);
         $profile->organization_id = $organization->id;
+        // The practice started using the app with its first year, so its taxes are tracked from then (TaxTracking)
+        $profile->created_at = min($years) . '-01-01 09:00:00';
         $profile->save();
 
         CurrentProfile::run($profile, function () use ($profile, $years) {
@@ -732,7 +734,8 @@ class DemoSeeder extends Seeder
                     'period_quarter' => $quarter,
                     'amount' => $owed,
                     'status' => 'paid',
-                    'paid_at' => $due->subDays(4)->toDateString(),
+                    // Four days before the deadline, or today for a deadline, which is still ahead
+                    'paid_at' => min($due->subDays(4)->toDateString(), now()->toDateString()),
                     'paid_from_account_id' => $account->id,
                 ]);
             }

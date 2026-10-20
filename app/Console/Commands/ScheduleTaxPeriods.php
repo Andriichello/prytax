@@ -39,7 +39,7 @@ class ScheduleTaxPeriods extends Command
             ->each(function (Profile $profile) use ($deadlines, $esv) {
                 CurrentProfile::run($profile, function () use ($profile, $deadlines, $esv) {
                     $deadlines->ensureCurrentAndNext($profile);
-                    $esv->ensureYear($profile, now()->year);
+                    $esv->ensureTracked($profile);
                 });
             });
 

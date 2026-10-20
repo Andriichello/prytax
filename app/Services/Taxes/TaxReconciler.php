@@ -8,8 +8,6 @@ use Carbon\CarbonInterface;
 use PryTax\Enums\TaxPaymentStatus;
 use PryTax\Enums\TaxType;
 use PryTax\Helpers\Decimal;
-use PryTax\Models\EsvObligation;
-use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\TaxOpeningBalance;
 use PryTax\Models\TaxPayment;
@@ -40,11 +38,13 @@ class TaxReconciler
      * @param TaxLiabilityCalculator $calculator
      * @param DeadlineScheduler $deadlines
      * @param EsvObligationScheduler $esv
+     * @param TaxTracking $tracking
      */
     public function __construct(
         protected TaxLiabilityCalculator $calculator,
         protected DeadlineScheduler $deadlines,
-        protected EsvObligationScheduler $esv
+        protected EsvObligationScheduler $esv,
+        protected TaxTracking $tracking
     ) {}
 
     /**
@@ -154,7 +154,7 @@ class TaxReconciler
 
     /**
      * Get the first quarter of the series and the opening balance it starts from: the quarter of the latest opening
-     * balance up to the year's end, or else the first year with records of the tax.
+     * balance up to the year's end, or else the first tracked quarter of the profile (TaxTracking).
      *
      * @param Profile $profile
      * @param TaxType $type
@@ -175,15 +175,9 @@ class TaxReconciler
             return [$opening->as_of->year, $opening->as_of->quarter, $opening];
         }
 
-        $years = array_filter([
-            Payment::query()->where('profile_id', $profile->getKey())->min('period_year'),
-            TaxPayment::query()->where('profile_id', $profile->getKey())->where('tax_type', $type->value)->min('period_year'),
-            $type === TaxType::SocialContribution
-                ? EsvObligation::query()->where('profile_id', $profile->getKey())->min('year')
-                : null,
-        ]);
+        $start = $this->tracking->start($profile);
 
-        return [min([$year, ...array_map('intval', $years)]), 1, null];
+        return [$start->year, $start->quarter, null];
     }
 
     /**

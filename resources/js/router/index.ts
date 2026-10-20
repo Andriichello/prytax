@@ -12,12 +12,8 @@ declare module 'vue-router' {
         guest?: boolean;
         /** Pages for anyone (the reset link, "not found"). */
         public?: boolean;
-        /** The title of a page that isn't built yet. */
-        title?: string;
     }
 }
-
-const comingSoon = () => import('@/pages/ComingSoonPage.vue');
 
 /**
  * The SPA's paths. The API links to some of them (notifications' `action_route`, e-mails): `/invoices/{id}`,
@@ -71,12 +67,12 @@ const routes: RouteRecordRaw[] = [
     { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue') },
     { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: () => import('@/pages/taxes/DeclarationPage.vue') },
 
-    { path: '/more', name: 'more', component: comingSoon, meta: { tab: 'more', title: 'Ще' } },
-    { path: '/profiles/new', name: 'profile-new', component: comingSoon, meta: { title: 'Новий ФОП' } },
-    { path: '/settings/profile', name: 'settings-profile', component: comingSoon, meta: { title: 'Профіль ФОП' } },
-    { path: '/settings/numbering', name: 'settings-numbering', component: comingSoon, meta: { title: 'Нумерація інвойсів' } },
-    { path: '/settings/taxes', name: 'settings-taxes', component: comingSoon, meta: { title: 'Податки й сповіщення' } },
-    { path: '/users', name: 'users', component: comingSoon, meta: { title: 'Користувачі' } },
+    { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },
+    { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue') },
+    { path: '/settings/profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfileFormPage.vue') },
+    { path: '/settings/numbering', name: 'settings-numbering', component: () => import('@/pages/settings/NumberingSettingsPage.vue') },
+    { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
+    { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue') },
 
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];

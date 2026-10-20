@@ -1,0 +1,239 @@
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { api } from '@/api/client';
+import type { ApiResponse, Client, InvoiceCounter, NumberingDateSource, NumberingReset, NumberingScope, NumberingStrategy, NumberPreview, Paginated, ProfileSettings } from '@/api/types';
+import TextAreaField from '@/components/form/TextAreaField.vue';
+import TextField from '@/components/form/TextField.vue';
+import SubScreen from '@/components/layout/SubScreen.vue';
+import BottomSheet from '@/components/ui/BottomSheet.vue';
+import LoadState from '@/components/ui/LoadState.vue';
+import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useLoader } from '@/composables/useLoader';
+import { useSession } from '@/composables/useSession';
+import { dateParts, formatDayMonth, today } from '@/utils/dates';
+import { errorMessage, fieldError } from '@/utils/errors';
+
+/**
+ * Нумерація інвойсів (S-NumberingSettings): the format of numbers, the date in them, one counter per ФОП or per
+ * client, its yearly reset, the current counters (which move forward only), and the note printed under invoices.
+ */
+const router = useRouter();
+const { can } = useSession();
+const { profileId, path, loadSettings } = useCurrentProfile();
+
+const form = reactive({
+    strategy: 'date_sequence' as NumberingStrategy,
+    date_source: 'period_end' as NumberingDateSource,
+    scope: 'global' as NumberingScope,
+    reset: 'never' as NumberingReset,
+    footer_note: '',
+});
+
+const counters = ref<InvoiceCounter[]>([]);
+const sampleClient = ref<Client | null>(null);
+
+const { error: loadError, loading, reload } = useLoader(async (signal) => {
+    const [settings, list, clients] = await Promise.all([
+        api.get<ApiResponse<ProfileSettings>>(path('settings'), undefined, signal),
+        api.get<ApiResponse<InvoiceCounter[]>>(path('invoices/counters'), undefined, signal),
+        api.get<Paginated<Client>>(path('clients'), { page: { size: 1 } }, signal),
+    ]);
+
+    Object.assign(form, { ...settings.data.invoice.numbering, footer_note: settings.data.invoice.footer_note ?? '' });
+    counters.value = list.data;
+    sampleClient.value = clients.data[0] ?? null;
+
+    return true;
+}, [profileId]);
+
+const periodEnd = computed(() => {
+    const { year, month } = dateParts(today());
+
+    return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+});
+
+const { data: preview } = useLoader(async (signal) => {
+    if (!sampleClient.value) {
+        return null;
+    }
+
+    const { data } = await api.get<ApiResponse<NumberPreview>>(path('invoices/number-preview'), {
+        client_id: sampleClient.value.id,
+        period_end: periodEnd.value,
+    }, signal);
+
+    return data;
+}, [sampleClient]);
+
+const exampleCount = computed(() => preview.value?.number.split('-').pop() ?? '14');
+const canConfigure = computed(() => can('configure', 'profiles'));
+
+/* Moving a counter forward */
+const editing = ref<InvoiceCounter | null>(null);
+const counterOpen = ref(false);
+const nextNumber = ref('');
+const counterError = ref<unknown>(null);
+const movingCounter = ref(false);
+
+function openCounter(counter: InvoiceCounter): void {
+    editing.value = counter;
+    nextNumber.value = String(counter.last_number + 1);
+    counterError.value = null;
+    counterOpen.value = true;
+}
+
+async function moveCounter(): Promise<void> {
+    if (!editing.value) {
+        return;
+    }
+
+    movingCounter.value = true;
+    counterError.value = null;
+
+    try {
+        await api.patch(path('invoices/counters'), { scope_key: editing.value.scope_key, next_number: Number(nextNumber.value) });
+        counterOpen.value = false;
+        await reload();
+    } catch (caught) {
+        counterError.value = caught;
+    } finally {
+        movingCounter.value = false;
+    }
+}
+
+/* Saving */
+const saving = ref(false);
+const saveError = ref<unknown>(null);
+
+async function save(): Promise<void> {
+    saving.value = true;
+    saveError.value = null;
+
+    try {
+        await api.patch(path('settings'), {
+            invoice: {
+                numbering: { strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
+                footer_note: form.footer_note.trim() || null,
+            },
+        });
+        await loadSettings();
+        await router.replace({ name: 'more' });
+    } catch (caught) {
+        saveError.value = caught;
+    } finally {
+        saving.value = false;
+    }
+}
+</script>
+
+<template>
+    <SubScreen title="Нумерація інвойсів" :back="{ name: 'more' }">
+        <LoadState :loading="loading" :error="loadError" @retry="reload">
+            <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-ink p-4 text-white">
+                <span class="text-14 text-on-ink-2">
+                    Наступний номер<template v-if="sampleClient"> · {{ sampleClient.name }}, період до {{ formatDayMonth(periodEnd) }}</template>
+                </span>
+                <span class="num text-30 font-bold">{{ preview.number }}</span>
+                <span class="text-13 text-on-ink-2">
+                    {{ form.strategy === 'date_sequence' ? (form.date_source === 'period_end' ? 'дата кінця періоду' : 'дата виставлення') + ' · ' : '' }}{{ form.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП' }}
+                </span>
+                <span class="text-12 text-on-ink-3">Показано зі збереженими налаштуваннями</span>
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Формат</SectionTitle>
+                <div role="radiogroup" aria-label="Формат номера" class="flex flex-col gap-2">
+                    <button
+                        v-for="option in [
+                            { value: 'date_sequence', title: 'Дата + номер', example: `РРРР-ММ-ДД-n → ${preview?.number ?? '2026-10-31-14'}` },
+                            { value: 'sequence', title: 'Лише номер', example: `n → ${exampleCount}` },
+                        ] as const"
+                        :key="option.value"
+                        type="button"
+                        role="radio"
+                        :aria-checked="form.strategy === option.value ? 'true' : 'false'"
+                        :disabled="!canConfigure"
+                        class="flex items-start gap-3 rounded-control bg-surface p-3.5 text-left"
+                        :class="form.strategy === option.value ? 'border-2 border-accent' : 'border border-line-input'"
+                        @click="form.strategy = option.value"
+                    >
+                        <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2" :class="form.strategy === option.value ? 'border-accent' : 'border-switch-off'">
+                            <span v-if="form.strategy === option.value" class="size-2.5 rounded-full bg-accent" />
+                        </span>
+                        <span class="flex flex-col gap-0.5">
+                            <span class="text-16 font-semibold">{{ option.title }}</span>
+                            <span class="num text-13 text-ink-2">{{ option.example }}</span>
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <section v-if="form.strategy === 'date_sequence'" class="flex flex-col gap-2">
+                <SectionTitle>Дата в номері</SectionTitle>
+                <SegmentedControl v-model="form.date_source" label="Дата в номері" size="lg" :options="[{ value: 'period_end', label: 'Кінець періоду' }, { value: 'issued_at', label: 'Дата виставлення' }]" />
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Лічильник</SectionTitle>
+                <SegmentedControl v-model="form.scope" label="Лічильник" size="lg" :options="[{ value: 'per_client', label: 'Для кожного клієнта' }, { value: 'global', label: 'Один на ФОП' }]" />
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Скидання лічильника</SectionTitle>
+                <SegmentedControl v-model="form.reset" label="Скидання лічильника" size="lg" :options="[{ value: 'never', label: 'Ніколи' }, { value: 'yearly', label: 'Щороку' }]" />
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Поточні лічильники</SectionTitle>
+                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                    <button
+                        v-for="counter in counters"
+                        :key="counter.scope_key"
+                        type="button"
+                        class="flex min-h-13 items-center justify-between gap-3 text-left"
+                        :disabled="!canConfigure"
+                        @click="openCounter(counter)"
+                    >
+                        <span class="text-15">
+                            {{ counter.client_name ?? 'Один на ФОП' }}
+                            <span v-if="/:\d{4}$/.test(counter.scope_key)" class="num text-13 text-ink-3">{{ counter.scope_key.slice(-4) }}</span>
+                        </span>
+                        <span class="num text-16 font-semibold">{{ counter.last_number }}</span>
+                    </button>
+                    <p v-if="counters.length === 0" class="m-0 py-3.5 text-14 text-ink-3">Лічильників ще немає: перший з'явиться з першим зафіксованим інвойсом.</p>
+                </div>
+                <p class="m-0 text-13 leading-normal text-ink-3">
+                    Номер присвоюється при фіксації. Якщо після повернення в чернетку змінилась дата — оновлюється лише дата,
+                    порядковий номер лишається. Введений вручну номер не змінюється. Пропуски після скасування — нормально.
+                </p>
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Примітка внизу інвойсу</SectionTitle>
+                <TextAreaField v-model="form.footer_note" label="Примітка" placeholder="Напр., примітка щодо ПДВ / reverse charge" :rows="3" />
+            </section>
+
+            <p v-if="saveError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(saveError) }}</p>
+        </LoadState>
+
+        <template v-if="canConfigure" #footer>
+            <PrimaryButton :busy="saving" :disabled="loading" @click="save">Зберегти</PrimaryButton>
+        </template>
+
+        <BottomSheet v-model:open="counterOpen" title="Лічильник">
+            <p class="m-0 text-15 leading-normal text-ink-2">
+                {{ editing?.client_name ?? 'Один на ФОП' }}: останній номер <span class="num font-semibold text-ink">{{ editing?.last_number }}</span>.
+                Наступний можна лише збільшити — наприклад, щоб продовжити нумерацію з попередньої системи.
+            </p>
+            <TextField v-model="nextNumber" label="Наступний номер" inputmode="numeric" class="num" :error="fieldError(counterError, 'next_number')" />
+            <p v-if="counterError && !fieldError(counterError, 'next_number')" class="m-0 text-14 text-negative">{{ errorMessage(counterError) }}</p>
+            <template #footer>
+                <PrimaryButton :busy="movingCounter" :disabled="!/^\d+$/.test(nextNumber)" @click="moveCounter">Зберегти</PrimaryButton>
+            </template>
+        </BottomSheet>
+    </SubScreen>
+</template>

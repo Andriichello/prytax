@@ -94,4 +94,38 @@ class ProfileControllerTest extends TestCase
         $this->postJson('/api/profiles', ['full_name' => 'Новий ФОП', 'tax_id' => '1234567890'])->assertForbidden();
         $this->getJson('/api/profiles')->assertOk()->assertJsonPath('data.*.id', [$profile->id]);
     }
+
+    /**
+     * Test that viewers see the masked tax id only, while accountants see the full one.
+     *
+     * @return void
+     */
+    public function testShowsTheFullTaxIdOnlyToUsersWhoConfigureTheProfile(): void
+    {
+        $profile = $this->createProfile(null, ['tax_id' => '3214704821']);
+
+        $this->actAs($profile, 'viewer');
+        $viewed = $this->getJson("/api/profiles/{$profile->id}");
+        $this->actAs($profile, 'accountant');
+        $configured = $this->getJson("/api/profiles/{$profile->id}");
+
+        $viewed->assertOk()->assertJsonMissingPath('data.tax_id')->assertJsonPath('data.tax_id_masked', '••••4821');
+        $configured->assertOk()->assertJsonPath('data.tax_id', '3214704821');
+    }
+
+    /**
+     * Test that an accountant can't change the identity of a profile (403), which owners keep.
+     *
+     * @return void
+     */
+    public function testReturns403WhenAnAccountantChangesTheIdentityOfAProfile(): void
+    {
+        $profile = $this->createProfile(null, ['tax_id' => '3214704821']);
+        $this->actAs($profile, 'accountant');
+
+        $this->patchJson("/api/profiles/{$profile->id}", ['tax_id' => '1234567890', 'is_active' => false])->assertForbidden();
+
+        $this->assertSame('3214704821', $profile->fresh()->tax_id);
+        $this->assertTrue($profile->fresh()->is_active);
+    }
 }

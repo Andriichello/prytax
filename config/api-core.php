@@ -74,7 +74,7 @@ return [
                 User::class => ['all', 'attachRole', 'attachAnyRole', 'detachRole'],
                 Organization::class => ['viewAny', 'view', 'update'],
                 Role::class => ['attachUser', 'attachAnyUser', 'detachUser'],
-                Profile::class => ['all', 'restore'],
+                Profile::class => ['all', 'restore', 'configure'],
                 ...$finance,
             ],
         ],
@@ -83,7 +83,8 @@ return [
             'permissions' => [
                 User::class => ['viewAny', 'view'],
                 Organization::class => ['viewAny', 'view'],
-                Profile::class => ['viewAny', 'view', 'update'],
+                // Settings and signatures of profiles, not their identity, which owners keep
+                Profile::class => ['viewAny', 'view', 'configure'],
                 ...$finance,
             ],
         ],
@@ -103,5 +104,7 @@ return [
      */
     'files' => [
         'extensions' => ['pdf', 'png', 'jpg', 'jpeg'],
+        // Minutes, for which a signed URL of a file works (design.md §10)
+        'url_lifetime' => 15,
     ],
 ];

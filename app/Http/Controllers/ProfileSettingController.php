@@ -11,7 +11,7 @@ use PryTax\Policies\ProfilePolicy;
  * Class ProfileSettingController.
  *
  * Settings of a profile: `profiles/{profile}/settings` (numbering, money formats, the taxable base, defaults of the
- * taxes, repatriation and deadline warnings). Reading needs `view`, changing `update` of the profile.
+ * taxes, repatriation and deadline warnings). Reading needs `view`, changing `configure` of the profile.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -41,5 +41,22 @@ class ProfileSettingController extends SettingController
     public function __construct(ProfilePolicy $policy, SettingRepository $repository)
     {
         parent::__construct($policy, $repository);
+    }
+
+    /**
+     * Get the abilities on the profile, which the abilities of the requests need: reading needs `view`, changing
+     * `configure`, which accountants have without the `update` of the profile's identity.
+     *
+     * @return array<string, string>
+     */
+    protected function parentAbilities(): array
+    {
+        return [
+            'viewAny' => 'view',
+            'view' => 'view',
+            'create' => 'configure',
+            'update' => 'configure',
+            'delete' => 'configure',
+        ];
     }
 }

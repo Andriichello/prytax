@@ -62,4 +62,21 @@ class ProfileSettingControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.taxes.default_account_id', $bank->id);
     }
+
+    /**
+     * Test that accountants change the settings, while viewers can't (403).
+     *
+     * @return void
+     */
+    public function testLetsAccountantsButNotViewersChangeTheSettings(): void
+    {
+        $profile = $this->createProfile();
+
+        $this->actAs($profile, 'viewer');
+        $this->patchJson($this->profilePath($profile, 'settings'), ['alerts' => ['deadline_days' => 10]])->assertForbidden();
+        $this->actAs($profile, 'accountant');
+        $this->patchJson($this->profilePath($profile, 'settings'), ['alerts' => ['deadline_days' => 10]])
+            ->assertOk()
+            ->assertJsonPath('data.alerts.deadline_days', 10);
+    }
 }

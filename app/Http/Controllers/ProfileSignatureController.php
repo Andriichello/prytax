@@ -65,4 +65,21 @@ class ProfileSignatureController extends FileController
     {
         parent::__construct($policy, $repository);
     }
+
+    /**
+     * Get the abilities on the profile, which the abilities of the requests need: reading needs `view`, changing
+     * `configure`, which accountants have without the `update` of the profile's identity.
+     *
+     * @return array<string, string>
+     */
+    protected function parentAbilities(): array
+    {
+        return [
+            'viewAny' => 'view',
+            'view' => 'view',
+            'create' => 'configure',
+            'update' => 'configure',
+            'delete' => 'configure',
+        ];
+    }
 }

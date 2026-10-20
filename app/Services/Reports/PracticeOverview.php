@@ -2,6 +2,7 @@
 
 namespace PryTax\Services\Reports;
 
+use Carbon\CarbonImmutable;
 use Core\Models\User;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Enums\TaxType;
@@ -17,10 +18,11 @@ use PryTax\Services\Taxes\TaxReconciler;
 /**
  * Class PracticeOverview.
  *
- * Огляд практики (design.md §16): one quarter of every active profile of the organization, each with its yearly
- * cap progress, the quarter's income as invoiced versus received per currency over the invoices issued in it (not
- * drafts or cancelled ones), the taxable income of the quarter, its ЄСВ, ЄП and ВЗ owed and paid, and the user's
- * unread notifications.
+ * Огляд практики (design.md §16): one quarter of every profile of the organization, which was active in it (an
+ * inactive one, closed during or after the quarter, too; every inactive one on request), each with its yearly cap
+ * progress, the quarter's income as invoiced versus received per currency over the invoices issued in it (not drafts
+ * or cancelled ones), the taxable income of the quarter, its ЄСВ, ЄП and ВЗ owed, paid, pending, outstanding and
+ * the running balance, and the user's unread notifications.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Reports
@@ -46,21 +48,27 @@ class PracticeOverview
      * @param User $user
      * @param int $year
      * @param int $quarter
+     * @param bool $withInactive Whether every inactive profile gets its card, as "Показати неактивні" asks.
      *
      * @return array{year: int, quarter: int, profiles: array<int, array<string, mixed>>, inactive_count: int}
      */
-    public function forQuarter(User $user, int $year, int $quarter): array
+    public function forQuarter(User $user, int $year, int $quarter, bool $withInactive = false): array
     {
+        $start = CarbonImmutable::create($year, $quarter * 3 - 2);
         $profiles = Profile::query()->index($user)->orderBy('full_name')->get();
+
+        [$shown, $hidden] = $profiles->partition(fn (Profile $profile) => $withInactive
+            || $profile->is_active
+            || ($profile->closed_at !== null && $profile->closed_at->gte($start)));
 
         return [
             'year' => $year,
             'quarter' => $quarter,
-            'profiles' => $profiles->where('is_active', true)
+            'profiles' => $shown
                 ->map(fn (Profile $profile) => CurrentProfile::run($profile, fn () => $this->profile($user, $profile, $year, $quarter)))
                 ->values()
                 ->all(),
-            'inactive_count' => $profiles->where('is_active', false)->count(),
+            'inactive_count' => $hidden->count(),
         ];
     }
 
@@ -77,6 +85,7 @@ class PracticeOverview
     protected function profile(User $user, Profile $profile, int $year, int $quarter): array
     {
         $this->esv->ensureYear($profile, $year);
+
         $liability = $this->liabilities->forQuarter($profile, $year, $quarter);
         $start = sprintf('%d-%02d-01', $year, ($quarter - 1) * 3 + 1);
         $end = date('Y-m-t', strtotime("$start +2 months"));
@@ -105,11 +114,16 @@ class PracticeOverview
 
         foreach (TaxType::cases() as $type) {
             $sums = $this->reconciler->paymentSums($profile, $type, $year, $quarter);
+            $owed = $this->reconciler->owed($profile, $type, $year, $quarter);
+            $series = collect($this->reconciler->forYear($profile, $type, $year)['quarters'])->firstWhere('quarter', $quarter);
 
             $taxes[$type->value] = [
-                'owed' => Decimal::money($this->reconciler->owed($profile, $type, $year, $quarter)),
+                'owed' => Decimal::money($owed),
                 'paid' => Decimal::money($sums['paid']),
                 'pending' => Decimal::money($sums['pending']),
+                'outstanding' => Decimal::money(Decimal::max($owed->minus($sums['paid']), 0)),
+                // Running, with the opening balance and the earlier quarters
+                'balance' => $series['balance'] ?? null,
             ];
         }
 
@@ -119,6 +133,8 @@ class PracticeOverview
                 'full_name' => $profile->full_name,
                 'short_name' => $profile->short_name,
                 'initials' => $profile->initials,
+                'is_active' => $profile->is_active,
+                'closed_at' => $profile->closed_at?->toDateString(),
             ],
             'cap' => $liability['cap'],
             'income' => $income->all(),

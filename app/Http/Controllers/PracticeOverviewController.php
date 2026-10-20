@@ -73,6 +73,7 @@ class PracticeOverviewController extends CrudController
             $request->user(),
             (int) $request->route('year'),
             (int) $request->route('quarter'),
+            $request->boolean('with_inactive'),
         )]);
     }
 }

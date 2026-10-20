@@ -58,9 +58,9 @@ const routes: RouteRecordRaw[] = [
     { path: '/clients/:clientId(\\d+)/contracts/new', name: 'contract-new', component: () => import('@/pages/clients/ContractFormPage.vue') },
     { path: '/clients/:clientId(\\d+)/contracts/:id(\\d+)', name: 'contract', component: () => import('@/pages/clients/ContractFormPage.vue') },
 
-    { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
-    { path: '/accounting/esv', name: 'accounting-esv', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
-    { path: '/accounting/income-book', name: 'income-book', component: comingSoon, meta: { tab: 'accounting', title: 'Облік' } },
+    { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: () => import('@/pages/accounting/AccountingPage.vue'), meta: { tab: 'accounting' } },
+    { path: '/accounting/esv', name: 'accounting-esv', component: () => import('@/pages/accounting/EsvPage.vue'), meta: { tab: 'accounting' } },
+    { path: '/accounting/income-book', name: 'income-book', component: () => import('@/pages/accounting/IncomeBookPage.vue'), meta: { tab: 'accounting' } },
 
     { path: '/taxes', name: 'taxes', component: comingSoon, meta: { tab: 'taxes', title: 'Податки' } },
     { path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments', name: 'taxes-by-payment', component: comingSoon, meta: { title: 'Податки за надходженнями' } },

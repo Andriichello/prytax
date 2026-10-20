@@ -1,8 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-20 (backend merged into `main`; every screen of the frontend built on `dev`). Read this file first when resuming, then `CLAUDE.md`,
-`docs/specs/design.md` (§16 is the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design
-handoff; the screens are in `docs/prytax-design-handoff/`).
+Status as of 2026-10-20, end of day: the backend is merged into `main`; every screen of the frontend is built on
+`dev`. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is the phase-1 UI scope) and
+`docs/prytax-simplified-design-handoff.md` (the design handoff; the screens are in `docs/prytax-design-handoff/`).
 
 ## Where things stand
 
@@ -12,17 +12,28 @@ handoff; the screens are in `docs/prytax-design-handoff/`).
 | 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged); polish and QA next |
 | 3. QA in the browser, going through scenarios like a tester | **Not started** |
 
-- `php artisan test --compact`: **286 tests** (283 backend + `SpaRouteTest`), all passing on 2026-10-20 (about 85 s, on MySQL `prytax_test`). Run it in the
-  foreground with a generous timeout; two test runs at once on `prytax_test` deadlock each other.
-- The dev database `prytax` was rebuilt with the demo data on 2026-10-20, after the audit (schema is current).
+- **Branches:** `main` = the audited backend (57 commits). `dev` = `main` + the whole frontend (about 20 commits),
+  checked out, clean, **not merged** (merge only when the user asks). `backend-phase-1` is merged and can go. No
+  git remote exists, so nothing is pushed.
+- `php artisan test --compact`: **286 tests** (283 backend + `SpaRouteTest`), all passing on 2026-10-20 (about 85 s,
+  on MySQL `prytax_test`). Run it in the foreground with a generous timeout; two runs at once deadlock each other.
+  The frontend's only automated check is `npm run typecheck` (clean) plus `npm run build`.
+- The dev database `prytax` was rebuilt with the demo data on 2026-10-20. Since then, UI tests created and deleted
+  a draft invoice (41), a receipt (36) and a transfer (39), and NBU rates got cached (USD 20.10.2026, EUR
+  18.10.2026). The figures are as in "Demo data"; rebuild for pristine data. `migrate:fresh` leaves old seeds' files
+  in `storage/app/private/files` (orphans; harmless).
 - The user asked for commits in logical parts, with the `Co-Authored-By` trailer from the system reminder.
 
 ### First steps of the next session
 
-1. Phase 3, QA in the browser like a tester: every flow per role (owner olena, accountant maria, viewer taras), on
-   all four demo ФОП, including empty states and errors. Screens were checked one by one against the mocks while
-   building, but no flow-by-flow QA has been done.
-2. Open frontend gaps (below, under "Frontend"), then merge `dev` into `main` when the user asks.
+1. **Ask the user which comes next** (asked at the end of 2026-10-20, not answered yet): (a) phase 3, QA in the
+   browser like a tester — every flow per role (owner olena, accountant maria, viewer taras) on all four demo ФОП,
+   including empty states, errors and the 409/422 paths; (b) Ukrainian API messages (backend: api-core's `locale`
+   middleware, `api-core.locales`, `lang/uk.json` + validation texts — check the dependency rule before adding
+   laravel-lang); (c) merging `dev` into `main`.
+2. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run dev`), sign in as
+   `olena@example.com` / `password`.
+3. The open frontend gaps are listed under "Frontend".
 
 ## The audit (2026-10-20)
 
@@ -121,6 +132,7 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 
 - `SheetImporter` (import of the 2025 Google sheet, design §14 step 7): no sheet format to build against.
 - XLSX exports and the yearly PDF summary (CSV exists; XLSX needs a package and approval).
+- Ukrainian API messages: every `__()` text and api-core's are English; nothing sets the locale (see item 24).
 - "Запам'ятати мене" on login: api-core's session login never sets a remember cookie (needs an api-core change).
   "Забули пароль?" works; its e-mail links to `{frontend}/reset-password`, a route the SPA must have.
 - design.md "pending" items: Appendix A (a refund reduces the original period), B2 (fee currency / UAH-canonical net
@@ -205,24 +217,46 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 ## Frontend (phase 2, branch `dev`)
 
 - **Stack (approved 2026-10-20):** Vue 3.5, vue-router 5, TypeScript 6.0 (not 7: vue-tsc needs the JS API), vue-tsc,
-  `@vitejs/plugin-vue`; Tailwind 4; HTTP through `fetch`, no axios, no Pinia (module-level composables).
-  `npm run typecheck` (vue-tsc), `npm run build`. **Node 22 is required** (Vite 8); the system's `node` is 18, so use
-  nvm (`.nvmrc`), e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH`.
+  `@vitejs/plugin-vue`; Tailwind 4; HTTP through `fetch`, no axios, no Pinia (module-level composables). No other
+  packages may be added without asking. `npm run typecheck` (vue-tsc), `npm run build`, `npm run dev`. **Node 22 is
+  required** (Vite 8); the system's `node` is 18: use nvm (`.nvmrc`), e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH`.
 - **Served by Laravel:** `routes/web.php` answers every path outside `api/`, `sanctum/` and `up` with
-  `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app;
-  see the user's plan below). `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
-- **Layout of `resources/js/`:** `api/client.ts` (fetch, CSRF, 419 retry, 401 → sign-in, api-core bracketed queries,
-  `Accept-Language: uk`, `newIdempotencyKey()` for receipt/refund/transfer/tax POSTs), `api/types.ts` (every response, checked against real ones), `composables/` (`useSession`,
-  `useCurrentProfile`: profiles + the current one, remembered per user in localStorage, settings and money format;
-  `useLoader`: load per source, stale answers dropped; `usePagedList`: infinite lists; `useStoredState`: per-user view
-  preferences; `useInvoiceFilters`: URL filters), `utils/` (`money`, `dates`, `plural`, `statuses`, `errors`:
-  Ukrainian texts for the API's English messages, `text`: figures in API texts set in mono), `components/layout`
-  (TabScreen, SubScreen, TopHeader, SubHeader, TabBar, AuthLayout), `components/ui` (Icon with the designs' icons,
-  Avatar, BottomSheet, Chip, StatusBadge, ProgressBar, PeriodStepper, PrimaryButton, LoadState, EmptyState),
-  `components/form/TextField`, `pages/` and `router/index.ts` (guards: session, then the current profile).
-- **Theme:** the tokens are Tailwind colours (`bg-paper`, `text-ink-2`, `border-line`, `bg-accent`, …; the default
-  palette is removed), sizes `text-11` … `text-30` in px, radii `rounded-card` / `-control` / `-button` / `-badge`,
-  the `num` utility for every number (mono, tabular, nowrap). Fonts are bundled from `resources/fonts`.
+  `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app).
+  `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
+- **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`) — leave it alone. Serve PryTax
+  from `public/` on 8010 (run in the background): `cd public && APP_URL=http://localhost:8010
+  SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010 API_CORE_PASSWORD_RESET_URL=http://localhost:8010/reset-password
+  php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`. `.env` still
+  says port 8000 and 5173 for those keys (not changed, so the env overrides matter).
+- **`resources/js/`:**
+  - `api/client.ts` (fetch, CSRF cookie, 419 retry, 401 → sign-in, api-core bracketed queries, `Accept-Language: uk`,
+    `apiUrl()` for downloads, `newIdempotencyKey()` for receipt/refund/transfer/tax POSTs); `api/types.ts` (every
+    response, checked against 342 real ones; enums: `ItemUnit` is `hour|fixed|item`, `NumberingScope` is
+    `per_client|global`).
+  - `composables/`: `useSession` (`can(action, resource)` from `{action} models.{resource}` permissions),
+    `useCurrentProfile` (profiles + the current one, remembered per user in localStorage `prytax.profile.{userId}`,
+    settings, money format; first visit prefers the profile whose e-mail is the user's), `useLoader` (load per source,
+    stale answers dropped), `usePagedList` (infinite lists), `useStoredState` (per-user view preferences, e.g. Облік's
+    grouping and switches), `useInvoiceFilters` (filters in the URL).
+  - `utils/`: `money` (format per profile setting with U+202F groups and U+2212 minus, exact BigInt sums, half-up
+    `multiplyAmounts` / `multiplyDecimals`, `parseAmount`, `percentOf` capped at 99 until paid, `formatCompact` $/€),
+    `dates` (strings, never Date parsing; Kyiv today; Ukrainian months incl. genitive), `plural`, `statuses` (badge
+    labels/tones, `TAX_TYPES`), `errors` (Ukrainian texts and patterns for the API's English messages),
+    `text` (figures in API texts set in mono), `accounts`, `clients`, `contracts` (`rateOn` = `Contract::rateFor`,
+    `describeContract` = `Contract::describe` with PHP date letters).
+  - `components/layout` (TabScreen with title-action, SubScreen with `heading`/`muted`/`subtitle`/footer, TopHeader,
+    SubHeader, TabBar, AuthLayout); `components/ui` (Icon + `icons.ts`, Avatar, BottomSheet with `lead`/`action`/
+    `footer` slots, Chip, StatusBadge, ProgressBar, PeriodStepper, Stepper, SegmentedControl, SwitchTile, InfoRow,
+    CopyRow, SectionTitle, Primary/SecondaryButton, ConfirmSheet, LoadState, EmptyState, InfiniteSentinel);
+    `components/form` (TextField, SelectField, DateField, TextAreaField); domain components under `invoice/`,
+    `payment/`, `transfer/`, `accounting/`, `taxes/`, `client/`, `overview/`, `alert/`, `profile/`.
+  - `pages/` by section (`auth`, `invoices`, `payments`, `transfers`, `accounts`, `clients`, `accounting`, `taxes`,
+    `settings`, plus Home, Alerts, Overview, NotFound); `router/index.ts` (guards: session, then the current profile;
+    `taxes-by-payment` redirects to `/taxes?view=receipts`).
+- **Theme:** the tokens are Tailwind colours (`bg-paper`, `paper-light`, `text-ink-2`…`ink-4`, `border-line`,
+  `bg-accent`, `handle`, `rail`, `overlay`, …; the default palette is removed), sizes `text-11` … `text-32` in px,
+  radii `rounded-card` / `-control` / `-button` / `-badge`, and the `num` utility for every number (mono, tabular,
+  nowrap; override with `whitespace-normal!`). Fonts are bundled from `resources/fonts`.
 - **The design's renders don't show Geologica:** the export's `fonts.css` points at `fonts/fonts/…`, so the PNGs and
   HTML fall back to system fonts. The app uses Geologica and IBM Plex Mono as specified, so it looks a bit wider.
 - **Built (all handoff screens):** Вхід, "Забули пароль?", `/reset-password`; Головна; the ФОП switcher sheet;
@@ -236,35 +270,40 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   remembered switches, summary with kopeck checks, CSV links), ЄСВ, Книга доходів; Податки (quarter / month /
   receipt views, tax payment form with budget requisites, declaration with status changes); Ще; settings (profile
   with signature and money formats, numbering and counters, taxes and notifications incl. opening balances and
-  budget requisites), users (invite, roles, resend, delete). Forms hide saving from roles that can't save.
+  budget requisites — the latter not in the mock, added because ФОП 2–4 have none), users (invite, roles, resend,
+  delete). A new ФОП lands on the taxes settings (opening balances). Forms hide saving from roles that can't save.
+  Each screen was compared with its mock in headless Chrome; Облік, Податки and the declaration show the mock's
+  figures exactly.
 - **Frontend gaps:** (1) links without a profile (`/invoices/{id}` from e-mails, another tab) open in the current
   ФОП only, else a 404 — consider `?profile=` or a lookup; (2) XLSX exports and the yearly PDF summary aren't built
   (no backend); (3) native date inputs show the device's format (en-US in headless Chrome, dd.mm.yyyy on a uk
   phone); (4) no JS test runner (formatters were checked ad hoc) — propose Vitest to the user; (5) `taxes/{year}/
-  months` doesn't spread quarter payments over months, so the monthly view shows "—" for them.
-- **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`). Serve PryTax elsewhere, e.g.
-  from `public/`: `APP_URL=http://localhost:8010 SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010
-  php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`.
-- **The API answers in English.** The SPA translates the common messages (`utils/errors.ts`); real Ukrainian needs
-  api-core's `locale` middleware, `api-core.locales = ['uk', 'en']` and `lang/uk` (backend work, not done).
+  months` doesn't spread quarter payments over months, so the monthly view shows "—" for them; (6) no "Запам'ятати
+  мене" (sessions end after `SESSION_LIFETIME`, 120 min); (7) PNG/HTML pixel polish wasn't done screen by screen
+  beyond the comparison above.
+- **Checking the UI in a browser** (the script lived in the session scratchpad, which is gone): start
+  `google-chrome --headless=new --remote-debugging-port=9223 --user-data-dir=<scratch dir> about:blank` in the
+  background, and drive it with a small Node 22 script (built-in `WebSocket`, no packages) over the DevTools protocol:
+  `Emulation.setDeviceMetricsOverride` (390 × 844, scale 2, mobile), `Page.navigate`, `Runtime.evaluate` (fill inputs
+  with the native value setter + an `input` event, click), `DOM.setFileInputFiles` for uploads,
+  `Page.captureScreenshot` (with `captureBeyondViewport` and a clip of the scroll height for full pages). Sign in via
+  the form at `/login`; switch the ФОП through the header chip or the localStorage key above.
+- **API facts found while typing it:** `period.id` is null in `accounting/{y}/{q}` and `declarations/{y}/{q}` for
+  untracked quarters (don't link to `tax-periods/null`); a few timestamps carry `+03:00` instead of `Z` (alert
+  `read_at`, `declaration_submitted_at`, the snapshot's `frozen_at`); `quarter_balance` means the quarter's own
+  balance in `taxes/{year}` but the running one in `taxes/{year}/months`; statement tax entries put the raw tax type
+  in `title`; items come only with `?include=items`; `GET exchange-rates/{currency}/{date}` and `payments/preview`
+  fetch and cache NBU rates (writes on read); user routes come from api-core (`/api/users`, roles always included).
 - Sanctum SPA sessions: GET `/sanctum/csrf-cookie` before login. Send `If-Unmodified-Since` (the invoice's
   `updated_at`) with every invoice PATCH, and an `Idempotency-Key` with receipt/refund/transfer/tax POSTs.
 - SPA paths, which the API links to (`alerts.action_route`, the reset e-mail): `/invoices/{id}`, `/accounts/{id}`,
   `/payments/{id}`, `/transfers/{id}`, `/transfers/new?from={accountId}`, `/clients/{clientId}/contracts/{id}`,
   `/taxes?year=`, `/taxes/declaration/{year}/{quarter}`, `/accounting/{year}/{quarter}`, `/accounting/esv?year=`,
   `/reset-password`. Keep the routes consistent with these, or change both.
-- Persist the Облік switches and grouping per user in localStorage (handoff §9 open question 1).
-- A new profile without records is tracked from the start of its creation year; the onboarding should offer tax
-  opening balances (dated on a quarter's first day) so earlier quarters aren't reported as unpaid.
 - **Mobile later:** the user wants iOS and Android; the plan is Capacitor around this same app (a second Vite config
   with an `index.html` entry, api-core's access/refresh tokens in secure storage instead of the session cookie,
   downloads through the Filesystem/Share plugins). Keep the app free of Blade-injected data and keep sign-in and
   downloads behind `api/client.ts` and one helper.
-- **API facts found while typing it:** `period.id` is null in `accounting/{y}/{q}` and `declarations/{y}/{q}` for
-  untracked quarters (don't link to `tax-periods/null`); a few timestamps carry `+03:00` instead of `Z` (alert
-  `read_at`, `declaration_submitted_at`, the snapshot's `frozen_at`); `quarter_balance` means the quarter's own
-  balance in `taxes/{year}` but the running one in `taxes/{year}/months`; statement tax entries put the raw tax type
-  in `title`; items come only with `?include=items`.
 
 ## Conventions to keep
 
@@ -274,3 +313,10 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `ActsInProfiles` helpers; NBU rates are cached with `cacheRates()` or faked with `Http::fake()` per test.
 - An Eloquent collection's `except()` takes model ids, not keys: use `->toBase()` before keying by another column.
 - Work on a feature branch and commit in logical parts; don't push or merge without the user asking.
+- Frontend: match the screens' HTML exports (`docs/prytax-design-handoff/screens/html`) for sizes; Ukrainian UI
+  texts; `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
+  selects/segments in the script (inline `list.map(… ({ value, label: MAP[x] }))` in a template trips vue-tsc with
+  "Property 'value' does not exist on type Record<…>").
+- Tool gotcha: `\u…` escapes typed into tool inputs arrive as the characters themselves, so invisible U+00A0/U+202F
+  can land in sources. Write escapes via Python `chr(92)`, and run
+  `grep -rnP "[\x{00A0}\x{202F}\x{2009}]" resources/js` before committing (it must find nothing).

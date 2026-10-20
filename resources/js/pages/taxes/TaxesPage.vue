@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, TaxReconciliation, TaxType } from '@/api/types';
+import type { ApiResponse, TaxGrouping, TaxReconciliation, TaxType } from '@/api/types';
 import YearSelect from '@/components/accounting/YearSelect.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import TaxMonthsView from '@/components/taxes/TaxMonthsView.vue';
@@ -19,28 +19,28 @@ import { TAX_TYPES } from '@/utils/statuses';
 
 /**
  * Податки (S-Taxes, S-TaxesByPayment): a tax (ЄП, ВЗ, ЄСВ) of a year by quarter, by month, or — ЄП and ВЗ — by
- * receipt. The tax, view, year and quarter live in the URL (`/taxes?year=`, as the API links).
+ * receipt. The tax, view, year and quarter live in the URL (`/taxes?year=`, as the API links); without a view, the
+ * profile's `taxes.default_grouping` chooses it.
  */
 type View = 'receipts' | 'months' | 'quarters';
 
 const TAXES: TaxType[] = ['single_tax', 'military_levy', 'social_contribution'];
+const VIEWS: View[] = ['receipts', 'months', 'quarters'];
+const VIEW_OF_GROUPING: Record<TaxGrouping, View> = { payment: 'receipts', month: 'months', quarter: 'quarters' };
 
 const route = useRoute();
 const router = useRouter();
-const { profileId, path } = useCurrentProfile();
+const { profileId, path, settings } = useCurrentProfile();
 const { can } = useSession();
 
 const now = currentQuarter();
 const year = computed(() => Number(route.query.year) || now.year);
 const tax = computed<TaxType>(() => (TAXES.includes(route.query.tax as TaxType) ? route.query.tax as TaxType : 'single_tax'));
 const view = computed<View>(() => {
-    const value = route.query.view as View;
+    const asked = route.query.view as View;
+    const value = VIEWS.includes(asked) ? asked : VIEW_OF_GROUPING[settings.value?.taxes.default_grouping ?? 'quarter'];
 
-    if (value === 'receipts' && tax.value === 'social_contribution') {
-        return 'quarters';
-    }
-
-    return value === 'receipts' || value === 'months' ? value : 'quarters';
+    return value === 'receipts' && tax.value === 'social_contribution' ? 'quarters' : value;
 });
 const quarter = computed(() => {
     const value = Number(route.query.quarter);

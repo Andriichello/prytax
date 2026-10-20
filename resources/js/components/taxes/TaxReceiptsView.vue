@@ -43,6 +43,9 @@ function state(tax: ReceiptTax): { text: string; class: string } {
 }
 
 const unpaid = (row: QuarterTaxRow): boolean => row.type === 'payment' && (row.single_tax.status === 'unpaid' || row.military_levy.status === 'unpaid');
+
+/** The tax to pay for a receipt first: ЄП unless only ВЗ is left. */
+const unpaidTax = (row: QuarterTaxRow): 'single_tax' | 'military_levy' => (row.type === 'payment' && row.single_tax.status !== 'unpaid' ? 'military_levy' : 'single_tax');
 </script>
 
 <template>
@@ -77,7 +80,7 @@ const unpaid = (row: QuarterTaxRow): boolean => row.type === 'payment' && (row.s
                 </div>
                 <RouterLink
                     v-if="unpaid(row) && can('create', 'tax-payments')"
-                    :to="{ name: 'tax-payment-new', query: { allocation: 'payment', payment: row.payment_id, year, quarter } }"
+                    :to="{ name: 'tax-payment-new', query: { tax: unpaidTax(row), allocation: 'payment', payment: row.payment_id, year, quarter } }"
                     class="flex min-h-13 items-center justify-center text-15 font-medium no-underline"
                 >
                     Сплатити за цим надходженням

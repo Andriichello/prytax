@@ -50,6 +50,28 @@ export function formatDate(date: string | null | undefined): string {
     return `${pad(day)}.${pad(month)}.${year}`;
 }
 
+/**
+ * A date typed the Ukrainian way, as `YYYY-MM-DD`: "14.10.2026", "4.1.2026", "14/10/2026", "14-10-2026" or
+ * "14102026"; null when it isn't a whole, real date.
+ */
+export function parseDisplayDate(text: string): string | null {
+    const value = text.trim();
+    const match = /^(\d{1,2})[./\-\s](\d{1,2})[./\-\s](\d{4})$/.exec(value) ?? /^(\d{2})(\d{2})(\d{4})$/.exec(value);
+
+    if (!match) {
+        return null;
+    }
+
+    const [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > daysInMonth) {
+        return null;
+    }
+
+    return `${year}-${pad(month)}-${pad(day)}`;
+}
+
 /** "14.10" */
 export function formatDayMonth(date: string | null | undefined): string {
     if (!date) {

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PryTax\Models\Invoice;
 use Tests\Concerns\ActsInProfiles;
@@ -131,7 +132,7 @@ class InvoiceControllerTest extends TestCase
             'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '86.50']],
         ])->json('data.id');
 
-        $response = $this->postJson($this->profilePath($profile, "invoices/$id/freeze"));
+        $response = $this->postJson($this->profilePath($profile, "invoices/$id/freeze?append=snapshot"));
 
         $response->assertOk()
             ->assertJsonPath('message', 'Frozen')
@@ -145,6 +146,34 @@ class InvoiceControllerTest extends TestCase
         $this->assertSame('application/pdf', $invoice->primaryFile->mime_type);
         $this->assertTrue($invoice->primaryFile->isStored());
         $this->get($this->profilePath($profile, "invoices/$id/pdf"))->assertOk()->assertDownload('2026-10-14-1.pdf');
+    }
+
+    /**
+     * Test that the snapshot, which copies the tax id and the bank details, is stored encrypted, left out of the
+     * audit log and of the list, and shown on request.
+     *
+     * @return void
+     */
+    public function testKeepsTheSnapshotEncryptedAndOutOfListsAndTheAuditLog(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile(null, ['tax_id' => '3214704821']);
+        $this->actAs($profile, 'viewer');
+        $account = $this->createAccount($profile, ['iban' => 'UA213223130000026007233566001']);
+        $invoice = $this->createFrozenInvoice($profile, $account);
+
+        $list = $this->getJson($this->profilePath($profile, 'invoices'));
+        $shown = $this->getJson($this->profilePath($profile, "invoices/{$invoice->id}?append=snapshot"));
+
+        $list->assertOk()->assertJsonMissingPath('data.0.snapshot');
+        $shown->assertOk()
+            ->assertJsonPath('data.snapshot.profile.tax_id', '3214704821')
+            ->assertJsonPath('data.snapshot.account.iban', 'UA213223130000026007233566001');
+        $raw = DB::table('invoices')->where('id', $invoice->id)->value('snapshot');
+        $this->assertStringNotContainsString('3214704821', $raw);
+        $this->assertStringNotContainsString('UA2132231300', $raw);
+        $this->assertFalse(DB::table('audit_logs')->where('changes', 'like', '%3214704821%')->exists());
+        $this->assertFalse(DB::table('audit_logs')->where('changes', 'like', '%snapshot%')->exists());
     }
 
     /**

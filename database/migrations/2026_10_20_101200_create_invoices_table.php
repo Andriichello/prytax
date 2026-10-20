@@ -45,7 +45,8 @@ return new class extends Migration
             $table->date('cancelled_at')->nullable();
 
             // {schema_version, money_format, profile, client, contract, account, items, totals, footer_note}
-            $table->json('snapshot')->nullable();
+            // Encrypted JSON: it copies the ФОП's РНОКПП and the account's IBAN
+            $table->longText('snapshot')->nullable();
             $table->text('notes')->nullable();
             $table->foreignId('primary_file_id')->nullable()->constrained('files')->nullOnDelete();
 

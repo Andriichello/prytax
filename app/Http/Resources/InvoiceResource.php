@@ -43,5 +43,6 @@ class InvoiceResource extends BaseResource
     protected array $allowedAppends = [
         'number_preview',
         'can_unfreeze',
+        'snapshot',
     ];
 }

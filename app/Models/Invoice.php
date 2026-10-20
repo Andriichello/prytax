@@ -166,6 +166,16 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     ];
 
     /**
+     * The attributes that should be hidden for serialization: the snapshot copies the profile's tax id and the
+     * account's bank details, so a list doesn't carry it, unless asked to (`?append=snapshot`).
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'snapshot',
+    ];
+
+    /**
      * The attributes that should be cast.
      *
      * @var array
@@ -188,9 +198,20 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'sent_at' => 'date:Y-m-d',
         'paid_at' => 'date:Y-m-d',
         'cancelled_at' => 'date:Y-m-d',
-        'snapshot' => 'array',
+        'snapshot' => 'encrypted:array',
         'primary_file_id' => 'int',
     ];
+
+    /**
+     * Get the attributes, which the audit log leaves out: the snapshot, which copies the profile's tax id and the
+     * account's bank details, and is rebuilt from the audited records on every freeze.
+     *
+     * @return array<int, string>
+     */
+    public function auditExcluded(): array
+    {
+        return ['snapshot'];
+    }
 
     /**
      * Determine if the invoice is locked: past its draft.

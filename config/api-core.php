@@ -2,7 +2,53 @@
 
 use Core\Models\Organization;
 use Core\Models\User;
+use PryTax\Models\Account;
+use PryTax\Models\AccountMovement;
+use PryTax\Models\AccountOpeningBalance;
+use PryTax\Models\AccountTransfer;
+use PryTax\Models\Alert;
+use PryTax\Models\ChargeType;
+use PryTax\Models\Client;
+use PryTax\Models\Contract;
+use PryTax\Models\EsvObligation;
+use PryTax\Models\ExchangeRate;
+use PryTax\Models\Invoice;
+use PryTax\Models\Payment;
+use PryTax\Models\Profile;
+use PryTax\Models\Project;
+use PryTax\Models\Refund;
+use PryTax\Models\TaxOpeningBalance;
+use PryTax\Models\TaxPayment;
+use PryTax\Models\TaxPaymentRequisite;
+use PryTax\Models\TaxPeriod;
 use Spatie\Permission\Models\Role;
+
+/*
+ * Models of a profile, on which owners and accountants do every financial operation, and viewers only read.
+ */
+$finance = [
+    Account::class => ['all'],
+    AccountOpeningBalance::class => ['all'],
+    AccountMovement::class => ['all'],
+    Client::class => ['all'],
+    Contract::class => ['all'],
+    Project::class => ['all'],
+    ChargeType::class => ['all'],
+    Invoice::class => ['all', 'freeze', 'unfreeze', 'send', 'pay', 'cancel'],
+    Payment::class => ['all', 'acknowledge'],
+    Refund::class => ['all'],
+    AccountTransfer::class => ['all'],
+    TaxPeriod::class => ['viewAny', 'view', 'update'],
+    TaxPayment::class => ['all'],
+    TaxOpeningBalance::class => ['all'],
+    TaxPaymentRequisite::class => ['all'],
+    EsvObligation::class => ['viewAny', 'view', 'update'],
+    Alert::class => ['viewAny', 'view', 'read'],
+    ExchangeRate::class => ['viewAny', 'view', 'create'],
+];
+
+$readOnly = array_map(fn (array $actions) => ['viewAny', 'view'], $finance);
+$readOnly[Alert::class] = ['viewAny', 'view', 'read'];
 
 /*
  * Merged into api-core's config recursively, so this file holds only what
@@ -13,7 +59,9 @@ use Spatie\Permission\Models\Role;
 return [
     /*
      * Roles from the highest to the lowest, below the built-in `super-admin`.
-     * Every user of an organization sees every profile of it (design.md §0).
+     * Every user of an organization sees every profile of it (design.md §0):
+     * owners manage everything, including profiles and users, accountants do
+     * every financial operation of every profile, and viewers only read.
      * Run `php artisan db:seed --class="Core\Database\Seeders\RolesAndPermissionsSeeder"`
      * after changing them.
      *
@@ -26,6 +74,8 @@ return [
                 User::class => ['all', 'attachRole', 'attachAnyRole', 'detachRole'],
                 Organization::class => ['viewAny', 'view', 'update'],
                 Role::class => ['attachUser', 'attachAnyUser', 'detachUser'],
+                Profile::class => ['all', 'restore'],
+                ...$finance,
             ],
         ],
         [
@@ -33,6 +83,8 @@ return [
             'permissions' => [
                 User::class => ['viewAny', 'view'],
                 Organization::class => ['viewAny', 'view'],
+                Profile::class => ['viewAny', 'view', 'update'],
+                ...$finance,
             ],
         ],
         [
@@ -40,7 +92,16 @@ return [
             'permissions' => [
                 User::class => ['viewAny', 'view'],
                 Organization::class => ['viewAny', 'view'],
+                Profile::class => ['viewAny', 'view'],
+                ...$readOnly,
             ],
         ],
+    ],
+
+    /*
+     * Uploads of invoices (external PDFs) and of signatures.
+     */
+    'files' => [
+        'extensions' => ['pdf', 'png', 'jpg', 'jpeg'],
     ],
 ];

@@ -6,7 +6,6 @@ import type {
     Account,
     ApiResponse,
     FxGainPolicy,
-    Paginated,
     ProfileSettings,
     TaxableBase,
     TaxGrouping,
@@ -65,9 +64,9 @@ const requisites = ref<TaxPaymentRequisite[]>([]);
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [settings, accountList, balanceList, requisiteList] = await Promise.all([
         api.get<ApiResponse<ProfileSettings>>(path('settings'), undefined, signal),
-        api.get<Paginated<Account>>(path('accounts'), { page: { size: 50 } }, signal),
-        api.get<Paginated<TaxOpeningBalance>>(path('tax-opening-balances'), { page: { size: 50 } }, signal),
-        api.get<Paginated<TaxPaymentRequisite>>(path('tax-payment-requisites'), { page: { size: 50 } }, signal),
+        api.all<Account>(path('accounts'), {}, signal),
+        api.all<TaxOpeningBalance>(path('tax-opening-balances'), {}, signal),
+        api.all<TaxPaymentRequisite>(path('tax-payment-requisites'), {}, signal),
     ]);
 
     const repatriation = settings.data.compliance.platform_repatriation;
@@ -83,12 +82,18 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
         deadline_days: settings.data.alerts.deadline_days,
         ready_days: settings.data.alerts.ready_days,
     });
-    accounts.value = accountList.data;
-    balances.value = balanceList.data;
-    requisites.value = requisiteList.data;
+    accounts.value = accountList;
+    balances.value = balanceList;
+    requisites.value = requisiteList;
 
     return true;
 }, [profileId]);
+
+/** The day steppers, within the setting's bounds (`Profile::settingDefinitions`). */
+const DAY_STEPPERS = [
+    { key: 'deadline_days', label: 'Попереджати про терміни за', min: 0, max: 60 },
+    { key: 'ready_days', label: 'Нагадувати про ненадіслані інвойси через', min: 1, max: 365 },
+] as const;
 
 const canConfigure = computed(() => can('configure', 'profiles'));
 const taxAccounts = computed(() => accounts.value
@@ -100,16 +105,28 @@ const balanceOpen = ref(false);
 const balanceDraft = reactive({ id: null as number | null, tax_type: 'single_tax' as TaxType, as_of: '', amount: '' });
 const balanceError = ref<unknown>(null);
 const balanceSaving = ref(false);
+const confirmingBalanceRemoval = ref(false);
 
 function openBalance(balance: TaxOpeningBalance | null): void {
     Object.assign(balanceDraft, balance
         ? { id: balance.id, tax_type: balance.tax_type, as_of: balance.as_of, amount: balance.amount }
         : { id: null, tax_type: 'single_tax', as_of: `${today().slice(0, 4)}-01-01`, amount: '' });
     balanceError.value = null;
+    confirmingBalanceRemoval.value = false;
     balanceOpen.value = true;
 }
 
+/**
+ * Save the opening balance, or remove it on the second tap of "Видалити"; only the list loads again, so the unsaved
+ * settings above stay as they are.
+ */
 async function saveBalance(remove = false): Promise<void> {
+    if (remove && !confirmingBalanceRemoval.value) {
+        confirmingBalanceRemoval.value = true;
+
+        return;
+    }
+
     balanceSaving.value = true;
     balanceError.value = null;
 
@@ -127,7 +144,7 @@ async function saveBalance(remove = false): Promise<void> {
         }
 
         balanceOpen.value = false;
-        await reload();
+        balances.value = await api.all<TaxOpeningBalance>(path('tax-opening-balances'));
     } catch (caught) {
         balanceError.value = caught;
     } finally {
@@ -193,7 +210,7 @@ async function saveRequisite(): Promise<void> {
         }
 
         requisiteOpen.value = false;
-        await reload();
+        requisites.value = await api.all<TaxPaymentRequisite>(path('tax-payment-requisites'));
     } catch (caught) {
         requisiteError.value = caught;
     } finally {
@@ -266,14 +283,14 @@ async function save(): Promise<void> {
 
             <section class="flex flex-col gap-2">
                 <SectionTitle>Курсовий дохід при продажу валюти</SectionTitle>
-                <SegmentedControl v-model="form.fx_gain" label="Курсовий дохід" size="lg" :options="[{ value: 'ignore', label: 'Не враховувати' }, { value: 'include', label: 'Враховувати' }]" />
+                <SegmentedControl v-model="form.fx_gain" label="Курсовий дохід" size="lg" :disabled="!canConfigure" :options="[{ value: 'ignore', label: 'Не враховувати' }, { value: 'include', label: 'Враховувати' }]" />
             </section>
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>Сплата податків</SectionTitle>
                 <div class="flex flex-col gap-1.5">
                     <span class="text-13 font-medium text-ink-2">Показувати податки за</span>
-                    <SegmentedControl v-model="form.default_grouping" label="Показувати податки за" size="lg" :options="[{ value: 'payment', label: 'Надходж.' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]" />
+                    <SegmentedControl v-model="form.default_grouping" label="Показувати податки за" size="lg" :disabled="!canConfigure" :options="[{ value: 'payment', label: 'Надходж.' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]" />
                 </div>
                 <SelectField
                     v-model="form.default_account_id"
@@ -353,18 +370,15 @@ async function save(): Promise<void> {
                 <SectionTitle>Сповіщення</SectionTitle>
                 <div class="flex flex-col gap-1.5">
                     <span class="text-13 font-medium text-ink-2">Кошти на платформах — нагадати</span>
-                    <SegmentedControl v-model="form.repatriation" label="Кошти на платформах" size="lg" :options="[{ value: 'quarter_end', label: 'Кінець кв.' }, { value: 'days', label: 'Через N днів' }, { value: 'off', label: 'Вимкнено' }]" />
+                    <SegmentedControl v-model="form.repatriation" label="Кошти на платформах" size="lg" :disabled="!canConfigure" :options="[{ value: 'quarter_end', label: 'Кінець кв.' }, { value: 'days', label: 'Через N днів' }, { value: 'off', label: 'Вимкнено' }]" />
                 </div>
-                <TextField v-if="form.repatriation === 'days'" v-model="form.repatriation_days" label="Через скільки днів після надходження" inputmode="numeric" class="num" />
-                <div v-for="option in [
-                    { key: 'deadline_days', label: 'Попереджати про терміни за' },
-                    { key: 'ready_days', label: 'Нагадувати про ненадіслані інвойси через' },
-                ] as const" :key="option.key" class="flex items-center justify-between gap-3">
+                <TextField v-if="form.repatriation === 'days'" v-model="form.repatriation_days" label="Через скільки днів після надходження" inputmode="numeric" class="num" :disabled="!canConfigure" />
+                <div v-for="option in DAY_STEPPERS" :key="option.key" class="flex items-center justify-between gap-3">
                     <span class="text-15">{{ option.label }}</span>
                     <span class="flex h-12 shrink-0 items-center rounded-control border border-line-input bg-surface">
-                        <button type="button" aria-label="Менше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] <= 1" @click="form[option.key] -= 1">−</button>
+                        <button type="button" aria-label="Менше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] <= option.min" @click="form[option.key] -= 1">−</button>
                         <span class="num w-14 text-center text-16 font-semibold">{{ form[option.key] }} дн.</span>
-                        <button type="button" aria-label="Більше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] >= 60" @click="form[option.key] += 1">+</button>
+                        <button type="button" aria-label="Більше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] >= option.max" @click="form[option.key] += 1">+</button>
                     </span>
                 </div>
             </section>
@@ -395,7 +409,9 @@ async function save(): Promise<void> {
             <p v-if="balanceError && !fieldError(balanceError, 'as_of') && !fieldError(balanceError, 'amount')" class="m-0 text-14 text-negative">{{ errorMessage(balanceError) }}</p>
             <template #footer>
                 <div class="grid gap-2.5" :class="balanceDraft.id ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
-                    <SecondaryButton v-if="balanceDraft.id" tone="negative" :busy="balanceSaving" @click="saveBalance(true)">Видалити</SecondaryButton>
+                    <SecondaryButton v-if="balanceDraft.id" tone="negative" :busy="balanceSaving" @click="saveBalance(true)">
+                        {{ confirmingBalanceRemoval ? 'Так, видалити' : 'Видалити' }}
+                    </SecondaryButton>
                     <PrimaryButton :busy="balanceSaving" :disabled="parseAmount(balanceDraft.amount) === null" @click="saveBalance()">Зберегти</PrimaryButton>
                 </div>
             </template>

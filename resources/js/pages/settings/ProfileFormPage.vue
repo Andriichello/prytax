@@ -16,12 +16,14 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { errorMessage, fieldError } from '@/utils/errors';
+import { today } from '@/utils/dates';
 import { formatAmount, setMoneyFormat } from '@/utils/money';
 
 /**
  * Профіль ФОП (S-ProfileEdit), and a new ФОП: the taxpayer (owners change it; the РНОКПП is stored encrypted), the
  * addresses and contacts printed on invoices, the invoices' currency and language, the PDF signature, the money
- * formats of the app and of invoices, and whether the ФОП is active.
+ * formats of the app and of invoices, and whether the ФОП is active (with the date it closed: its taxes are tracked
+ * until then).
  */
 const FORMATS: { value: MoneyFormat; label: string }[] = [
     { value: 'space_dot', label: '2 851.99' },
@@ -55,6 +57,7 @@ const form = reactive({
     default_currency: 'USD',
     locale: 'en',
     is_active: true,
+    closed_at: '',
     display_format: 'space_dot' as MoneyFormat,
     invoice_format: 'plain_dot' as MoneyFormat,
 });
@@ -85,6 +88,7 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         default_currency: profile.data.default_currency,
         locale: profile.data.locale,
         is_active: profile.data.is_active,
+        closed_at: profile.data.closed_at ?? '',
         display_format: settings.data.display.money_format,
         invoice_format: settings.data.invoice.money_format,
     });
@@ -92,6 +96,13 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
 
     return profile.data;
 }, [profileId, isNew]);
+
+/**
+ * A ФОП switched off closes today unless another date is chosen; switched on again, it is open.
+ */
+function onActiveChange(): void {
+    form.closed_at = form.is_active ? '' : form.closed_at || today();
+}
 
 const sample = (format: MoneyFormat, amount: string) => formatAmount(amount, { format });
 
@@ -133,6 +144,9 @@ async function uploadSignature(event: Event): Promise<void> {
 const saving = ref(false);
 const saveError = ref<unknown>(null);
 
+/** A new ФОП, which was created although saving its settings failed: trying again updates it, not another one. */
+let createdId: number | null = null;
+
 async function save(): Promise<void> {
     saving.value = true;
     saveError.value = null;
@@ -150,15 +164,19 @@ async function save(): Promise<void> {
         default_currency: form.default_currency,
         locale: form.locale,
         is_active: form.is_active,
+        closed_at: form.is_active ? null : form.closed_at || null,
     };
 
     try {
         let id = profileId.value;
 
-        if (isNew.value) {
+        if (isNew.value && createdId === null) {
             const { data } = await api.post<ApiResponse<Profile>>('profiles', identity);
 
-            id = data.id;
+            id = createdId = data.id;
+        } else if (isNew.value) {
+            id = createdId;
+            await api.patch(`profiles/${id}`, identity);
         } else if (canEditIdentity.value) {
             await api.patch(`profiles/${id}`, identity);
         }
@@ -190,7 +208,7 @@ async function save(): Promise<void> {
 }
 
 const generalError = computed(() => {
-    const fields = ['full_name', 'full_name_en', 'tax_id', 'tax_id_kind', 'registered_at', 'email', 'phone', 'address', 'address_en'];
+    const fields = ['full_name', 'full_name_en', 'tax_id', 'tax_id_kind', 'registered_at', 'email', 'phone', 'address', 'address_en', 'closed_at'];
 
     return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
 });
@@ -217,7 +235,7 @@ const generalError = computed(() => {
                         :disabled="!canEditIdentity"
                         :error="fieldError(saveError, 'tax_id')"
                     />
-                    <DateField v-model="form.registered_at" label="Дата реєстрації" :error="fieldError(saveError, 'registered_at')" />
+                    <DateField v-model="form.registered_at" label="Дата реєстрації" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
                 </div>
                 <label class="flex min-h-11 items-center gap-3 text-15 text-ink-2">
                     <input v-model="form.passport" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity">
@@ -228,17 +246,17 @@ const generalError = computed(() => {
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>Адреса й контакти</SectionTitle>
-                <TextAreaField v-model="form.address" label="Адреса" :rows="2" :error="fieldError(saveError, 'address')" />
-                <TextAreaField v-model="form.address_en" label="Адреса англійською" :rows="2" :error="fieldError(saveError, 'address_en')" />
-                <TextField v-model="form.email" label="Email" type="email" :error="fieldError(saveError, 'email')" />
-                <TextField v-model="form.phone" label="Телефон" type="tel" placeholder="+380" :error="fieldError(saveError, 'phone')" />
+                <TextAreaField v-model="form.address" label="Адреса" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
+                <TextAreaField v-model="form.address_en" label="Адреса англійською" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
+                <TextField v-model="form.email" label="Email" type="email" :disabled="!canEditIdentity" :error="fieldError(saveError, 'email')" />
+                <TextField v-model="form.phone" label="Телефон" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
             </section>
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>Інвойси</SectionTitle>
                 <div class="grid grid-cols-2 gap-2.5">
-                    <SelectField v-model="form.default_currency" label="Валюта" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                    <SelectField v-model="form.locale" label="Мова документа" :options="[{ value: 'en', label: 'English' }, { value: 'uk', label: 'Українська' }]" />
+                    <SelectField v-model="form.default_currency" label="Валюта" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
+                    <SelectField v-model="form.locale" label="Мова документа" :disabled="!canEditIdentity" :options="[{ value: 'en', label: 'English' }, { value: 'uk', label: 'Українська' }]" />
                 </div>
                 <div v-if="!isNew" class="flex flex-col gap-1.5">
                     <span class="text-13 font-medium text-ink-2">Підпис у PDF</span>
@@ -284,10 +302,19 @@ const generalError = computed(() => {
                     <span class="text-15">Активний ФОП</span>
                     <span class="text-12 text-ink-3">Неактивний зникає з панелей і термінів</span>
                 </span>
-                <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity">
+                <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity" @change="onActiveChange">
             </label>
+            <DateField
+                v-if="!form.is_active"
+                v-model="form.closed_at"
+                label="Дата закриття"
+                hint="Податки й ЄСВ відстежуються до цієї дати"
+                :max="today()"
+                :disabled="!canEditIdentity"
+                :error="fieldError(saveError, 'closed_at')"
+            />
 
-            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">Дані податкової особи змінює власник організації.</p>
+            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">Дані податкової особи, адресу, контакти й мову документів змінює власник організації.</p>
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 

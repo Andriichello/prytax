@@ -6,7 +6,7 @@ import type {
     Account,
     ApiResponse,
     CurrentTaxPaymentRequisite,
-    Paginated,
+    Payment,
     QuarterTaxPayments,
     TaxAllocation,
     TaxMonths,
@@ -23,18 +23,30 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { currentQuarter, formatDayMonth, monthName, quarterLabel, quarterOf, today } from '@/utils/dates';
+import { currentQuarter, dateParts, formatDayMonth, monthName, quarterLabel, quarterOf, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
+import { amountsToPay, isToPay } from '@/utils/taxes';
 
 /**
  * Сплата податку (S-TaxPaymentNew): which tax, what it pays (a receipt, a month or a quarter), how much is left,
  * the amount and date, its status, the UAH account it left, and the budget requisites with the payment's purpose.
+ *
+ * Without a period in the link, the form opens on the earliest quarter, which is due and not paid. The amount follows
+ * what is left of the chosen tax and period until it is typed by hand.
  */
 const TAXES: TaxType[] = ['single_tax', 'military_levy', 'social_contribution'];
 const TAX_OPTIONS = TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] }));
+const STATUS_OPTIONS: { value: TaxPaymentStatus; label: string }[] = [
+    { value: 'sent', label: 'Надіслано' },
+    { value: 'paid', label: 'Сплачено' },
+    { value: 'failed', label: 'Не пройшов' },
+];
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: monthName(index + 1) }));
+const QUARTER_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) }));
 
 const route = useRoute();
 const router = useRouter();
@@ -43,76 +55,126 @@ const { profileId, path, settings } = useCurrentProfile();
 
 const now = currentQuarter();
 const query = route.query;
+const queryQuarter = Number(query.quarter) >= 1 && Number(query.quarter) <= 4 ? Number(query.quarter) : null;
+const queryPayment = Number(query.payment) || null;
+const queryAllocation = ['payment', 'month', 'quarter'].includes(query.allocation as string) ? query.allocation as TaxAllocation : null;
 
 const form = reactive({
     tax_type: (TAXES.includes(query.tax as TaxType) ? query.tax : 'single_tax') as TaxType,
-    allocation: (['payment', 'month', 'quarter'].includes(query.allocation as string) ? query.allocation : 'quarter') as TaxAllocation,
-    payment_id: Number(query.payment) || null as number | null,
+    allocation: queryAllocation ?? (queryPayment ? 'payment' : 'quarter') as TaxAllocation,
+    payment_id: queryPayment as number | null,
     period_year: Number(query.year) || now.year,
-    period_quarter: Number(query.quarter) || now.quarter,
-    period_month: Number(query.month) || (Number(query.quarter) ? Number(query.quarter) * 3 : new Date().getMonth() + 1),
+    period_quarter: queryQuarter ?? now.quarter,
+    period_month: Number(query.month) || (queryQuarter ? queryQuarter * 3 : dateParts(today()).month),
     amount: typeof query.amount === 'string' ? query.amount : '',
     paid_at: today(),
     status: 'paid' as TaxPaymentStatus,
     paid_from_account_id: null as number | null,
     reference: '',
 });
-const amountTouched = ref(typeof query.amount === 'string');
+
+/** Typed by hand: the amount then stays as it is when the tax or the period changes. */
+const amountTouched = ref(false);
+
+/** Chosen by hand (or given by the link): the period then isn't moved to the earliest due quarter. */
+const periodTouched = ref(queryQuarter !== null || Number(query.month) > 0 || queryPayment !== null);
 
 if (form.tax_type === 'social_contribution' && form.allocation === 'payment') {
     form.allocation = 'quarter';
 }
 
-/* Reference data, loaded as the choice changes */
-const accounts = ref<Account[]>([]);
-const reconciliation = ref<TaxReconciliation | null>(null);
-const months = ref<TaxMonths | null>(null);
-const receipts = ref<QuarterTaxPayments | null>(null);
-const requisite = ref<CurrentTaxPaymentRequisite | null>(null);
-const requisiteMissing = ref(false);
+/* The receipt of the link, opened without its quarter: the quarter is taken from the receipt */
+if (queryPayment && queryQuarter === null) {
+    void api.get<ApiResponse<Payment>>(path(`payments/${queryPayment}`)).then(({ data }) => {
+        form.period_year = data.period_year;
+        form.period_quarter = data.period_quarter;
+    }).catch(() => undefined);
+}
 
-void api.get<Paginated<Account>>(path('accounts'), { page: { size: 50 } }).then(({ data }) => {
-    accounts.value = data;
-    form.paid_from_account_id = settings.value?.taxes.default_account_id
-        ?? data.find((account) => account.currency === 'UAH' && account.is_active && account.kind === 'fop_bank')?.id
-        ?? null;
-});
+/* Reference data, loaded as the choice changes; an answer for an earlier choice is never shown */
+const accountsLoader = useLoader((signal) => api.all<Account>(path('accounts'), {}, signal), [profileId]);
+const accounts = computed(() => accountsLoader.data.value ?? []);
 
-watch(() => [profileId.value, form.tax_type, form.period_year] as const, async ([, taxType, year]) => {
-    reconciliation.value = null;
-    months.value = null;
+watch(accountsLoader.data, (list) => {
+    if (list && form.paid_from_account_id === null) {
+        form.paid_from_account_id = settings.value?.taxes.default_account_id
+            ?? list.find((account) => account.currency === 'UAH' && account.is_active && account.kind === 'fop_bank')?.id
+            ?? null;
+    }
+}, { once: true });
 
+const taxesKey = computed(() => `${form.tax_type}:${form.period_year}`);
+const taxesLoader = useLoader(async (signal) => {
+    const key = taxesKey.value;
     const [loaded, monthly] = await Promise.all([
-        api.get<ApiResponse<TaxReconciliation>>(path(`taxes/${year}`), { tax_type: taxType }),
-        api.get<ApiResponse<TaxMonths>>(path(`taxes/${year}/months`)),
+        api.get<ApiResponse<TaxReconciliation>>(path(`taxes/${form.period_year}`), { tax_type: form.tax_type }, signal),
+        api.get<ApiResponse<TaxMonths>>(path(`taxes/${form.period_year}/months`), undefined, signal),
     ]);
 
-    reconciliation.value = loaded.data;
-    months.value = monthly.data;
-}, { immediate: true });
+    return { key, reconciliation: loaded.data, months: monthly.data };
+}, [profileId, taxesKey]);
+const reconciliation = computed(() => (taxesLoader.data.value?.key === taxesKey.value ? taxesLoader.data.value.reconciliation : null));
+const months = computed(() => (taxesLoader.data.value?.key === taxesKey.value ? taxesLoader.data.value.months : null));
+const toPay = computed(() => (reconciliation.value ? amountsToPay(reconciliation.value) : null));
 
-watch(() => [form.allocation, form.period_year, form.period_quarter] as const, async ([allocation, year, quarter]) => {
-    if (allocation !== 'payment') {
+const receiptsKey = computed(() => (form.allocation === 'payment' ? `${form.period_year}:${form.period_quarter}` : null));
+const receiptsLoader = useLoader(async (signal) => {
+    const key = receiptsKey.value;
+
+    if (key === null) {
+        return null;
+    }
+
+    const { data } = await api.get<ApiResponse<QuarterTaxPayments>>(path(`taxes/${form.period_year}/${form.period_quarter}/payments`), undefined, signal);
+
+    return { key, data };
+}, [profileId, receiptsKey]);
+const receipts = computed(() => (receiptsLoader.data.value && receiptsLoader.data.value.key === receiptsKey.value ? receiptsLoader.data.value.data : null));
+
+watch(receipts, (data) => {
+    if (data && !data.rows.some((row) => row.type === 'payment' && row.payment_id === form.payment_id)) {
+        form.payment_id = data.rows.find((row) => row.type === 'payment')?.payment_id ?? null;
+    }
+});
+
+const receipt = computed(() => receipts.value?.rows.find((row) => row.type === 'payment' && row.payment_id === form.payment_id) ?? null);
+
+/* Opening on the earliest quarter, which is due and not paid (last year's IV кв. in its first quarter) */
+async function chooseDefaultPeriod(): Promise<void> {
+    if (periodTouched.value || form.allocation !== 'quarter') {
         return;
     }
 
-    const { data } = await api.get<ApiResponse<QuarterTaxPayments>>(path(`taxes/${year}/${quarter}/payments`));
+    const taxType = form.tax_type;
+    const years = Number(query.year) ? [form.period_year] : (now.quarter === 1 ? [now.year - 1, now.year] : [now.year]);
 
-    receipts.value = data;
+    try {
+        for (const year of years) {
+            const { data } = await api.get<ApiResponse<TaxReconciliation>>(path(`taxes/${year}`), { tax_type: taxType });
+            const amounts = amountsToPay(data);
+            const due = [...data.quarters].sort((a, b) => a.quarter - b.quarter).find((quarter) => isToPay(quarter, amounts.get(quarter.quarter)));
 
-    if (!data.rows.some((row) => row.type === 'payment' && row.payment_id === form.payment_id)) {
-        form.payment_id = data.rows.find((row) => row.type === 'payment')?.payment_id ?? null;
+            if (due) {
+                if (!periodTouched.value && form.tax_type === taxType && form.allocation === 'quarter') {
+                    form.period_year = year;
+                    form.period_quarter = due.quarter;
+                }
+
+                return;
+            }
+        }
+    } catch {
+        // The period stays as it is; the balances' own loading reports what failed
     }
-}, { immediate: true });
+}
 
-const receipt = computed(() => receipts.value?.rows.find((row) => row.type === 'payment' && row.payment_id === form.payment_id) ?? null);
+void chooseDefaultPeriod();
+watch(() => form.tax_type, () => void chooseDefaultPeriod());
 
 /* What is left to pay for the chosen period or receipt */
 const remaining = computed<string | null>(() => {
     if (form.allocation === 'quarter') {
-        const quarter = reconciliation.value?.quarters.find((item) => item.quarter === form.period_quarter);
-
-        return quarter ? (compareAmounts(quarter.balance, '0') < 0 ? quarter.balance.replace('-', '') : '0.00') : null;
+        return toPay.value?.get(form.period_quarter) ?? null;
     }
 
     if (form.allocation === 'month') {
@@ -140,8 +202,8 @@ const remaining = computed<string | null>(() => {
 });
 
 watch(remaining, (value) => {
-    if (!amountTouched.value && value !== null && compareAmounts(value, '0') > 0) {
-        form.amount = value;
+    if (!amountTouched.value && value !== null) {
+        form.amount = compareAmounts(value, '0') > 0 ? value : '';
     }
 });
 
@@ -157,28 +219,63 @@ const periodLabel = computed(() => {
     return `${quarterLabel(form.period_quarter)}`;
 });
 
-/* The budget's requisites for the tax and period, with the purpose filled in */
-watch(() => [form.tax_type, form.allocation, form.period_year, form.period_quarter, form.period_month, receipt.value?.received_at, form.paid_at] as const, async () => {
-    requisiteMissing.value = false;
+/*
+ * The budget's requisites for the tax and period, with the purpose filled in. ЄП and ВЗ are declared per quarter, so
+ * their purpose names the quarter, also when a payment is allocated to a month; ЄСВ names the month.
+ */
+const canPay = computed(() => can('create', 'tax-payments'));
 
-    const month = form.allocation === 'month' ? form.period_month : null;
-    const quarter = form.allocation === 'payment' && receipt.value ? quarterOf(receipt.value.received_at) : form.period_quarter;
+const requisiteQuery = computed(() => {
+    const byMonth = form.allocation === 'month' && form.tax_type === 'social_contribution';
+    const quarter = form.allocation === 'payment' && receipt.value
+        ? quarterOf(receipt.value.received_at)
+        : form.allocation === 'month' ? quarterOf(form.period_month) : form.period_quarter;
+
+    return {
+        tax_type: form.tax_type,
+        period_year: form.period_year,
+        period_quarter: byMonth ? undefined : quarter,
+        period_month: byMonth ? form.period_month : undefined,
+        date: form.paid_at || undefined,
+    };
+});
+const requisiteKey = computed(() => JSON.stringify(requisiteQuery.value));
+const requisiteLoader = useLoader(async (signal) => {
+    const key = requisiteKey.value;
+
+    if (!canPay.value) {
+        return { key, requisite: null, missing: false };
+    }
 
     try {
-        const { data } = await api.get<ApiResponse<CurrentTaxPaymentRequisite>>(path('tax-payment-requisites/current'), {
-            tax_type: form.tax_type,
-            period_year: form.period_year,
-            period_quarter: month ? undefined : quarter,
-            period_month: month ?? undefined,
-            date: form.paid_at || undefined,
-        });
+        const { data } = await api.get<ApiResponse<CurrentTaxPaymentRequisite>>(path('tax-payment-requisites/current'), requisiteQuery.value, signal);
 
-        requisite.value = data;
+        return { key, requisite: data, missing: false };
     } catch (caught) {
-        requisite.value = null;
-        requisiteMissing.value = caught instanceof ApiError && caught.status === 404;
+        if (caught instanceof ApiError && caught.status === 404) {
+            return { key, requisite: null, missing: true };
+        }
+
+        throw caught;
     }
-}, { immediate: true });
+}, [profileId, requisiteKey, canPay]);
+const requisite = computed(() => (requisiteLoader.data.value?.key === requisiteKey.value ? requisiteLoader.data.value.requisite : null));
+const requisiteMissing = computed(() => requisiteLoader.data.value?.key === requisiteKey.value && requisiteLoader.data.value.missing);
+
+/** Why the balances, receipts, accounts or requisites didn't load. */
+const loadError = computed(() => {
+    const failed = [accountsLoader.error.value, taxesLoader.error.value, receiptsLoader.error.value, requisiteLoader.error.value].find(Boolean);
+
+    return failed ? errorMessage(failed) : null;
+});
+
+function retryLoading(): void {
+    for (const loader of [accountsLoader, taxesLoader, receiptsLoader, requisiteLoader]) {
+        if (loader.error.value) {
+            void loader.reload();
+        }
+    }
+}
 
 const allRequisites = computed(() => (requisite.value
     ? [
@@ -213,7 +310,29 @@ const receiptOptions = computed(() => (receipts.value?.rows ?? [])
         label: `${formatDayMonth(row.received_at)} · ${row.invoice_number ?? row.description ?? ''} · ${formatAmount(row.uah_amount)} ₴`,
     })));
 
+const allocationOptions = computed<{ value: TaxAllocation; label: string }[]>(() => (form.tax_type === 'social_contribution'
+    ? [{ value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]
+    : [{ value: 'payment', label: 'Надходження' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]));
+
 const years = computed(() => [now.year, now.year - 1, now.year - 2].map((value) => ({ value, label: String(value) })));
+
+function onTaxChange(taxType: TaxType): void {
+    if (taxType === 'social_contribution' && form.allocation === 'payment') {
+        form.allocation = 'quarter';
+    }
+}
+
+/** Where the form returns: the view of Податки, which shows what was paid. */
+const returnTo = computed(() => ({
+    name: 'taxes',
+    query: {
+        tax: form.tax_type,
+        year: form.period_year,
+        ...(form.allocation === 'payment'
+            ? { view: 'receipts', quarter: form.period_quarter }
+            : { view: form.allocation === 'month' ? 'months' : 'quarters' }),
+    },
+}));
 
 /* Saving */
 const idempotencyKey = newIdempotencyKey();
@@ -239,7 +358,7 @@ async function save(): Promise<void> {
             reference: form.reference.trim() || null,
         }, { 'Idempotency-Key': idempotencyKey });
 
-        await router.replace({ name: 'taxes', query: { tax: form.tax_type, year: form.period_year } });
+        await router.replace(returnTo.value);
     } catch (caught) {
         saveError.value = caught;
     } finally {
@@ -255,28 +374,15 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen title="Сплата податку" :back="{ name: 'taxes', query: { tax: form.tax_type, year: form.period_year } }">
+    <SubScreen title="Сплата податку" :back="returnTo">
         <div class="flex flex-col gap-1.5">
             <span class="text-13 font-medium text-ink-2">Податок</span>
-            <SegmentedControl
-                v-model="form.tax_type"
-                label="Податок"
-                size="lg"
-                :options="TAX_OPTIONS"
-                @update:model-value="$event === 'social_contribution' && form.allocation === 'payment' && (form.allocation = 'quarter')"
-            />
+            <SegmentedControl v-model="form.tax_type" label="Податок" size="lg" :options="TAX_OPTIONS" @update:model-value="onTaxChange" />
         </div>
 
         <div class="flex flex-col gap-1.5">
             <span class="text-13 font-medium text-ink-2">Зарахувати на</span>
-            <SegmentedControl
-                v-model="form.allocation"
-                label="Зарахувати на"
-                size="lg"
-                :options="form.tax_type === 'social_contribution'
-                    ? [{ value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]
-                    : [{ value: 'payment', label: 'Надходження' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]"
-            />
+            <SegmentedControl v-model="form.allocation" label="Зарахувати на" size="lg" :options="allocationOptions" />
         </div>
 
         <div class="grid grid-cols-[2fr_1fr] gap-2.5">
@@ -284,17 +390,19 @@ const generalError = computed(() => {
                 v-if="form.allocation === 'month'"
                 v-model="form.period_month"
                 label="Місяць"
-                :options="Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: monthName(index + 1) }))"
+                :options="MONTH_OPTIONS"
                 :error="fieldError(saveError, 'period_month')"
+                @update:model-value="periodTouched = true"
             />
             <SelectField
                 v-else
                 v-model="form.period_quarter"
                 label="Квартал"
-                :options="[1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) }))"
+                :options="QUARTER_OPTIONS"
                 :error="fieldError(saveError, 'period_quarter')"
+                @update:model-value="periodTouched = true"
             />
-            <SelectField v-model="form.period_year" label="Рік" :options="years" />
+            <SelectField v-model="form.period_year" label="Рік" :options="years" @update:model-value="periodTouched = true" />
         </div>
 
         <SelectField
@@ -311,6 +419,11 @@ const generalError = computed(() => {
             <span class="num font-semibold">{{ formatMoney(remaining, 'UAH') }}</span>
         </div>
 
+        <p v-if="loadError" class="m-0 flex flex-wrap items-center gap-x-2 text-14 text-negative" role="alert">
+            {{ loadError }}
+            <button type="button" class="min-h-11 text-14 font-medium text-accent" @click="retryLoading">Повторити</button>
+        </p>
+
         <div class="grid grid-cols-2 gap-2.5">
             <TextField
                 v-model="form.amount"
@@ -325,19 +438,15 @@ const generalError = computed(() => {
 
         <div class="flex flex-col gap-1.5">
             <span class="text-13 font-medium text-ink-2">Статус</span>
-            <SegmentedControl
-                v-model="form.status"
-                label="Статус"
-                size="lg"
-                :options="[{ value: 'sent', label: 'Надіслано' }, { value: 'paid', label: 'Сплачено' }, { value: 'failed', label: 'Не пройшов' }]"
-            />
+            <SegmentedControl v-model="form.status" label="Статус" size="lg" :options="STATUS_OPTIONS" />
             <span class="text-12 text-ink-3">«Надіслано» показується як очікуване й не зменшує борг</span>
         </div>
 
         <SelectField
             v-model="form.paid_from_account_id"
             label="Сплачено з рахунку"
-            placeholder="Оберіть рахунок"
+            placeholder="Не вказувати"
+            clearable
             :options="accountOptions"
             hint="За замовчуванням із налаштувань · лише активні рахунки в UAH"
             :error="fieldError(saveError, 'paid_from_account_id')"
@@ -365,7 +474,7 @@ const generalError = computed(() => {
 
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
 
-        <template v-if="can('create', 'tax-payments')" #footer>
+        <template v-if="canPay" #footer>
             <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || (form.allocation === 'payment' && !form.payment_id)" @click="save">
                 Зберегти сплату
             </PrimaryButton>

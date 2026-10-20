@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, apiUrl } from '@/api/client';
 import type { ApiResponse, Invoice } from '@/api/types';
+import DateField from '@/components/form/DateField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceStepper from '@/components/invoice/InvoiceStepper.vue';
@@ -28,7 +29,8 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Інвойс (S-InvoiceDetail): status and how much is received, the receipts, the dates, items and document, an
- * editable note, and the status changes. A draft opens in its editor instead.
+ * editable note, and the status changes (sending, paying and cancelling ask for their date, today by default; paying
+ * defaults to the last receipt's date). A draft opens in its editor instead.
  */
 type Action = 'send' | 'pay' | 'cancel' | 'unfreeze';
 
@@ -59,6 +61,7 @@ const remaining = computed(() => (invoice.value ? subtractAmounts(invoice.value.
 const percent = computed(() => (invoice.value ? percentOf(paid.value, invoice.value.total) : 0));
 const isOpen = computed(() => invoice.value?.status === 'ready' || invoice.value?.status === 'sent');
 const covered = computed(() => invoice.value !== null && compareAmounts(paid.value, invoice.value.total) >= 0);
+const overdue = computed(() => isOpen.value && !covered.value && invoice.value?.due_at != null && invoice.value.due_at < today());
 const statusDate = computed(() => {
     const value = invoice.value;
 
@@ -116,19 +119,31 @@ const confirming = ref<Action>('send');
 const acting = ref(false);
 const actionError = ref<string | null>(null);
 
+/** The date of the status change: `sent_at`, `paid_at` or `cancelled_at`. */
+const actionDate = ref('');
+
+const DATE_FIELDS: Partial<Record<Action, { field: string; label: string }>> = {
+    send: { field: 'sent_at', label: 'Дата надсилання' },
+    pay: { field: 'paid_at', label: 'Дата оплати' },
+    cancel: { field: 'cancelled_at', label: 'Дата скасування' },
+};
+
 function ask(action: Action): void {
     menuOpen.value = false;
     actionError.value = null;
     confirming.value = action;
+    actionDate.value = action === 'pay' ? sortedPayments.value.at(-1)?.received_at ?? today() : today();
     confirmOpen.value = true;
 }
 
 async function act(): Promise<void> {
+    const date = DATE_FIELDS[confirming.value];
+
     acting.value = true;
     actionError.value = null;
 
     try {
-        await api.post(path(`invoices/${id.value}/${confirming.value}`), {});
+        await api.post(path(`invoices/${id.value}/${confirming.value}`), date && actionDate.value ? { [date.field]: actionDate.value } : {});
         confirmOpen.value = false;
         await reload();
     } catch (caught) {
@@ -139,9 +154,13 @@ async function act(): Promise<void> {
 }
 
 const CONFIRMS: Record<Action, { title: string; label: string; text: string; destructive?: boolean }> = {
-    send: { title: 'Позначити надісланим?', label: 'Надіслано', text: 'Інвойс надіслано клієнту сьогодні. Він залишиться відкритим до оплати.' },
+    send: { title: 'Позначити надісланим?', label: 'Надіслано', text: 'Інвойс надіслано клієнту. Він залишиться відкритим до оплати.' },
     pay: { title: 'Позначити оплаченим?', label: 'Оплачено', text: 'Надходження покривають суму інвойсу. Інвойс закриється.' },
-    unfreeze: { title: 'Повернути в чернетку?', label: 'Повернути', text: 'Номер звільниться, знімок і PDF буде видалено. Інвойс можна буде змінити й зафіксувати знову.' },
+    unfreeze: {
+        title: 'Повернути в чернетку?',
+        label: 'Повернути',
+        text: 'Номер збережеться (дата в ньому оновиться, якщо зміните період), знімок і згенерований PDF буде видалено. Інвойс можна буде змінити й зафіксувати знову.',
+    },
     cancel: {
         title: 'Скасувати інвойс?',
         label: 'Скасувати інвойс',
@@ -233,7 +252,7 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
                     <InfoRow label="Період послуг" figure>{{ formatPeriod(invoice.period_start, invoice.period_end) }}</InfoRow>
                     <InfoRow label="Виставлено" figure>{{ formatDate(invoice.issued_at) }}</InfoRow>
                     <InfoRow v-if="invoice.due_at" label="Сплатити до" figure>
-                        <span :class="isOpen && invoice.due_at < today() ? 'text-negative' : ''">{{ formatDate(invoice.due_at) }}</span>
+                        <span :class="overdue ? 'text-negative' : ''">{{ formatDate(invoice.due_at) }}</span>
                     </InfoRow>
                     <InfoRow v-if="invoice.contract" label="Договір">
                         {{ invoice.contract.name }} · <span class="num">{{ formatDate(invoice.contract.started_at) }}</span>
@@ -342,6 +361,13 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
             @confirm="act"
         >
             <p class="m-0">{{ CONFIRMS[confirming].text }}</p>
+            <DateField
+                v-if="DATE_FIELDS[confirming]"
+                v-model="actionDate"
+                :label="DATE_FIELDS[confirming]!.label"
+                :max="today()"
+                required
+            />
         </ConfirmSheet>
     </SubScreen>
 </template>

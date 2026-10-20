@@ -1,0 +1,1963 @@
+/**
+ * Types of the JSON responses of the PryTax API (`/api/...`).
+ *
+ * Built from the resources, models, enums, controllers and services of the Laravel app, and checked against real
+ * responses of the demo data. Request bodies aren't typed here.
+ *
+ * Conventions of the API, which the types follow:
+ * - Money is a string with two decimals (`Amount`), rates have four (`Rate`): never parse them into floats for sums.
+ * - Dates are `YYYY-MM-DD` (`DateString`), timestamps ISO 8601 (`DateTimeString`), mostly in UTC with microseconds
+ *   (`2026-10-20T18:48:05.000000Z`), a few with an offset (`2026-10-20T21:48:05+03:00`, noted where so).
+ * - Includes (`?include=client,items`) keep the relation's camelCase name and are optional properties; appends
+ *   (`?append=balance`) are optional too. A to-one include, whose record is missing, is `null`.
+ */
+
+// ---- Scalars ----
+
+/** Money: a decimal string with exactly two decimals, such as `"3892.50"` or `"-765.69"`. */
+export type Amount = string;
+
+/** A rate: a decimal string with four decimals, such as an NBU rate `"42.2297"` or a tax rate `"0.0500"`. */
+export type Rate = string;
+
+/** A percentage as a decimal string, such as `"76"`, `"14.7"` or `"0.99"` (the scale differs per field). */
+export type Percent = string;
+
+/** A calendar date, `YYYY-MM-DD`. */
+export type DateString = string;
+
+/** A timestamp in ISO 8601, such as `2026-10-20T18:48:05.000000Z`. */
+export type DateTimeString = string;
+
+/** An ISO 4217 currency code in upper case, such as `USD`, `EUR` or `UAH`. */
+export type CurrencyCode = string;
+
+// ---- Envelopes ----
+
+/** The body of every successful answer: the data and a message, such as `OK`, `Created` or `Frozen`. */
+export interface ApiResponse<T> {
+    data: T;
+    message: string;
+}
+
+/** An answer without data, such as the one of a deletion (`Deleted`) or of a logout (`Logged out`). */
+export interface MessageResponse {
+    message: string;
+}
+
+/** Links of a page; `prev` is null on the first page, `next` on the last. */
+export interface PageLinks {
+    first: string;
+    prev: string | null;
+    self: string;
+    next: string | null;
+    last: string;
+}
+
+/** The `meta` of a page of a list (`index` of every CRUD endpoint). */
+export interface PageMeta {
+    /** Position of the page's first item in the whole list; null for an empty page. */
+    from: number | null;
+    /** Position of the page's last item in the whole list; null for an empty page. */
+    to: number | null;
+    path: string;
+    per_page: number;
+    current_page: number;
+    /** 1 for an empty list. */
+    last_page: number;
+    total: number;
+    links: PageLinks;
+}
+
+/** A page of a list: `GET` of every CRUD collection, such as `profiles/{profile}/invoices?page[number]=2`. */
+export interface Paginated<T> {
+    data: T[];
+    meta: PageMeta;
+    message: string;
+}
+
+/** The body of an error: 422 has `errors` by field (dotted for nested ones), other statuses only the message. */
+export interface ValidationErrorBody {
+    message: string;
+    errors?: Record<string, string[]>;
+}
+
+// ---- Enums ----
+
+export type AccountKind = 'platform' | 'fop_bank' | 'foreign_bank' | 'personal';
+
+export type AlertCategory = 'funds' | 'invoices' | 'deadlines';
+
+export type AlertSeverity = 'info' | 'warning' | 'error';
+
+export type DeclarationStatus = 'none' | 'filled' | 'submitted' | 'rejected' | 'accepted' | 'corrected';
+
+export type EsvStatus = 'due' | 'exempt';
+
+export type FxGainPolicy = 'ignore' | 'include';
+
+export type InvoiceSource = 'generated' | 'external';
+
+export type InvoiceStatus = 'draft' | 'ready' | 'sent' | 'paid' | 'cancelled';
+
+export type ItemUnit = 'hour' | 'fixed' | 'item';
+
+export type LimitCounts = 'receipts' | 'all_inbound';
+
+export type LimitPeriod = 'month' | 'quarter' | 'year';
+
+export type LimitWindow = 'calendar' | 'rolling';
+
+export type MoneyFormat = 'plain_dot' | 'space_dot' | 'comma_dot' | 'plain_comma' | 'space_comma' | 'dot_comma';
+
+export type MovementCategory = 'bank_fee' | 'interest' | 'expense' | 'owner_withdrawal' | 'other';
+
+export type MovementDirection = 'in' | 'out';
+
+export type NumberingDateSource = 'period_end' | 'issued_at';
+
+export type NumberingReset = 'never' | 'yearly';
+
+export type NumberingScope = 'per_client' | 'global';
+
+export type NumberingStrategy = 'date_sequence' | 'sequence';
+
+export type PaymentKind = 'invoice' | 'advance' | 'other' | 'fx_gain';
+
+export type TaxableBase = 'invoiced' | 'received';
+
+export type TaxAllocation = 'payment' | 'month' | 'quarter';
+
+export type TaxGrouping = 'payment' | 'month' | 'quarter';
+
+export type TaxIdKind = 'rnokpp' | 'passport';
+
+export type TaxPaymentStatus = 'sent' | 'paid' | 'failed';
+
+export type TaxType = 'single_tax' | 'military_levy' | 'social_contribution';
+
+/** Roles of `api-core.roles`. */
+export type RoleName = 'owner' | 'accountant' | 'viewer';
+
+/**
+ * The state of a quarter of a tax (TaxReconciler): ahead of today, today's, settled (running balance ≥ 0), owed
+ * past its deadline, or owed before it.
+ */
+export type TaxQuarterState = 'future' | 'current' | 'closed' | 'overdue' | 'due';
+
+/** How a receipt's tax is settled: by its own payments, by a paid month's or quarter's payment, sent, or not at all. */
+export type ReceiptTaxStatus = 'paid' | 'covered' | 'pending' | 'unpaid';
+
+/** Kinds of alerts, which AlertCollector raises. */
+export type AlertType =
+    | 'deadline'
+    | 'correction'
+    | 'repatriation'
+    | 'limit'
+    | 'cap'
+    | 'contract'
+    | 'overdue'
+    | 'ready_without_receipts'
+    | 'manual_rate'
+    | 'tax_rules';
+
+// ---- Auth ----
+
+/** The user's organization in `Me`. */
+export interface MeOrganization {
+    id: number;
+    slug: string;
+    name: string;
+}
+
+/** The user, who switched to this account (`auth/switch`). */
+export interface Impersonator {
+    id: number;
+    organization_id: number;
+    name: string;
+    email: string;
+}
+
+/** The signed-in user: `GET|PATCH auth/me`, and `user` of the login and switch responses. */
+export interface Me {
+    id: number;
+    organization_id: number | null;
+    name: string;
+    email: string;
+    /** When the person last set their password themselves, or null. */
+    password_updated_at: DateTimeString | null;
+    timezone: string;
+    locale: string;
+    metadata: Record<string, unknown> | null;
+    email_verified_at: DateTimeString | null;
+    suspended_at: DateTimeString | null;
+    last_login_at: DateTimeString | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    deleted_at: DateTimeString | null;
+    /** The main account this one is linked to, or null for a main account. */
+    main_account_id: number | null;
+    /** True when someone else set the password, so the client should ask for a new one. */
+    is_password_update_required: boolean;
+    organization: MeOrganization | null;
+    roles: RoleName[];
+    /** Names of all permissions, such as `view models.invoices` or `configure models.profiles`. */
+    permissions: string[];
+    impersonator: Impersonator | null;
+}
+
+/** `POST auth/login` from the SPA (a stateful domain): the session cookie authenticates, no token is issued. */
+export interface SessionLogin {
+    user: Me;
+}
+
+/** `POST auth/refresh`: a new access and refresh token pair (the old pair stops working). */
+export interface TokenPair {
+    token_type: 'Bearer';
+    access_token: string;
+    expires_at: DateTimeString;
+    /** Whole seconds. */
+    expires_in: number;
+    refresh_token: string;
+    refresh_expires_at: DateTimeString;
+}
+
+/** `POST auth/login` from a non-stateful client: tokens and the user. */
+export interface TokenLogin extends TokenPair {
+    user: Me;
+}
+
+// ---- Files ----
+
+/** Collections of files: an invoice's rendered PDFs, its uploaded ones, and a profile's signature image. */
+export type FileCollectionName = 'generated' | 'uploaded' | 'signature';
+
+/**
+ * A stored file of api-core (named so as not to shadow the DOM's `File`): `profiles/{profile}/invoices/{invoice}/files`,
+ * `profiles/{profile}/signatures`, and the `primaryFile`/`files` includes of an invoice.
+ */
+export interface StoredFile {
+    id: number;
+    /** Morph alias of the owner, such as `models.invoices` or `models.profiles`. */
+    fileable_type: string;
+    fileable_id: number;
+    collection: FileCollectionName;
+    /** The name it is downloaded under. */
+    name: string;
+    mime_type: string;
+    /** Bytes. */
+    size: number;
+    sha256: string;
+    /** A generated invoice PDF has `{schema_version, template_version}`. */
+    metadata: Record<string, unknown> | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    /** Append `url`: a temporary download URL, or null when the disk gives none. */
+    url?: string | null;
+}
+
+/** An invoice of the profile, which has a file of the same SHA-256 already. */
+export interface DuplicateFileInvoice {
+    invoice_id: number;
+    number: string | null;
+}
+
+/** `POST profiles/{profile}/invoices/{invoice}/files`: the uploaded file, whether it became primary, and duplicates. */
+export interface UploadedInvoiceFile extends StoredFile {
+    is_primary: boolean;
+    duplicates: DuplicateFileInvoice[];
+}
+
+// ---- Profiles & settings ----
+
+/** A ФОП of the organization: `profiles`, `profiles/{id}`. */
+export interface Profile {
+    id: number;
+    organization_id: number;
+    created_by_user_id: number | null;
+    /** Tax group of the single tax, always `"3"`. */
+    tax_group: string;
+    full_name: string;
+    full_name_en: string | null;
+    /** The full РНОКПП or passport number; left out for users, who can't configure the profile. */
+    tax_id?: string;
+    tax_id_kind: TaxIdKind;
+    registered_at: DateString | null;
+    address: string | null;
+    address_en: string | null;
+    email: string | null;
+    phone: string | null;
+    default_currency: CurrencyCode;
+    locale: string;
+    is_active: boolean;
+    closed_at: DateString | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    deleted_at: DateTimeString | null;
+    /** Only the last four characters of the tax id, such as `••••4821`. */
+    tax_id_masked: string;
+    /** Surname with initials, such as `Коваленко О. П.`. */
+    short_name: string;
+    /** Two letters of the avatar, such as `КО`. */
+    initials: string;
+    /** Append: unresolved alerts of the profile, which the signed-in user hasn't read. */
+    unread_alerts_count?: number;
+    /** Append: whether a quarter's declaration was corrected, so an уточнююча декларація is due. */
+    needs_correction?: boolean;
+}
+
+/** How long money may stay on a platform: until the quarter's end, never checked, or N days. */
+export type PlatformRepatriation = 'quarter_end' | 'off' | `days:${number}`;
+
+/** `GET|PATCH profiles/{profile}/settings`: every setting of the profile, defaults included, nested by key. */
+export interface ProfileSettings {
+    invoice: {
+        numbering: {
+            strategy: NumberingStrategy;
+            scope: NumberingScope;
+            reset: NumberingReset;
+            date_source: NumberingDateSource;
+        };
+        /** Printed under the invoice, unless the client has its own note. */
+        footer_note: string | null;
+        /** Money format of the PDFs. */
+        money_format: MoneyFormat;
+    };
+    display: {
+        /** Money format of the screens. */
+        money_format: MoneyFormat;
+    };
+    income: {
+        taxable_base: TaxableBase;
+        fx_gain: FxGainPolicy;
+    };
+    taxes: {
+        default_grouping: TaxGrouping;
+        /** The active UAH ФОП account, from which taxes are paid by default. */
+        default_account_id: number | null;
+        /** Day of the month ЄСВ is due; null takes the tax rule's day (the 19th). */
+        esv_due_day: number | null;
+    };
+    compliance: {
+        platform_repatriation: PlatformRepatriation;
+    };
+    alerts: {
+        /** Days before a deadline, from which it is reported. */
+        deadline_days: number;
+        /** Days, after which a ready invoice without receipts is reported. */
+        ready_days: number;
+    };
+}
+
+// ---- Accounts & transfers ----
+
+/** A labelled requisite of an account, printed on invoices, such as `{label: "ACH routing", value: "…"}`. */
+export interface AccountDetail {
+    label: string;
+    value: string;
+}
+
+/** Progress towards an account's limit: `limit_progress` of an account and `limit` of its statement. */
+export interface AccountLimitProgress {
+    used: Amount;
+    limit: Amount;
+    remaining: Amount;
+    /** Whole percent, such as `"76"`. */
+    percent: Percent;
+    period: LimitPeriod;
+    window: LimitWindow;
+    counts: LimitCounts;
+    /** First day of the counted window. */
+    from: DateString;
+    /** Last day of the counted window. */
+    to: DateString;
+}
+
+/** An account of a profile, one per currency: `profiles/{profile}/accounts`. */
+export interface Account {
+    id: number;
+    profile_id: number;
+    created_by_user_id: number | null;
+    name: string;
+    kind: AccountKind;
+    currency: CurrencyCode;
+    holder_name: string | null;
+    bank_name: string | null;
+    iban: string | null;
+    swift: string | null;
+    account_number: string | null;
+    details: AccountDetail[] | null;
+    limit_amount: Amount | null;
+    limit_period: LimitPeriod | null;
+    limit_window: LimitWindow;
+    limit_counts: LimitCounts;
+    is_active: boolean;
+    sort_order: number;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    openingBalances?: AccountOpeningBalance[];
+    /** Append: balance of the tracked flows, in the account's currency. */
+    balance?: Amount;
+    /** Append: progress towards the limit, or null without a limit. */
+    limit_progress?: AccountLimitProgress | null;
+}
+
+/** The balance of an account on a date, from which its flows are counted: `…/accounts/{account}/opening-balances`. */
+export interface AccountOpeningBalance {
+    id: number;
+    profile_id: number;
+    account_id: number;
+    created_by_user_id: number | null;
+    as_of: DateString;
+    /** In the account's currency; may be negative. */
+    amount: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    account?: Account;
+}
+
+/** A non-taxable movement, such as a bank fee or interest: `…/accounts/{account}/movements`. */
+export interface AccountMovement {
+    id: number;
+    profile_id: number;
+    account_id: number;
+    created_by_user_id: number | null;
+    direction: MovementDirection;
+    /** Always positive; `direction` gives the sign. */
+    amount: Amount;
+    booked_at: DateString;
+    category: MovementCategory;
+    note: string | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    account?: Account;
+}
+
+/** A movement between two of the profile's accounts: `profiles/{profile}/transfers`. */
+export interface AccountTransfer {
+    id: number;
+    profile_id: number;
+    from_account_id: number;
+    to_account_id: number;
+    created_by_user_id: number | null;
+    amount_sent: Amount;
+    currency_sent: CurrencyCode;
+    amount_received: Amount;
+    currency_received: CurrencyCode;
+    /** Same-currency: sent − received; FX: the explicit fee, in `fee_currency` (the currency sent). */
+    fee_amount: Amount | null;
+    fee_currency: CurrencyCode | null;
+    /** NBU rate of `received_at`, for an FX transfer with a UAH leg. */
+    nbu_rate: Rate | null;
+    rate_is_manual: boolean;
+    sent_at: DateString | null;
+    received_at: DateString;
+    reference: string | null;
+    note: string | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    fromAccount?: Account;
+    toAccount?: Account;
+    allocations?: TransferAllocation[];
+    /** Append: loss against the NBU rate of the UAH leg, in UAH (positive is a loss), or null for non-FX. */
+    fx_spread?: Amount | null;
+    /** Append: `amount_received / amount_sent` of an FX transfer, or null. */
+    effective_rate?: Rate | null;
+}
+
+/** The part of a transfer, which carries a receipt's money, in the transfer's `currency_sent`. */
+export interface TransferAllocation {
+    id: number;
+    transfer_id: number;
+    payment_id: number;
+    amount: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    payment?: Payment;
+    transfer?: AccountTransfer;
+}
+
+/** In- and outbound sums of an account in a year (all in the account's currency, positive). */
+export interface AccountFlows {
+    /** receipts + transfers_in + movements_in */
+    inbound: Amount;
+    /** transfers_out + taxes + refunds + movements_out */
+    outbound: Amount;
+    receipts: Amount;
+    transfers_in: Amount;
+    transfers_out: Amount;
+    /** Tax payments, which aren't failed. */
+    taxes: Amount;
+    refunds: Amount;
+    movements_in: Amount;
+    movements_out: Amount;
+}
+
+/** A receipt's money, which is still on the account. */
+export interface AccountHolding {
+    payment_id: number;
+    received_at: DateString;
+    invoice_id: number | null;
+    invoice_number: string | null;
+    client_name: string | null;
+    description: string | null;
+    /** In the account's currency. */
+    amount: Amount;
+    /** The repatriation deadline on a platform or foreign bank, else null. */
+    repatriation_deadline: DateString | null;
+    /** Past the deadline and not acknowledged. */
+    is_late: boolean;
+}
+
+interface StatementEntryBase {
+    date: DateString;
+    /** Signed, in the account's currency: positive comes in, negative goes out. */
+    amount: Amount;
+}
+
+/** A receipt, which landed on the account. */
+export interface StatementReceiptEntry extends StatementEntryBase {
+    type: 'receipt';
+    /** amount − received_amount, when the currencies are the same, else null. */
+    fee: Amount | null;
+    payment_id: number;
+    invoice_number: string | null;
+    /** The client's name, or the receipt's description. */
+    title: string | null;
+}
+
+/** A transfer into or out of the account. */
+export interface StatementTransferEntry extends StatementEntryBase {
+    type: 'transfer_in' | 'transfer_out';
+    /** The transfer's fee, in the currency sent. */
+    fee: Amount | null;
+    transfer_id: number;
+    /** Name of the other account. */
+    title: string;
+}
+
+/** A tax payment from the account (failed ones are left out). */
+export interface StatementTaxEntry extends StatementEntryBase {
+    type: 'tax';
+    tax_payment_id: number;
+    /** The tax type's value, not a label. */
+    title: TaxType;
+    status: TaxPaymentStatus;
+}
+
+/** A refund to a client from the account. */
+export interface StatementRefundEntry extends StatementEntryBase {
+    type: 'refund';
+    refund_id: number;
+    payment_id: number;
+    /** The refund's reason. */
+    title: string | null;
+}
+
+/** A non-taxable movement of the account. */
+export interface StatementMovementEntry extends StatementEntryBase {
+    type: 'movement';
+    movement_id: number;
+    category: MovementCategory;
+    /** The movement's note. */
+    title: string | null;
+}
+
+export type StatementEntry =
+    | StatementReceiptEntry
+    | StatementTransferEntry
+    | StatementTaxEntry
+    | StatementRefundEntry
+    | StatementMovementEntry;
+
+/** `GET profiles/{profile}/accounts/{id}/statement?year=`: an account's screen. */
+export interface AccountStatement {
+    account_id: number;
+    year: number;
+    currency: CurrencyCode;
+    /** Balance today (not at the year's end). */
+    balance: Amount;
+    limit: AccountLimitProgress | null;
+    /** Flows of the year. */
+    flows: AccountFlows;
+    /** Receipts, whose money is still on the account (today, not by year). */
+    holdings: AccountHolding[];
+    holdings_total: Amount;
+    /** Entries of the year, newest first. */
+    history: StatementEntry[];
+}
+
+/** A receipt, whose money is on the account a transfer leaves. */
+export interface TransferCandidate {
+    payment_id: number;
+    received_at: DateString;
+    invoice_number: string | null;
+    client_name: string | null;
+    description: string | null;
+    /** What of the receipt is still on the account, in its currency. */
+    holding: Amount;
+}
+
+/** A proposed allocation of a transfer to a receipt, in the currency sent. */
+export interface ProposedAllocation {
+    payment_id: number;
+    amount: Amount;
+}
+
+/** `POST profiles/{profile}/transfers/propose`: how a transfer of the amount could be allocated to receipts. */
+export interface TransferProposal {
+    /** All of the receipts' money on the account. */
+    available: Amount;
+    /** The receipts held on the account, oldest first. */
+    candidates: TransferCandidate[];
+    /** One receipt, whose holding equals the amount exactly, or null. */
+    exact: ProposedAllocation[] | null;
+    /** Oldest receipts first, until the amount is covered. */
+    fifo: ProposedAllocation[];
+    /** What FIFO couldn't allocate. */
+    unallocated: Amount;
+}
+
+/** Transfers between two accounts in a year. */
+export interface TransferRoute {
+    from_account_id: number;
+    from_account_name: string;
+    to_account_id: number;
+    to_account_name: string;
+    currency_sent: CurrencyCode;
+    currency_received: CurrencyCode;
+    count: number;
+    /** In the currency sent. */
+    sent: Amount;
+    /** In the currency sent. */
+    fees: Amount;
+    fees_uah: Amount;
+    spread_uah: Amount;
+    /** Sent, at the NBU rate, for routes received in UAH; else `"0.00"`. */
+    sent_uah: Amount;
+    /** (fees_uah + spread_uah) / sent_uah for routes into UAH, else fees / sent; two decimals. */
+    loss_percent: Percent;
+}
+
+/** `GET profiles/{profile}/transfers/stats?year=`: the year's transfer losses. */
+export interface TransferStats {
+    fees_uah: Amount;
+    spread_uah: Amount;
+    /** Transfers, whose fees aren't in `fees_uah`, since their currency's NBU rate isn't cached. */
+    unknown_fees_count: number;
+    routes: TransferRoute[];
+}
+
+// ---- Clients & contracts ----
+
+/** A client's postal address. */
+export interface ClientAddress {
+    lines?: (string | null)[];
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+}
+
+/** What a client owes in one currency: append `outstanding` of a client. */
+export interface ClientOutstanding {
+    currency: CurrencyCode;
+    /** Left to pay on open (ready and sent) invoices. */
+    amount: Amount;
+    /** The part of `amount` past its due date. */
+    overdue: Amount;
+}
+
+/** A counterparty of invoices: `profiles/{profile}/clients`. */
+export interface Client {
+    id: number;
+    profile_id: number;
+    created_by_user_id: number | null;
+    name: string;
+    legal_name: string | null;
+    name_uk: string | null;
+    legal_name_uk: string | null;
+    /** ISO 3166-1 alpha-2, such as `US`. */
+    country: string | null;
+    currency: CurrencyCode | null;
+    vat_number: string | null;
+    address: ClientAddress | null;
+    tax_id: string | null;
+    email: string | null;
+    invoice_footer_note: string | null;
+    notes: string | null;
+    is_active: boolean;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    /** Only through the clients endpoints, not when a client is included elsewhere. */
+    contracts_count?: number;
+    /** Only through the clients endpoints, not when a client is included elsewhere. */
+    invoices_count?: number;
+    contracts?: Contract[];
+    projects?: Project[];
+    chargeTypes?: ChargeType[];
+    /** Append: per currency. */
+    outstanding?: ClientOutstanding[];
+}
+
+/** A service agreement with a client: `profiles/{profile}/clients/{client}/contracts`. */
+export interface Contract {
+    id: number;
+    profile_id: number;
+    client_id: number;
+    created_by_user_id: number | null;
+    name: string;
+    number: string | null;
+    started_at: DateString;
+    ends_at: DateString | null;
+    currency: CurrencyCode;
+    payment_terms_days: number | null;
+    /** Such as `IT services in accordance to the {name} dated {started_at:F j, Y}`. */
+    description_template: string | null;
+    is_active: boolean;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    client?: Client;
+    rates?: ContractRate[];
+}
+
+/** An hourly rate of a contract from a date, for a charge type or (without one) the default. */
+export interface ContractRate {
+    id: number;
+    contract_id: number;
+    charge_type_id: number | null;
+    effective_from: DateString;
+    hourly_rate: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    chargeType?: ChargeType | null;
+}
+
+/** A project of a client: `profiles/{profile}/clients/{client}/projects`. */
+export interface Project {
+    id: number;
+    profile_id: number;
+    client_id: number;
+    /** The client's inner code, such as `PROTO`. */
+    code: string;
+    name: string;
+    is_active: boolean;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    client?: Client;
+}
+
+/** A kind of work of a client, such as `Billable`: `profiles/{profile}/clients/{client}/charge-types`. */
+export interface ChargeType {
+    id: number;
+    profile_id: number;
+    client_id: number;
+    name: string;
+    is_active: boolean;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    client?: Client;
+}
+
+/** What a client paid and owes in one currency. */
+export interface ClientStatsCurrency {
+    currency: CurrencyCode;
+    /** Receipts less refunds. */
+    paid_all_time: Amount;
+    paid_this_year: Amount;
+    paid_previous_year: Amount;
+    outstanding: Amount;
+    overdue: Amount;
+}
+
+/** `GET profiles/{profile}/clients/{id}/stats`. */
+export interface ClientStats {
+    client_id: number;
+    /** The current year, which `paid_this_year` is of. */
+    year: number;
+    /** The earliest contract start or invoice date. */
+    since: DateString | null;
+    invoices_count: number;
+    currencies: ClientStatsCurrency[];
+}
+
+// ---- Invoices ----
+
+/** A line of an invoice: the `items` include of an invoice. */
+export interface InvoiceItem {
+    id: number;
+    invoice_id: number;
+    position: number;
+    project_id: number | null;
+    /** Copied from the project, so renames don't change the invoice. */
+    project_code: string | null;
+    charge_type_id: number | null;
+    /** The charge type's name, copied. */
+    charge_type: string | null;
+    description: string;
+    unit: ItemUnit;
+    /** Two decimals, such as hours `"86.50"`. */
+    quantity: string;
+    unit_price: Amount;
+    amount: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/** A line of the snapshot. */
+export interface InvoiceSnapshotItem {
+    position: number;
+    project_code: string | null;
+    charge_type: string | null;
+    description: string;
+    unit: ItemUnit;
+    /** Two decimals. */
+    quantity: string;
+    unit_price: Amount;
+    amount: Amount;
+}
+
+/** What the freeze copied of the profile, client, contract, account and items, which the PDF is rendered from. */
+export interface InvoiceSnapshot {
+    schema_version: number;
+    money_format: MoneyFormat;
+    locale: string;
+    /** With an offset, such as `2026-10-20T21:48:05+03:00`. */
+    frozen_at: DateTimeString;
+    profile: {
+        full_name: string;
+        full_name_en: string | null;
+        tax_id: string;
+        tax_id_kind: TaxIdKind;
+        registered_at: DateString | null;
+        address: string | null;
+        address_en: string | null;
+        email: string | null;
+        phone: string | null;
+        signature_file_id: number | null;
+    };
+    client: {
+        name: string;
+        legal_name: string | null;
+        country: string | null;
+        vat_number: string | null;
+        tax_id: string | null;
+        address: ClientAddress | null;
+        email: string | null;
+    };
+    contract: {
+        name: string;
+        number: string | null;
+        started_at: DateString;
+        ends_at: DateString | null;
+        payment_terms_days: number | null;
+    } | null;
+    account: {
+        name: string;
+        kind: AccountKind;
+        currency: CurrencyCode;
+        holder_name: string | null;
+        bank_name: string | null;
+        iban: string | null;
+        swift: string | null;
+        account_number: string | null;
+        details: AccountDetail[] | null;
+    };
+    invoice: {
+        number: string | null;
+        source: InvoiceSource;
+        period_start: DateString;
+        period_end: DateString;
+        issued_at: DateString;
+        due_at: DateString | null;
+        currency: CurrencyCode;
+    };
+    items: InvoiceSnapshotItem[];
+    totals: {
+        subtotal: Amount;
+        adjustment_amount: Amount;
+        adjustment_label: string | null;
+        total: Amount;
+    };
+    footer_note: string | null;
+}
+
+/**
+ * An invoice: `profiles/{profile}/invoices` and its lifecycle actions (`freeze`, `unfreeze`, `send`, `pay`,
+ * `cancel`), which answer the invoice with the messages `Frozen`, `Unfrozen`, `Sent`, `Paid`, `Cancelled`.
+ */
+export interface Invoice {
+    id: number;
+    profile_id: number;
+    client_id: number;
+    contract_id: number | null;
+    receiving_account_id: number;
+    created_by_user_id: number | null;
+    /** Null until the freeze allocates it (an external invoice has its own). */
+    number: string | null;
+    /** The counter the number came from, such as `global`, `client:5` or `global:2027`. */
+    sequence_scope_key: string | null;
+    sequence_number: number | null;
+    source: InvoiceSource;
+    period_start: DateString;
+    period_end: DateString;
+    issued_at: DateString;
+    due_at: DateString | null;
+    currency: CurrencyCode;
+    subtotal: Amount;
+    /** Added to the subtotal; negative for a discount. */
+    adjustment_amount: Amount;
+    adjustment_label: string | null;
+    total: Amount;
+    status: InvoiceStatus;
+    /** Set by the freeze. */
+    locked_at: DateTimeString | null;
+    sent_at: DateString | null;
+    paid_at: DateString | null;
+    cancelled_at: DateString | null;
+    notes: string | null;
+    primary_file_id: number | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    deleted_at: DateTimeString | null;
+    /** What the receipts cover, net of refunds, in the invoice's currency. Always present. */
+    paid_amount: Amount;
+    client?: Client;
+    contract?: Contract | null;
+    receivingAccount?: Account;
+    items?: InvoiceItem[];
+    payments?: Payment[];
+    primaryFile?: StoredFile | null;
+    files?: StoredFile[];
+    /** Append: the number a draft would get if frozen now; null past the draft. */
+    number_preview?: string | null;
+    /** Append: ready and without receipts, so it may go back to its draft. */
+    can_unfreeze?: boolean;
+    /** Append: null for a draft. */
+    snapshot?: InvoiceSnapshot | null;
+}
+
+/** An invoice counter: `GET|PATCH profiles/{profile}/invoices/counters`. */
+export interface InvoiceCounter {
+    /** Such as `global`, `global:2027`, `client:5` or `client:5:2027`. */
+    scope_key: string;
+    last_number: number;
+    client_id: number | null;
+    client_name: string | null;
+}
+
+/** `GET profiles/{profile}/invoices/number-preview?client_id=&period_end=&issued_at=`. */
+export interface NumberPreview {
+    number: string;
+    scope_key: string;
+}
+
+/** The contract's hourly rate for one of the client's active charge types. */
+export interface ChargeTypeRate {
+    charge_type_id: number;
+    name: string;
+    /** Null without a contract and period end, or when the contract's currency differs. */
+    hourly_rate: Amount | null;
+}
+
+/** `GET profiles/{profile}/invoices/defaults?client_id=&contract_id=&period_end=&issued_at=`: a new invoice's form. */
+export interface InvoiceDefaults {
+    source: InvoiceSource;
+    currency: CurrencyCode;
+    /** The given issue date, else the period end, else null. */
+    issued_at: DateString | null;
+    /** The issue date plus the contract's payment terms, or null. */
+    due_at: DateString | null;
+    receiving_account_id: number | null;
+    /** The contract's description template, expanded. */
+    description: string | null;
+    /** The contract's default hourly rate at the period end, or null. */
+    hourly_rate: Amount | null;
+    charge_type_rates: ChargeTypeRate[];
+    /** For the issue date (today without one). */
+    number_preview: string;
+}
+
+/** `GET profiles/{profile}/invoices/outstanding`: open (ready and sent) invoices of one currency. */
+export interface OutstandingTotal {
+    currency: CurrencyCode;
+    count: number;
+    total: Amount;
+    paid: Amount;
+    remaining: Amount;
+    /** Invoices past their due date with something left to pay. */
+    overdue_count: number;
+    overdue: Amount;
+}
+
+/** `GET profiles/{profile}/invoices/facets`: the values the filters offer, with their counts. */
+export interface InvoiceFacets {
+    /** Years of `issued_at`. */
+    years: { year: number; count: number }[];
+    currencies: { currency: CurrencyCode; count: number }[];
+    statuses: { status: InvoiceStatus; count: number }[];
+    /** By name. */
+    clients: { client_id: number; name: string | null; count: number }[];
+}
+
+/** `GET profiles/{profile}/invoices/duplicates?sha256=`: invoices, which have a file of that hash. */
+export interface InvoiceDuplicate {
+    invoice_id: number;
+    number: string | null;
+    status: InvoiceStatus;
+    client_name: string | null;
+    issued_at: DateString;
+}
+
+// ---- Payments & refunds ----
+
+/** An account in the path of a receipt's money. */
+export interface FlowAccount {
+    account_id: number | null;
+    account_name: string | null;
+    kind: AccountKind | null;
+    currency: CurrencyCode | null;
+}
+
+/** Money of a receipt on an account, in the account's currency. */
+export interface FlowHolding extends FlowAccount {
+    amount: Amount;
+}
+
+/** Fees, landing and net income of a receipt: append `metrics` of a payment, and part of `PaymentFlow`. */
+export interface PaymentMetrics {
+    /** amount − received_amount when the currencies are the same, else null (null for an FX gain). */
+    receipt_fee: Amount | null;
+    /** Loss against the NBU of a receipt received in UAH, in UAH; else null. */
+    receipt_fx_spread: Amount | null;
+    /** The receipt's share of its transfers' fees, in its currency; null when a rate isn't cached. */
+    transfer_fee_share: Amount | null;
+    /** transfer_fee_share + receipt_fee, in the receipt's currency; null when unknown. */
+    fees: Amount | null;
+    /** What reached ФОП bank accounts, per account, in each account's currency. */
+    landed_on_fop_bank: FlowHolding[];
+    /** What is still on the receiving platform, in its currency. */
+    still_on_platform: Amount;
+    /** ЄП and ВЗ of the receipt in its currency. */
+    taxes_in_currency: Amount;
+    /** Received − transfer fees − taxes, in the receipt's currency; null when unknown. */
+    net_income: Amount | null;
+}
+
+/** A receipt of client money, one taxable event: `profiles/{profile}/payments`. */
+export interface Payment {
+    id: number;
+    profile_id: number;
+    invoice_id: number | null;
+    created_by_user_id: number | null;
+    kind: PaymentKind;
+    description: string | null;
+    /** One wire, which covers several invoices (`payments/group`). */
+    receipt_group_id: string | null;
+    /** The invoice's currency. */
+    currency: CurrencyCode;
+    /** The taxable base, in `currency`. */
+    amount: Amount;
+    /** Paid by the client on top: recorded, never income. */
+    client_fee_amount: Amount | null;
+    received_to_account_id: number;
+    /** What landed, in `received_currency` (the account's). */
+    received_amount: Amount;
+    received_currency: CurrencyCode;
+    /** received_amount / amount, when the currencies differ. */
+    receipt_rate: Rate | null;
+    /** The tax date. */
+    received_at: DateString;
+    nbu_rate: Rate;
+    nbu_rate_date: DateString;
+    exchange_rate_id: number | null;
+    rate_is_manual: boolean;
+    uah_amount: Amount;
+    tax_rule_id: number;
+    /** ЄП hint of the receipt (not the declaration figure). */
+    single_tax_uah: Amount;
+    /** ВЗ hint of the receipt (not the declaration figure). */
+    military_levy_uah: Amount;
+    period_year: number;
+    period_quarter: number;
+    period_month: number;
+    /** When the repatriation notice was dismissed. */
+    repatriation_ack_at: DateTimeString | null;
+    /** The FX transfer, of which an `fx_gain` was made. */
+    source_transfer_id: number | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    invoice?: Invoice | null;
+    receivedToAccount?: Account;
+    refunds?: Refund[];
+    allocations?: TransferAllocation[];
+    taxPayments?: TaxPayment[];
+    taxRule?: TaxRule;
+    metrics?: PaymentMetrics;
+}
+
+/** How the receipts of an invoice cover it. */
+export interface InvoiceCoverage {
+    id: number;
+    number: string | null;
+    status: InvoiceStatus;
+    total: Amount;
+    paid_amount: Amount;
+    remaining: Amount;
+    /** Receipts reach the total, so the form may suggest marking it paid. */
+    covers_total: boolean;
+    overpaid: boolean;
+}
+
+/** `POST|PATCH profiles/{profile}/payments[/{id}]`: the receipt and how it covers its invoice. */
+export interface PaymentSavedResponse {
+    data: Payment;
+    meta: {
+        invoice: InvoiceCoverage | null;
+    };
+    message: string;
+}
+
+/** `POST profiles/{profile}/payments/group`: the receipts of one wire and how each covers its invoice. */
+export interface PaymentGroupResponse {
+    data: Payment[];
+    meta: {
+        invoices: (InvoiceCoverage | null)[];
+    };
+    message: string;
+}
+
+/** `POST profiles/{profile}/payments/preview`: what the receipt would be saved with (nothing is saved). */
+export interface PaymentPreview {
+    kind: PaymentKind;
+    invoice_id: number | null;
+    description: string | null;
+    receipt_group_id: string | null;
+    currency: CurrencyCode;
+    amount: Amount;
+    client_fee_amount: Amount | null;
+    received_to_account_id: number;
+    received_amount: Amount;
+    received_currency: CurrencyCode;
+    received_at: DateString;
+    nbu_rate: Rate;
+    nbu_rate_date: DateString;
+    exchange_rate_id: number | null;
+    rate_is_manual: boolean;
+    uah_amount: Amount;
+    tax_rule_id: number;
+    single_tax_uah: Amount;
+    military_levy_uah: Amount;
+    receipt_rate: Rate | null;
+    period_year: number;
+    period_quarter: number;
+    period_month: number;
+    /** amount − received_amount, when the currencies are the same, else null. */
+    receipt_fee: Amount | null;
+    /** The invoice's coverage with this receipt's amount added. */
+    invoice: InvoiceCoverage | null;
+    /** The declared (locked) quarter, which saving would correct, so the form asks for a correction note first. */
+    locked_quarter: { year: number; quarter: number } | null;
+}
+
+/** The receipt landing on its account. */
+export interface PaymentFlowReceiptStep {
+    type: 'receipt';
+    date: DateString;
+    account: FlowAccount;
+    /** received_amount, in `currency` (the account's). */
+    amount: Amount;
+    currency: CurrencyCode;
+    fee: Amount | null;
+}
+
+/** A transfer, which carried part of the receipt's money. */
+export interface PaymentFlowTransferStep {
+    type: 'transfer';
+    transfer_id: number;
+    date: DateString;
+    from: FlowAccount;
+    to: FlowAccount;
+    /** The receipt's share, in `currency_sent`. */
+    allocated: Amount;
+    currency_sent: CurrencyCode;
+    /** The receipt's share of what arrived, in `currency_received`. */
+    arrived: Amount;
+    currency_received: CurrencyCode;
+    /** The receipt's share of the fee, in `currency_sent`. */
+    fee_share: Amount;
+}
+
+/** A refund of the receipt. */
+export interface PaymentFlowRefundStep {
+    type: 'refund';
+    refund_id: number;
+    date: DateString;
+    from: FlowAccount;
+    amount: Amount;
+    currency: CurrencyCode;
+}
+
+export type PaymentFlowStep = PaymentFlowReceiptStep | PaymentFlowTransferStep | PaymentFlowRefundStep;
+
+/** `GET profiles/{profile}/payments/{id}/flow`: the path of a receipt's money, where it is now, and its metrics. */
+export interface PaymentFlow extends PaymentMetrics {
+    payment_id: number;
+    currency: CurrencyCode;
+    /** The receipt, then its transfers by arrival, then its refunds. */
+    steps: PaymentFlowStep[];
+    /** Accounts, which hold the receipt's money now. */
+    holdings: FlowHolding[];
+}
+
+/** Money returned to a client from a receipt: `profiles/{profile}/payments/{payment}/refunds`. */
+export interface Refund {
+    id: number;
+    profile_id: number;
+    payment_id: number;
+    from_account_id: number;
+    created_by_user_id: number | null;
+    /** Positive; it reduces income in the refund's period. */
+    amount: Amount;
+    currency: CurrencyCode;
+    refunded_at: DateString;
+    nbu_rate: Rate;
+    nbu_rate_date: DateString;
+    exchange_rate_id: number | null;
+    rate_is_manual: boolean;
+    uah_amount: Amount;
+    tax_rule_id: number;
+    reason: string | null;
+    period_year: number;
+    period_quarter: number;
+    period_month: number;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    payment?: Payment;
+    fromAccount?: Account;
+}
+
+/** The NBU's official UAH rate of a currency on a date: `exchange-rates`, `exchange-rates/{currency}/{date}`. */
+export interface ExchangeRate {
+    id: number;
+    currency: CurrencyCode;
+    rate_date: DateString;
+    /** UAH per unit of the currency. */
+    rate: Rate;
+    fetched_at: DateTimeString | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+// ---- Taxes ----
+
+/** Numbers of 3 група in effect from a date: the `taxRule` include of payments and ЄСВ months. */
+export interface TaxRule {
+    id: number;
+    effective_from: DateString;
+    effective_to: DateString | null;
+    /** Such as `"0.0500"` for 5 %. */
+    single_tax_rate: Rate;
+    military_levy_rate: Rate;
+    /** Rate of the income over the cap. */
+    excess_rate: Rate;
+    min_wage: Amount;
+    esv_monthly: Amount;
+    esv_mandatory: boolean;
+    esv_due_day: number;
+    income_cap_uah: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/** A payment of ЄП, ВЗ or ЄСВ: `profiles/{profile}/tax-payments`. */
+export interface TaxPayment {
+    id: number;
+    profile_id: number;
+    created_by_user_id: number | null;
+    tax_type: TaxType;
+    /** In UAH. */
+    amount: Amount;
+    paid_at: DateString | null;
+    /** `sent` is pending (shown, not counted), `failed` is ignored. */
+    status: TaxPaymentStatus;
+    allocation: TaxAllocation;
+    /** The receipt, for `allocation: 'payment'`. */
+    payment_id: number | null;
+    period_year: number;
+    period_quarter: number;
+    /** Null for a quarter's payment. */
+    period_month: number | null;
+    paid_from_account_id: number | null;
+    reference: string | null;
+    note: string | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    payment?: Payment | null;
+    paidFromAccount?: Account | null;
+}
+
+/** A quarter of a profile, its declaration and deadlines: `profiles/{profile}/tax-periods`. */
+export interface TaxPeriod {
+    id: number;
+    profile_id: number;
+    year: number;
+    quarter: number;
+    /** Q4: the annual declaration, with Додаток 1 for ЄСВ. */
+    is_annual: boolean;
+    declaration_status: DeclarationStatus;
+    declaration_submitted_at: DateTimeString | null;
+    declaration_due_at: DateString;
+    tax_due_at: DateString;
+    esv_due_at: DateString;
+    /** Set by a submitted declaration. */
+    locked_at: DateTimeString | null;
+    notes: string | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/** The balance of a tax on a date: `profiles/{profile}/tax-opening-balances`. */
+export interface TaxOpeningBalance {
+    id: number;
+    profile_id: number;
+    created_by_user_id: number | null;
+    tax_type: TaxType;
+    as_of: DateString;
+    /** Positive is overpaid, negative is owed. */
+    amount: Amount;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/** Budget requisites of a tax from a date: `profiles/{profile}/tax-payment-requisites`. */
+export interface TaxPaymentRequisite {
+    id: number;
+    profile_id: number;
+    created_by_user_id: number | null;
+    tax_type: TaxType;
+    iban: string;
+    recipient_name: string;
+    recipient_code: string;
+    /** With `{tax_id}`, `{period}` and `{full_name}` placeholders. */
+    purpose_template: string;
+    effective_from: DateString;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/**
+ * `GET profiles/{profile}/tax-payment-requisites/current?tax_type=&period_year=&period_quarter=|period_month=&date=`:
+ * the requisites in effect, with the purpose filled in (404 when none are entered).
+ */
+export interface CurrentTaxPaymentRequisite extends TaxPaymentRequisite {
+    /** Such as `*;101;3214704821;Єдиний податок, III квартал 2026 року;Коваленко Олена Петрівна`. */
+    purpose: string;
+}
+
+/** A month of ЄСВ: `profiles/{profile}/esv-obligations`. */
+export interface EsvObligation {
+    id: number;
+    profile_id: number;
+    year: number;
+    month: number;
+    tax_rule_id: number;
+    amount_due: Amount;
+    status: EsvStatus;
+    note: string | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    taxRule?: TaxRule;
+}
+
+// ---- Alerts ----
+
+/**
+ * Data of an alert, which depends on its `type`: ids of the records it is about, amounts, the `context` line, and for
+ * `limit` the account's limit progress, for `cap` the income cap's figures.
+ */
+export interface AlertPayload {
+    /** A short line above the title, such as `Інвойс прострочено`. */
+    context?: string;
+    invoice_id?: number;
+    payment_id?: number;
+    account_id?: number;
+    transfer_id?: number;
+    contract_id?: number;
+    client_id?: number;
+    tax_period_id?: number;
+    /** `deadline`: what the deadline is of. */
+    kind?: 'declaration' | 'tax' | 'esv';
+    due_at?: DateString;
+    amount?: Amount;
+    remaining?: Amount;
+    currency?: CurrencyCode;
+    [key: string]: unknown;
+}
+
+/** A notification of a profile: `profiles/{profile}/alerts` (unresolved only), `POST …/alerts/{id}/read` (`Read`). */
+export interface Alert {
+    id: number;
+    profile_id: number;
+    type: AlertType;
+    category: AlertCategory;
+    severity: AlertSeverity;
+    /** One alert per condition, such as `overdue:18`. */
+    dedupe_key: string;
+    title: string;
+    body: string | null;
+    payload: AlertPayload | null;
+    action_label: string | null;
+    /** A route of the SPA, such as `/invoices/18`. */
+    action_route: string | null;
+    resolved_at: DateTimeString | null;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+    /** When the signed-in user read it, with an offset (`…+03:00`), or null. */
+    read_at: DateTimeString | null;
+    is_read: boolean;
+}
+
+/** Unresolved alerts, all and unread. */
+export interface AlertCount {
+    all: number;
+    unread: number;
+}
+
+/** `GET profiles/{profile}/alerts/counts`: unresolved alerts, all, unread and per category. */
+export interface AlertCounts extends AlertCount {
+    categories: Record<AlertCategory, AlertCount>;
+}
+
+// ---- Reports ----
+
+/** The income cap of the year to date: `cap` of the quarter liability. */
+export interface IncomeCap {
+    income_cap: Amount;
+    ytd_income: Amount;
+    /** One decimal, such as `"14.7"`. */
+    percent: Percent;
+    /** Year-to-date income over the cap. */
+    excess: Amount;
+    excess_rate: Rate;
+    excess_tax: Amount;
+}
+
+/** ЄП or ВЗ of a quarter, by the cumulative method of the declaration, in UAH. */
+export interface TaxLiability {
+    rate: Rate;
+    /** Liability of the year to the quarter's end. */
+    ytd: Amount;
+    /** Liability of the year to the previous quarter's end. */
+    previous_ytd: Amount;
+    /** ytd − previous_ytd: what the quarter owes. */
+    owed: Amount;
+    /** The quarter's income × rate on its own (a cross-check). */
+    standalone: Amount;
+    /** owed − standalone. */
+    standalone_delta: Amount;
+    /** Sum of the per-receipt hints of the quarter (a cross-check). */
+    hints_sum: Amount;
+    /** owed − hints_sum. */
+    hints_delta: Amount;
+}
+
+/** ЄСВ of a quarter: its due months. */
+export interface EsvLiability {
+    monthly: Amount;
+    /** Due (not exempt) months in the quarter. */
+    months: number;
+    owed: Amount;
+    /** Due months of the year to the quarter's end. */
+    ytd: Amount;
+}
+
+/** Liabilities of a quarter (TaxLiabilityCalculator): `summary` of `AccountingQuarter`. All in UAH. */
+export interface QuarterLiability {
+    year: number;
+    quarter: number;
+    /** Receipts less refunds of the quarter. */
+    quarter_income: Amount;
+    ytd_income: Amount;
+    previous_ytd_income: Amount;
+    /** Receipts of the quarter. */
+    payments_count: number;
+    single_tax: TaxLiability;
+    military_levy: TaxLiability;
+    esv: EsvLiability;
+    cap: IncomeCap;
+}
+
+/** The quarter's period in `AccountingQuarter`. */
+export interface AccountingPeriod {
+    /** Null for a quarter, which isn't tracked (before the books start, after closure, past the next quarter). */
+    id: number | null;
+    year: number;
+    quarter: number;
+    declaration_status: DeclarationStatus;
+    declaration_due_at: DateString;
+    tax_due_at: DateString;
+    esv_due_at: DateString;
+    is_locked: boolean;
+}
+
+interface AccountingRowBase {
+    /** The receipt's or the refund's id. */
+    id: number;
+    payment_id: number;
+    date: DateString;
+    month: number;
+    invoice_id: number | null;
+    invoice_number: string | null;
+    client_name: string | null;
+    /** The receipt's description, or the refund's reason. */
+    description: string | null;
+    currency: CurrencyCode;
+    /** Negative for a refund. */
+    amount: Amount;
+    nbu_rate: Rate;
+    /** Negative for a refund. */
+    uah_amount: Amount;
+    /** Hint; negative for a refund, which takes it back. */
+    single_tax_uah: Amount;
+    /** Hint; negative for a refund, which takes it back. */
+    military_levy_uah: Amount;
+    account_id: number;
+    account_name: string | null;
+}
+
+/** A receipt of the quarter. */
+export interface AccountingPaymentRow extends AccountingRowBase {
+    type: 'payment';
+    kind: PaymentKind;
+    /** See `PaymentMetrics.fees`. */
+    fees: Amount | null;
+    /** See `PaymentMetrics.receipt_fx_spread`. */
+    fx_spread_uah: Amount | null;
+    /** See `PaymentMetrics.net_income`. */
+    net: Amount | null;
+}
+
+/** A refund of the quarter. */
+export interface AccountingRefundRow extends AccountingRowBase {
+    type: 'refund';
+    kind: 'refund';
+    fees: null;
+    fx_spread_uah: null;
+    net: null;
+}
+
+export type AccountingRow = AccountingPaymentRow | AccountingRefundRow;
+
+/** An invoice of the quarter's receipts. */
+export interface AccountingInvoice {
+    id: number;
+    number: string | null;
+    status: InvoiceStatus;
+    client_id: number;
+    client_name: string;
+    currency: CurrencyCode;
+    total: Amount;
+    paid_amount: Amount;
+    remaining: Amount;
+}
+
+/** `GET profiles/{profile}/accounting/{year}/{quarter}`: Облік of a quarter. */
+export interface AccountingQuarter {
+    period: AccountingPeriod;
+    /** Receipts and refunds by date. */
+    rows: AccountingRow[];
+    invoices: AccountingInvoice[];
+    summary: QuarterLiability;
+}
+
+/** The opening balance, from which a tax's series starts. */
+export interface TaxOpeningBalanceRef {
+    as_of: DateString;
+    /** Positive is overpaid, negative is owed. */
+    amount: Amount;
+}
+
+/** A month of ЄСВ in `EsvYear`. */
+export interface EsvMonth {
+    month: number;
+    obligation_id: number | null;
+    status: EsvStatus | null;
+    /** Zero for an exempt month. */
+    amount_due: Amount;
+    /** Paid payments of the month, with quarter payments spread over the due months. */
+    paid: Amount;
+    note: string | null;
+}
+
+/** A quarter of ЄСВ in `EsvYear`. */
+export interface EsvQuarter {
+    quarter: number;
+    due_at: DateString;
+    is_annual: boolean;
+    owed: Amount;
+    paid: Amount;
+    pending: Amount;
+    /** Latest paid payment of the quarter. */
+    paid_at: DateString | null;
+    /** Running, with the opening balance and the credit of earlier quarters; negative is owed. */
+    balance: Amount | null;
+    state: TaxQuarterState | null;
+    /** By its own payments, or by the credit of earlier quarters. */
+    is_paid: boolean;
+    months: EsvMonth[];
+}
+
+/** `GET profiles/{profile}/esv/{year}`: the ЄСВ table of a year. */
+export interface EsvYear {
+    year: number;
+    monthly: Amount;
+    min_wage: Amount;
+    accrued: Amount;
+    paid: Amount;
+    opening_balance: TaxOpeningBalanceRef | null;
+    /** Running balance today (at the year's end for a past year); negative is still to pay. */
+    balance: Amount;
+    /** −balance, when it is negative, else `"0.00"`. */
+    remaining: Amount;
+    quarters: EsvQuarter[];
+}
+
+/** A month of the income book. */
+export interface IncomeBookMonth {
+    month: number;
+    quarter: number;
+    /** Receipts less refunds, in UAH. */
+    income: Amount;
+    /** Income of the year to the month's end. */
+    cumulative: Amount;
+    count: number;
+    is_current: boolean;
+    is_future: boolean;
+}
+
+/** A quarter of the income book. */
+export interface IncomeBookQuarter {
+    quarter: number;
+    income: Amount;
+    cumulative: Amount;
+}
+
+/** `GET profiles/{profile}/income-book/{year}`: Книга обліку доходів. */
+export interface IncomeBook {
+    year: number;
+    /** All twelve months. */
+    months: IncomeBookMonth[];
+    quarters: IncomeBookQuarter[];
+    total: Amount;
+}
+
+/** A quarter of `FeeStatistics`, in UAH. */
+export interface FeeQuarter {
+    quarter: number;
+    income: Amount;
+    fees: Amount;
+    spread: Amount;
+    single_tax: Amount;
+    military_levy: Amount;
+    esv: Amount;
+    /** income − fees − taxes (the spread isn't subtracted). */
+    net_income: Amount;
+}
+
+/** Costs of an account or a client in a year, in UAH. */
+export interface FeeGroup {
+    /** Null for receipts without a client. */
+    id: number | null;
+    name: string | null;
+    receipts: number;
+    income: Amount;
+    fees: Amount;
+    spread: Amount;
+    /** (fees + spread) / income, two decimals; null without income. */
+    loss_percent: Percent | null;
+}
+
+/** `GET profiles/{profile}/fees/{year}`: what the money paths cost in a year. */
+export interface FeeStatistics {
+    year: number;
+    quarters: FeeQuarter[];
+    /** The costliest first. */
+    by_account: FeeGroup[];
+    /** The costliest first. */
+    by_client: FeeGroup[];
+    routes: TransferRoute[];
+    /** Transfers, whose fees aren't counted, since their currency's NBU rate isn't cached. */
+    unknown_fees_count: number;
+}
+
+/** A sent (pending) tax payment of a quarter. */
+export interface PendingTaxPayment {
+    id: number;
+    amount: Amount;
+    paid_at: DateString | null;
+    allocation: TaxAllocation;
+    payment_id: number | null;
+}
+
+/** A quarter of a tax's reconciliation, in UAH. */
+export interface ReconciledQuarter {
+    year: number;
+    quarter: number;
+    owed: Amount;
+    paid: Amount;
+    pending: Amount;
+    failed: Amount;
+    /** paid − owed of this quarter alone. */
+    quarter_balance: Amount;
+    /** Running balance at the quarter's end; positive is overpaid, negative is owed. */
+    balance: Amount;
+    due_at: DateString;
+    state: TaxQuarterState;
+    pending_payments: PendingTaxPayment[];
+}
+
+/** `GET profiles/{profile}/taxes/{year}?tax_type=` (single_tax by default): a tax's quarters and balance. */
+export interface TaxReconciliation {
+    tax_type: TaxType;
+    year: number;
+    opening_balance: TaxOpeningBalanceRef | null;
+    /** Running balance at the current quarter (the year's last for a past year). */
+    balance: Amount;
+    /** From the series' first quarter in the year (an opening balance may start it mid-year). */
+    quarters: ReconciledQuarter[];
+}
+
+/** The quarter's state, deadline and running balance, which a month's figures carry. */
+export interface TaxMonthQuarterState {
+    quarter_state: TaxQuarterState | null;
+    due_at: DateString | null;
+    /** The quarter's running balance (`ReconciledQuarter.balance`), not its own paid − owed. */
+    quarter_balance: Amount | null;
+}
+
+/** ЄП or ВЗ of a month. */
+export interface TaxMonthFigures extends TaxMonthQuarterState {
+    /** Sum of the month's per-receipt hints. */
+    owed: Amount;
+    /** The month's income × the rate. */
+    standalone: Amount;
+    /** Paid payments allocated to the month. */
+    paid: Amount;
+    /** Sent payments allocated to the month. */
+    pending: Amount;
+}
+
+/** ЄСВ of a month. */
+export interface EsvMonthFigures extends TaxMonthQuarterState {
+    status: EsvStatus | null;
+    /** Zero for an exempt month. */
+    owed: Amount;
+    paid: Amount;
+    pending: Amount;
+}
+
+/** A month of `TaxMonths`, in UAH. */
+export interface TaxMonth {
+    month: number;
+    quarter: number;
+    income: Amount;
+    count: number;
+    single_tax: TaxMonthFigures;
+    military_levy: TaxMonthFigures;
+    social_contribution: EsvMonthFigures;
+}
+
+/** `GET profiles/{profile}/taxes/{year}/months`: the taxes of the year by month. */
+export interface TaxMonths {
+    year: number;
+    /** All twelve months. */
+    months: TaxMonth[];
+}
+
+/** A tax payment of a receipt in `ReceiptTax`. */
+export interface ReceiptTaxPayment {
+    id: number;
+    amount: Amount;
+    status: TaxPaymentStatus;
+    paid_at: DateString | null;
+}
+
+/** ЄП or ВЗ of a receipt. */
+export interface ReceiptTax {
+    hint: Amount;
+    status: ReceiptTaxStatus;
+    /** Payments allocated to the receipt itself. */
+    payments: ReceiptTaxPayment[];
+}
+
+interface QuarterTaxRowBase {
+    payment_id: number;
+    /** The receipt's date, or the refund's. */
+    received_at: DateString;
+    invoice_id: number | null;
+    invoice_number: string | null;
+    client_name: string | null;
+    /** The receipt's description, or the refund's reason. */
+    description: string | null;
+    currency: CurrencyCode;
+    /** Negative for a refund. */
+    amount: Amount;
+    nbu_rate: Rate;
+    /** Negative for a refund. */
+    uah_amount: Amount;
+}
+
+/** A receipt of the quarter with its ЄП and ВЗ. */
+export interface QuarterTaxReceiptRow extends QuarterTaxRowBase {
+    type: 'payment';
+    single_tax: ReceiptTax;
+    military_levy: ReceiptTax;
+}
+
+/** A refund of the quarter, with the hints it takes back (negative). */
+export interface QuarterTaxRefundRow extends QuarterTaxRowBase {
+    type: 'refund';
+    refund_id: number;
+    single_tax: { hint: Amount };
+    military_levy: { hint: Amount };
+}
+
+export type QuarterTaxRow = QuarterTaxReceiptRow | QuarterTaxRefundRow;
+
+/** A month's or quarter's ЄП or ВЗ payment, which covers several receipts. */
+export interface CoveringTaxPayment {
+    id: number;
+    tax_type: TaxType;
+    allocation: 'month' | 'quarter';
+    period_month: number | null;
+    amount: Amount;
+    status: TaxPaymentStatus;
+    paid_at: DateString | null;
+    /** Receipts it covers. */
+    covers: number;
+}
+
+/** The quarter's owed tax against the sum of its hints. */
+export interface HintCheck {
+    owed: Amount;
+    hints_sum: Amount;
+    /** owed − hints_sum. */
+    delta: Amount;
+}
+
+/** `GET profiles/{profile}/taxes/{year}/{quarter}/payments`: ЄП and ВЗ of a quarter by receipt. */
+export interface QuarterTaxPayments {
+    year: number;
+    quarter: number;
+    tax_due_at: DateString;
+    /** Receipts and refunds by date. */
+    rows: QuarterTaxRow[];
+    covering: CoveringTaxPayment[];
+    check: {
+        single_tax: HintCheck;
+        military_levy: HintCheck;
+    };
+}
+
+/** The quarter's period in `Declaration`. */
+export interface DeclarationPeriod {
+    /** Null for a quarter, which isn't tracked (before the books start, after closure, past the next quarter). */
+    id: number | null;
+    declaration_status: DeclarationStatus;
+    /** With an offset, such as `2026-05-06T00:00:00+03:00`. */
+    declaration_submitted_at: DateTimeString | null;
+    declaration_due_at: DateString;
+    tax_due_at: DateString;
+    esv_due_at: DateString;
+    is_locked: boolean;
+    notes: string | null;
+}
+
+/** ЄП or ВЗ as the declaration states it, in UAH. */
+export interface DeclaredTax {
+    rate: Rate;
+    ytd: Amount;
+    previously_declared: Amount;
+    to_pay: Amount;
+}
+
+/** What is left to pay of a tax for the quarter, from its reconciliation. */
+export interface RemainingTax {
+    owed: Amount;
+    paid: Amount;
+    pending: Amount;
+    /** Running balance; negative is owed. */
+    balance: Amount;
+    /** −balance, when it is negative, else `"0.00"`. */
+    to_pay: Amount;
+}
+
+/** `GET profiles/{profile}/declarations/{year}/{quarter}`: the figures of a quarter's declaration. */
+export interface Declaration {
+    year: number;
+    quarter: number;
+    /** Q4. */
+    is_annual: boolean;
+    period: DeclarationPeriod;
+    income_ytd: Amount;
+    single_tax: DeclaredTax;
+    military_levy: DeclaredTax;
+    esv: EsvLiability;
+    esv_quarter: EsvQuarter | null;
+    /** Every month of the year for the annual declaration (Додаток 1), else null. */
+    esv_months: EsvMonth[] | null;
+    income_cap: IncomeCap;
+    remaining: Record<TaxType, RemainingTax>;
+}
+
+/** The profile on its overview card. */
+export interface OverviewProfile {
+    id: number;
+    full_name: string;
+    short_name: string;
+    initials: string;
+    is_active: boolean;
+    closed_at: DateString | null;
+}
+
+/** Invoices issued in the quarter (not drafts or cancelled) in one currency. */
+export interface OverviewIncome {
+    currency: CurrencyCode;
+    invoiced: Amount;
+    received: Amount;
+    /** received / invoiced, whole percent. */
+    percent: Percent;
+}
+
+/** A tax of the quarter on an overview card, in UAH. */
+export interface OverviewTax {
+    owed: Amount;
+    paid: Amount;
+    pending: Amount;
+    /** max(owed − paid, 0) of the quarter alone. */
+    outstanding: Amount;
+    /** Running, with the opening balance and the earlier quarters; null before tracking starts. */
+    balance: Amount | null;
+}
+
+/** A profile's card of the practice overview. */
+export interface OverviewCard {
+    profile: OverviewProfile;
+    cap: IncomeCap;
+    income: OverviewIncome[];
+    /** Receipts less refunds of the quarter, in UAH. */
+    taxable_income: Amount;
+    taxes: Record<TaxType, OverviewTax>;
+    /** Unresolved alerts of the profile, which the user hasn't read. */
+    unread_alerts: number;
+}
+
+/** `GET overview/{year}/{quarter}?with_inactive=1`: one quarter of every profile of the organization. */
+export interface PracticeOverview {
+    year: number;
+    quarter: number;
+    /** By full name: the active profiles and those closed in or after the quarter (all with `with_inactive`). */
+    profiles: OverviewCard[];
+    /** Profiles left out. */
+    inactive_count: number;
+}

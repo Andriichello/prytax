@@ -27,6 +27,7 @@ use PryTax\Queries\TenantQuery;
  * @property string $nbu_rate
  * @property Carbon $nbu_rate_date
  * @property int|null $exchange_rate_id
+ * @property bool $rate_is_manual
  * @property string $uah_amount
  * @property int $tax_rule_id
  * @property string|null $reason
@@ -75,6 +76,7 @@ class Refund extends BaseModel
         'nbu_rate' => 'decimal:4',
         'nbu_rate_date' => 'date:Y-m-d',
         'exchange_rate_id' => 'int',
+        'rate_is_manual' => 'boolean',
         'uah_amount' => 'decimal:2',
         'tax_rule_id' => 'int',
         'period_year' => 'int',

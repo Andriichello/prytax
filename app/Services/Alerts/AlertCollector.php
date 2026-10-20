@@ -13,6 +13,7 @@ use PryTax\Enums\TaxType;
 use PryTax\Helpers\Decimal;
 use PryTax\Helpers\MoneyFormatter;
 use PryTax\Models\Account;
+use PryTax\Models\AccountTransfer;
 use PryTax\Models\Contract;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
@@ -20,6 +21,7 @@ use PryTax\Models\Profile;
 use PryTax\Models\TaxPeriod;
 use PryTax\Services\Accounts\AccountLimitCalculator;
 use PryTax\Services\Payments\RepatriationRule;
+use PryTax\Services\Rates\NbuRateProvider;
 use PryTax\Services\Taxes\DeadlineScheduler;
 use PryTax\Services\Taxes\TaxLiabilityCalculator;
 use PryTax\Services\Taxes\TaxReconciler;
@@ -31,8 +33,9 @@ use PryTax\Services\Transfers\HoldingCalculator;
  * Evaluates the conditions, which a profile's notifications report (design.md §9), and describes each one that
  * holds, keyed by its dedupe key: deadlines within `alerts.deadline_days` or past with a debt, platform money not
  * repatriated by the rule, account limits at 80 % and 100 %, the income cap at 80, 90 and 100 %, quarters needing an
- * уточнююча декларація, contracts ending or ended with open invoices, overdue invoices, and ready invoices without
- * receipts for too long. Their texts are Ukrainian, as the app's.
+ * уточнююча декларація, contracts ending or ended with open invoices, overdue invoices, ready invoices without
+ * receipts for too long, and receipts or transfers saved at a manual rate, which differs from the NBU's published
+ * since. Their texts are Ukrainian, as the app's.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Alerts
@@ -76,6 +79,7 @@ class AlertCollector
      * @param HoldingCalculator $holdings
      * @param RepatriationRule $repatriation
      * @param AccountLimitCalculator $limits
+     * @param NbuRateProvider $rates
      */
     public function __construct(
         protected DeadlineScheduler $deadlines,
@@ -83,7 +87,8 @@ class AlertCollector
         protected TaxLiabilityCalculator $liabilities,
         protected HoldingCalculator $holdings,
         protected RepatriationRule $repatriation,
-        protected AccountLimitCalculator $limits
+        protected AccountLimitCalculator $limits,
+        protected NbuRateProvider $rates
     ) {}
 
     /**
@@ -113,6 +118,7 @@ class AlertCollector
             ...$this->incomeCap($profile),
             ...$this->contracts(),
             ...$this->invoices(),
+            ...$this->manualRates(),
         ];
     }
 
@@ -470,6 +476,85 @@ class AlertCollector
         });
 
         return $alerts;
+    }
+
+    /**
+     * Receipts and transfers saved at a manual rate, while the NBU's rate of their day, published since, differs:
+     * updating them takes the NBU's rate.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function manualRates(): array
+    {
+        $alerts = [];
+
+        Payment::query()->where('rate_is_manual', true)->with('invoice')->get()->each(function (Payment $payment) use (&$alerts) {
+            $nbu = $this->rates->cached($payment->currency, $payment->nbu_rate_date);
+
+            if ($nbu === null || Decimal::of($nbu->rate)->isEqualTo(Decimal::of($payment->nbu_rate))) {
+                return;
+            }
+
+            $what = $payment->invoice?->number ? 'за інвойсом ' . $payment->invoice->number : 'від ' . $payment->received_at->format('d.m.Y');
+
+            $alerts["manual_rate:payment:{$payment->id}"] = $this->manualRate(
+                "Надходження $what записано за курсом, введеним вручну",
+                $payment->currency,
+                $payment->nbu_rate,
+                $nbu->rate,
+                ['payment_id' => $payment->id],
+                "/payments/{$payment->id}",
+                'Відкрити надходження',
+            );
+        });
+
+        AccountTransfer::query()->where('rate_is_manual', true)->get()->each(function (AccountTransfer $transfer) use (&$alerts) {
+            $currency = $transfer->currency_sent === 'UAH' ? $transfer->currency_received : $transfer->currency_sent;
+            $nbu = $this->rates->cached($currency, $transfer->received_at);
+
+            if ($nbu === null || Decimal::of($nbu->rate)->isEqualTo(Decimal::of($transfer->nbu_rate))) {
+                return;
+            }
+
+            $alerts["manual_rate:transfer:{$transfer->id}"] = $this->manualRate(
+                'Переказ ' . $transfer->received_at->format('d.m.Y') . ' записано за курсом, введеним вручну',
+                $currency,
+                $transfer->nbu_rate,
+                $nbu->rate,
+                ['transfer_id' => $transfer->id],
+                "/transfers/{$transfer->id}",
+                'Відкрити переказ',
+            );
+        });
+
+        return $alerts;
+    }
+
+    /**
+     * Describe a record saved at a manual rate, which differs from the NBU's.
+     *
+     * @param string $title
+     * @param string $currency
+     * @param string $manual
+     * @param string $nbu
+     * @param array $payload
+     * @param string $route
+     * @param string $action
+     *
+     * @return array<string, mixed>
+     */
+    protected function manualRate(string $title, string $currency, string $manual, string $nbu, array $payload, string $route, string $action): array
+    {
+        return [
+            'type' => 'manual_rate',
+            'category' => AlertCategory::Funds,
+            'severity' => AlertSeverity::Warning,
+            'title' => $title,
+            'body' => "Курс 1 $currency = $manual ₴, а НБУ опублікував $nbu ₴. Оновіть запис, щоб він узяв курс НБУ.",
+            'payload' => [...$payload, 'currency' => $currency, 'manual_rate' => $manual, 'nbu_rate' => $nbu, 'context' => 'Курс НБУ'],
+            'action_label' => $action,
+            'action_route' => $route,
+        ];
     }
 
     /**

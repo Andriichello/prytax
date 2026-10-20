@@ -76,10 +76,10 @@ class RefundRecorder
         $date = CarbonImmutable::parse($data['refunded_at']);
         $this->lock->assertOpen($profile, $date, $data['correction_note'] ?? null);
 
-        [$rate, $exchangeRateId] = $this->snapshotter->rateOf($payment->currency, $date, $data['nbu_rate'] ?? null);
+        [$rate, $exchangeRateId, $isManual] = $this->snapshotter->rateOf($payment->currency, $date, $data['nbu_rate'] ?? null);
         $rule = $this->rules->forDate($date, 'refunded_at');
 
-        $refund = DB::transaction(function () use ($profile, $payment, $account, $amount, $date, $rate, $exchangeRateId, $rule, $data) {
+        $refund = DB::transaction(function () use ($profile, $payment, $account, $amount, $date, $rate, $exchangeRateId, $isManual, $rule, $data) {
             $refund = new Refund;
             $refund->forceFill([
                 'profile_id' => $profile->getKey(),
@@ -91,6 +91,7 @@ class RefundRecorder
                 'nbu_rate' => $rate,
                 'nbu_rate_date' => $date->toDateString(),
                 'exchange_rate_id' => $exchangeRateId,
+                'rate_is_manual' => $isManual,
                 'uah_amount' => Decimal::money(Decimal::times($amount, $rate)),
                 'tax_rule_id' => $rule->getKey(),
                 'reason' => $data['reason'] ?? null,

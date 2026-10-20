@@ -5,11 +5,9 @@ namespace PryTax\Http\Controllers;
 use Carbon\CarbonImmutable;
 use Core\Http\Controllers\CrudController;
 use Core\Http\Requests\Crud\IndexRequest;
-use Core\Http\Requests\Crud\StoreRequest;
 use Core\Http\Responses\ApiResponse;
 use Illuminate\Validation\ValidationException;
 use PryTax\Exceptions\ExchangeRateUnavailableException;
-use PryTax\Http\Requests\ExchangeRates\StoreExchangeRateRequest;
 use PryTax\Http\Resources\ExchangeRateCollection;
 use PryTax\Http\Resources\ExchangeRateResource;
 use PryTax\Policies\ExchangeRatePolicy;
@@ -21,7 +19,8 @@ use Throwable;
  * Class ExchangeRateController.
  *
  * NBU rates (`exchange-rates/{currency}/{date}`), fetched and cached when missing, which answers 422 when the NBU
- * can't be reached, so the form offers a manual rate (`POST exchange-rates`). The cached rates are listed too.
+ * can't be reached, so the form offers a manual rate, which is sent with the receipt, refund or transfer it is for.
+ * The cached rates are listed too.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -50,7 +49,6 @@ class ExchangeRateController extends CrudController
     protected array $operations = [
         'index' => IndexRequest::class,
         'lookup' => IndexRequest::class,
-        'store' => StoreExchangeRateRequest::class,
     ];
 
     /**
@@ -97,23 +95,5 @@ class ExchangeRateController extends CrudController
         }
 
         return $this->asResourceResponse($rate);
-    }
-
-    /**
-     * Handle the `store` operation: a manual rate.
-     *
-     * @param StoreRequest $request
-     *
-     * @return ApiResponse
-     */
-    protected function handleStore(StoreRequest $request): ApiResponse
-    {
-        $rate = $this->rates->manual(
-            $request->validated('currency'),
-            CarbonImmutable::parse($request->validated('rate_date')),
-            $request->validated('rate'),
-        );
-
-        return $this->asResourceResponse($rate)->setMessage('Created')->setStatus(201);
     }
 }

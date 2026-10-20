@@ -44,7 +44,7 @@ $finance = [
     TaxPaymentRequisite::class => ['all'],
     EsvObligation::class => ['viewAny', 'view', 'update'],
     Alert::class => ['viewAny', 'view', 'read'],
-    ExchangeRate::class => ['viewAny', 'view', 'create'],
+    ExchangeRate::class => ['viewAny', 'view'],
 ];
 
 $readOnly = array_map(fn (array $actions) => ['viewAny', 'view'], $finance);

@@ -121,7 +121,7 @@ class PaymentControllerTest extends TestCase
             'kind' => 'other', 'currency' => 'USD', 'amount' => '3892.50', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07',
         ])->assertCreated()->assertJsonPath('data.uah_amount', '162982.87');
 
-        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'rate' => '41.8710', 'source' => 'nbu']);
+        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'rate' => '41.8710']);
     }
 
     /**
@@ -144,8 +144,84 @@ class PaymentControllerTest extends TestCase
         $this->postJson($this->profilePath($profile, 'payments'), [...$receipt, 'nbu_rate' => '41,8710'])
             ->assertCreated()
             ->assertJsonPath('data.nbu_rate', '41.8710')
+            ->assertJsonPath('data.rate_is_manual', true)
             ->assertJsonPath('data.uah_amount', '4187.10');
-        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'source' => 'manual']);
+        $this->assertDatabaseCount('exchange_rates', 0);
+    }
+
+    /**
+     * Test that a manual rate stays on its receipt: a receipt of another organization on the same day still asks
+     * for a rate.
+     *
+     * @return void
+     */
+    public function testKeepsAManualRateOnItsOwnReceipt(): void
+    {
+        Http::fake(['bank.gov.ua/*' => Http::response('Service Unavailable', 503)]);
+        $first = $this->createProfile();
+        $second = $this->createProfile();
+        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_at' => '2026-07-07'];
+        $this->actAs($first);
+        $this->postJson($this->profilePath($first, 'payments'), [
+            ...$receipt, 'received_to_account_id' => $this->createAccount($first)->id, 'nbu_rate' => '99.0000',
+        ])->assertCreated();
+
+        $this->actAs($second);
+        $response = $this->postJson($this->profilePath($second, 'payments'), [
+            ...$receipt, 'received_to_account_id' => $this->createAccount($second)->id,
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['nbu_rate' => 'The NBU rate of USD on 07.07.2026 is unavailable. Enter the rate manually.']);
+    }
+
+    /**
+     * Test that the NBU's rate is taken over a manual one, when it is available.
+     *
+     * @return void
+     */
+    public function testTakesTheNbuRateOverAManualOne(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+
+        $response = $this->postJson($this->profilePath($profile, 'payments'), [
+            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id,
+            'received_at' => '2026-10-05', 'nbu_rate' => '45.0000',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.nbu_rate', '42.2297')
+            ->assertJsonPath('data.rate_is_manual', false)
+            ->assertJsonPath('data.uah_amount', '4222.97');
+    }
+
+    /**
+     * Test that a receipt saved at a manual rate takes the NBU's rate on its next update, once the NBU published it.
+     *
+     * @return void
+     */
+    public function testUpdatesAManualRateToTheNbusOncePublished(): void
+    {
+        Http::fake(['bank.gov.ua/*' => Http::response('Service Unavailable', 503)]);
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $id = $this->postJson($this->profilePath($profile, 'payments'), [
+            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id,
+            'received_at' => '2026-07-07', 'nbu_rate' => '40.0000',
+        ])->json('data.id');
+        $this->cacheRates(['USD' => ['2026-07-07' => '41.8710']]);
+
+        $response = $this->patchJson($this->profilePath($profile, "payments/$id"), ['description' => 'Бонус платформи']);
+
+        $response->assertOk()
+            ->assertJsonPath('data.nbu_rate', '41.8710')
+            ->assertJsonPath('data.rate_is_manual', false)
+            ->assertJsonPath('data.uah_amount', '4187.10')
+            ->assertJsonPath('data.single_tax_uah', '209.36');
     }
 
     /**

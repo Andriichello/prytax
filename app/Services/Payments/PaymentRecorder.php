@@ -22,7 +22,8 @@ use PryTax\Services\Taxes\PeriodLock;
  * Records receipts (design.md §6.1). It asserts that the invoice and the account are the profile's, that the
  * invoice is frozen (ready, sent or paid), that the receipt lands in the account's currency and that its quarter
  * isn't locked, and computes the snapshot. An advance has no invoice until it is linked to one. Editing the amount,
- * the currency or the date recomputes the snapshot, subject to the lock of both the old and the new quarter.
+ * the currency or the date recomputes the snapshot, subject to the lock of both the old and the new quarter, and so
+ * does any update of a receipt saved at a manual rate, once the NBU's rate of its day is available.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Payments
@@ -146,7 +147,7 @@ class PaymentRecorder
             fn (string $field) => (string) $attributes[$field] !== (string) ($field === 'received_at'
                 ? $payment->received_at->toDateString()
                 : $payment->getAttribute($field))
-        );
+        ) || $this->replacesManualRate($payment, $attributes);
 
         if ($changesIncome) {
             $note = $data['correction_note'] ?? null;
@@ -154,7 +155,7 @@ class PaymentRecorder
             $this->lock->assertOpen($profile, CarbonImmutable::parse($attributes['received_at']), $note);
         } else {
             $attributes = Arr::except($attributes, [
-                'nbu_rate', 'nbu_rate_date', 'exchange_rate_id', 'uah_amount', 'tax_rule_id',
+                'nbu_rate', 'nbu_rate_date', 'exchange_rate_id', 'rate_is_manual', 'uah_amount', 'tax_rule_id',
                 'single_tax_uah', 'military_levy_uah', 'receipt_rate',
             ]);
         }
@@ -203,6 +204,21 @@ class PaymentRecorder
         DB::transaction(fn () => $payment->delete());
 
         $this->alerts->syncAfterCommit($profile);
+    }
+
+    /**
+     * Whether the update replaces the manual rate of the receipt: by the NBU's, once it is available, or by another
+     * manual one.
+     *
+     * @param Payment $payment
+     * @param array<string, mixed> $attributes
+     *
+     * @return bool
+     */
+    protected function replacesManualRate(Payment $payment, array $attributes): bool
+    {
+        return $payment->rate_is_manual
+            && (!$attributes['rate_is_manual'] || !Decimal::of($attributes['nbu_rate'])->isEqualTo(Decimal::of($payment->nbu_rate)));
     }
 
     /**

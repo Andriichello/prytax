@@ -28,6 +28,8 @@ return new class extends Migration
             $table->char('fee_currency', 3)->nullable();
             // FX transfers only: NBU rate of currency_sent on received_at
             $table->decimal('nbu_rate', 12, 4)->nullable();
+            // Entered by the user, as the NBU's rate was unavailable
+            $table->boolean('rate_is_manual')->default(false);
 
             $table->date('sent_at')->nullable();
             $table->date('received_at');

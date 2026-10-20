@@ -6,7 +6,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use PryTax\Exceptions\ExchangeRateUnavailableException;
-use PryTax\Models\ExchangeRate;
 use PryTax\Services\Rates\NbuRateProvider;
 use Tests\TestCase;
 
@@ -75,23 +74,5 @@ class NbuRateProviderTest extends TestCase
         }
 
         $this->assertDatabaseCount('exchange_rates', 0);
-    }
-
-    /**
-     * Test that a manual rate is stored, but never replaces a cached NBU rate.
-     *
-     * @return void
-     */
-    public function testStoresManualRatesWithoutReplacingTheNbus(): void
-    {
-        $date = CarbonImmutable::parse('2026-10-05');
-        ExchangeRate::query()->create(['currency' => 'USD', 'rate_date' => '2026-10-05', 'rate' => '42.2297', 'source' => 'nbu']);
-
-        $kept = app(NbuRateProvider::class)->manual('USD', $date, '40.0000');
-        $manual = app(NbuRateProvider::class)->manual('EUR', $date, '48.5');
-
-        $this->assertSame('42.2297', $kept->rate);
-        $this->assertSame('48.5000', $manual->rate);
-        $this->assertSame('manual', $manual->source->value);
     }
 }

@@ -88,7 +88,7 @@ class DemoSeeder extends Seeder
             foreach ($rates as $date => $rate) {
                 ExchangeRate::query()->updateOrCreate(
                     ['currency' => $currency, 'rate_date' => $date],
-                    ['rate' => $rate, 'source' => 'nbu', 'fetched_at' => now()],
+                    ['rate' => $rate, 'fetched_at' => now()],
                 );
             }
         }

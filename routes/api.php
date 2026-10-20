@@ -73,7 +73,6 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
             Route::get('overview/{year}/{quarter}', [PracticeOverviewController::class, 'overview'])->name('overview');
 
             Route::get('exchange-rates', [ExchangeRateController::class, 'index'])->name('exchange-rates.index');
-            Route::post('exchange-rates', [ExchangeRateController::class, 'store'])->name('exchange-rates.store');
             Route::get('exchange-rates/{currency}/{date}', [ExchangeRateController::class, 'lookup'])
                 ->where(['currency' => '[A-Za-z]{3}', 'date' => '[0-9]{4}-[0-9]{2}-[0-9]{2}'])
                 ->name('exchange-rates.lookup');

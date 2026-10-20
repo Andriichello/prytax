@@ -4,20 +4,19 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
-use PryTax\Enums\ExchangeRateSource;
 use PryTax\Queries\GlobalQuery;
 
 /**
  * Class ExchangeRate.
  *
- * The UAH rate of a currency on a date: the NBU's official one, cached, or one a user entered when the NBU couldn't be
- * reached. It is a cache, never the truth for historical receipts, which keep the rate they were saved with.
+ * The NBU's official UAH rate of a currency on a date, cached. It is a cache, never the truth for historical receipts,
+ * which keep the rate they were saved with. A rate, which a user entered when the NBU couldn't be reached, is never
+ * cached here: it stays on the receipt, refund or transfer it was entered for, so it reaches no other record.
  *
  * @property int $id
  * @property string $currency
  * @property Carbon $rate_date
  * @property string $rate
- * @property ExchangeRateSource $source
  * @property Carbon|null $fetched_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -38,7 +37,6 @@ class ExchangeRate extends BaseModel
         'currency',
         'rate_date',
         'rate',
-        'source',
         'fetched_at',
     ];
 
@@ -50,7 +48,6 @@ class ExchangeRate extends BaseModel
     protected $casts = [
         'rate_date' => 'date:Y-m-d',
         'rate' => 'decimal:4',
-        'source' => ExchangeRateSource::class,
         'fetched_at' => 'datetime',
     ];
 

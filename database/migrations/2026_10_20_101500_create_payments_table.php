@@ -41,6 +41,8 @@ return new class extends Migration
             $table->decimal('nbu_rate', 12, 4);
             $table->date('nbu_rate_date');
             $table->foreignId('exchange_rate_id')->nullable()->constrained()->nullOnDelete();
+            // Entered by the user, as the NBU's rate was unavailable
+            $table->boolean('rate_is_manual')->default(false);
             $table->decimal('uah_amount', 15, 2);
             $table->foreignId('tax_rule_id')->constrained()->restrictOnDelete();
             $table->decimal('single_tax_uah', 15, 2);
@@ -62,7 +64,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE payments ADD CONSTRAINT payments_invoice_of_invoice_kind"
+            'ALTER TABLE payments ADD CONSTRAINT payments_invoice_of_invoice_kind'
             . " CHECK (kind <> 'invoice' OR invoice_id IS NOT NULL)"
         );
         DB::statement('ALTER TABLE payments ADD CONSTRAINT payments_positive_amount CHECK (amount > 0)');

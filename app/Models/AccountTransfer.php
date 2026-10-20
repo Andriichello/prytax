@@ -33,6 +33,7 @@ use PryTax\Services\Transfers\TransferMetrics;
  * @property string|null $fee_amount
  * @property string|null $fee_currency
  * @property string|null $nbu_rate
+ * @property bool $rate_is_manual
  * @property Carbon|null $sent_at
  * @property Carbon $received_at
  * @property string|null $reference
@@ -83,6 +84,7 @@ class AccountTransfer extends BaseModel
         'amount_received' => 'decimal:2',
         'fee_amount' => 'decimal:2',
         'nbu_rate' => 'decimal:4',
+        'rate_is_manual' => 'boolean',
         'sent_at' => 'date:Y-m-d',
         'received_at' => 'date:Y-m-d',
     ];

@@ -45,12 +45,13 @@ class PaymentSnapshotter
      * @param string $receivedAmount What landed on the account.
      * @param string $receivedCurrency Currency of the account.
      * @param CarbonInterface $receivedAt
-     * @param string|null $manualRate A rate, which the user entered, when the NBU's one is unavailable.
+     * @param string|null $manualRate A rate, which the user entered, taken only when the NBU's one is unavailable.
      *
      * @return array{
      *     nbu_rate: string,
      *     nbu_rate_date: string,
      *     exchange_rate_id: int|null,
+     *     rate_is_manual: bool,
      *     uah_amount: string,
      *     tax_rule_id: int,
      *     single_tax_uah: string,
@@ -68,7 +69,7 @@ class PaymentSnapshotter
         CarbonInterface $receivedAt,
         ?string $manualRate = null
     ): array {
-        [$rate, $exchangeRateId] = $this->rateOf($currency, $receivedAt, $manualRate);
+        [$rate, $exchangeRateId, $isManual] = $this->rateOf($currency, $receivedAt, $manualRate);
         $rule = $this->rules->forDate($receivedAt, 'received_at');
 
         $uah = $this->uahAmount($profile, $currency, $amount, $receivedAmount, $receivedCurrency, $rate);
@@ -77,6 +78,7 @@ class PaymentSnapshotter
             'nbu_rate' => $rate,
             'nbu_rate_date' => $receivedAt->toDateString(),
             'exchange_rate_id' => $exchangeRateId,
+            'rate_is_manual' => $isManual,
             'uah_amount' => Decimal::money($uah),
             'tax_rule_id' => $rule->getKey(),
             'single_tax_uah' => Decimal::money(Decimal::times($uah, $rule->single_tax_rate)),
@@ -88,37 +90,35 @@ class PaymentSnapshotter
     }
 
     /**
-     * Get the UAH rate of the currency on the date, and id of its cached row: 1 for UAH, the manual one when given,
-     * else the NBU's.
+     * Get the UAH rate of the currency on the date, the id of its cached row and whether the user entered it: 1 for
+     * UAH, else the NBU's, and only when the NBU's is unavailable the one the user entered, which is never cached,
+     * so it reaches no other record.
      *
      * @param string $currency
      * @param CarbonInterface $date
      * @param string|null $manualRate
      * @param string $field
      *
-     * @return array{0: string, 1: int|null}
-     * @throws ValidationException
+     * @return array{0: string, 1: int|null, 2: bool}
+     * @throws ValidationException When neither the NBU's rate nor a manual one is available.
      */
     public function rateOf(string $currency, CarbonInterface $date, ?string $manualRate = null, string $field = 'nbu_rate'): array
     {
         if (strtoupper($currency) === 'UAH') {
-            return ['1.0000', null];
-        }
-
-        if ($manualRate !== null && $manualRate !== '') {
-            $stored = $this->rates->manual($currency, $date, $manualRate);
-            $rate = Decimal::rate($manualRate);
-
-            return [$rate, Decimal::of($stored->rate)->isEqualTo($rate) ? $stored->getKey() : null];
+            return ['1.0000', null, false];
         }
 
         try {
             $stored = $this->rates->rate($currency, $date);
         } catch (ExchangeRateUnavailableException $exception) {
+            if ($manualRate !== null && $manualRate !== '') {
+                return [Decimal::rate($manualRate), null, true];
+            }
+
             throw ValidationException::withMessages([$field => [$exception->getMessage()]]);
         }
 
-        return [Decimal::rate($stored->rate), $stored->getKey()];
+        return [Decimal::rate($stored->rate), $stored->getKey(), false];
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Transfers;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use PryTax\Models\Account;
 use PryTax\Models\AccountTransfer;
@@ -218,5 +219,30 @@ class TransferRecorderTest extends TestCase
         $this->inProfile($profile, fn () => app(TransferRecorder::class)->delete($profile, $transfer));
 
         $this->assertModelMissing($gain);
+    }
+
+    /**
+     * Test that an FX transfer needs the NBU's rate of its UAH leg, or a manual one, which it keeps.
+     *
+     * @return void
+     */
+    public function testRequiresARateOfAnFxTransferWhenTheNbuIsUnavailable(): void
+    {
+        Http::fake(['bank.gov.ua/*' => Http::response('Service Unavailable', 503)]);
+        [$profile, $payment, $payoneer] = $this->receiptOnPayoneer();
+        $bank = $this->createAccount($profile, ['kind' => 'fop_bank', 'name' => 'Bank UAH', 'currency' => 'UAH']);
+        $allocations = [['payment_id' => $payment->id, 'amount' => '1000.00']];
+
+        try {
+            $this->transfer($profile, $payoneer, $bank, '1000.00', '41500.00', $allocations);
+            $this->fail('No exception was thrown.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(['nbu_rate' => ['The NBU rate of USD on 10.10.2026 is unavailable. Enter the rate manually.']], $exception->errors());
+        }
+        $transfer = $this->transfer($profile, $payoneer, $bank, '1000.00', '41500.00', $allocations, ['nbu_rate' => '41.2000']);
+
+        $this->assertSame('41.2000', $transfer->nbu_rate);
+        $this->assertTrue($transfer->rate_is_manual);
+        $this->assertDatabaseCount('exchange_rates', 0);
     }
 }

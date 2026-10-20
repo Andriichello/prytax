@@ -6,7 +6,6 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use PryTax\Enums\ExchangeRateSource;
 use PryTax\Exceptions\ExchangeRateUnavailableException;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\ExchangeRate;
@@ -112,31 +111,7 @@ class NbuRateProvider
 
         return ExchangeRate::query()->updateOrCreate(
             ['currency' => $currency, 'rate_date' => $date->toDateString()],
-            ['rate' => $rate, 'source' => ExchangeRateSource::Nbu, 'fetched_at' => now()],
-        );
-    }
-
-    /**
-     * Store a rate, which a user entered, unless the NBU's rate of the day is cached already.
-     *
-     * @param string $currency
-     * @param CarbonInterface $date
-     * @param string $rate
-     *
-     * @return ExchangeRate
-     */
-    public function manual(string $currency, CarbonInterface $date, string $rate): ExchangeRate
-    {
-        $currency = strtoupper($currency);
-        $cached = $this->cached($currency, $date);
-
-        if ($cached?->source === ExchangeRateSource::Nbu) {
-            return $cached;
-        }
-
-        return ExchangeRate::query()->updateOrCreate(
-            ['currency' => $currency, 'rate_date' => $date->toDateString()],
-            ['rate' => Decimal::rate($rate), 'source' => ExchangeRateSource::Manual, 'fetched_at' => null],
+            ['rate' => $rate, 'fetched_at' => now()],
         );
     }
 

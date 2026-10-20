@@ -93,6 +93,11 @@ class TransferRecorder
             $data['fee_amount'] = $transfer->fee_amount;
         }
 
+        // A manual rate stays, while the NBU's is still unavailable
+        if (!array_key_exists('nbu_rate', $data) && $transfer->rate_is_manual) {
+            $data['nbu_rate'] = $transfer->nbu_rate;
+        }
+
         return $this->save($profile, $transfer, $data);
     }
 
@@ -154,7 +159,9 @@ class TransferRecorder
         $isFx = $from->currency !== $to->currency;
 
         $fee = $this->fee($isFx, $sent, $received, $data['fee_amount'] ?? null);
-        $nbuRate = $isFx ? $this->nbuRate($from->currency, $to->currency, $receivedAt, $data['nbu_rate'] ?? null) : null;
+        [$nbuRate, $rateIsManual] = $isFx
+            ? $this->nbuRate($from->currency, $to->currency, $receivedAt, $data['nbu_rate'] ?? null)
+            : [null, false];
 
         $allocations = $this->allocations($data['allocations'] ?? [], $sent);
 
@@ -174,6 +181,7 @@ class TransferRecorder
             'currency_received' => $to->currency,
             'fee_currency' => $fee === null ? null : $from->currency,
             'nbu_rate' => $nbuRate,
+            'rate_is_manual' => $rateIsManual,
         ]);
 
         DB::transaction(function () use ($profile, $transfer, $allocations, $from, $data) {
@@ -254,17 +262,19 @@ class TransferRecorder
     }
 
     /**
-     * Get the NBU rate of the UAH leg of an FX transfer on its date, or null for a transfer between foreign
-     * currencies, or when the rate is unavailable (the spread is then unknown, but the transfer isn't refused).
+     * Get the NBU rate of the UAH leg of an FX transfer on its date and whether the user entered it, or no rate for a
+     * transfer between foreign currencies. Without the NBU's rate a manual one is required, since the spread and an
+     * FX gain depend on it.
      *
      * @param string $sent
      * @param string $received
      * @param CarbonImmutable $date
      * @param string|null $manualRate
      *
-     * @return string|null
+     * @return array{0: string|null, 1: bool}
+     * @throws ValidationException When neither the NBU's rate nor a manual one is available.
      */
-    protected function nbuRate(string $sent, string $received, CarbonImmutable $date, ?string $manualRate): ?string
+    protected function nbuRate(string $sent, string $received, CarbonImmutable $date, ?string $manualRate): array
     {
         $foreign = match (true) {
             $received === 'UAH' => $sent,
@@ -273,14 +283,12 @@ class TransferRecorder
         };
 
         if ($foreign === null) {
-            return null;
+            return [null, false];
         }
 
-        try {
-            return $this->snapshotter->rateOf($foreign, $date, $manualRate)[0];
-        } catch (ValidationException) {
-            return null;
-        }
+        [$rate, , $isManual] = $this->snapshotter->rateOf($foreign, $date, $manualRate);
+
+        return [$rate, $isManual];
     }
 
     /**

@@ -105,7 +105,6 @@ trait ActsInProfiles
                     'currency' => $currency,
                     'rate_date' => $date,
                     'rate' => $rate,
-                    'source' => 'nbu',
                     'fetched_at' => now(),
                 ]);
             }

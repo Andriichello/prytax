@@ -27,6 +27,8 @@ return new class extends Migration
             $table->decimal('nbu_rate', 12, 4);
             $table->date('nbu_rate_date');
             $table->foreignId('exchange_rate_id')->nullable()->constrained()->nullOnDelete();
+            // Entered by the user, as the NBU's rate was unavailable
+            $table->boolean('rate_is_manual')->default(false);
             $table->decimal('uah_amount', 15, 2);
             $table->foreignId('tax_rule_id')->constrained()->restrictOnDelete();
             $table->text('reason')->nullable();

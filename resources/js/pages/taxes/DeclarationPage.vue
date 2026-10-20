@@ -24,7 +24,8 @@ import { DECLARATION_STATUSES } from '@/utils/statuses';
 
 /**
  * Декларація (S-Declaration): the status of a quarter's declaration, its deadlines (filing, ЄП and ВЗ, ЄСВ) with what
- * is left to pay, the figures to copy into it, and the status changes. Submitting locks the quarter.
+ * is left to pay, the figures to copy into it, and the status changes. Submitting locks the quarter. A correction of a
+ * declared quarter makes it `corrected`: the уточнююча декларація is due, and marking it submitted locks it again.
  */
 const WEEKDAYS = ['неділя', 'понеділок', 'вівторок', 'середа', 'четвер', "п'ятниця", 'субота'];
 const SHORT_MONTHS = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'];
@@ -48,8 +49,25 @@ watch(declaration, (loaded) => {
     notes.value = loaded?.period.notes ?? '';
 });
 
+const canUpdate = computed(() => can('update', 'tax-periods') && Boolean(declaration.value?.period.id));
+
 const status = computed<DeclarationStatus>(() => declaration.value?.period.declaration_status ?? 'none');
-const stepKey = computed(() => (status.value === 'rejected' ? 'submitted' : status.value === 'corrected' ? 'accepted' : status.value));
+
+/** The steps of the status: a declaration's own, or those of its уточнююча after a correction. */
+const steps = computed(() => (status.value === 'corrected'
+    ? [
+        { key: 'submitted', label: 'Подано' },
+        { key: 'corrected', label: 'Потрібна уточнююча' },
+        { key: 'resubmitted', label: 'Уточнюючу подано' },
+        { key: 'accepted', label: 'Прийнято' },
+    ]
+    : [
+        { key: 'none', label: 'Не подано' },
+        { key: 'filled', label: 'Заповнено' },
+        { key: 'submitted', label: status.value === 'rejected' ? 'Відхилено' : 'Подано' },
+        { key: 'accepted', label: 'Прийнято' },
+    ]));
+const stepKey = computed(() => (status.value === 'rejected' ? 'submitted' : status.value));
 const previous = computed(() => (quarter.value > 1 ? `за ${quarterLabel(quarter.value - 1)}` : 'раніше'));
 const ended = computed(() => {
     const lastMonth = quarter.value * 3;
@@ -75,11 +93,34 @@ function countdown(date: string): string {
     return days > 0 ? `${weekday} · через ${countOf(days, DAYS)}` : days === 0 ? `${weekday} · сьогодні` : `строк минув ${formatDate(date)}`;
 }
 
+/* The notes, saved when the field is left; they also go with every status change */
+const actionError = ref<string | null>(null);
+let savingNotes: Promise<void> | null = null;
+
+function saveNotes(): void {
+    const period = declaration.value?.period;
+
+    if (!period?.id || !canUpdate.value || notes.value.trim() === (period.notes ?? '').trim()) {
+        return;
+    }
+
+    actionError.value = null;
+    savingNotes = api.patch(path(`tax-periods/${period.id}`), { notes: notes.value.trim() || null })
+        .then(() => {
+            period.notes = notes.value.trim() || null;
+        })
+        .catch((caught: unknown) => {
+            actionError.value = errorMessage(caught);
+        })
+        .finally(() => {
+            savingNotes = null;
+        });
+}
+
 /* Status changes */
 const saving = ref(false);
-const actionError = ref<string | null>(null);
 
-async function setStatus(next: DeclarationStatus | null): Promise<void> {
+async function setStatus(next: DeclarationStatus): Promise<void> {
     const period = declaration.value?.period;
 
     if (!period?.id) {
@@ -90,8 +131,10 @@ async function setStatus(next: DeclarationStatus | null): Promise<void> {
     actionError.value = null;
 
     try {
+        // A tap on the button leaves the notes first, so their save is awaited; the status change carries them too
+        await savingNotes;
         await api.patch(path(`tax-periods/${period.id}`), {
-            ...(next ? { declaration_status: next } : {}),
+            declaration_status: next,
             ...(next === 'submitted' ? { declaration_submitted_at: today() } : {}),
             notes: notes.value.trim() || null,
         });
@@ -113,6 +156,8 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
             return { secondary: { label: 'Відхилено', status: 'rejected' }, primary: { label: 'Прийнято', status: 'accepted' } };
         case 'rejected':
             return { secondary: { label: 'Заповнено', status: 'filled' }, primary: { label: 'Подано знову', status: 'submitted' } };
+        case 'corrected':
+            return { primary: { label: 'Уточнюючу подано', status: 'submitted' } };
         default:
             return {};
     }
@@ -135,16 +180,12 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                     </div>
                 </div>
 
-                <Stepper
-                    :steps="[
-                        { key: 'none', label: 'Не подано' },
-                        { key: 'filled', label: 'Заповнено' },
-                        { key: 'submitted', label: status === 'rejected' ? 'Відхилено' : 'Подано' },
-                        { key: 'accepted', label: status === 'corrected' ? 'Уточнено' : 'Прийнято' },
-                    ]"
-                    :current="stepKey"
-                    label="Статус декларації"
-                />
+                <Stepper :steps="steps" :current="stepKey" label="Статус декларації" />
+
+                <p v-if="status === 'corrected'" class="m-0 rounded-card bg-warning-soft p-4 text-14 leading-normal text-warning">
+                    Після подання декларації доходи або податки цього року змінено. Подайте уточнюючу декларацію і
+                    позначте її поданою.
+                </p>
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4" aria-label="Строки">
                     <div class="flex items-center gap-3 py-3">
@@ -154,7 +195,8 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                         </span>
                         <span class="flex flex-col gap-0.5">
                             <span class="text-16 font-medium">Подати декларацію</span>
-                            <span class="text-13 text-ink-3">{{ ['submitted', 'accepted', 'corrected'].includes(status) ? 'подано' : countdown(declaration.period.declaration_due_at) }}</span>
+                            <span v-if="status === 'corrected'" class="text-13 font-semibold text-warning-text">потрібна уточнююча декларація</span>
+                            <span v-else class="text-13 text-ink-3">{{ ['submitted', 'accepted'].includes(status) ? 'подано' : countdown(declaration.period.declaration_due_at) }}</span>
                         </span>
                     </div>
                     <div class="flex items-center gap-3 py-3">
@@ -223,7 +265,14 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                     наступні квартали року як «потрібна уточнююча».
                 </p>
 
-                <TextAreaField v-model="notes" label="Примітки" :rows="2" placeholder="Номер квитанції, коментар" @focusout="declaration.period.id && notes !== (declaration.period.notes ?? '') && setStatus(null)" />
+                <TextAreaField
+                    v-model="notes"
+                    label="Примітки"
+                    :rows="2"
+                    :placeholder="canUpdate ? 'Номер квитанції, коментар' : ''"
+                    :disabled="!canUpdate"
+                    @focusout="saveNotes"
+                />
 
                 <p v-if="!declaration.period.id" class="m-0 text-14 text-ink-3">Цей квартал не відстежується, тож статус декларації не змінюється.</p>
                 <p v-else-if="actions.primary?.status === 'submitted' && !ended" class="m-0 text-14 text-ink-3">Подати можна після закінчення кварталу.</p>
@@ -231,7 +280,7 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
             </template>
         </LoadState>
 
-        <template v-if="declaration?.period.id && can('update', 'tax-periods') && (actions.primary || actions.secondary)" #footer>
+        <template v-if="canUpdate && (actions.primary || actions.secondary)" #footer>
             <div class="grid gap-2.5" :class="actions.secondary ? 'grid-cols-[1fr_1.4fr]' : 'grid-cols-1'">
                 <SecondaryButton v-if="actions.secondary" :busy="saving" @click="setStatus(actions.secondary.status)">{{ actions.secondary.label }}</SecondaryButton>
                 <PrimaryButton

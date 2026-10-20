@@ -30,7 +30,8 @@ export const DECLARATION_STATUSES: Record<DeclarationStatus, StatusLabel> = {
     submitted: { label: 'Подано', tone: 'warning' },
     accepted: { label: 'Прийнято', tone: 'positive' },
     rejected: { label: 'Відхилено', tone: 'negative' },
-    corrected: { label: 'Уточнено', tone: 'positive' },
+    /** A write into the declared quarter (or an earlier one of the year) needs an уточнююча декларація. */
+    corrected: { label: 'Потрібна уточнююча', tone: 'warning' },
 };
 
 export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {

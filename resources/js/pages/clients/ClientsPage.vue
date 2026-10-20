@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
-import type { Client, Paginated } from '@/api/types';
+import type { Client } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -25,11 +25,7 @@ const search = ref('');
 const showInactive = ref(false);
 
 const { data: clients, error, loading, reload } = useLoader(async (signal) => {
-    const { data } = await api.get<Paginated<Client>>(path('clients'), {
-        append: ['outstanding'],
-        include: ['contracts'],
-        page: { size: 50 },
-    }, signal);
+    const data = await api.all<Client>(path('clients'), { append: ['outstanding'], include: ['contracts'] }, signal);
 
     return data.sort((a, b) => a.name.localeCompare(b.name));
 }, [profileId]);

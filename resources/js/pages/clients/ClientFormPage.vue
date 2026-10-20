@@ -17,9 +17,11 @@ import { COMMON_COUNTRIES, countryName } from '@/utils/clients';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Клієнт — новий або редагування: the name on invoices, the legal name, country and currency, the address and tax
- * numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner note.
+ * Клієнт — новий або редагування: the name on invoices, the legal name, country and currency, the address (up to
+ * four lines) and tax numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner
+ * note.
  */
+const MAX_LINES = 4;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
 
 const route = useRoute();
@@ -35,8 +37,7 @@ const form = reactive({
     legal_name: '',
     country: 'US',
     currency: 'USD',
-    line1: '',
-    line2: '',
+    lines: ['', ''],
     city: '',
     state: '',
     zip: '',
@@ -59,8 +60,7 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         legal_name: data.legal_name ?? '',
         country: data.country ?? '',
         currency: data.currency ?? 'USD',
-        line1: data.address?.lines?.[0] ?? '',
-        line2: data.address?.lines?.[1] ?? '',
+        lines: [...data.address?.lines ?? [], '', ''].slice(0, Math.max(2, data.address?.lines?.length ?? 0)).map((line) => line ?? ''),
         city: data.address?.city ?? '',
         state: data.address?.state ?? '',
         zip: data.address?.zip ?? '',
@@ -89,15 +89,14 @@ async function save(): Promise<void> {
     saving.value = true;
     saveError.value = null;
 
-    const lines = [form.line1.trim(), form.line2.trim()].filter(Boolean);
+    const lines = form.lines.map((line) => line.trim()).filter(Boolean);
+    const address = { lines, city: form.city.trim() || null, state: form.state.trim() || null, zip: form.zip.trim() || null };
     const body = {
         name: form.name.trim(),
         legal_name: form.legal_name.trim() || null,
         country: form.country || null,
         currency: form.currency || null,
-        address: lines.length || form.city || form.zip
-            ? { lines, city: form.city.trim() || null, state: form.state.trim() || null, zip: form.zip.trim() || null }
-            : null,
+        address: lines.length || address.city || address.state || address.zip ? address : null,
         tax_id: form.tax_id.trim() || null,
         vat_number: form.vat_number.trim() || null,
         email: form.email.trim() || null,
@@ -142,8 +141,21 @@ const generalError = computed(() => {
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>Адреса для інвойсу</SectionTitle>
-                <TextField v-model="form.line1" label="Адреса" placeholder="500 Market St, Suite 200" />
-                <TextField v-model="form.line2" label="Адреса, рядок 2" placeholder="Необов'язково" />
+                <TextField
+                    v-for="(_, index) in form.lines"
+                    :key="index"
+                    v-model="form.lines[index]"
+                    :label="index === 0 ? 'Адреса' : `Адреса, рядок ${index + 1}`"
+                    :placeholder="index === 0 ? '500 Market St, Suite 200' : 'Необов\'язково'"
+                />
+                <button
+                    v-if="form.lines.length < MAX_LINES"
+                    type="button"
+                    class="-mt-1 flex min-h-11 items-center self-start text-15 font-medium text-accent"
+                    @click="form.lines.push('')"
+                >
+                    + Ще рядок адреси
+                </button>
                 <div class="grid grid-cols-2 gap-2.5">
                     <TextField v-model="form.city" label="Місто" />
                     <TextField v-model="form.state" label="Штат / регіон" placeholder="Необов'язково" />

@@ -35,6 +35,13 @@ class ResolveProfile
     public const string PARAMETER = 'profile';
 
     /**
+     * Attribute of the request, which keeps the resolved profile.
+     *
+     * @var string
+     */
+    public const string ATTRIBUTE = 'prytax.profile';
+
+    /**
      * Handle an incoming request.
      *
      * @param Request $request
@@ -49,7 +56,10 @@ class ResolveProfile
         if ($value !== null) {
             $id = $value instanceof Profile ? $value->getKey() : $value;
 
-            CurrentProfile::set(Profile::query()->index($request->user())->findOrFail($id));
+            $profile = Profile::query()->index($request->user())->findOrFail($id);
+
+            CurrentProfile::set($profile);
+            $request->attributes->set(static::ATTRIBUTE, $profile);
         }
 
         return $next($request);

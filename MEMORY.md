@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-20 (backend merged into `main`; frontend started on `dev`). Read this file first when resuming, then `CLAUDE.md`,
+Status as of 2026-10-20 (backend merged into `main`; every screen of the frontend built on `dev`). Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (§16 is the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design
 handoff; the screens are in `docs/prytax-design-handoff/`).
 
@@ -9,7 +9,7 @@ handoff; the screens are in `docs/prytax-design-handoff/`).
 | Phase | State |
 |---|---|
 | 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
-| 2. Frontend: Vue screens of the "Simplified" design | **In progress** on branch `dev`: foundation and section «Вхід і головна» done |
+| 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged); polish and QA next |
 | 3. QA in the browser, going through scenarios like a tester | **Not started** |
 
 - `php artisan test --compact`: **286 tests** (283 backend + `SpaRouteTest`), all passing on 2026-10-20 (about 85 s, on MySQL `prytax_test`). Run it in the
@@ -19,10 +19,10 @@ handoff; the screens are in `docs/prytax-design-handoff/`).
 
 ### First steps of the next session
 
-1. Continue phase 2 on `dev`, section by section in canvas order: Інвойси (S-Invoices with infinite scroll and the
-   filters screen, S-InvoiceEdit/Item/Freeze/Detail/External) → Надходження → Рахунки й клієнти → Облік → Податки →
-   Ще. Routes not built yet render `ComingSoonPage` (see `resources/js/router/index.ts`).
-2. Before each screen: its PNG in `docs/prytax-design-handoff/screens/png/`, its export in `screens/html/` for sizes.
+1. Phase 3, QA in the browser like a tester: every flow per role (owner olena, accountant maria, viewer taras), on
+   all four demo ФОП, including empty states and errors. Screens were checked one by one against the mocks while
+   building, but no flow-by-flow QA has been done.
+2. Open frontend gaps (below, under "Frontend"), then merge `dev` into `main` when the user asks.
 
 ## The audit (2026-10-20)
 
@@ -212,9 +212,10 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app;
   see the user's plan below). `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
 - **Layout of `resources/js/`:** `api/client.ts` (fetch, CSRF, 419 retry, 401 → sign-in, api-core bracketed queries,
-  `Accept-Language: uk`), `api/types.ts` (every response, checked against real ones), `composables/` (`useSession`,
+  `Accept-Language: uk`, `newIdempotencyKey()` for receipt/refund/transfer/tax POSTs), `api/types.ts` (every response, checked against real ones), `composables/` (`useSession`,
   `useCurrentProfile`: profiles + the current one, remembered per user in localStorage, settings and money format;
-  `useLoader`: load per source, stale answers dropped), `utils/` (`money`, `dates`, `plural`, `statuses`, `errors`:
+  `useLoader`: load per source, stale answers dropped; `usePagedList`: infinite lists; `useStoredState`: per-user view
+  preferences; `useInvoiceFilters`: URL filters), `utils/` (`money`, `dates`, `plural`, `statuses`, `errors`:
   Ukrainian texts for the API's English messages, `text`: figures in API texts set in mono), `components/layout`
   (TabScreen, SubScreen, TopHeader, SubHeader, TabBar, AuthLayout), `components/ui` (Icon with the designs' icons,
   Avatar, BottomSheet, Chip, StatusBadge, ProgressBar, PeriodStepper, PrimaryButton, LoadState, EmptyState),
@@ -224,9 +225,23 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   the `num` utility for every number (mono, tabular, nowrap). Fonts are bundled from `resources/fonts`.
 - **The design's renders don't show Geologica:** the export's `fonts.css` points at `fonts/fonts/…`, so the PNGs and
   HTML fall back to system fonts. The app uses Geologica and IBM Plex Mono as specified, so it looks a bit wider.
-- **Done:** Вхід (no "Запам'ятати мене": api-core has no remember-me), "Забули пароль?" and `/reset-password`,
-  Головна, the ФОП switcher sheet, Сповіщення (read on tap, card, action or ✓), Огляд практики (`?year&quarter`,
-  `?inactive=1`).
+- **Built (all handoff screens):** Вхід, "Забули пароль?", `/reset-password`; Головна; the ФОП switcher sheet;
+  Сповіщення; Огляд практики; Інвойси (infinite list, filters sheet with live count, URL filters), invoice page
+  (actions, receipts, PDF), editor (generated and external PDF with SHA-256 duplicate check, items sheet, adjustment,
+  freeze sheet, delete draft); receipts (form with live `payments/preview`, manual rate only when the NBU has none,
+  correction note for declared quarters, "mark the invoice paid"), receipt page (money flow, totals, tax payments,
+  refund sheet); transfers (list with route losses, form with FIFO / exact allocations, page); accounts (list, page
+  with statement and copyable requisites, form with limits); clients (list, page with stats, projects and work types
+  sheets, form), contracts (template preview, rates sheet); Облік (quarters grouped none / month / invoice with
+  remembered switches, summary with kopeck checks, CSV links), ЄСВ, Книга доходів; Податки (quarter / month /
+  receipt views, tax payment form with budget requisites, declaration with status changes); Ще; settings (profile
+  with signature and money formats, numbering and counters, taxes and notifications incl. opening balances and
+  budget requisites), users (invite, roles, resend, delete). Forms hide saving from roles that can't save.
+- **Frontend gaps:** (1) links without a profile (`/invoices/{id}` from e-mails, another tab) open in the current
+  ФОП only, else a 404 — consider `?profile=` or a lookup; (2) XLSX exports and the yearly PDF summary aren't built
+  (no backend); (3) native date inputs show the device's format (en-US in headless Chrome, dd.mm.yyyy on a uk
+  phone); (4) no JS test runner (formatters were checked ad hoc) — propose Vitest to the user; (5) `taxes/{year}/
+  months` doesn't spread quarter payments over months, so the monthly view shows "—" for them.
 - **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`). Serve PryTax elsewhere, e.g.
   from `public/`: `APP_URL=http://localhost:8010 SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010
   php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`.

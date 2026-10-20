@@ -9,19 +9,60 @@ use Illuminate\Validation\ValidationException;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Http\Middleware\ResolveProfile;
 use PryTax\Models\Profile;
+use PryTax\Services\Alerts\AlertSync;
 
 /**
  * Class TenantRepository.
  *
  * Repository of a model of a profile. Records, which other records reference, can't be deleted (every foreign key
  * of the domain is RESTRICT, design.md §10): such a delete answers 422 with a hint to deactivate the record, rather
- * than 500.
+ * than 500. A repository, whose records the notifications watch (contracts, accounts, opening balances), syncs them
+ * after its writes.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Repositories
  */
 abstract class TenantRepository extends CrudRepository
 {
+    /**
+     * Whether a write of the repository's records can change the profile's notifications, so they are synced after.
+     *
+     * @var bool
+     */
+    protected bool $syncsAlerts = false;
+
+    /**
+     * Create the model, and sync the notifications, when they watch it.
+     *
+     * @param array $attributes
+     * @param array $parents
+     *
+     * @return BaseModel
+     */
+    public function create(array $attributes, array $parents = []): BaseModel
+    {
+        $model = parent::create($attributes, $parents);
+        $this->syncAlerts();
+
+        return $model;
+    }
+
+    /**
+     * Update the model, and sync the notifications, when they watch it.
+     *
+     * @param BaseModel $model
+     * @param array $attributes
+     *
+     * @return bool
+     */
+    public function update(BaseModel $model, array $attributes): bool
+    {
+        $updated = parent::update($model, $attributes);
+        $this->syncAlerts();
+
+        return $updated;
+    }
+
     /**
      * Delete the model, unless other records reference it.
      *
@@ -33,7 +74,10 @@ abstract class TenantRepository extends CrudRepository
     public function delete(BaseModel $model): bool
     {
         try {
-            return parent::delete($model);
+            $deleted = parent::delete($model);
+            $this->syncAlerts();
+
+            return $deleted;
         } catch (QueryException $exception) {
             // 1451: a foreign key restricts the delete
             if (($exception->errorInfo[1] ?? null) === 1451) {
@@ -43,6 +87,20 @@ abstract class TenantRepository extends CrudRepository
             }
 
             throw $exception;
+        }
+    }
+
+    /**
+     * Sync the profile's notifications after the write, when they watch the repository's records.
+     *
+     * @return void
+     */
+    protected function syncAlerts(): void
+    {
+        $profile = $this->syncsAlerts ? $this->profile() : null;
+
+        if ($profile !== null) {
+            app(AlertSync::class)->syncAfterCommit($profile);
         }
     }
 

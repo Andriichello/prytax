@@ -3,6 +3,7 @@
 namespace PryTax\Services\Alerts;
 
 use Illuminate\Support\Facades\DB;
+use PryTax\Enums\AlertSeverity;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Models\Alert;
 use PryTax\Models\Profile;
@@ -11,9 +12,10 @@ use PryTax\Models\Profile;
  * Class AlertSync.
  *
  * Keeps a profile's notifications in step with their conditions (design.md §9): upserts one row per dedupe key,
- * which AlertCollector reports, reopening a resolved one whose condition holds again, and resolves the rows, whose
- * conditions cleared. Rows are never deleted, and read state is never touched here. It runs after the writes, which
- * can change the conditions, and daily.
+ * which AlertCollector reports, and resolves the rows, whose conditions cleared. Rows are never deleted. A resolved
+ * one, whose condition holds again, and one, which grew more severe (a deadline, which passed), are news again: they
+ * are dated now and unread by everyone. Otherwise read state is kept. It runs after the writes, which can change the
+ * conditions, and daily.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Alerts
@@ -91,9 +93,16 @@ class AlertSync
             foreach ($collected as $key => $attributes) {
                 $alert = $existing->get($key) ?? new Alert(['dedupe_key' => $key]);
                 $opened += $alert->exists && $alert->resolved_at === null ? 0 : 1;
+                $isNews = $alert->exists && ($alert->resolved_at !== null || $this->escalates($alert, $attributes['severity']));
 
                 $alert->fill([...$attributes, 'resolved_at' => null]);
                 $alert->profile_id = $profile->getKey();
+
+                if ($isNews) {
+                    $alert->created_at = now();
+                    $alert->readers()->detach();
+                }
+
                 $alert->save();
             }
 
@@ -106,5 +115,22 @@ class AlertSync
 
             return ['opened' => $opened, 'resolved' => $resolved];
         });
+    }
+
+    /**
+     * Determine if the notification grows more severe, such as a deadline, which passed.
+     *
+     * @param Alert $alert
+     * @param AlertSeverity|string $severity
+     *
+     * @return bool
+     */
+    protected function escalates(Alert $alert, AlertSeverity|string $severity): bool
+    {
+        $ranks = [AlertSeverity::Info->value => 0, AlertSeverity::Warning->value => 1, AlertSeverity::Error->value => 2];
+        $to = $severity instanceof AlertSeverity ? $severity->value : $severity;
+        $from = $alert->severity instanceof AlertSeverity ? $alert->severity->value : (string) $alert->severity;
+
+        return ($ranks[$to] ?? 0) > ($ranks[$from] ?? 0);
     }
 }

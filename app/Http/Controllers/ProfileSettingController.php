@@ -3,9 +3,12 @@
 namespace PryTax\Http\Controllers;
 
 use Core\Http\Controllers\SettingController;
+use Core\Http\Requests\Crud\UpdateRequest;
+use Core\Http\Responses\ApiResponse;
 use Core\Repositories\SettingRepository;
 use PryTax\Models\Profile;
 use PryTax\Policies\ProfilePolicy;
+use PryTax\Services\Alerts\AlertSync;
 
 /**
  * Class ProfileSettingController.
@@ -58,5 +61,22 @@ class ProfileSettingController extends SettingController
             'update' => 'configure',
             'delete' => 'configure',
         ];
+    }
+
+    /**
+     * Handle the `update` operation, and sync the profile's notifications, which follow its settings (the days of
+     * warning, the repatriation rule, the money format of their texts).
+     *
+     * @param UpdateRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleUpdate(UpdateRequest $request): ApiResponse
+    {
+        $response = parent::handleUpdate($request);
+
+        app(AlertSync::class)->syncAfterCommit($this->settableOf($request));
+
+        return $response;
     }
 }

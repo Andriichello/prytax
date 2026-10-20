@@ -24,6 +24,8 @@ use PryTax\Services\Rates\NbuRateProvider;
 use PryTax\Services\Taxes\DeadlineScheduler;
 use PryTax\Services\Taxes\TaxLiabilityCalculator;
 use PryTax\Services\Taxes\TaxReconciler;
+use PryTax\Services\Taxes\TaxRuleResolver;
+use PryTax\Services\Taxes\TaxTracking;
 use PryTax\Services\Transfers\HoldingCalculator;
 
 /**
@@ -41,13 +43,6 @@ use PryTax\Services\Transfers\HoldingCalculator;
  */
 class AlertCollector
 {
-    /**
-     * Days, after which a ready invoice without receipts is reported.
-     *
-     * @var int
-     */
-    public const int READY_WITHOUT_RECEIPTS_DAYS = 14;
-
     /**
      * Days before a contract's end, from which it is reported.
      *
@@ -79,6 +74,8 @@ class AlertCollector
      * @param RepatriationRule $repatriation
      * @param AccountLimitCalculator $limits
      * @param NbuRateProvider $rates
+     * @param TaxTracking $tracking
+     * @param TaxRuleResolver $rules
      */
     public function __construct(
         protected DeadlineScheduler $deadlines,
@@ -87,7 +84,9 @@ class AlertCollector
         protected HoldingCalculator $holdings,
         protected RepatriationRule $repatriation,
         protected AccountLimitCalculator $limits,
-        protected NbuRateProvider $rates
+        protected NbuRateProvider $rates,
+        protected TaxTracking $tracking,
+        protected TaxRuleResolver $rules
     ) {}
 
     /**
@@ -116,8 +115,9 @@ class AlertCollector
             ...$this->accountLimits(),
             ...$this->incomeCap($profile),
             ...$this->contracts(),
-            ...$this->invoices(),
+            ...$this->invoices($profile),
             ...$this->manualRates(),
+            ...$this->taxRulesOfNextYear(),
         ];
     }
 
@@ -135,12 +135,13 @@ class AlertCollector
         $days = (int) $profile->setting('alerts.deadline_days');
         $horizon = $this->today->addDays($days);
 
+        // Every tracked quarter, which ended: a debt of an earlier year stays until it is paid
         $periods = TaxPeriod::query()
-            ->whereIn('year', [$this->today->year - 1, $this->today->year])
             ->orderBy('year')
             ->orderBy('quarter')
             ->get()
-            ->filter(fn (TaxPeriod $period) => CarbonImmutable::create($period->year, $period->quarter * 3)->endOfMonth()->lt($this->today));
+            ->filter(fn (TaxPeriod $period) => CarbonImmutable::create($period->year, $period->quarter * 3)->endOfMonth()->lt($this->today)
+                && $this->tracking->tracks($profile, $period->year, $period->quarter, $this->today));
 
         $balances = [];
 
@@ -191,6 +192,7 @@ class AlertCollector
             $esvBalance = $balances[TaxType::SocialContribution->value][$key] ?? Decimal::zero();
 
             if ($esvBalance->isNegative() && $period->esv_due_at->lte($horizon)) {
+                // An unpaid month of ЄСВ is a warning, also past its deadline (design.md §9)
                 $alerts["deadline:{$period->id}:esv"] = $this->deadline(
                     $period->esv_due_at,
                     "ЄСВ за $label",
@@ -198,6 +200,7 @@ class AlertCollector
                     "/accounting/esv?year={$period->year}",
                     'Сплатити ЄСВ',
                     ['tax_period_id' => $period->id, 'kind' => 'esv', 'amount' => Decimal::money($esvBalance->negated())],
+                    AlertSeverity::Warning,
                 );
             }
         }
@@ -214,18 +217,26 @@ class AlertCollector
      * @param string $route
      * @param string $action
      * @param array $payload
+     * @param AlertSeverity $pastSeverity
      *
      * @return array<string, mixed>
      */
-    protected function deadline($due, string $title, string $body, string $route, string $action, array $payload): array
-    {
+    protected function deadline(
+        $due,
+        string $title,
+        string $body,
+        string $route,
+        string $action,
+        array $payload,
+        AlertSeverity $pastSeverity = AlertSeverity::Error
+    ): array {
         $past = $due->lt($this->today);
         $days = (int) $this->today->diffInDays($due, false);
 
         return [
             'type' => 'deadline',
             'category' => AlertCategory::Deadlines,
-            'severity' => $past ? AlertSeverity::Error : AlertSeverity::Warning,
+            'severity' => $past ? $pastSeverity : AlertSeverity::Warning,
             'title' => $title,
             'body' => $body . ($past
                 ? ' — строк минув ' . $due->format('d.m.Y') . '.'
@@ -327,15 +338,22 @@ class AlertCollector
 
         Account::query()->active()->whereNotNull('limit_amount')->get()->each(function (Account $account) use (&$alerts, $periods) {
             $progress = $this->limits->progress($account, $this->today);
-            $percent = (int) ($progress['percent'] ?? 0);
 
-            if ($progress === null || $percent < 80) {
+            if ($progress === null) {
                 return;
             }
 
-            $threshold = $percent >= 100 ? 100 : 80;
+            $threshold = $this->threshold($progress['used'], $progress['limit'], [100, 80]);
 
-            $alerts["limit:{$account->id}:$threshold"] = [
+            if ($threshold === null) {
+                return;
+            }
+
+            $percent = $progress['percent'];
+            // A calendar window's crossing is news in each window; a rolling one's is one condition
+            $window = $progress['window'] === 'calendar' ? ":{$progress['from']}" : '';
+
+            $alerts["limit:{$account->id}:$threshold$window"] = [
                 'type' => 'limit',
                 'category' => AlertCategory::Funds,
                 'severity' => $threshold === 100 ? AlertSeverity::Error : AlertSeverity::Warning,
@@ -361,9 +379,7 @@ class AlertCollector
     protected function incomeCap(Profile $profile): array
     {
         $cap = $this->liabilities->forQuarter($profile, $this->today->year, $this->today->quarter)['cap'];
-        $percent = Decimal::of($cap['percent']);
-
-        $threshold = collect([100, 90, 80])->first(fn (int $threshold) => $percent->isGreaterThanOrEqualTo($threshold));
+        $threshold = $this->threshold($cap['ytd_income'], $cap['income_cap'], [100, 90, 80]);
 
         if ($threshold === null) {
             return [];
@@ -376,7 +392,8 @@ class AlertCollector
             'title' => "Дохід — {$cap['percent']} % річного ліміту",
             'body' => $this->money->money($cap['ytd_income'], 'UAH') . ' з ' . $this->money->money($cap['income_cap'], 'UAH')
                 . ($threshold === 100
-                    ? '. Перевищення ' . $this->money->money($cap['excess'], 'UAH') . ' оподатковується за 15 % ('
+                    ? '. Перевищення ' . $this->money->money($cap['excess'], 'UAH') . ' оподатковується за '
+                        . rtrim(rtrim(Decimal::of($cap['excess_rate'])->multipliedBy(100)->toScale(2)->__toString(), '0'), '.') . ' % ('
                         . $this->money->money($cap['excess_tax'], 'UAH') . '), з наступного кварталу — загальна система.'
                     : '.'),
             'payload' => [...$cap, 'context' => 'Ліміт доходу'],
@@ -430,15 +447,18 @@ class AlertCollector
     }
 
     /**
-     * Overdue invoices, and ready ones without receipts for too long.
+     * Overdue invoices, and ready ones without receipts for longer than the profile's days.
+     *
+     * @param Profile $profile
      *
      * @return array<string, array<string, mixed>>
      */
-    protected function invoices(): array
+    protected function invoices(Profile $profile): array
     {
         $alerts = [];
+        $readyDays = (int) $profile->setting('alerts.ready_days');
 
-        Invoice::query()->open()->withPaidAmount()->with('client')->get()->each(function (Invoice $invoice) use (&$alerts) {
+        Invoice::query()->open()->withPaidAmount()->with('client')->get()->each(function (Invoice $invoice) use (&$alerts, $readyDays) {
             $left = Decimal::of($invoice->total)->minus(Decimal::of($invoice->paid_amount));
 
             if ($invoice->due_at !== null && $invoice->due_at->lt($this->today) && $left->isPositive()) {
@@ -457,7 +477,7 @@ class AlertCollector
 
             $stale = $invoice->status === InvoiceStatus::Ready
                 && $invoice->locked_at !== null
-                && $invoice->locked_at->lt($this->today->subDays(self::READY_WITHOUT_RECEIPTS_DAYS))
+                && $invoice->locked_at->lt($this->today->subDays($readyDays))
                 && Decimal::of($invoice->paid_amount)->isZero();
 
             if ($stale) {
@@ -554,6 +574,60 @@ class AlertCollector
             'action_label' => $action,
             'action_route' => $route,
         ];
+    }
+
+    /**
+     * The tax rules of the next year, while they aren't added in its last month: without them, its receipts can't be
+     * taxed and its ЄСВ isn't owed.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function taxRulesOfNextYear(): array
+    {
+        $next = $this->today->year + 1;
+
+        if ($this->today->month < 12 || $this->rules->find(CarbonImmutable::create($next)) !== null) {
+            return [];
+        }
+
+        return ["tax_rules:$next" => [
+            'type' => 'tax_rules',
+            'category' => AlertCategory::Deadlines,
+            'severity' => AlertSeverity::Warning,
+            'title' => "Податкові правила на $next рік ще не додано",
+            'body' => "Мінімальна зарплата, ЄСВ і ліміт доходу на $next рік ще не внесені в PryTax. Без них надходження "
+                . "$next року не прийматимуться, а ЄСВ не нараховуватиметься. Додайте їх оновленням застосунку.",
+            'payload' => ['year' => $next, 'context' => 'Податкові правила'],
+            'action_label' => null,
+            'action_route' => null,
+        ]];
+    }
+
+    /**
+     * Get the highest of the thresholds (percents), which the used amount reached of the limit, compared exactly,
+     * not by a rounded percent, or null.
+     *
+     * @param string $used
+     * @param string $limit
+     * @param array<int, int> $thresholds From the highest.
+     *
+     * @return int|null
+     */
+    protected function threshold(string $used, string $limit, array $thresholds): ?int
+    {
+        $limit = Decimal::of($limit);
+
+        if (!$limit->isPositive()) {
+            return null;
+        }
+
+        foreach ($thresholds as $threshold) {
+            if (Decimal::of($used)->multipliedBy(100)->isGreaterThanOrEqualTo($limit->multipliedBy($threshold))) {
+                return $threshold;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -90,6 +90,7 @@ class TaxLiabilityCalculator
                 'ytd_income' => Decimal::money($ytdIncome),
                 'percent' => Decimal::percent($ytdIncome, $cap),
                 'excess' => Decimal::money($excess),
+                'excess_rate' => Decimal::rate($rule?->excess_rate),
                 'excess_tax' => Decimal::money(Decimal::times($excess, $rule?->excess_rate)),
             ],
         ];

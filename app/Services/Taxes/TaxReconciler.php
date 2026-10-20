@@ -73,9 +73,8 @@ class TaxReconciler
         $quarters = [];
 
         for ($y = $startYear; $y <= $year; $y++) {
-            if ($type === TaxType::SocialContribution) {
-                $this->esv->ensureYear($profile, $y);
-            }
+            // Before any liability of the year, which the reconciler keeps, counts its ЄСВ months
+            $this->esv->ensureYear($profile, $y);
 
             for ($q = $y === $startYear ? $startQuarter : 1; $q <= 4; $q++) {
                 $owed = $this->owed($profile, $type, $y, $q);

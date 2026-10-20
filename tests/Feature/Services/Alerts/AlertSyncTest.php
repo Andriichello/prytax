@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use PryTax\Models\Alert;
+use PryTax\Models\Payment;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Payments\PaymentRecorder;
+use PryTax\Services\Payments\RefundRecorder;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -86,5 +88,116 @@ class AlertSyncTest extends TestCase
         $this->inProfile($profile, fn () => app(PaymentRecorder::class)->update($profile, $payment, []));
 
         $this->assertNotNull($alert->fresh()->resolved_at);
+    }
+
+    /**
+     * Test that a notification, whose condition holds again, is news again: dated anew, and unread by everyone.
+     *
+     * @return void
+     */
+    public function testMakesAReturningNotificationUnreadAgain(): void
+    {
+        Storage::fake('local');
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $user = $this->userOf($profile->organization, 'viewer');
+        $account = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-19' => '42.0150', '2026-10-21' => '42.0000']]);
+        $invoice = $this->createFrozenInvoice($profile, $account, ['due_at' => '2026-10-19']);
+        $this->inProfile($profile, fn () => app(AlertSync::class)->sync($profile));
+        $alert = $this->inProfile($profile, fn () => Alert::query()->where('dedupe_key', "overdue:{$invoice->id}")->firstOrFail());
+        DB::table('alert_reads')->insert(['alert_id' => $alert->id, 'user_id' => $user->id, 'read_at' => now()]);
+        $receipt = $this->recordReceipt($profile, $invoice, $account, ['received_at' => '2026-10-19']);
+        $this->travelTo('2026-10-22 10:00:00');
+
+        $this->inProfile($profile, fn () => app(RefundRecorder::class)->record($profile, $receipt, [
+            'amount' => '100.00', 'from_account_id' => $account->id, 'refunded_at' => '2026-10-21',
+        ]));
+
+        $this->assertNull($alert->fresh()->resolved_at);
+        $this->assertSame('2026-10-22', $alert->fresh()->created_at->toDateString());
+        $this->assertDatabaseMissing('alert_reads', ['alert_id' => $alert->id]);
+    }
+
+    /**
+     * Test that an account's limit is reported from exactly 80 %, not from a percent rounded up to it, once per
+     * calendar window.
+     *
+     * @return void
+     */
+    public function testReportsALimitFromExactlyEightyPercentPerWindow(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $payoneer = $this->createAccount($profile, ['name' => 'Payoneer USD', 'limit_amount' => '1000.00', 'limit_period' => 'year']);
+        $receipt = $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id, 'received_to_account_id' => $payoneer->id, 'amount' => '799.99', 'received_at' => '2026-10-05',
+        ]));
+        $keys = fn () => $this->inProfile($profile, function () use ($profile) {
+            app(AlertSync::class)->sync($profile);
+
+            return Alert::query()->whereNull('resolved_at')->where('type', 'limit')->pluck('dedupe_key')->all();
+        });
+
+        $below = $keys();
+        $receipt->forceFill(['received_amount' => '800.00'])->save();
+
+        $this->assertSame([], $below);
+        $this->assertSame(["limit:{$payoneer->id}:80:2026-01-01"], $keys());
+    }
+
+    /**
+     * Test that unpaid ЄСВ past its deadline is a warning (design.md §9), while ЄП past its deadline is an error.
+     *
+     * @return void
+     */
+    public function testWarnsOfUnpaidEsvPastItsDeadline(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id, 'received_to_account_id' => $this->createAccount($profile)->id, 'received_at' => '2026-05-05',
+        ]));
+
+        $alerts = $this->inProfile($profile, function () use ($profile) {
+            app(AlertSync::class)->sync($profile);
+
+            return Alert::query()->whereNull('resolved_at')->where('type', 'deadline')->get()->keyBy(fn (Alert $alert) => $alert->payload['kind'] . ':' . $alert->title);
+        });
+
+        $this->assertSame('warning', $alerts->get('esv:ЄСВ за II кв. 2026')->severity->value);
+        $this->assertSame('error', $alerts->get('tax:ЄП і ВЗ за II кв. 2026')->severity->value);
+    }
+
+    /**
+     * Test that, in December, the missing tax rules of the next year are reported.
+     *
+     * @return void
+     */
+    public function testReportsTheMissingTaxRulesOfTheNextYearInDecember(): void
+    {
+        $this->travelTo('2026-12-01 10:00:00');
+        $profile = $this->createProfile();
+
+        $this->inProfile($profile, fn () => app(AlertSync::class)->sync($profile));
+
+        $this->assertDatabaseHas('alerts', ['profile_id' => $profile->id, 'dedupe_key' => 'tax_rules:2027', 'resolved_at' => null]);
+    }
+
+    /**
+     * Test that a contract's end, changed through the API, is reported without waiting for the daily sync.
+     *
+     * @return void
+     */
+    public function testSyncsAfterAContractChanges(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        [$client, $contract] = $this->createClientWithContract($profile);
+
+        $this->patchJson($this->profilePath($profile, "clients/{$client->id}/contracts/{$contract->id}"), ['ends_at' => '2026-11-10'])->assertOk();
+
+        $this->assertDatabaseHas('alerts', ['profile_id' => $profile->id, 'dedupe_key' => "contract:{$contract->id}:ending", 'resolved_at' => null]);
     }
 }

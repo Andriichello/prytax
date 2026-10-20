@@ -263,6 +263,12 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'rules' => 'integer|min:0|max:60',
                 'cast' => 'int',
             ],
+            // Days, after which a ready invoice without receipts is reported
+            'alerts.ready_days' => [
+                'default' => 14,
+                'rules' => 'integer|min:1|max:365',
+                'cast' => 'int',
+            ],
         ];
     }
 

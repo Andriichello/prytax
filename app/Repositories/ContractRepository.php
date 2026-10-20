@@ -27,6 +27,13 @@ class ContractRepository extends TenantRepository
     protected BaseModel|string $model = Contract::class;
 
     /**
+     * Whether a write of the repository's records can change the profile's notifications, so they are synced after.
+     *
+     * @var bool
+     */
+    protected bool $syncsAlerts = true;
+
+    /**
      * Resource, against which includes are checked.
      *
      * @var string

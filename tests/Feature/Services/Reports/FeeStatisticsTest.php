@@ -45,7 +45,7 @@ class FeeStatisticsTest extends TestCase
 
         $stats = $this->inProfile($profile, fn () => app(FeeStatistics::class)->forYear($profile, 2026));
 
-        $this->assertSame(['Payoneer USD', '1025.00'], [$stats['by_account'][0]['name'], $stats['by_account'][0]['fees']]);
+        $this->assertSame(['Payoneer USD', 'USD', '1025.00'], [$stats['by_account'][0]['name'], $stats['by_account'][0]['currency'], $stats['by_account'][0]['fees']]);
         $this->assertSame('1025.00', $stats['by_client'][0]['fees']);
         $this->assertSame('1025.00', $stats['quarters'][3]['fees']);
         $this->assertSame('31807.98', $stats['quarters'][3]['net_income']);

@@ -67,7 +67,7 @@ class FeeStatistics
             $quarters[$payment->period_quarter]['fees'] = $quarters[$payment->period_quarter]['fees']->plus($fee);
             $quarters[$payment->period_quarter]['spread'] = $quarters[$payment->period_quarter]['spread']->plus($spread);
 
-            $this->add($accounts, $payment->received_to_account_id, $payment->receivedToAccount?->name, $fee, $spread, Decimal::of($payment->uah_amount));
+            $this->add($accounts, $payment->received_to_account_id, $payment->receivedToAccount?->name, $fee, $spread, Decimal::of($payment->uah_amount), $payment->receivedToAccount?->currency);
             $this->add($clients, $payment->invoice?->client_id ?? 0, $payment->invoice?->client?->name, $fee, $spread, Decimal::of($payment->uah_amount));
         }
 
@@ -88,7 +88,7 @@ class FeeStatistics
             $quarters[$quarter]['fees'] = $quarters[$quarter]['fees']->plus($fee);
             $quarters[$quarter]['spread'] = $quarters[$quarter]['spread']->plus($spread);
 
-            $this->add($accounts, $transfer->from_account_id, $transfer->fromAccount?->name, $fee, $spread);
+            $this->add($accounts, $transfer->from_account_id, $transfer->fromAccount?->name, $fee, $spread, currency: $transfer->fromAccount?->currency);
 
             foreach ($transfer->allocations as $allocation) {
                 $share = Decimal::divide($allocation->amount, $transfer->amount_sent, 8);
@@ -140,7 +140,7 @@ class FeeStatistics
     }
 
     /**
-     * Add the costs to a group, such as an account or a client.
+     * Add the costs to a group, such as an account (with its currency) or a client.
      *
      * @param array<int, array<string, mixed>> $groups
      * @param int $key
@@ -148,12 +148,21 @@ class FeeStatistics
      * @param BigDecimal $fee
      * @param BigDecimal $spread
      * @param BigDecimal|null $income
+     * @param string|null $currency
      *
      * @return void
      */
-    protected function add(array &$groups, int $key, ?string $name, BigDecimal $fee, BigDecimal $spread, ?BigDecimal $income = null): void
+    protected function add(array &$groups, int $key, ?string $name, BigDecimal $fee, BigDecimal $spread, ?BigDecimal $income = null, ?string $currency = null): void
     {
-        $group = $groups[$key] ?? ['id' => $key ?: null, 'name' => $name, 'receipts' => 0, 'income' => Decimal::zero(), 'fees' => Decimal::zero(), 'spread' => Decimal::zero()];
+        $group = $groups[$key] ?? [
+            'id' => $key ?: null,
+            'name' => $name,
+            'currency' => $currency,
+            'receipts' => 0,
+            'income' => Decimal::zero(),
+            'fees' => Decimal::zero(),
+            'spread' => Decimal::zero(),
+        ];
 
         $group['receipts'] += $income === null ? 0 : 1;
         $group['income'] = $group['income']->plus($income ?? Decimal::zero());

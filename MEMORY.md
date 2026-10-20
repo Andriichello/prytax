@@ -14,16 +14,12 @@ handoff; the screens are in `docs/prytax-design-handoff/`).
 
 - `php artisan test --compact`: **283 tests, all passing** (about 85 s, on MySQL `prytax_test`). Run it in the
   foreground with a generous timeout; two test runs at once on `prytax_test` deadlock each other.
-- **The dev database `prytax` is stale**: the audit edited the create migrations in place (the branch was never
-  released), so `prytax` lacks new columns (`rate_is_manual`, `invoices.active_number`, creators of opening balances
-  and requisites) and still has `exchange_rates.source`. Rebuild it before using the app (see "Demo data"); it drops
-  the dev data, so confirm with the user first.
+- The dev database `prytax` was rebuilt with the demo data on 2026-10-20, after the audit (schema is current).
 - The user asked for commits in logical parts, with the `Co-Authored-By` trailer from the system reminder.
 
 ### First steps of the next session
 
-1. Ask the user to confirm rebuilding the dev DB, then rebuild it (command under "Demo data").
-2. Phase 2: the user hasn't yet approved the frontend dependencies. Proposed: `vue`, `vue-router`,
+1. Phase 2: the user hasn't yet approved the frontend dependencies (asked again on 2026-10-20: "not yet"). Proposed: `vue`, `vue-router`,
    `@vitejs/plugin-vue`, `typescript`, `vue-tsc`, optionally `pinia` (else composables); HTTP through `fetch`, no
    axios. Then: route/component plan from handoff §4/§6, shared layout and formatters, screens in canvas order.
 

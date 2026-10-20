@@ -1,4 +1,4 @@
-import { onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
+import { onActivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
 
 export interface Loader<T> {
     data: Ref<T | null>;
@@ -9,7 +9,8 @@ export interface Loader<T> {
 
 /**
  * Load data for a screen, again whenever a source changes (the profile, a route param); a request, which a newer one
- * replaced, is aborted and its answer ignored.
+ * replaced, is aborted and its answer ignored. A page kept alive (KeepAlive) loads again when it is shown again,
+ * keeping the data on screen meanwhile.
  */
 export function useLoader<T>(fetcher: (signal: AbortSignal) => Promise<T>, sources: WatchSource[] = []): Loader<T> {
     const data = ref(null) as Ref<T | null>;
@@ -45,6 +46,15 @@ export function useLoader<T>(fetcher: (signal: AbortSignal) => Promise<T>, sourc
 
     watch(sources, reload, { immediate: true });
     onScopeDispose(() => controller?.abort());
+
+    // The first activation is the mount, which loads already
+    let activations = 0;
+
+    onActivated(() => {
+        if (activations++ > 0) {
+            void reload();
+        }
+    });
 
     return { data, error, loading, reload };
 }

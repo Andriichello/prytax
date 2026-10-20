@@ -1,4 +1,4 @@
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import type { Query } from '@/api/client';
 import type { InvoiceStatus } from '@/api/types';
@@ -90,7 +90,17 @@ export function useInvoiceFilters() {
     const route = useRoute();
     const router = useRouter();
 
-    const filters = computed(() => filtersFromQuery(route.query));
+    // The filters follow the URL only while the list is shown: kept alive behind an invoice, it keeps its own
+    const listRoute = route.name;
+    const filters = ref(filtersFromQuery(route.query));
+
+    watch(() => route.query, (query) => {
+        const next = filtersFromQuery(query);
+
+        if (route.name === listRoute && JSON.stringify(next) !== JSON.stringify(filters.value)) {
+            filters.value = next;
+        }
+    });
 
     const periodSummary = computed(() => {
         const { periods, from, to } = filters.value;

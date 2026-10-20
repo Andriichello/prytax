@@ -19,8 +19,10 @@ import { formatMoney } from '@/utils/money';
 
 /**
  * Перекази (S-Transfers): moves between the profile's own accounts, which aren't income. The year's losses by route
- * (fees and the spread of currency sales), then the transfers by month.
+ * (fees and the spread of currency sales), then the transfers by month. App keeps it alive behind an opened transfer.
  */
+defineOptions({ name: 'TransfersPage' });
+
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 

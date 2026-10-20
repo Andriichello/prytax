@@ -20,8 +20,10 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Інвойси: every invoice, newest first, grouped by the month of issue, loading further as the list scrolls. Filters
- * (no free-text search) live in the URL and open the filters sheet.
+ * (no free-text search) live in the URL and open the filters sheet. App keeps it alive behind an opened invoice.
  */
+defineOptions({ name: 'InvoicesPage' });
+
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 const { filters, periodSummary, apply } = useInvoiceFilters();

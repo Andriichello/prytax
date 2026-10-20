@@ -1,4 +1,4 @@
-import { onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
+import { onActivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
 import type { Paginated } from '@/api/types';
 
 export interface PagedList<T> {
@@ -12,13 +12,16 @@ export interface PagedList<T> {
     moreError: Ref<unknown>;
     reload: () => Promise<void>;
     loadMore: () => Promise<void>;
+    /** Read the pages shown again, keeping the rows on screen until they arrive. */
+    refresh: () => Promise<void>;
 }
 
 /**
  * A list read page by page (api-core's `page[number]`), for infinite scroll: the first page loads, and again
  * whenever a source changes (the profile, the filters); `loadMore()` appends the next one, leaving out rows already
  * shown (a row added meanwhile shifts the pages). Only the latest request counts: a reload overtaken by another one
- * neither shows its rows nor ends the loading state.
+ * neither shows its rows nor ends the loading state. A page kept alive (KeepAlive) reads its shown pages again when
+ * it is shown again, so a record changed meanwhile is up to date while the list keeps its length and scroll.
  */
 export function usePagedList<T>(
     fetchPage: (page: number, signal: AbortSignal) => Promise<Paginated<T>>,
@@ -101,8 +104,53 @@ export function usePagedList<T>(
         loadingMore.value = false;
     }
 
+    async function refresh(): Promise<void> {
+        if (loading.value || page === 0) {
+            return;
+        }
+
+        controller?.abort();
+
+        const own = (controller = new AbortController());
+
+        try {
+            const pages = await Promise.all(Array.from({ length: page }, (_, index) => fetchPage(index + 1, own.signal)));
+
+            if (own !== controller) {
+                return;
+            }
+
+            const shown = new Set<unknown>();
+
+            items.value = pages.flatMap((result) => result.data).filter((item) => {
+                const id = idOf(item);
+
+                if (id !== undefined && shown.has(id)) {
+                    return false;
+                }
+
+                shown.add(id);
+
+                return true;
+            });
+            total.value = pages.at(-1)!.meta.total;
+            hasMore.value = pages.at(-1)!.meta.links.next !== null;
+        } catch {
+            // The rows shown stay; the next visit tries again
+        }
+    }
+
     watch(sources, reload, { immediate: true, deep: true });
     onScopeDispose(() => controller?.abort());
 
-    return { items, total, hasMore, loading, loadingMore, error, moreError, reload, loadMore };
+    // The first activation is the mount, which loads already
+    let activations = 0;
+
+    onActivated(() => {
+        if (activations++ > 0) {
+            void refresh();
+        }
+    });
+
+    return { items, total, hasMore, loading, loadingMore, error, moreError, reload, loadMore, refresh };
 }

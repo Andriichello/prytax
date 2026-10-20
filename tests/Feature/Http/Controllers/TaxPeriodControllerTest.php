@@ -35,8 +35,8 @@ class TaxPeriodControllerTest extends TestCase
         $this->patchJson($this->profilePath($profile, "tax-periods/{$period->id}"), ['declaration_status' => 'submitted'])
             ->assertOk()
             ->assertJsonPath('data.declaration_status', 'submitted')
-            ->assertJsonPath('data.locked_at', '2026-11-05T12:00:00.000000Z')
-            ->assertJsonPath('data.declaration_submitted_at', '2026-11-05T12:00:00.000000Z');
+            ->assertJsonPath('data.locked_at', '2026-11-05T10:00:00.000000Z')
+            ->assertJsonPath('data.declaration_submitted_at', '2026-11-05T10:00:00.000000Z');
 
         $this->patchJson($this->profilePath($profile, "tax-periods/{$period->id}"), ['declaration_status' => 'filled'])
             ->assertOk()

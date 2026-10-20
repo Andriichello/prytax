@@ -65,7 +65,8 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Ukrainian tax dates (received, due, deadlines) are Kyiv dates (design.md §3)
+    'timezone' => 'Europe/Kyiv',
 
     /*
     |--------------------------------------------------------------------------

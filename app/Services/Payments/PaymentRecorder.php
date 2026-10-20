@@ -19,6 +19,7 @@ use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\TaxPeriod;
 use PryTax\Services\Alerts\AlertSync;
+use PryTax\Services\Invoices\InvoiceLifecycle;
 use PryTax\Services\Taxes\PeriodLock;
 
 /**
@@ -28,7 +29,8 @@ use PryTax\Services\Taxes\PeriodLock;
  * invoice is frozen (ready, sent or paid), that the receipt lands in the account's currency and that its quarter
  * isn't locked, and computes the snapshot. An advance has no invoice until it is linked to one. Editing the amount,
  * the currency or the date recomputes the snapshot, subject to the lock of both the old and the new quarter, and so
- * does any update of a receipt saved at a manual rate, once the NBU's rate of its day is available.
+ * does any update of a receipt saved at a manual rate, once the NBU's rate of its day is available. A paid invoice,
+ * which a deleted, reduced or moved receipt leaves uncovered, returns to unpaid.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Payments
@@ -41,11 +43,13 @@ class PaymentRecorder
      * @param PaymentSnapshotter $snapshotter
      * @param PeriodLock $lock
      * @param AlertSync $alerts
+     * @param InvoiceLifecycle $invoices
      */
     public function __construct(
         protected PaymentSnapshotter $snapshotter,
         protected PeriodLock $lock,
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected InvoiceLifecycle $invoices
     ) {}
 
     /**
@@ -151,7 +155,8 @@ class PaymentRecorder
      * Compute the attributes and the snapshot of a receipt, without saving it, for the form's preview. With a
      * `payment_id`, it previews an update of that receipt, as `update()` would apply it: the receipt's own amount
      * isn't counted twice in its invoice's coverage, the account it already landed on may be inactive since, and
-     * the quarters of both its old and new date are checked for a declaration, only when the update changes income.
+     * the quarters of both its old and new date are checked for a declaration, only when the update changes income,
+     * and the paid invoice, which the update would leave uncovered, is named in `reopens_invoice`.
      *
      * @param Profile $profile
      * @param array $data
@@ -170,6 +175,7 @@ class PaymentRecorder
         $attributes = $this->attributes($profile, $data, $existing);
         $date = CarbonImmutable::parse($attributes['received_at']);
         $invoice = isset($attributes['invoice_id']) ? Invoice::query()->find($attributes['invoice_id']) : null;
+        $coverage = $this->coverage($invoice, $this->addedTo($invoice, $existing, $attributes['amount']));
 
         return [
             ...$attributes,
@@ -179,7 +185,9 @@ class PaymentRecorder
             'receipt_fee' => $attributes['received_currency'] === $attributes['currency']
                 ? Decimal::money(Decimal::of($attributes['amount'])->minus(Decimal::of($attributes['received_amount'])))
                 : null,
-            'invoice' => $this->coverage($invoice, $this->addedTo($invoice, $existing, $attributes['amount'])),
+            'invoice' => $coverage,
+            // The paid invoice, which saving would return to unpaid, so the form warns first
+            'reopens_invoice' => $this->reopens($existing, $invoice, $coverage),
             // The declared quarter, which saving would correct, so the form asks for a correction note first
             'locked_quarter' => ($locked = $this->lockedBy($profile, $existing, $attributes)) ? ['year' => $locked->year, 'quarter' => $locked->quarter] : null,
         ];
@@ -206,6 +214,34 @@ class PaymentRecorder
             : Decimal::of((string) $existing->refunds()->sum('amount'));
 
         return Decimal::money(Decimal::of($amount)->minus($counted));
+    }
+
+    /**
+     * Get the paid invoice, which saving an update of the receipt would return to unpaid: its own one, which a
+     * reduced amount leaves uncovered, or the one it leaves for another invoice or none.
+     *
+     * @param Payment|null $existing
+     * @param Invoice|null $invoice
+     * @param array{covers_total: bool}|null $coverage How the receipts would cover the receipt's new invoice.
+     *
+     * @return array{id: int, number: string|null}|null
+     */
+    protected function reopens(?Payment $existing, ?Invoice $invoice, ?array $coverage): ?array
+    {
+        $previous = $existing?->invoice;
+
+        if ($previous?->status !== InvoiceStatus::Paid) {
+            return null;
+        }
+
+        $covered = $previous->is($invoice)
+            ? $coverage['covers_total']
+            : $previous->receivedAmount()
+                ->minus(Decimal::of($existing->amount))
+                ->plus(Decimal::of((string) $existing->refunds()->sum('amount')))
+                ->isGreaterThanOrEqualTo(Decimal::of($previous->total));
+
+        return $covered ? null : ['id' => $previous->getKey(), 'number' => $previous->number];
     }
 
     /**
@@ -312,7 +348,11 @@ class PaymentRecorder
                 ], $data['correction_note'] ?? null);
             }
 
+            $previousInvoiceId = $payment->invoice_id;
+
             $payment->forceFill($attributes)->save();
+
+            $this->invoices->reopenIfUncovered($previousInvoiceId);
         });
 
         $this->alerts->syncAfterCommit($profile);
@@ -409,6 +449,8 @@ class PaymentRecorder
             $this->lock->assertOpen($profile, $payment->received_at, $correctionNote);
 
             $payment->delete();
+
+            $this->invoices->reopenIfUncovered($payment->invoice_id);
         });
 
         $this->alerts->syncAfterCommit($profile);

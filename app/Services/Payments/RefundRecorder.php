@@ -13,6 +13,7 @@ use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\Refund;
 use PryTax\Services\Alerts\AlertSync;
+use PryTax\Services\Invoices\InvoiceLifecycle;
 use PryTax\Services\Taxes\PeriodLock;
 use PryTax\Services\Taxes\TaxRuleResolver;
 use PryTax\Services\Transfers\HoldingCalculator;
@@ -24,7 +25,8 @@ use PryTax\Services\Transfers\HoldingCalculator;
  * quarter of that date, which must be open. The refunds of a receipt never exceed its amount, are never earlier than
  * the receipt, and leave from an account in the receipt's currency. When the receipt's money is on that account,
  * the refund takes it from there, so it can't be transferred on any more; a refund from another account is paid
- * from other money. FX gains, which aren't client money, aren't refunded.
+ * from other money. FX gains, which aren't client money, aren't refunded. A paid invoice, which a refund leaves
+ * uncovered, returns to unpaid.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Payments
@@ -39,13 +41,15 @@ class RefundRecorder
      * @param HoldingCalculator $holdings
      * @param PeriodLock $lock
      * @param AlertSync $alerts
+     * @param InvoiceLifecycle $invoices
      */
     public function __construct(
         protected PaymentSnapshotter $snapshotter,
         protected TaxRuleResolver $rules,
         protected HoldingCalculator $holdings,
         protected PeriodLock $lock,
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected InvoiceLifecycle $invoices
     ) {}
 
     /**
@@ -108,6 +112,8 @@ class RefundRecorder
                 'tax_rule_id' => $rule->getKey(),
                 'reason' => $data['reason'] ?? null,
             ])->save();
+
+            $this->invoices->reopenIfUncovered($payment->invoice_id);
 
             return $refund;
         });

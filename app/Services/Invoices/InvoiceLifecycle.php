@@ -18,8 +18,9 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  * Class InvoiceLifecycle.
  *
  * The status changes of a frozen invoice past its freeze (design.md §4): sending it, marking it paid once its
- * receipts cover the total (with the date of the last receipt by default), and cancelling it, whose number is never
- * reused. The model's transitions refuse the others with 409.
+ * receipts cover the total (with the date of the last receipt by default), returning a paid one, which its receipts
+ * no longer cover, to unpaid, and cancelling it, whose number is never reused. The model's transitions refuse the
+ * others with 409.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Invoices
@@ -92,6 +93,33 @@ class InvoiceLifecycle
         $this->alerts->syncAfterCommit($profile);
 
         return $invoice;
+    }
+
+    /**
+     * Return the paid invoice, which its receipts no longer cover, to sent, or to ready when it was paid without being
+     * sent, after one of its receipts was deleted, reduced, moved to another invoice or refunded. It runs inside that
+     * change's transaction, so the invoice's row stays locked until the change is saved.
+     *
+     * @param int|null $invoiceId
+     *
+     * @return void
+     */
+    public function reopenIfUncovered(?int $invoiceId): void
+    {
+        if ($invoiceId === null) {
+            return;
+        }
+
+        $invoice = Invoice::query()->lockForUpdate()->find($invoiceId);
+
+        if ($invoice?->status !== InvoiceStatus::Paid || $invoice->receivedAmount()->isGreaterThanOrEqualTo(Decimal::of($invoice->total))) {
+            return;
+        }
+
+        $invoice->forceFill([
+            'status' => $invoice->sent_at !== null ? InvoiceStatus::Sent : InvoiceStatus::Ready,
+            'paid_at' => null,
+        ])->save();
     }
 
     /**

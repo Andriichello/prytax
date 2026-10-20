@@ -239,7 +239,8 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
 
     /**
      * Statuses, to which each status may change (design.md §4). A ready invoice may be paid without being marked as
-     * sent; a paid or cancelled one never changes again.
+     * sent; a paid one returns to sent, or to ready when it was never sent, only when its receipts no longer cover it
+     * (InvoiceLifecycle::reopenIfUncovered()); a cancelled one never changes again.
      *
      * @return array<string, array<int, InvoiceStatus>>
      */
@@ -254,6 +255,7 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
                 InvoiceStatus::Cancelled,
             ],
             InvoiceStatus::Sent->value => [InvoiceStatus::Paid, InvoiceStatus::Cancelled],
+            InvoiceStatus::Paid->value => [InvoiceStatus::Sent, InvoiceStatus::Ready],
         ];
     }
 

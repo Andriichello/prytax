@@ -3,10 +3,12 @@
 namespace Tests\Feature\Services\Payments;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use PryTax\Models\Account;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
+use PryTax\Services\Invoices\InvoiceLifecycle;
 use PryTax\Services\Payments\RefundRecorder;
 use PryTax\Services\Transfers\HoldingCalculator;
 use PryTax\Services\Transfers\TransferRecorder;
@@ -17,7 +19,8 @@ use Tests\TestCase;
  * Class RefundRecorderTest.
  *
  * Money returned to a client (design.md §6.6): at the NBU rate of its own day, never more than the receipt, never
- * before it, taken from what the receipt holds on the account it leaves from, and never of an FX gain.
+ * before it, taken from what the receipt holds on the account it leaves from, and never of an FX gain. A refund,
+ * which leaves a paid invoice uncovered, returns it to unpaid.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Payments
@@ -171,5 +174,33 @@ class RefundRecorderTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertSame(['payment_id' => ["An FX gain isn't client money, so it isn't refunded."]], $exception->errors());
         }
+    }
+
+    /**
+     * Test that refunding what a client overpaid keeps the invoice paid, while a refund, which leaves the invoice
+     * uncovered, returns it to sent.
+     *
+     * @return void
+     */
+    public function testReturnsAPaidInvoiceToSentOnceARefundLeavesItUncovered(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297', '2026-10-10' => '42.0000']]);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+        $payment = $this->recordReceipt($profile, $invoice, $wise, ['amount' => '3992.50']);
+        $this->inProfile($profile, function () use ($profile, $invoice) {
+            app(InvoiceLifecycle::class)->send($profile, $invoice, '2026-10-01');
+            app(InvoiceLifecycle::class)->pay($profile, $invoice);
+        });
+
+        $this->refund($profile, $payment, $wise, '100.00', '2026-10-10');
+        $this->assertSame('paid', $invoice->fresh()->status->value);
+
+        $this->refund($profile, $payment, $wise, '0.01', '2026-10-10');
+
+        $this->assertSame('sent', $invoice->fresh()->status->value);
+        $this->assertNull($invoice->fresh()->paid_at);
     }
 }

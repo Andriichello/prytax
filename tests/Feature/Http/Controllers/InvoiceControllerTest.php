@@ -544,4 +544,36 @@ class InvoiceControllerTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['next_number' => 'The counter is at 13 already, and never goes back.']);
     }
+
+    /**
+     * Test that the list is filtered by an issue range, clients and currencies, newest first, and paged.
+     *
+     * @return void
+     */
+    public function testFiltersTheListByRangeClientAndCurrencyAndPagesIt(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'viewer');
+        $wise = $this->createAccount($profile);
+        $euros = $this->createAccount($profile, ['name' => 'Wise EUR', 'currency' => 'EUR']);
+        $september = $this->createFrozenInvoice($profile, $wise);
+        $october = $this->createFrozenInvoice($profile, $wise, ['client_id' => $september->client_id, 'contract_id' => $september->contract_id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14']);
+        $other = $this->createFrozenInvoice($profile, $wise, ['period_start' => '2026-10-01', 'period_end' => '2026-10-10']);
+        $inEuros = $this->inProfile($profile, fn () => Invoice::factory()->create([
+            'profile_id' => $profile->id, 'client_id' => $september->client_id, 'currency' => 'EUR', 'receiving_account_id' => $euros->id,
+        ]));
+
+        $this->getJson($this->profilePath($profile, 'invoices?filter[issued_at][gte]=2026-10-01&filter[issued_at][lte]=2026-10-31'))
+            ->assertOk()
+            ->assertJsonPath('data.*.id', [$inEuros->id, $october->id, $other->id]);
+        $this->getJson($this->profilePath($profile, "invoices?filter[client_id][in]={$september->client_id}&filter[currency][in]=USD"))
+            ->assertOk()
+            ->assertJsonPath('data.*.id', [$october->id, $september->id]);
+        $this->getJson($this->profilePath($profile, 'invoices?page[size]=2&page[number]=2'))
+            ->assertOk()
+            ->assertJsonPath('data.*.id', [$other->id, $september->id])
+            ->assertJsonPath('meta.total', 4);
+    }
 }

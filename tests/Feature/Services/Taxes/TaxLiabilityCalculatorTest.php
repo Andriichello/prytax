@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services\Taxes;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PryTax\Helpers\Decimal;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\Refund;
@@ -162,5 +163,39 @@ class TaxLiabilityCalculatorTest extends TestCase
         $this->assertSame('19552.45', $liability['single_tax']['owed']);
         $this->assertSame('19552.45', $liability['single_tax']['standalone']);
         $this->assertSame('1910.49', $liability['military_levy']['owed']);
+    }
+
+    /**
+     * Test the rounding identities over many receipts (design.md §13): the sum of the per-receipt hints differs from
+     * the standalone quarter figure by at most a kopeck per receipt, and the owed figure from it by at most a kopeck.
+     *
+     * @return void
+     */
+    public function testKeepsTheRoundingIdentitiesOverManyReceipts(): void
+    {
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+        mt_srand(20261020);
+
+        foreach ([1, 2, 3] as $quarter) {
+            for ($i = 0; $i < 15; $i++) {
+                $this->inProfile($profile, fn () => Payment::factory()->create([
+                    'profile_id' => $profile->id,
+                    'received_to_account_id' => $account->id,
+                    'amount' => sprintf('%d.%02d', mt_rand(100, 2999), mt_rand(0, 99)),
+                    'nbu_rate' => sprintf('41.%04d', mt_rand(0, 9999)),
+                    'received_at' => sprintf('2026-%02d-%02d', $quarter * 3 - 2 + mt_rand(0, 2), mt_rand(1, 28)),
+                ]));
+            }
+        }
+
+        $liability = $this->inProfile($profile, fn () => app(TaxLiabilityCalculator::class)->forQuarter($profile, 2026, 3));
+
+        foreach (['single_tax', 'military_levy'] as $tax) {
+            $hints = Decimal::of($liability[$tax]['hints_sum'])->minus(Decimal::of($liability[$tax]['standalone']))->abs();
+
+            $this->assertTrue($hints->isLessThanOrEqualTo('0.15'), "$tax: the hints of 15 receipts differ by $hints");
+            $this->assertTrue(Decimal::of($liability[$tax]['standalone_delta'])->abs()->isLessThanOrEqualTo('0.01'), "$tax: owed − standalone");
+        }
     }
 }

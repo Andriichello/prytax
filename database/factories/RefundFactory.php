@@ -5,6 +5,7 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Payment;
+use PryTax\Models\Profile;
 use PryTax\Models\Refund;
 use PryTax\Models\TaxRule;
 
@@ -28,8 +29,8 @@ class RefundFactory extends Factory
     public function definition(): array
     {
         return [
-            'payment_id' => Payment::factory(),
-            'profile_id' => fn (array $attributes) => Payment::query()->withoutGlobalScopes()->whereKey($attributes['payment_id'])->value('profile_id'),
+            'profile_id' => Profile::factory(),
+            'payment_id' => fn (array $attributes) => Payment::factory()->create(['profile_id' => $attributes['profile_id']]),
             'from_account_id' => fn (array $attributes) => Payment::query()->withoutGlobalScopes()->whereKey($attributes['payment_id'])->value('received_to_account_id'),
             'amount' => '100.00',
             'currency' => fn (array $attributes) => Payment::query()->withoutGlobalScopes()->whereKey($attributes['payment_id'])->value('currency'),

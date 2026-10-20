@@ -1159,6 +1159,8 @@ export interface PaymentPreview {
     invoice: InvoiceCoverage | null;
     /** The declared (locked) quarter, which saving would correct, so the form asks for a correction note first. */
     locked_quarter: { year: number; quarter: number } | null;
+    /** The paid invoice, which saving an edit would leave uncovered, so it returns to unpaid. */
+    reopens_invoice: { id: number; number: string | null } | null;
 }
 
 /** The receipt landing on its account. */

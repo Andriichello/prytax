@@ -11,11 +11,13 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
-import { parseAmount } from '@/utils/money';
+import { compareAmounts, parseAmount, subtractAmounts } from '@/utils/money';
+import { unpaidStatusOf } from '@/utils/statuses';
 
 /**
  * Повернення клієнту: money of a receipt sent back, from an account in its currency. It lowers the income of the
- * period it is made in, at the NBU rate of its day, or at a rate typed in when the NBU has none.
+ * period it is made in, at the NBU rate of its day, or at a rate typed in when the NBU has none. A refund, which
+ * leaves the receipt's paid invoice uncovered, returns the invoice to unpaid, and the sheet says so first.
  */
 const { payment, accounts } = defineProps<{
     payment: Payment;
@@ -59,6 +61,18 @@ watch(open, (isOpen) => {
 
 /** A declared quarter answers 409: the refund then needs a correction note. */
 const locked = ref(false);
+
+/** The status, to which the refund returns the receipt's paid invoice, or null when the invoice stays paid. */
+const reopenedStatus = computed(() => {
+    const invoice = payment.invoice;
+    const refunded = parseAmount(amount.value);
+
+    if (!invoice || invoice.status !== 'paid' || refunded === null || compareAmounts(subtractAmounts(invoice.paid_amount ?? '0', refunded), invoice.total) >= 0) {
+        return null;
+    }
+
+    return unpaidStatusOf(invoice).label;
+});
 
 /** The NBU has no rate of the day: the sheet asks for one. */
 const needsRate = computed(() => !!fieldError(error.value, 'nbu_rate') || nbuRate.value !== '');
@@ -117,6 +131,9 @@ async function save(): Promise<void> {
         />
         <TextAreaField v-model="reason" label="Причина" :rows="2" placeholder="Напр., переплата" />
         <TextAreaField v-if="locked" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
+        <p v-if="reopenedStatus" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
+            Інвойс <span class="num">{{ payment.invoice?.number }}</span> більше не буде покрито повністю й повернеться до статусу «{{ reopenedStatus }}».
+        </p>
         <p v-if="error && !fieldError(error, 'amount') && !fieldError(error, 'refunded_at') && !fieldError(error, 'from_account_id') && !fieldError(error, 'nbu_rate')" class="m-0 text-14 text-negative" role="alert">
             {{ errorMessage(error) }}
         </p>

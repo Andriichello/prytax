@@ -21,6 +21,7 @@ import { accountLabel } from '@/utils/accounts';
 import { formatDate, monthName, quarterLabel, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
+import { unpaidStatusOf } from '@/utils/statuses';
 
 /**
  * Нове надходження (S-PaymentNew), and its editing: income of an invoice, an advance or other income, where it
@@ -314,6 +315,13 @@ const paysInFull = computed(() => {
     return coverage.value?.covers_total && coverage.value.status !== 'paid' ? 1 : 0;
 });
 const overpays = computed(() => (isGroup.value ? groupCoverage.value.some((line) => line.overpaid) : !!coverage.value?.overpaid));
+
+/** The paid invoice, which the edit leaves uncovered, so it returns to unpaid on saving. */
+const reopens = computed(() => {
+    const reopened = preview.value?.reopens_invoice;
+
+    return reopened ? { number: reopened.number, status: unpaidStatusOf(existing.value?.invoice ?? { sent_at: null }).label } : null;
+});
 
 /* Saving */
 const idempotencyKey = newIdempotencyKey();
@@ -628,6 +636,11 @@ const generalError = computed(() => {
             </label>
             <p v-if="overpays" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
                 Сума перевищує залишок інвойсу. Перевірте суму або запишіть різницю як інший дохід.
+            </p>
+
+            <p v-if="reopens" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
+                Інвойс <span class="num">{{ reopens.number }}</span> більше не буде покрито повністю, тож після збереження він
+                повернеться до статусу «{{ reopens.status }}».
             </p>
 
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>

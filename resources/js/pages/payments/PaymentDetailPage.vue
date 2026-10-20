@@ -19,8 +19,8 @@ import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { formatDate, monthName, quarterLabel } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
-import { compareAmounts, formatAmount, formatMoney } from '@/utils/money';
-import { TAX_PAYMENT_STATUSES, TAX_TYPES } from '@/utils/statuses';
+import { compareAmounts, formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
+import { TAX_PAYMENT_STATUSES, TAX_TYPES, unpaidStatusOf } from '@/utils/statuses';
 
 /**
  * Надходження (S-PaymentDetail): the amount in its currency with hryvnias below, the invoice, the income date, the
@@ -54,6 +54,20 @@ const ratePercent = (rate: string | undefined): string => (rate ? `${Number((Num
 const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding.kind !== 'fop_bank' && compareAmounts(holding.amount, '0') > 0) ?? null);
 const landed = computed(() => flow.value?.landed_on_fop_bank.filter((holding) => compareAmounts(holding.amount, '0') > 0) ?? []);
 const taxPayments = computed(() => [...(payment.value?.taxPayments ?? [])].sort((a, b) => (a.paid_at ?? '').localeCompare(b.paid_at ?? '')));
+
+/**
+ * The status, to which deleting the receipt returns its paid invoice, as the receipts left no longer cover it (a
+ * receipt with refunds can't be deleted, so its whole amount leaves), or null when the invoice stays as it is.
+ */
+const reopenedStatus = computed(() => {
+    const invoice = payment.value?.invoice;
+
+    if (!invoice || invoice.status !== 'paid' || compareAmounts(subtractAmounts(invoice.paid_amount ?? '0', payment.value!.amount), invoice.total) >= 0) {
+        return null;
+    }
+
+    return unpaidStatusOf(invoice).label;
+});
 
 /** Invoices, which saving the receipt couldn't mark paid (the form passes their numbers). */
 const unpaid = computed(() => (typeof route.query.unpaid === 'string' ? route.query.unpaid : null));
@@ -339,6 +353,9 @@ async function removeRefund(): Promise<void> {
             @confirm="remove"
         >
             <p class="m-0">Дохід і податки за ним зникнуть з обліку. Якщо кошти вже переказано, повернено або за ними сплачено податки, видалити не вийде.</p>
+            <p v-if="reopenedStatus" class="m-0 text-warning">
+                Інвойс <span class="num">{{ payment?.invoice?.number }}</span> повернеться до статусу «{{ reopenedStatus }}».
+            </p>
             <TextAreaField v-if="needsNote" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
         </ConfirmSheet>
 

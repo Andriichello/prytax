@@ -1,4 +1,4 @@
-import type { AlertSeverity, DeclarationStatus, InvoiceStatus, TaxPaymentStatus, TaxType } from '@/api/types';
+import type { AlertSeverity, DeclarationStatus, Invoice, InvoiceStatus, TaxPaymentStatus, TaxType } from '@/api/types';
 
 /**
  * The colours of status badges.
@@ -17,6 +17,14 @@ export const INVOICE_STATUSES: Record<InvoiceStatus, StatusLabel> = {
     paid: { label: 'Оплачено', tone: 'positive' },
     cancelled: { label: 'Скасовано', tone: 'negative' },
 };
+
+/**
+ * The status, to which a paid invoice returns once its receipts no longer cover it: sent, or ready when it was paid
+ * without being sent.
+ */
+export function unpaidStatusOf(invoice: Pick<Invoice, 'sent_at'>): StatusLabel {
+    return invoice.sent_at ? INVOICE_STATUSES.sent : INVOICE_STATUSES.ready;
+}
 
 export const ALERT_SEVERITIES: Record<AlertSeverity, StatusLabel> = {
     info: { label: 'Інфо', tone: 'info' },

@@ -41,8 +41,8 @@ the platform on the way in is still my income, so income equals the full invoice
 not ЄП income at all (п. 292.1) and is never entered as income; a refund to a client reduces income in the period of
 the refund (п. 292.11). Money sitting on a platform should reach a Ukrainian IBAN by the end of the reporting quarter,
 otherwise ДПС may treat it as personal income (18 % ПДФО + 5 % ВЗ) — positions on this vary, so it is an alert, never
-a block. The declaration is quarterly and cumulative (наростаючим підсумком), due 40 calendar days after the quarter (п.
-49.18.2, 296.3), the Q4 one being the annual declaration with Додаток 1 for ЄСВ; ЄП and ВЗ are due 10 calendar days
+a block. The declaration is quarterly and cumulative (наростаючим підсумком), due 40 calendar days after the quarter
+(п. 49.18.2, 296.3), the Q4 one being the annual declaration with Додаток 1 for ЄСВ; ЄП and ВЗ are due 10 calendar days
 after the declaration deadline (п. 295.3); ЄСВ is due "до 20 числа" of the month after the quarter, which ДПС reads as
 the 19th, so the app defaults to the 19th and keeps it configurable. That gives 10 May / 20 May / 19 Apr for Q1,
 9 Aug / 19 Aug / 19 Jul for Q2, 9 Nov / 19 Nov / 19 Oct for Q3 and 9 Feb / 19 Feb / 19 Jan for Q4. A declaration
@@ -62,8 +62,7 @@ difference between that and the previous quarter's year-to-date liability, becau
 declaration reports for the quarter and what ДПС posts to the integrated card. The standalone
 `ROUND_HALF_UP(Σ uah_amount of the quarter × rate, 2)` and the sum of the per-payment hints are both shown next to it
 as cross-checks; either can differ from the owed amount by a kopeck, and the UI shows those deltas rather than hiding
-them. Invoice line amounts are `ROUND_HALF_UP(quantity × unit_price, 2)` and the invoice total is their sum. Everything
-that depends on a rate or a rule is snapshotted on the row at creation (`nbu_rate`, `nbu_rate_date`,
+them. Invoice line amounts are `ROUND_HALF_UP(quantity × unit_price, 2)` and the invoice total is their sum. Everything that depends on a rate or a rule is snapshotted on the row at creation (`nbu_rate`, `nbu_rate_date`,
 `exchange_rate_id`, `uah_amount`, `tax_rule_id`, `single_tax_uah`, `military_levy_uah`, `period_year`,
 `period_quarter`, `period_month`) and is recomputed only when the amount, currency or receipt date of that row is
 edited; the `exchange_rates` table is a cache of NBU data plus manual overrides, not the truth for historical rows, and
@@ -74,11 +73,17 @@ foreign clients are in English), РНОКПП (`tax_id`, stored encrypted, uniqu
 registration, address in both languages, e-mail, phone, default currency, locale, an optional signature image embedded
 in generated PDFs, and an `is_active` flag so a closed ФОП drops out of dashboards and deadline generation. The profile
 also owns its settings (`profile_settings`, key → JSON, read through a typed accessor with defaults so a missing row
-never breaks anything): the invoice numbering strategy, scope, reset and date source described below;
-`income.recognition` (`first_receipt`, the ДПС position and the default, or `fop_bank_receipt`); `income.taxable_base`
-(`invoiced` by default, or `received` labelled as the user's own risk); `taxes.default_grouping` (`payment`, `month` or
-`quarter`); `taxes.default_account_id` (the UAH ФОП account taxes are usually paid from — must be `fop_bank`, UAH and
-active); `compliance.platform_repatriation` (`quarter_end`, `days:N` or `off`); and `alerts.deadline_days` (7).
+never breaks anything): the invoice numbering strategy, scope, reset and date source described below; how money
+amounts are displayed, as two separate settings — `display.money_format` for the application and
+`invoice.money_format` for the generated invoices — each choosing the decimal separator ("." or ",") and the
+thousands grouping (none, space, comma or dot), so `2851.99`, `2 851.99`, `2,851.99`, `2851,99`, `2 851,99` or
+`2.851,99`, with the application defaulting to `1 234.99` and invoices to plain `2851.99` (formatting is display
+only: the API always carries `1234.99`, inputs accept either separator, and a frozen invoice remembers the format it
+was rendered with); `income.taxable_base` (`invoiced` by default, or `received` labelled as the user's own risk);
+`taxes.default_grouping` (`payment`, `month` or `quarter`); `taxes.default_account_id` (the UAH ФОП account taxes are
+usually paid from — must be `fop_bank`, UAH and active); `compliance.platform_repatriation` (`quarter_end`, `days:N`
+or `off`); and `alerts.deadline_days` (7). There is deliberately no income-recognition option in this phase (see the
+payments section below).
 
 Then I create the places money can land — Payoneer, Wise, Mercury, my Ukrainian ФОП accounts, a European bank
 account — as rows of one `accounts` table with `kind` `platform`, `fop_bank` or `foreign_bank`, one row per currency
@@ -155,22 +160,16 @@ stores the invoiced `amount` and `currency` (the taxable base), the optional `cl
 top (recorded, but never part of the income), and the receipt itself: `received_to_account_id`, `received_amount`,
 `received_currency` and `received_at`. The difference between the invoiced and the received amount in the same
 currency is the receipt fee — what the client's bank or the platform took on the way in; when the currencies differ it
-is NULL. `received_at` is the tax date and its meaning is set by `income.recognition`. Under `first_receipt` (the
-default and the ДПС position) it is the date the money landed on the account in the receipt, usually the platform, and
-the tax snapshot is computed when the payment is saved. Under `fop_bank_receipt` the taxable date is the day the money
-reaches a Ukrainian ФОП account, which at the moment a platform receipt is recorded has not happened yet, so
-`received_at` is a manual "bank arrival date" that stays empty until then: an unrecognised payment has no rate, no UAH
-amount and no tax figures, is excluded from every liability and shown on the dashboard as awaiting recognition; when
-an allocation of it lands on a `fop_bank` account the app proposes that landing date and the user confirms it, and
-only then is the snapshot computed. If the money lands in tranches across quarters, the user splits the receipt into
-two payment rows on the same invoice, one per landing, so that each is its own taxable event with its own date and
-rate — the app never turns one payment into several taxable events behind the user's back. A receipt made directly
-into a `fop_bank` account behaves the same under both settings. Once computed, the stored date and snapshot do not
-change if the setting changes later. The `PaymentRecorder` asserts that the invoice and the account belong to the
+is NULL. `received_at` is the tax date: the day the money landed on the account named in the receipt — the platform
+when a platform was involved, the ФОП bank account when the client wired directly — which is the ДПС position, and the
+rate and tax snapshot are computed the moment the payment is saved, so one receipt is always exactly one taxable
+event. An alternative mode that recognises income only on the day the money reaches the Ukrainian ФОП account
+("визнати дохід на дату надходження на ФОП-рахунок") was designed and is deliberately left out of this phase — not
+in the settings, not on the receipt screens; the design keeps it in reserve so it can be added later without
+reshaping the data. The `PaymentRecorder` asserts that the invoice and the account belong to the
 current profile and that the invoice is `ready`, `sent` or `paid`, fetches the NBU rate for the currency and the
 receipt date, computes and stores the UAH amount, ЄП, ВЗ and the period columns, warns (without blocking) when the
-receipts exceed the total and suggests the `paid` status when they cover it. Non-invoice taxable income such as a
-platform bonus is a payment row with
+receipts exceed the total and suggests the `paid` status when they cover it. Non-invoice taxable income such as a platform bonus is a payment row with
 `kind = other` and `invoice_id = NULL`, taxed and reported identically; bank interest is passive income and is not
 recorded. In v1 one receipt belongs to one invoice; a single wire that covers several invoices is an open item in
 `SUGGESTIONS.md`.
@@ -257,16 +256,48 @@ boundaries, positive meaning overpaid and carried forward, negative meaning outs
 each receipt with its own tax payments and the month/quarter-level ones as a "covers N payments" line under the group;
 the by-month and by-quarter views show owed, paid, pending and balance with the deadline status of the period.
 
-On top of this sits a dashboard per profile and an organization-wide board with one row per profile for the
-accountant, with alerts that inform and never block: a deadline within `alerts.deadline_days` or past while the
-liability is not covered; an ЄСВ month still `due` after its quarter deadline; platform funds not repatriated by the
-rule in `compliance.platform_repatriation` (a platform receipt whose allocations have not landed on a `fop_bank`
-account by quarter end, or N days, or never checked — dismissible per payment through `repatriation_ack_at`); an
-account limit at 80 % or 100 %; year-to-date income at 80 %, 90 % or 100 % of the cap; a contract expiring within 30
-days or expired while it still has open invoices; overdue invoices (`due_at` passed, not fully paid); and `ready`
-invoices without receipts for too long. The widgets are the cash position per account, the total still on platforms,
-quarter-to-date income and liabilities, year-to-date income against the cap, the next three deadlines and the open
-invoices.
+The app also watches for things I would otherwise miss and tells me about them as notifications that inform and
+never block: a deadline within `alerts.deadline_days` or past while the liability is not covered; an ЄСВ month still
+`due` after its quarter deadline; platform funds not repatriated by the rule in `compliance.platform_repatriation` (a
+platform receipt whose allocations have not landed on a `fop_bank` account by quarter end, or N days, or never
+checked — dismissible per payment through `repatriation_ack_at`); an account limit at 80 % or 100 %; year-to-date
+income at 80 %, 90 % or 100 % of the cap; a contract expiring within 30 days or expired while it still has open
+invoices; overdue invoices (`due_at` passed, not fully paid); and `ready` invoices without receipts for too long.
+Notifications are stored, not recomputed on every page: one row per condition that stays until the condition clears,
+with a read state kept per user. A notification becomes read only when I act on it — tap the mark-as-read icon, tap
+its action, or tap the notification itself; merely opening the notifications page or loading the list never marks
+anything read. They are shown on their own page, with the unread count on the practice overview and the tab badge,
+and never as cards on the home screen. An organization-wide board with one row per profile for the accountant comes
+in a later phase.
+
+The first implementation phase is a deliberately simplified version of the designed screens — all the fundamental
+functionality, none of the secondary options — mobile-first, in Ukrainian, with a navigation bar at the bottom
+instead of navigation buttons at the top. Login is e-mail and password only. The home screen ("Головна") shows only
+the open invoices (`ready` and `sent`), grouped by month and ordered by their period inside the month — everything
+else lives on its own page. The practice overview ("Огляд практики") is one quarter at a time, with ‹ › buttons to
+move between quarters like a calendar, and shows under the ФОП name a set of full-width rows: the yearly limit as a
+progress bar (year-to-date income against the income cap), the quarter's income as invoiced versus received for the
+invoices issued in that quarter (so I can see "$10 000 invoiced, $7 899 received so far"), the quarter's taxes in
+three columns — ЄСВ, ЄП, ВЗ — and the number of unread notifications; it does not show the nearest deadline, a
+"declarations sent" card, a "total credit" card or a notifications total. The invoices list is an infinite scroll
+with no free-text search box — the system already knows every client, number and status, so the list is narrowed by
+filters instead: a period (year, quarter, month, several at once) or a start–end calendar range, clients, currencies
+and statuses; the rows show the number, client, period, status and total and do not carry a "not paid" label or an
+outstanding amount. The invoice page itself stays as designed, except that the receipt cards at its bottom show the
+date, the received amount, the commission and where the money landed, and no longer show ЄП and ВЗ. When I record a
+receipt, the invoice is shown on two lines — the number in semibold primary blue, the client name underneath in a
+light weight, because client names can be long. On the receipt's own page the header shows, above a light dashed
+divider, the amount in the payment's currency as the title (`USD 3 892.50`), the UAH amount beneath it in light
+text and the period badge (quarter, year and month); below the divider come the invoice number (semibold blue) and
+the client (light); the exchange rate is not in the header — it stays in the "Курс НБУ" row of the details table.
+The account page shows "Надходження" (everything that came in, green) and "Перекази" (everything that went out,
+red) as two full-width rows without background fill. On the "Облік" page each income row separates its tax block
+with a dashed divider and lays it out as two lines of two equal columns — ЄП and ВЗ, then commissions and net income
+— and the summary card is allowed to be as tall as it needs: year-to-date income on its own row, the quarter's income
+on its own row, the cross-checks as headers with the values on the next line at the end of it, and the four closing
+sections each as a separate row. The client page opens with the client's numbers, per currency: paid all-time, paid
+this year, paid last year, and the amount invoiced but not yet paid — or "Усе оплачено" in green with a check icon
+when there is nothing outstanding. Amounts everywhere follow `display.money_format`, which defaults to `1 234.99`.
 
 A few technical constraints hold throughout. The API is `/api/profiles/{profile}/…` REST resources using api-core
 filtering, resources and pagination, Form Requests for validation and Policies for roles and lock enforcement, with
@@ -288,8 +319,9 @@ roll-over, the NBU provider against HTTP fakes, PDF golden files per snapshot ve
 Finally, a one-off artisan command with `--profile=` and `--dry-run` imports my 2025 Google Sheet ("2025 - payments"
 and "2025 - taxes") into external invoices, payments, transfers with allocations and tax payments, then prints the
 computed quarter totals next to the sheet's totals; any kopeck difference must be explainable by the rounding policy
-or the import fails, and the 2025 ЄСВ months must be importable as paid or exempt. Out of scope for v1 — expenses,
-VAT and other tax groups, employees, bank and platform API integrations, a client portal, recurring invoices, ДПС XML
-export and per-profile access — together with the decisions still open (refunds as an entity, one wire for several
-invoices, a `personal` account kind with opening balances, locking a quarter after its declaration is submitted, FX
-gain on currency sale, ДПС payment requisites) are listed in `SUGGESTIONS.md`.
+or the import fails, and the 2025 ЄСВ months must be importable as paid or exempt. Out of scope for this phase —
+expenses, VAT and other tax groups, employees, bank and platform API integrations, a client portal, recurring
+invoices, sending invoices from the app, e-mail or Telegram delivery of notifications, free-text search, ДПС XML
+export, per-profile access and the "recognise income on ФОП-account arrival" mode — are listed with the remaining
+open decisions in `SUGGESTIONS.md`; refunds, one wire for several invoices, the `personal` account kind with opening
+balances, period locking, FX gain and ДПС payment requisites are already in the design spec (v3.1).

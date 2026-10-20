@@ -6,16 +6,18 @@ import SubHeader from '@/components/layout/SubHeader.vue';
  * A sub-page: the back header, the content, and an optional sticky footer (the `footer` slot) for a form's primary
  * button. With a `heading`, the header shows `title` as a context line and the page starts with a large heading.
  */
-const { title, back, heading } = defineProps<{
+const { title, back, heading, muted = false } = defineProps<{
     title: string;
     back?: RouteLocationRaw;
     heading?: string;
+    /** Show the title as a context line, for pages that set their own heading in the content. */
+    muted?: boolean;
 }>();
 </script>
 
 <template>
     <div class="flex min-h-dvh flex-col">
-        <SubHeader :title="title" :back="back" :muted="!!heading">
+        <SubHeader :title="title" :back="back" :muted="muted || !!heading">
             <template #action>
                 <slot name="action" />
             </template>

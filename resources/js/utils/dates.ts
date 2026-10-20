@@ -145,3 +145,14 @@ export function currentQuarter(): { year: number; quarter: number } {
 
     return { year, quarter: quarterOf(month) };
 }
+
+/**
+ * The Kyiv calendar date of a timestamp of the API (`2026-10-20T18:48:04.000000Z` → `2026-10-20`).
+ */
+export function kyivDate(timestamp: string | null | undefined): string {
+    if (!timestamp) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(new Date(timestamp));
+}

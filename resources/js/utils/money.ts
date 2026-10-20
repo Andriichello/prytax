@@ -98,16 +98,20 @@ export function formatRate(rate: string | null | undefined, currency: string): s
 }
 
 /**
- * A whole percentage of a part in a total ("80 %"), floored, so 99.6 % never reads as 100 %.
+ * A whole percentage of a part in a total ("80 %"), rounded, but never 100 % before the total is reached, nor 0 %
+ * once something is there.
  */
 export function percentOf(part: string | number, total: string | number): number {
     const whole = Number(total);
+    const share = Number(part);
 
-    if (!whole) {
+    if (!whole || share <= 0) {
         return 0;
     }
 
-    return Math.max(0, Math.floor((Number(part) / whole) * 100));
+    const percent = Math.round((share / whole) * 100);
+
+    return share < whole ? Math.min(99, Math.max(1, percent)) : percent;
 }
 
 /**
@@ -145,4 +149,52 @@ export function parseAmount(input: string): string | null {
     }
 
     return /^-?[0-9]*\.?[0-9]+$/.test(value) ? value : null;
+}
+
+/**
+ * A decimal string as a whole number of its smallest units at a scale: units('12.5', 2) is 1250n.
+ */
+function units(value: string, scale: number): bigint {
+    const text = value.trim();
+    const negative = text.startsWith('-') || text.startsWith(MINUS);
+    const [whole = '0', fraction = ''] = text.replace(/^[-+−]/, '').split('.');
+    const result = BigInt(whole || '0') * 10n ** BigInt(scale) + BigInt((fraction + '0'.repeat(scale)).slice(0, scale) || '0');
+
+    return negative ? -result : result;
+}
+
+/**
+ * Units back to a decimal string with `scale` decimals.
+ */
+function fromUnits(value: bigint, scale: number): string {
+    const negative = value < 0n;
+    const digits = (negative ? -value : value).toString().padStart(scale + 1, '0');
+
+    return `${negative ? '-' : ''}${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+}
+
+/**
+ * The exact sum of amounts, with two decimals.
+ */
+export function sumAmounts(...values: (string | null | undefined)[]): string {
+    return fromUnits(values.reduce<bigint>((sum, value) => sum + (value ? units(value, 2) : 0n), 0n), 2);
+}
+
+/**
+ * a − b, exactly, with two decimals.
+ */
+export function subtractAmounts(a: string, b: string): string {
+    return fromUnits(units(a, 2) - units(b, 2), 2);
+}
+
+/**
+ * quantity × price, rounded half up to two decimals like the API (an invoice item's amount).
+ */
+export function multiplyAmounts(quantity: string, price: string): string {
+    const product = units(quantity, 2) * units(price, 2);
+    const negative = product < 0n;
+    const absolute = negative ? -product : product;
+    const rounded = (absolute + 50n) / 100n;
+
+    return fromUnits(negative ? -rounded : rounded, 2);
 }

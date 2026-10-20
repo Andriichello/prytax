@@ -3,8 +3,8 @@ import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 
 /**
- * A sheet that slides up over the page: a handle, a title with a close button, and its content. Escape, the close
- * button and a tap on the dimmed page close it.
+ * A sheet that slides up over the page: a handle, a title with a close button (or the `action` slot), its content,
+ * and an optional sticky `footer` for its buttons. Escape, the close button and a tap on the dimmed page close it.
  */
 const { title } = defineProps<{ title: string }>();
 const open = defineModel<boolean>('open', { required: true });
@@ -35,7 +35,7 @@ watch(open, async (isOpen) => {
         document.removeEventListener('keydown', onKeydown);
         returnFocus?.focus();
     }
-});
+}, { immediate: true });
 
 onBeforeUnmount(() => {
     document.body.style.overflow = '';
@@ -66,21 +66,32 @@ onBeforeUnmount(() => {
                 aria-modal="true"
                 :aria-labelledby="titleId"
                 tabindex="-1"
-                class="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-120 flex-col gap-3.5 overflow-y-auto rounded-t-3xl bg-paper px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+28px)] outline-none"
+                class="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-120 flex-col overflow-hidden rounded-t-3xl bg-paper outline-none"
             >
-                <div class="h-1.25 w-10 shrink-0 self-center rounded-full bg-handle" aria-hidden="true" />
-                <div class="flex items-center justify-between">
-                    <h2 :id="titleId" class="m-0 text-22 font-semibold tracking-[-0.02em]">{{ title }}</h2>
-                    <button
-                        type="button"
-                        aria-label="Закрити"
-                        class="flex size-11 items-center justify-center text-ink"
-                        @click="close"
-                    >
-                        <Icon name="close" :size="22" />
-                    </button>
+                <div
+                    class="flex flex-col gap-3.5 overflow-y-auto px-4 pt-2.5"
+                    :class="$slots.footer ? 'pb-4' : 'pb-[calc(env(safe-area-inset-bottom)+28px)]'"
+                >
+                    <div class="h-1.25 w-10 shrink-0 self-center rounded-full bg-handle" aria-hidden="true" />
+                    <slot name="lead" />
+                    <div class="flex items-center justify-between">
+                        <h2 :id="titleId" class="m-0 text-22 font-semibold tracking-[-0.02em]">{{ title }}</h2>
+                        <slot name="action">
+                            <button
+                                type="button"
+                                aria-label="Закрити"
+                                class="flex size-11 items-center justify-center text-ink"
+                                @click="close"
+                            >
+                                <Icon name="close" :size="22" />
+                            </button>
+                        </slot>
+                    </div>
+                    <slot />
                 </div>
-                <slot />
+                <div v-if="$slots.footer" class="border-t border-line bg-surface px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+                    <slot name="footer" />
+                </div>
             </section>
         </Transition>
     </Teleport>

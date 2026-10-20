@@ -35,6 +35,7 @@ const sections = computed<{ title: string; items: { label: string; icon: IconNam
         items: [
             { label: 'Рахунки', icon: 'account', to: '/accounts', count: counts.value?.accounts },
             { label: 'Перекази та комісії', icon: 'transfer', to: '/transfers' },
+            { label: 'Комісії й чистий дохід', icon: 'percent', to: '/fees' },
             { label: 'Клієнти й договори', icon: 'briefcase', to: '/clients', count: counts.value?.clients },
         ],
     },

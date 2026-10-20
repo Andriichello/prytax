@@ -1673,6 +1673,8 @@ export interface FeeGroup {
     /** Null for receipts without a client. */
     id: number | null;
     name: string | null;
+    /** The account's currency; null for clients. */
+    currency: CurrencyCode | null;
     receipts: number;
     income: Amount;
     fees: Amount;

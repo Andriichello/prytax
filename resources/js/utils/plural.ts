@@ -32,3 +32,4 @@ export const PAYMENTS: PluralForms = ['надходження', 'надходж�
 export const NOTIFICATIONS: PluralForms = ['сповіщення', 'сповіщення', 'сповіщень'];
 export const CONTRACTS: PluralForms = ['договір', 'договори', 'договорів'];
 export const DAYS: PluralForms = ['день', 'дні', 'днів'];
+export const TRANSFERS: PluralForms = ['переказ', 'перекази', 'переказів'];

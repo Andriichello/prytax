@@ -5,6 +5,7 @@ namespace PryTax\Http\Requests\Taxes;
 use Core\Http\Requests\Crud\StoreRequest;
 use Illuminate\Validation\Rule;
 use PryTax\Enums\TaxType;
+use PryTax\Http\Requests\Traits\ScopesToProfile;
 
 /**
  * Class StoreTaxPaymentRequisiteRequest.
@@ -16,6 +17,8 @@ use PryTax\Enums\TaxType;
  */
 class StoreTaxPaymentRequisiteRequest extends StoreRequest
 {
+    use ScopesToProfile;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -29,7 +32,11 @@ class StoreTaxPaymentRequisiteRequest extends StoreRequest
             'recipient_name' => ['required', 'string', 'max:255'],
             'recipient_code' => ['required', 'string', 'regex:/^[0-9]{8,10}$/'],
             'purpose_template' => ['required', 'string', 'max:255'],
-            'effective_from' => ['required', 'date'],
+            'effective_from' => [
+                'required',
+                'date',
+                $this->uniqueInProfile('tax_payment_requisites', 'effective_from')->where('tax_type', $this->input('tax_type')),
+            ],
         ];
     }
 

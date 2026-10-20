@@ -40,7 +40,7 @@ trait InvoiceRules
             'issued_at' => ['sometimes', 'nullable', 'date'],
             'due_at' => ['sometimes', 'nullable', 'date'],
             'currency' => ['sometimes', 'string', 'size:3', 'alpha'],
-            'adjustment_amount' => ['sometimes', 'numeric', 'decimal:0,2'],
+            'adjustment_amount' => ['sometimes', 'numeric', 'decimal:0,2', 'min:-9999999999999', 'max:9999999999999'],
             'adjustment_label' => ['sometimes', 'nullable', 'string', 'max:255'],
             'total' => ['sometimes', 'required_if:source,external', ...$this->moneyRules(false)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],

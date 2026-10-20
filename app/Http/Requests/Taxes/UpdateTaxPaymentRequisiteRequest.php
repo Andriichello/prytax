@@ -5,6 +5,8 @@ namespace PryTax\Http\Requests\Taxes;
 use Core\Http\Requests\Crud\UpdateRequest;
 use Illuminate\Validation\Rule;
 use PryTax\Enums\TaxType;
+use PryTax\Http\Requests\Traits\ScopesToProfile;
+use PryTax\Models\TaxPaymentRequisite;
 
 /**
  * Class UpdateTaxPaymentRequisiteRequest.
@@ -16,6 +18,8 @@ use PryTax\Enums\TaxType;
  */
 class UpdateTaxPaymentRequisiteRequest extends UpdateRequest
 {
+    use ScopesToProfile;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -23,13 +27,20 @@ class UpdateTaxPaymentRequisiteRequest extends UpdateRequest
      */
     public function rules(): array
     {
+        $requisite = $this->target(TaxPaymentRequisite::class);
+        $taxType = $this->input('tax_type', $requisite?->tax_type?->value);
+
         return [
             'tax_type' => ['sometimes', Rule::enum(TaxType::class)],
             'iban' => ['sometimes', 'string', 'regex:/^UA[0-9]{27}$/'],
             'recipient_name' => ['sometimes', 'string', 'max:255'],
             'recipient_code' => ['sometimes', 'string', 'regex:/^[0-9]{8,10}$/'],
             'purpose_template' => ['sometimes', 'string', 'max:255'],
-            'effective_from' => ['sometimes', 'date'],
+            'effective_from' => [
+                'sometimes',
+                'date',
+                $this->uniqueInProfile('tax_payment_requisites', 'effective_from')->where('tax_type', $taxType)->ignore($this->getId()),
+            ],
         ];
     }
 

@@ -25,8 +25,14 @@ class UpdateOpeningBalanceRequest extends UpdateRequest
     public function rules(): array
     {
         return [
-            'as_of' => ['sometimes', 'date'],
-            'amount' => ['sometimes', 'numeric', 'decimal:0,2'],
+            'as_of' => [
+                'sometimes',
+                'date',
+                $this->uniqueInProfile('account_opening_balances', 'as_of')
+                    ->where('account_id', (int) $this->route('account'))
+                    ->ignore($this->getId()),
+            ],
+            'amount' => ['sometimes', 'numeric', 'decimal:0,2', 'min:-9999999999999', 'max:9999999999999'],
         ];
     }
 

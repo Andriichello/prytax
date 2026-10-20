@@ -28,8 +28,14 @@ class StoreTaxOpeningBalanceRequest extends StoreRequest
     {
         return [
             'tax_type' => ['required', Rule::enum(TaxType::class)],
-            'as_of' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'decimal:0,2'],
+            // The balance before a quarter, from which the running balance starts (TaxReconciler)
+            'as_of' => [
+                'required',
+                'date',
+                'regex:/^\d{4}-(01|04|07|10)-01$/',
+                $this->uniqueInProfile('tax_opening_balances', 'as_of')->where('tax_type', $this->input('tax_type')),
+            ],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:-9999999999999', 'max:9999999999999'],
         ];
     }
 

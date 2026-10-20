@@ -25,8 +25,12 @@ class OpeningBalanceRequest extends StoreRequest
     public function rules(): array
     {
         return [
-            'as_of' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'decimal:0,2'],
+            'as_of' => [
+                'required',
+                'date',
+                $this->uniqueInProfile('account_opening_balances', 'as_of')->where('account_id', (int) $this->route('account')),
+            ],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:-9999999999999', 'max:9999999999999'],
         ];
     }
 

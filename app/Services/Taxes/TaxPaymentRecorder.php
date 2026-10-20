@@ -2,10 +2,12 @@
 
 namespace PryTax\Services\Taxes;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PryTax\Enums\TaxAllocation;
+use PryTax\Enums\TaxPaymentStatus;
 use PryTax\Enums\TaxType;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
@@ -63,8 +65,8 @@ class TaxPaymentRecorder
     public function update(Profile $profile, TaxPayment $payment, array $data): TaxPayment
     {
         return $this->save($profile, $payment, [...$payment->only([
-            'tax_type', 'allocation', 'payment_id', 'period_year', 'period_quarter', 'period_month',
-        ]), ...$data]);
+            'tax_type', 'allocation', 'payment_id', 'period_year', 'period_quarter', 'period_month', 'status',
+        ]), 'paid_at' => $payment->paid_at?->toDateString(), ...$data]);
     }
 
     /**
@@ -100,6 +102,7 @@ class TaxPaymentRecorder
             : TaxAllocation::from($data['allocation']);
 
         $data = [...$data, ...$this->period($type, $allocation, $data)];
+        $this->assertDate($data);
 
         $payment->fill(Arr::only($data, $payment->getFillable()));
 
@@ -108,6 +111,33 @@ class TaxPaymentRecorder
         $this->alerts->syncAfterCommit($profile);
 
         return $payment;
+    }
+
+    /**
+     * Make sure a sent or paid tax payment has its date, which the account's balance takes it on, and that a paid
+     * one isn't dated in the future.
+     *
+     * @param array $data
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function assertDate(array $data): void
+    {
+        $status = $data['status'] ?? TaxPaymentStatus::Sent;
+        $status = $status instanceof TaxPaymentStatus ? $status : TaxPaymentStatus::from($status);
+
+        if ($status === TaxPaymentStatus::Failed) {
+            return;
+        }
+
+        if (empty($data['paid_at'])) {
+            throw ValidationException::withMessages(['paid_at' => [__('The date of the payment is required.')]]);
+        }
+
+        if ($status === TaxPaymentStatus::Paid && CarbonImmutable::parse($data['paid_at'])->gt(CarbonImmutable::today())) {
+            throw ValidationException::withMessages(['paid_at' => [__('A paid tax payment can\'t be dated in the future.')]]);
+        }
     }
 
     /**
@@ -142,6 +172,10 @@ class TaxPaymentRecorder
                 'period_quarter' => $receipt->period_quarter,
                 'period_month' => $receipt->period_month,
             ];
+        }
+
+        if (empty($data['period_year'])) {
+            throw ValidationException::withMessages(['period_year' => [__('The year is required.')]]);
         }
 
         if ($allocation === TaxAllocation::Month) {

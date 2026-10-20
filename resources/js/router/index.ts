@@ -39,11 +39,13 @@ const routes: RouteRecordRaw[] = [
     { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue') },
     { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue') },
 
-    { path: '/payments/new', name: 'payment-new', component: comingSoon, meta: { title: 'Нове надходження' } },
-    { path: '/payments/:id(\\d+)', name: 'payment', component: comingSoon, meta: { title: 'Надходження' } },
-    { path: '/transfers', name: 'transfers', component: comingSoon, meta: { title: 'Перекази' } },
-    { path: '/transfers/new', name: 'transfer-new', component: comingSoon, meta: { title: 'Новий переказ' } },
-    { path: '/transfers/:id(\\d+)', name: 'transfer', component: comingSoon, meta: { title: 'Переказ' } },
+    { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue') },
+    { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue') },
+    { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue') },
+    { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue') },
+    { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue') },
+    { path: '/transfers/:id(\\d+)', name: 'transfer', component: () => import('@/pages/transfers/TransferDetailPage.vue') },
+    { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue') },
 
     { path: '/accounts', name: 'accounts', component: comingSoon, meta: { title: 'Рахунки' } },
     { path: '/accounts/new', name: 'account-new', component: comingSoon, meta: { title: 'Новий рахунок' } },

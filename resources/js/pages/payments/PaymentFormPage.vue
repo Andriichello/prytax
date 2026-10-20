@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api, newIdempotencyKey } from '@/api/client';
-import type { Account, ApiResponse, Invoice, Paginated, Payment, PaymentKind, PaymentPreview, PaymentSavedResponse } from '@/api/types';
+import type { Account, ApiResponse, Invoice, InvoiceCoverage, Payment, PaymentGroupResponse, PaymentKind, PaymentPreview, PaymentSavedResponse } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
@@ -19,11 +19,14 @@ import { useSession } from '@/composables/useSession';
 import { useLoader } from '@/composables/useLoader';
 import { formatDate, monthName, quarterLabel, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
-import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts } from '@/utils/money';
+import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
 
 /**
  * Нове надходження (S-PaymentNew), and its editing: income of an invoice, an advance or other income, where it
- * landed, and — before saving — what will be stored: the hryvnias at the NBU rate, ЄП and ВЗ, the quarter.
+ * landed, and — before saving — what will be stored: the hryvnias at the NBU rate, ЄП and ВЗ, the quarter. One wire,
+ * which covers several invoices of one currency, is recorded as one receipt of each (design.md §6.1). Editing may
+ * move a receipt to another invoice of its currency (the one replacing a cancelled invoice), or link an advance to
+ * its invoice.
  */
 const KIND_ACCOUNT_LABELS: Record<string, string> = {
     platform: 'платформа',
@@ -58,25 +61,28 @@ const form = reactive({
 const touched = reactive({ amount: false, account: false, received_amount: false });
 const markPaid = ref(true);
 
+/** The invoices of one wire besides the first one (`form.invoice_id`), each with its invoiced amount. */
+const extra = ref<{ invoice_id: number; amount: string }[]>([]);
+
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [open, accountList, payment] = await Promise.all([
-        api.get<Paginated<Invoice>>(path('invoices'), {
+        api.all<Invoice>(path('invoices'), {
             filter: { status: { in: ['ready', 'sent'] } },
             include: ['client'],
             sort: 'issued_at',
-            page: { size: 50 },
         }, signal),
-        api.get<Paginated<Account>>(path('accounts'), { page: { size: 50 } }, signal),
+        api.all<Account>(path('accounts'), {}, signal),
         paymentId.value === null
             ? Promise.resolve(null)
             : api.get<ApiResponse<Payment>>(path(`payments/${paymentId.value}`), { include: ['invoice.client'] }, signal).then(({ data }) => data),
     ]);
 
-    accounts.value = accountList.data;
+    accounts.value = accountList;
     existing.value = payment;
-    invoices.value = payment?.invoice && !open.data.some((invoice) => invoice.id === payment.invoice_id)
-        ? [payment.invoice, ...open.data]
-        : open.data;
+    extra.value = [];
+    invoices.value = payment?.invoice && !open.some((invoice) => invoice.id === payment.invoice_id)
+        ? [payment.invoice, ...open]
+        : open;
 
     if (payment) {
         Object.assign(form, {
@@ -105,11 +111,83 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
     }
 }, [profileId, paymentId]);
 
-const invoice = computed(() => invoices.value.find((item) => item.id === form.invoice_id) ?? null);
+const invoiceOf = (id: number | null): Invoice | null => invoices.value.find((item) => item.id === id) ?? null;
+const remainingOf = (item: Invoice): string => subtractAmounts(item.total, item.paid_amount ?? '0');
+
+const invoice = computed(() => invoiceOf(form.invoice_id));
 const account = computed(() => accounts.value.find((item) => item.id === form.received_to_account_id) ?? null);
-const currency = computed(() => (form.kind === 'invoice' ? invoice.value?.currency : account.value?.currency) ?? 'USD');
+
+/** An advance being edited, which may be linked to its invoice now. */
+const isAdvanceEdit = computed(() => !isNew.value && existing.value?.kind === 'advance');
+const linksAdvance = computed(() => isAdvanceEdit.value && form.invoice_id !== null);
+
+/** A receipt keeps its currency: the invoice's, or, for other income, the account's. */
+const currency = computed(() => existing.value?.currency
+    ?? (form.kind === 'invoice' ? invoice.value?.currency : account.value?.currency)
+    ?? 'USD');
 const sameCurrency = computed(() => !account.value || account.value.currency === currency.value);
-const remaining = computed(() => (invoice.value ? subtractAmounts(invoice.value.total, invoice.value.paid_amount ?? '0') : null));
+const remaining = computed(() => (invoice.value ? remainingOf(invoice.value) : null));
+
+/* One wire for several invoices */
+const isGroup = computed(() => isNew.value && form.kind === 'invoice' && extra.value.length > 0);
+const groupTotal = computed(() => sumAmounts(parseAmount(form.amount), ...extra.value.map((line) => parseAmount(line.amount))));
+const amountTotal = computed(() => (isGroup.value ? groupTotal.value : parseAmount(form.amount)));
+
+/** How each invoice of the wire would be covered, as the API tells for one receipt. */
+const groupCoverage = computed(() => [{ invoice_id: form.invoice_id, amount: form.amount }, ...extra.value].map((line) => {
+    const item = invoiceOf(line.invoice_id);
+    const left = item ? remainingOf(item) : '0.00';
+    const amount = parseAmount(line.amount) ?? '0.00';
+
+    return { invoice: item, coversTotal: !!item && compareAmounts(amount, left) >= 0, overpaid: !!item && compareAmounts(amount, left) > 0 };
+}));
+
+/**
+ * Leave an invoice out of the wire; leaving out the first one makes the next one first.
+ */
+function removeLine(index: number): void {
+    if (index > 0) {
+        extra.value.splice(index - 1, 1);
+
+        return;
+    }
+
+    const [next] = extra.value.splice(0, 1);
+
+    if (next) {
+        form.invoice_id = next.invoice_id;
+        form.amount = next.amount;
+    }
+}
+
+/* Choosing invoices: the first one, another one of the wire, or the one an edited receipt belongs to */
+const picking = ref<'main' | 'extra' | null>(null);
+const pickerOpen = computed({
+    get: () => picking.value !== null,
+    set: (isOpen: boolean) => {
+        if (!isOpen) {
+            picking.value = null;
+        }
+    },
+});
+
+const pickable = computed(() => {
+    if (picking.value === 'extra') {
+        const chosen = new Set([form.invoice_id, ...extra.value.map((line) => line.invoice_id)]);
+
+        return invoices.value.filter((item) => item.currency === invoice.value?.currency && !chosen.has(item.id));
+    }
+
+    return isNew.value ? invoices.value : invoices.value.filter((item) => item.currency === existing.value?.currency);
+});
+
+function pick(chosen: Invoice): void {
+    if (picking.value === 'extra') {
+        extra.value.push({ invoice_id: chosen.id, amount: remainingOf(chosen) });
+    } else {
+        form.invoice_id = chosen.id;
+    }
+}
 
 /* An invoice brings its remaining amount and its receiving account, unless they were set by hand. */
 watch(invoice, (chosen) => {
@@ -126,10 +204,10 @@ watch(invoice, (chosen) => {
     }
 });
 
-/* What arrived follows the amount in the same currency, until it is typed. */
-watch(() => [form.amount, sameCurrency.value] as const, ([amount, same]) => {
-    if (!touched.received_amount && same) {
-        form.received_amount = amount;
+/* What arrived follows the amount in the same currency, until it is typed; in another currency it is typed anew. */
+watch(() => [amountTotal.value, sameCurrency.value] as const, ([amount, same]) => {
+    if (!touched.received_amount) {
+        form.received_amount = same ? amount ?? '' : '';
     }
 });
 
@@ -137,10 +215,13 @@ const accountOptions = computed(() => accounts.value
     .filter((item) => (item.is_active && item.kind !== 'personal') || item.id === form.received_to_account_id)
     .map((item) => ({ value: item.id, label: `${item.name} · ${KIND_ACCOUNT_LABELS[item.kind] ?? item.kind}` })));
 
+/**
+ * The fields of the receipt; an advance linked to an invoice becomes a receipt of the invoice.
+ */
 function body(): Record<string, unknown> {
     return {
-        kind: form.kind,
-        invoice_id: form.kind === 'invoice' ? form.invoice_id : null,
+        kind: linksAdvance.value ? 'invoice' : form.kind,
+        invoice_id: form.kind === 'invoice' || linksAdvance.value ? form.invoice_id : null,
         description: form.kind === 'invoice' ? null : form.description.trim() || null,
         amount: parseAmount(form.amount) ?? form.amount,
         client_fee_amount: parseAmount(form.client_fee_amount),
@@ -148,8 +229,19 @@ function body(): Record<string, unknown> {
         received_amount: parseAmount(form.received_amount),
         received_at: form.received_at,
         nbu_rate: parseAmount(form.nbu_rate),
-        correction_note: form.correction_note.trim() || null,
     };
+}
+
+/**
+ * What the preview is asked about: the receipt (an edit names its id, so it isn't counted twice), or for one wire
+ * its total as one income, which tells the quarter, the hryvnias and the taxes.
+ */
+function previewBody(): Record<string, unknown> {
+    if (isGroup.value) {
+        return { ...body(), kind: 'other', invoice_id: null, currency: currency.value, amount: groupTotal.value };
+    }
+
+    return { ...body(), payment_id: existing.value?.id ?? null };
 }
 
 /* The preview: what saving will store, asked again as the form changes. */
@@ -160,17 +252,21 @@ let previewTimer: ReturnType<typeof setTimeout> | undefined;
 let previewRun = 0;
 
 const ready = computed(() => !loading.value
-    && parseAmount(form.amount) !== null
+    && amountTotal.value !== null
+    && (!isGroup.value || extra.value.every((line) => parseAmount(line.amount) !== null))
     && form.received_to_account_id !== null
     && !!form.received_at
     && (form.kind !== 'invoice' || form.invoice_id !== null)
     && (sameCurrency.value || parseAmount(form.received_amount) !== null));
 
-watch(() => [ready.value, JSON.stringify(body())], () => {
+watch(() => [ready.value, JSON.stringify(previewBody())], () => {
     clearTimeout(previewTimer);
 
     if (!ready.value) {
+        // A request still on its way is outdated too
+        previewRun++;
         preview.value = null;
+        previewing.value = false;
 
         return;
     }
@@ -181,7 +277,7 @@ watch(() => [ready.value, JSON.stringify(body())], () => {
         previewing.value = true;
 
         try {
-            const { data } = await api.post<ApiResponse<PaymentPreview>>(path('payments/preview'), body());
+            const { data } = await api.post<ApiResponse<PaymentPreview>>(path('payments/preview'), previewBody());
 
             if (run === previewRun) {
                 preview.value = data;
@@ -203,32 +299,87 @@ watch(() => [ready.value, JSON.stringify(body())], () => {
 /** The NBU has no rate for the date: the form asks for one (the API takes a typed rate only then). */
 const needsManualRate = computed(() => !!fieldError(previewError.value, 'nbu_rate') || !!existing.value?.rate_is_manual || form.nbu_rate !== '');
 const lockedQuarter = computed(() => preview.value?.locked_quarter ?? null);
-const coverage = computed(() => preview.value?.invoice ?? null);
+const coverage = computed(() => (isGroup.value ? null : preview.value?.invoice ?? null));
 const percentOfIncome = (tax: string): number => (preview.value && Number(preview.value.uah_amount) > 0
     ? Math.round((Number(tax) / Number(preview.value.uah_amount)) * 100)
     : 0);
+
+/** How many invoices this receipt pays in full, so saving may mark them paid. */
+const paysInFull = computed(() => {
+    if (isGroup.value) {
+        return groupCoverage.value.filter((line) => line.coversTotal && line.invoice?.status !== 'paid').length;
+    }
+
+    return coverage.value?.covers_total && coverage.value.status !== 'paid' ? 1 : 0;
+});
+const overpays = computed(() => (isGroup.value ? groupCoverage.value.some((line) => line.overpaid) : !!coverage.value?.overpaid));
 
 /* Saving */
 const idempotencyKey = newIdempotencyKey();
 const saving = ref(false);
 const saveError = ref<unknown>(null);
 
+/** A declared quarter: told by the preview, or by a 409 of the save. */
+const needsNote = computed(() => lockedQuarter.value !== null || (saveError.value instanceof ApiError && saveError.value.status === 409));
+
+/**
+ * Mark the invoices, which the saved receipts pay in full, paid on the receipt's date; the numbers of those, which
+ * couldn't be marked, are returned.
+ */
+async function markInvoicesPaid(covered: (InvoiceCoverage | null)[]): Promise<string[]> {
+    const failed: string[] = [];
+
+    for (const item of covered) {
+        if (!item?.covers_total || item.status === 'paid') {
+            continue;
+        }
+
+        try {
+            await api.post(path(`invoices/${item.id}/pay`), { paid_at: form.received_at });
+        } catch {
+            failed.push(item.number ?? String(item.id));
+        }
+    }
+
+    return failed;
+}
+
 async function save(): Promise<void> {
     saving.value = true;
     saveError.value = null;
 
+    const note = form.correction_note.trim() || null;
+
     try {
-        const response = existing.value === null
-            ? await api.post<PaymentSavedResponse>(path('payments'), body(), { 'Idempotency-Key': idempotencyKey })
-            : await api.patch<PaymentSavedResponse>(path(`payments/${existing.value.id}`), body());
+        let target: number;
+        let covered: (InvoiceCoverage | null)[];
 
-        const covered = response.meta.invoice;
+        if (isGroup.value) {
+            const response = await api.post<PaymentGroupResponse>(path('payments/group'), {
+                receipts: [{ invoice_id: form.invoice_id, amount: form.amount }, ...extra.value]
+                    .map((line) => ({ invoice_id: line.invoice_id, amount: parseAmount(line.amount) ?? line.amount })),
+                received_to_account_id: form.received_to_account_id,
+                received_amount: parseAmount(form.received_amount),
+                client_fee_amount: parseAmount(form.client_fee_amount),
+                received_at: form.received_at,
+                nbu_rate: parseAmount(form.nbu_rate),
+                correction_note: note,
+            }, { 'Idempotency-Key': idempotencyKey });
 
-        if (isNew.value && markPaid.value && covered?.covers_total && covered.status !== 'paid') {
-            await api.post(path(`invoices/${covered.id}/pay`), { paid_at: form.received_at }).catch(() => undefined);
+            target = response.data[0]!.id;
+            covered = response.meta.invoices;
+        } else {
+            const response = existing.value === null
+                ? await api.post<PaymentSavedResponse>(path('payments'), { ...body(), correction_note: note }, { 'Idempotency-Key': idempotencyKey })
+                : await api.patch<PaymentSavedResponse>(path(`payments/${existing.value.id}`), { ...body(), correction_note: note });
+
+            target = response.data.id;
+            covered = [response.meta.invoice];
         }
 
-        await router.replace({ name: 'payment', params: { id: response.data.id } });
+        const unpaid = isNew.value && markPaid.value ? await markInvoicesPaid(covered) : [];
+
+        await router.replace({ name: 'payment', params: { id: target }, query: unpaid.length ? { unpaid: unpaid.join(', ') } : {} });
     } catch (caught) {
         saveError.value = caught;
     } finally {
@@ -236,12 +387,12 @@ async function save(): Promise<void> {
     }
 }
 
-const picking = ref(false);
 const shownError = computed(() => saveError.value ?? previewError.value);
 const generalError = computed(() => {
     const error = shownError.value;
 
-    if (!error) {
+    // A declared quarter's 409 is told next to the correction note
+    if (!error || (error === saveError.value && error instanceof ApiError && error.status === 409)) {
         return null;
     }
 
@@ -269,41 +420,97 @@ const generalError = computed(() => {
                 ]"
             />
 
-            <div v-if="form.kind === 'invoice'" class="flex flex-col gap-1.5">
-                <span id="payment-invoice" class="text-13 font-medium text-ink-2">Інвойс</span>
-                <button
-                    type="button"
-                    aria-labelledby="payment-invoice"
-                    class="flex w-full items-center gap-3 rounded-control border bg-surface px-3.5 py-3 text-left"
-                    :class="fieldError(shownError, 'invoice_id') ? 'border-negative' : 'border-line-input'"
-                    :disabled="!isNew"
-                    @click="picking = true"
-                >
-                    <span v-if="invoice" class="flex min-w-0 flex-1 flex-col gap-[3px]">
-                        <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
-                        <span class="truncate text-15 font-light text-ink">{{ invoice.client?.name }}</span>
-                    </span>
-                    <span v-else class="flex-1 text-16 text-ink-3">Оберіть інвойс</span>
-                    <Icon v-if="isNew" name="chevronDown" :size="18" class="text-ink-2" />
-                </button>
-                <span v-if="invoice" class="text-12 text-ink-3">
-                    Отримано <span class="num">{{ formatAmount(invoice.paid_amount ?? '0') }} / {{ formatMoney(invoice.total, invoice.currency) }}</span>
-                    · залишок <span class="num">{{ formatAmount(remaining) }}</span>
-                </span>
-                <span v-if="fieldError(shownError, 'invoice_id')" class="text-12 text-negative">{{ fieldError(shownError, 'invoice_id') }}</span>
-            </div>
-
             <TextField
-                v-else
+                v-if="form.kind !== 'invoice'"
                 v-model="form.description"
                 :label="form.kind === 'advance' ? 'Від кого й за що' : 'Опис доходу'"
                 :placeholder="form.kind === 'advance' ? 'Аванс від Brightline за листопад' : 'Напр., продаж обладнання'"
                 :error="fieldError(shownError, 'description')"
             />
 
+            <section v-if="isGroup" class="flex flex-col gap-2" aria-label="Інвойси одного платежу">
+                <SectionTitle>Інвойси в цьому платежі</SectionTitle>
+                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
+                    <div
+                        v-for="(line, index) in [{ invoice_id: form.invoice_id, amount: form.amount }, ...extra]"
+                        :key="line.invoice_id ?? 0"
+                        class="flex items-center gap-2.5 py-3"
+                    >
+                        <span class="flex min-w-0 flex-1 flex-col gap-[3px]">
+                            <span class="num text-15 font-semibold text-accent">{{ invoiceOf(line.invoice_id)?.number }}</span>
+                            <span class="truncate text-14 font-light">{{ invoiceOf(line.invoice_id)?.client?.name }}</span>
+                            <span v-if="invoiceOf(line.invoice_id)" class="text-12 text-ink-3">
+                                залишок <span class="num">{{ formatAmount(remainingOf(invoiceOf(line.invoice_id)!)) }}</span>
+                            </span>
+                        </span>
+                        <input
+                            v-if="index === 0"
+                            v-model="form.amount"
+                            inputmode="decimal"
+                            :aria-label="`Сума за ${invoiceOf(line.invoice_id)?.number ?? 'інвойсом'}`"
+                            class="num h-11 w-28 rounded-control border border-line-input bg-surface px-3 text-right text-16"
+                            @input="touched.amount = true"
+                        >
+                        <input
+                            v-else
+                            v-model="extra[index - 1]!.amount"
+                            inputmode="decimal"
+                            :aria-label="`Сума за ${invoiceOf(line.invoice_id)?.number ?? 'інвойсом'}`"
+                            class="num h-11 w-28 rounded-control border border-line-input bg-surface px-3 text-right text-16"
+                        >
+                        <button type="button" aria-label="Прибрати інвойс" class="flex size-11 shrink-0 items-center justify-center text-ink-3" @click="removeLine(index)">
+                            <Icon name="close" :size="18" />
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between py-3 text-15 font-semibold">
+                        <span>Разом</span>
+                        <span class="num">{{ formatMoney(groupTotal, currency) }}</span>
+                    </div>
+                </div>
+                <span v-if="fieldError(shownError, 'receipts')" class="text-12 text-negative">{{ fieldError(shownError, 'receipts') }}</span>
+            </section>
+
+            <div v-else-if="form.kind === 'invoice' || isAdvanceEdit" class="flex flex-col gap-1.5">
+                <span id="payment-invoice" class="text-13 font-medium text-ink-2">{{ isAdvanceEdit ? 'Інвойс, до якого належить аванс' : 'Інвойс' }}</span>
+                <button
+                    type="button"
+                    aria-labelledby="payment-invoice"
+                    class="flex w-full items-center gap-3 rounded-control border bg-surface px-3.5 py-3 text-left"
+                    :class="fieldError(shownError, 'invoice_id') ? 'border-negative' : 'border-line-input'"
+                    @click="picking = 'main'"
+                >
+                    <span v-if="invoice" class="flex min-w-0 flex-1 flex-col gap-[3px]">
+                        <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
+                        <span class="truncate text-15 font-light text-ink">{{ invoice.client?.name }}</span>
+                    </span>
+                    <span v-else class="flex-1 text-16 text-ink-3">{{ isAdvanceEdit ? 'Прив’язати до інвойсу' : 'Оберіть інвойс' }}</span>
+                    <Icon name="chevronDown" :size="18" class="text-ink-2" />
+                </button>
+                <span v-if="invoice" class="text-12 text-ink-3">
+                    Отримано <span class="num">{{ formatAmount(invoice.paid_amount ?? '0') }} / {{ formatMoney(invoice.total, invoice.currency) }}</span>
+                    · залишок <span class="num">{{ formatAmount(remaining) }}</span>
+                </span>
+                <span v-if="isAdvanceEdit && invoice" class="text-12 text-ink-3">
+                    Після збереження аванс стане надходженням за цим інвойсом.
+                    <button type="button" class="min-h-11 font-medium text-accent" @click="form.invoice_id = null">Не прив’язувати</button>
+                </span>
+                <span v-if="fieldError(shownError, 'invoice_id')" class="text-12 text-negative">{{ fieldError(shownError, 'invoice_id') }}</span>
+            </div>
+
+            <button
+                v-if="isNew && form.kind === 'invoice' && invoice"
+                type="button"
+                class="-mt-1 flex min-h-11 items-center gap-1.5 self-start text-14 font-medium text-accent"
+                @click="picking = 'extra'"
+            >
+                <Icon name="plus" :size="18" />
+                {{ isGroup ? 'Додати інвойс' : 'Один платіж за кілька інвойсів' }}
+            </button>
+
             <section class="flex flex-col gap-3">
                 <SectionTitle>Дохід</SectionTitle>
                 <TextField
+                    v-if="!isGroup"
                     v-model="form.amount"
                     :label="form.kind === 'invoice' ? `Сума за інвойсом, ${currency}` : `Сума, ${currency}`"
                     numeric
@@ -396,27 +603,29 @@ const generalError = computed(() => {
                         <span class="num text-15 font-semibold">{{ formatAmount(preview.military_levy_uah) }}</span>
                     </div>
                 </div>
+                <span v-if="isGroup" class="text-12 text-ink-3">Буде записано окремим надходженням для кожного інвойсу; гривні й податки кожного округлюються окремо.</span>
             </section>
 
             <TextAreaField
-                v-if="lockedQuarter"
+                v-if="needsNote"
                 v-model="form.correction_note"
-                :label="`${quarterLabel(lockedQuarter.quarter)} ${lockedQuarter.year} уже задекларовано — що уточнюєте?`"
+                :label="lockedQuarter ? `${quarterLabel(lockedQuarter.quarter)} ${lockedQuarter.year} уже задекларовано — що уточнюєте?` : 'Квартал уже задекларовано — що уточнюєте?'"
                 placeholder="Напр., надходження зараховано пізніше, ніж записано"
                 :rows="2"
             />
+            <p v-if="needsNote && !lockedQuarter && saveError" class="m-0 text-14 text-warning-text" role="alert">{{ errorMessage(saveError) }}</p>
 
             <label
-                v-if="isNew && coverage?.covers_total && coverage.status !== 'paid'"
+                v-if="isNew && paysInFull > 0"
                 class="flex items-start gap-3 rounded-button bg-positive-soft p-3.5 text-14 leading-[1.45] text-[#0f4d2d]"
             >
                 <input v-model="markPaid" type="checkbox" class="m-0 mt-px size-5 shrink-0 accent-positive">
                 <span class="flex flex-col gap-0.5">
-                    <strong class="font-semibold">Інвойс буде оплачено повністю</strong>
+                    <strong class="font-semibold">{{ isGroup ? `Оплачено повністю: ${paysInFull} з ${extra.length + 1}` : 'Інвойс буде оплачено повністю' }}</strong>
                     <span>Позначити оплаченим з датою {{ formatDate(form.received_at) }}</span>
                 </span>
             </label>
-            <p v-if="coverage?.overpaid" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
+            <p v-if="overpays" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
                 Сума перевищує залишок інвойсу. Перевірте суму або запишіть різницю як інший дохід.
             </p>
 
@@ -426,7 +635,7 @@ const generalError = computed(() => {
         <template v-if="can(isNew ? 'create' : 'update', 'payments')" #footer>
             <PrimaryButton
                 :busy="saving"
-                :disabled="loading || !ready || (lockedQuarter !== null && !form.correction_note.trim())"
+                :disabled="loading || !ready || (needsNote && !form.correction_note.trim())"
                 @click="save"
             >
                 {{ isNew ? 'Зберегти надходження' : 'Зберегти зміни' }}
@@ -434,10 +643,14 @@ const generalError = computed(() => {
         </template>
 
         <InvoicePickerSheet
-            v-model:open="picking"
-            :invoices="invoices"
-            :selected-id="form.invoice_id"
-            @select="form.invoice_id = $event.id"
+            v-model:open="pickerOpen"
+            :invoices="pickable"
+            :selected-id="picking === 'main' ? form.invoice_id : null"
+            :title="picking === 'extra' ? 'Ще інвойс у цьому платежі' : 'Оберіть інвойс'"
+            :empty-text="picking === 'extra'
+                ? `Інших відкритих інвойсів у ${currency} немає. Один платіж може покривати інвойси лише в одній валюті.`
+                : isNew ? undefined : `Відкритих інвойсів у ${currency} немає.`"
+            @select="pick"
         />
     </SubScreen>
 </template>

@@ -8,9 +8,16 @@ import { formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
  * The open invoices to record a receipt for: the number in cobalt, the client on a light second line, and what is
  * still to be received.
  */
-const { invoices, selectedId } = defineProps<{
+const {
+    invoices,
+    selectedId,
+    title = 'Оберіть інвойс',
+    emptyText = 'Відкритих інвойсів немає. Надходження записують для зафіксованих інвойсів: готових або надісланих.',
+} = defineProps<{
     invoices: Invoice[];
     selectedId: number | null;
+    title?: string;
+    emptyText?: string;
 }>();
 
 const open = defineModel<boolean>('open', { required: true });
@@ -23,7 +30,7 @@ function choose(invoice: Invoice): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" title="Оберіть інвойс">
+    <BottomSheet v-model:open="open" :title="title">
         <div v-if="invoices.length" class="flex flex-col divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface">
             <button
                 v-for="invoice in invoices"
@@ -44,6 +51,6 @@ function choose(invoice: Invoice): void {
                 <Icon v-if="invoice.id === selectedId" name="check" :size="22" class="text-accent" />
             </button>
         </div>
-        <p v-else class="m-0 text-15 text-ink-2">Відкритих інвойсів немає. Надходження записують для зафіксованих інвойсів: готових або надісланих.</p>
+        <p v-else class="m-0 text-15 text-ink-2">{{ emptyText }}</p>
     </BottomSheet>
 </template>

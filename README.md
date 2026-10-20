@@ -1,58 +1,138 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## PryTax
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+PryTax is an accounting and invoicing application for Ukrainian sole proprietors (ФОП 3 група на спрощеній системі,
+without employees), and for accountants, who keep the books of several of them under one login. It's a JSON API on
+Laravel 13 and [api-core](https://github.com/Andriichello/api-core), which brings organizations, users, authentication,
+roles and the CRUD layer, for a Vue 3 SPA.
 
-## About Laravel
+### Documentation
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- [docs/specs/accounting.md](docs/specs/accounting.md): the functional rules, i.e. what the application must do.
+- [docs/specs/design.md](docs/specs/design.md): the implementation, i.e. the schema, the services and the build order.
+- [docs/specs/suggestions.md](docs/specs/suggestions.md): the open decisions and review items.
+- api-core's documentation is installed in `vendor/andriichello/api-core/docs/`, listed in
+  `vendor/andriichello/api-core/docs/00-index.md`.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+An organization of api-core is whoever runs the application: a sole proprietor, or an accountant's practice. Inside it,
+each profile is one ФОП, with its tax identity, settings and records, so `profile_id` is the tenant key of the domain
+tables.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Requirements
 
-## Learning Laravel
+- PHP 8.5 with the `pdo_mysql` and `fileinfo` extensions, and Composer.
+- MySQL 8.0.13 or newer, for both the application and its tests (the schema uses generated columns, `CHECK`s and
+  indexes over expressions). MariaDB isn't supported.
+- api-core checked out next to this repository, in `../api-core`: Composer symlinks it from there (see below).
+- Node 20.19 or newer, for the frontend's Vite 8.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Setting up
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1. Clone api-core next to PryTax, so the path `../api-core` exists:
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+   ```bash
+   git clone https://github.com/Andriichello/api-core.git ../api-core
+   ```
 
-## Agentic Development
+2. Install the dependencies, and create the `.env` file with an application key:
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+   ```bash
+   composer install
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+3. Create the databases of the application and of the tests, and set `DB_USERNAME` and `DB_PASSWORD` in `.env`:
+
+   ```sql
+   CREATE DATABASE prytax CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE prytax_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+4. Migrate the database and seed the roles:
+
+   ```bash
+   php artisan migrate --seed
+   ```
+
+5. Create the first super admin in `php artisan tinker`, as in api-core's
+   `vendor/andriichello/api-core/docs/getting-started/02-installation.md` (step 7):
+
+   ```php
+   $admin = new Core\Models\User(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'a-long-secret']);
+   $admin->forceFill(['email_verified_at' => now(), 'password_updated_at' => now()])->save();
+   $admin->assignRole('super-admin');
+   ```
+
+6. Serve the API on `http://localhost:8000`, and run the scheduler, which prunes expired tokens and old audit log
+   entries daily:
+
+   ```bash
+   php artisan serve
+   php artisan schedule:work
+   ```
+
+### api-core
+
+`composer.json` requires `andriichello/api-core:dev-dev` from a path repository, which symlinks
+`vendor/andriichello/api-core` to `../api-core`, so changes to api-core take effect here at once. Switch to its VCS
+repository (`https://github.com/Andriichello/api-core`) before deploying, as a server has no `../api-core`.
+
+After updating api-core:
+
+- read `vendor/andriichello/api-core/docs/getting-started/08-upgrading.md`;
+- publish its new migrations with `php artisan vendor:publish --tag=api-core-migrations`, which keeps the published
+  ones as they are;
+- run `php artisan boost:update`, which refreshes its guideline and skill (see "AI agents").
+
+The application's code lives in the `PryTax\` namespace (`app/`), while api-core's documents show `App\` in their
+examples.
+
+### Configuration
+
+| Env                               | Value in `.env.example`                        | Description                                                         |
+|-----------------------------------|------------------------------------------------|---------------------------------------------------------------------|
+| `AUTH_MODEL`                      | `Core\Models\User`                             | api-core's user model.                                              |
+| `SANCTUM_STATEFUL_DOMAINS`        | `localhost:5173,localhost:8000`                | Hosts of the SPA, whose requests sign in with a session cookie.     |
+| `CORS_ALLOWED_ORIGINS`            | `http://localhost:5173`                        | Origins, which may call the API with credentials (comma-separated). |
+| `SESSION_DOMAIN`                  | `null`                                         | The parent domain, when the SPA and the API are on subdomains.      |
+| `API_CORE_PASSWORD_RESET_URL`     | `http://localhost:5173/reset-password`         | SPA page of the password reset link.                                |
+| `API_CORE_EMAIL_VERIFICATION_URL` | `http://localhost:5173/verify-email`           | SPA page of the email verification link.                            |
+| `API_CORE_INVITATION_URL`         | `http://localhost:5173/accept-invitation`      | SPA page of the invitation link.                                    |
+
+Requests from other origins, such as integrations, sign in with tokens. api-core's other options are listed in
+`vendor/andriichello/api-core/docs/getting-started/03-configuration.md`.
+
+The roles are `owner`, `accountant` and `viewer`, below api-core's built-in `super-admin`, and their permissions are in
+`config/api-core.php`. Seed them again after changing the list:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php artisan db:seed --class="Core\Database\Seeders\RolesAndPermissionsSeeder"
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### API
 
-## Contributing
+`routes/api.php` registers api-core's routes under `/api`:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- `auth/…`: login, refresh, logout, `me`, switching accounts, password reset and change, email verification and
+  accepting invitations;
+- `users`: the users of the organization, who are invited, updated and deleted by owners;
+- `notifications`: the signed-in user's notifications.
 
-## Code of Conduct
+PryTax's own routes go into the group with the `organization` middleware, nested under `profiles/{profile}/…`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Testing
 
-## Security Vulnerabilities
+```bash
+php artisan test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The tests run on the MySQL database `prytax_test` (set in `phpunit.xml`), with the credentials from `.env`, and
+refresh it on every run. Format the code with `vendor/bin/pint`, whose `pint.json` is api-core's house style.
 
-## License
+### AI agents
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+[Laravel Boost](https://laravel.com/docs/boost) is installed for Claude Code, with api-core's guideline and its
+`api-core-development` skill (selected in `boost.json`). Boost writes the guidelines between the
+`<laravel-boost-guidelines>` tags of `CLAUDE.md`, the skills in `.claude/skills/` and the MCP server in `.mcp.json`.
+Put PryTax's own guidelines in `.ai/guidelines/` and its skills in `.ai/skills/`, and run `php artisan boost:update`
+after changing them, or after updating api-core or Boost.

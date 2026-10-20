@@ -38,9 +38,36 @@ class TaxPeriodControllerTest extends TestCase
             ->assertJsonPath('data.locked_at', '2026-11-05T10:00:00.000000Z')
             ->assertJsonPath('data.declaration_submitted_at', '2026-11-05T10:00:00.000000Z');
 
-        $this->patchJson($this->profilePath($profile, "tax-periods/{$period->id}"), ['declaration_status' => 'filled'])
+        $this->patchJson($this->profilePath($profile, "tax-periods/{$period->id}"), ['declaration_status' => 'rejected'])
             ->assertOk()
             ->assertJsonPath('data.locked_at', null);
+    }
+
+    /**
+     * Test that a declaration's status changes along its steps only: an accepted one can't go back to none (409),
+     * `corrected` isn't set by hand (422), and a quarter, which hasn't ended, isn't submitted (422).
+     *
+     * @return void
+     */
+    public function testChangesTheDeclarationAlongItsStepsOnly(): void
+    {
+        $this->travelTo('2026-11-05 12:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $accepted = $this->declareQuarter($profile, 2026, 3);
+        $current = $this->inProfile($profile, fn () => app(DeadlineScheduler::class)->ensure($profile, 2026, 4));
+
+        $this->patchJson($this->profilePath($profile, "tax-periods/{$accepted->id}"), ['declaration_status' => 'none'])
+            ->assertConflict()
+            ->assertJsonPath('message', "The declaration can't change from accepted to none.");
+        $this->patchJson($this->profilePath($profile, "tax-periods/{$accepted->id}"), ['declaration_status' => 'corrected'])
+            ->assertUnprocessable();
+        $this->patchJson($this->profilePath($profile, "tax-periods/{$current->id}"), ['declaration_status' => 'submitted'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['declaration_status' => 'A declaration is submitted after its quarter ends.']);
+
+        $this->assertNotNull($accepted->fresh()->locked_at);
+        $this->assertSame('none', $current->fresh()->declaration_status->value);
     }
 
     /**

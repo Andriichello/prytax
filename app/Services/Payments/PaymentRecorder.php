@@ -251,9 +251,10 @@ class PaymentRecorder
             }
 
             if ($changesIncome) {
-                $note = $data['correction_note'] ?? null;
-                $this->lock->assertOpen($profile, $payment->received_at, $note);
-                $this->lock->assertOpen($profile, CarbonImmutable::parse($attributes['received_at']), $note);
+                $this->lock->assertOpen($profile, [
+                    $payment->received_at,
+                    CarbonImmutable::parse($attributes['received_at']),
+                ], $data['correction_note'] ?? null);
             }
 
             $payment->forceFill($attributes)->save();

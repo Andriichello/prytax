@@ -440,11 +440,7 @@ class TransferRecorder
             return;
         }
 
-        if ($existing) {
-            $this->lock->assertOpen($profile, $existing->received_at, $correctionNote);
-        }
-
-        $this->lock->assertOpen($profile, $transfer->received_at, $correctionNote);
+        $this->lock->assertOpen($profile, array_filter([$existing?->received_at, $transfer->received_at]), $correctionNote);
 
         $snapshot = $this->snapshotter->compute(
             $profile,

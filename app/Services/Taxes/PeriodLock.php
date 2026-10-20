@@ -3,6 +3,7 @@
 namespace PryTax\Services\Taxes;
 
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Exceptions\PeriodLockedException;
 use PryTax\Models\Profile;
@@ -11,9 +12,11 @@ use PryTax\Models\TaxPeriod;
 /**
  * Class PeriodLock.
  *
- * Guards quarters, whose declaration was submitted (design.md §8.3). A write of income into such a quarter needs a
- * correction note; with it, the write proceeds, and the quarter and every later declared quarter of the year are
- * marked `corrected`, as declarations are cumulative and an уточнююча декларація is needed for each of them.
+ * Guards quarters, whose declaration was submitted (design.md §8.3). Declarations are cumulative, so a write of
+ * income into a quarter changes it and every later quarter of its year: when any of them is declared, the write needs
+ * a correction note; with it, the write proceeds, and each declared quarter from the written one on is marked
+ * `corrected`, as an уточнююча декларація is needed for each of them. Writers call it inside their transaction, so a
+ * write, which fails afterwards, marks nothing.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Taxes
@@ -21,67 +24,78 @@ use PryTax\Models\TaxPeriod;
 class PeriodLock
 {
     /**
-     * Make sure the quarter of the date may be written to: it is open, or the write carries a correction note.
+     * Make sure the quarters of the dates may be written to: neither they nor a later quarter of their year are
+     * declared, or the write carries a correction note.
      *
      * @param Profile $profile
-     * @param CarbonInterface $date
+     * @param CarbonInterface|array<int, CarbonInterface> $dates
      * @param string|null $correctionNote
      *
      * @return void
      * @throws PeriodLockedException
      */
-    public function assertOpen(Profile $profile, CarbonInterface $date, ?string $correctionNote = null): void
+    public function assertOpen(Profile $profile, CarbonInterface|array $dates, ?string $correctionNote = null): void
     {
-        $period = TaxPeriod::query()
-            ->where('profile_id', $profile->getKey())
-            ->where('year', $date->year)
-            ->where('quarter', $date->quarter)
-            ->first();
+        $earliest = collect(is_array($dates) ? $dates : [$dates])
+            ->groupBy(fn (CarbonInterface $date) => $date->year)
+            ->map(fn ($inYear) => $inYear->min(fn (CarbonInterface $date) => $date->quarter));
 
-        if (!$period?->isLocked()) {
-            return;
+        foreach ($earliest as $year => $quarter) {
+            $locked = TaxPeriod::query()
+                ->where('profile_id', $profile->getKey())
+                ->where('year', $year)
+                ->where('quarter', '>=', $quarter)
+                ->whereNotNull('locked_at')
+                ->orderBy('quarter')
+                ->get();
+
+            if ($locked->isEmpty()) {
+                continue;
+            }
+
+            if (blank($correctionNote)) {
+                $first = $locked->first();
+
+                throw new PeriodLockedException($first->quarter === $quarter
+                    ? __('Quarter :quarter of :year is locked by its submitted declaration. Give a correction note to change it.', [
+                        'quarter' => $quarter, 'year' => $year,
+                    ])
+                    : __('Quarter :later of :year is locked by its submitted declaration, which counts quarter :quarter too. Give a correction note to change it.', [
+                        'later' => $first->quarter, 'quarter' => $quarter, 'year' => $year,
+                    ]));
+            }
+
+            $this->markCorrected($profile, (int) $year, (int) $quarter, $locked, (string) $correctionNote);
         }
-
-        if (blank($correctionNote)) {
-            throw new PeriodLockedException(__(
-                'Quarter :quarter of :year is locked by its submitted declaration. Give a correction note to change it.',
-                ['quarter' => $date->quarter, 'year' => $date->year]
-            ));
-        }
-
-        $this->markCorrected($period, (string) $correctionNote);
     }
 
     /**
-     * Mark the quarter, and the later quarters of its year, whose declarations were submitted, as needing an
-     * уточнююча декларація, keeping the note in the quarter's notes.
+     * Mark the declared quarters as needing an уточнююча декларація, keeping the note in the written quarter's notes.
      *
-     * @param TaxPeriod $period
+     * @param Profile $profile
+     * @param int $year
+     * @param int $quarter
+     * @param Collection<int, TaxPeriod> $locked
      * @param string $note
      *
      * @return void
      */
-    protected function markCorrected(TaxPeriod $period, string $note): void
+    protected function markCorrected(Profile $profile, int $year, int $quarter, Collection $locked, string $note): void
     {
-        $later = TaxPeriod::query()
-            ->where('profile_id', $period->profile_id)
-            ->where('year', $period->year)
-            ->where('quarter', '>', $period->quarter)
-            ->whereIn('declaration_status', [
-                DeclarationStatus::Submitted->value,
-                DeclarationStatus::Accepted->value,
-                DeclarationStatus::Corrected->value,
-            ])
-            ->get();
+        foreach ($locked as $period) {
+            $period->declaration_status = DeclarationStatus::Corrected;
+            $period->save();
+        }
 
-        foreach ([$period, ...$later] as $affected) {
-            $affected->declaration_status = DeclarationStatus::Corrected;
+        $written = $locked->firstWhere('quarter', $quarter) ?? TaxPeriod::query()
+            ->where('profile_id', $profile->getKey())
+            ->where('year', $year)
+            ->where('quarter', $quarter)
+            ->first();
 
-            if ($affected->is($period)) {
-                $affected->notes = trim(($affected->notes ?? '') . "\n" . now()->format('d.m.Y') . ': ' . $note);
-            }
-
-            $affected->save();
+        if ($written) {
+            $written->notes = trim(($written->notes ?? '') . "\n" . now()->format('d.m.Y') . ': ' . $note);
+            $written->save();
         }
     }
 }

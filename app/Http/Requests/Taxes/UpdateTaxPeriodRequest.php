@@ -24,7 +24,8 @@ class UpdateTaxPeriodRequest extends UpdateRequest
     public function rules(): array
     {
         return [
-            'declaration_status' => ['sometimes', Rule::enum(DeclarationStatus::class)],
+            // `corrected` follows a correction of a declared quarter (PeriodLock), never a request
+            'declaration_status' => ['sometimes', Rule::enum(DeclarationStatus::class)->except(DeclarationStatus::Corrected)],
             'declaration_submitted_at' => ['sometimes', 'nullable', 'date'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
         ];

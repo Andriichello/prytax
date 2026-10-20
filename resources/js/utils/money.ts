@@ -217,3 +217,16 @@ export function multiplyDecimals(a: string, b: string): string {
 
     return fromUnits(negative ? -rounded : rounded, 2);
 }
+
+const COMPACT_SIGNS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', UAH: '₴', PLN: 'zł' };
+
+/**
+ * An amount with a short currency sign after it, for compact rows (handoff §5): "27.20 $", "3 631.75 €".
+ */
+export function formatCompact(value: string | null | undefined, currency: string): string {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+
+    return `${formatAmount(value)}${CURRENCY_SPACE}${COMPACT_SIGNS[currency.toUpperCase()] ?? currency.toUpperCase()}`;
+}

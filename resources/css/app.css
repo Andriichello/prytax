@@ -1,9 +1,107 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
+@import './fonts.css';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
+@source '../js';
+@source '../views';
 
+/*
+ * Design tokens of the "Simplified" screens (docs/prytax-design-handoff/tokens.css). The default palette is dropped,
+ * so only the design's colours exist as utilities: bg-paper, text-ink-2, border-line, bg-accent, text-positive, …
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-*: initial;
+    --color-white: #ffffff;
+
+    /* Surfaces */
+    --color-paper: #f4f3ee;
+    --color-surface: #ffffff;
+    --color-sunk: #e9e7e0;
+    --color-muted: #eceae3;
+
+    /* Ink: text, and the dark summary cards and bands */
+    --color-ink: #17191f;
+    --color-ink-2: #4f5461;
+    --color-ink-3: #5a5f6b;
+    --color-ink-4: #8e929c;
+    --color-on-ink: #f4f3ee;
+    --color-on-ink-2: #b9bcc6;
+    --color-on-ink-3: #c9cbd3;
+
+    /* Lines */
+    --color-line: #e3e1da;
+    --color-line-input: #d5d3cb;
+    --color-divider: #eeede8;
+    --color-divider-ink: #33363e;
+
+    /* Action */
+    --color-accent: #2b45b8;
+    --color-accent-hover: #1f338c;
+    --color-accent-soft: #e9edfb;
+    --color-switch-off: #b9b6ac;
+    --color-handle: #c9c6bc;
+    --color-overlay: rgb(23 25 31 / 0.66);
+
+    /* Meaning */
+    --color-positive: #17683f;
+    --color-positive-soft: #e3f2e9;
+    --color-warning: #6e3b00;
+    --color-warning-text: #8a4b00;
+    --color-warning-soft: #fcefd9;
+    --color-warning-bar: #c27a12;
+    --color-warning-on-ink: #f2b66b;
+    --color-negative: #a61b1b;
+    --color-negative-soft: #fbe9e7;
+    --color-neutral-soft: #eeede8;
+
+    --font-sans: 'Geologica', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+    /* The sizes of the designs, named by their pixels: text-11 … text-30 */
+    --text-11: 11px;
+    --text-12: 12px;
+    --text-13: 13px;
+    --text-14: 14px;
+    --text-15: 15px;
+    --text-16: 16px;
+    --text-17: 17px;
+    --text-18: 18px;
+    --text-22: 22px;
+    --text-28: 28px;
+    --text-30: 30px;
+
+    --radius-badge: 8px;
+    --radius-seg: 9px;
+    --radius-control: 12px;
+    --radius-button: 14px;
+    --radius-card: 16px;
+
+    --shadow-seg: 0 1px 2px rgb(23 25 31 / 0.08);
+}
+
+@layer base {
+    html {
+        line-height: normal;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-paper font-sans text-ink antialiased;
+    }
+
+    a {
+        @apply text-accent hover:text-accent-hover;
+    }
+
+    button:not(:disabled),
+    [role='button']:not(:disabled) {
+        cursor: pointer;
+    }
+}
+
+/* Numbers: mono, tabular, never wrapped (amounts, rates, invoice numbers, dates in data rows, percentages) */
+@utility num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
 }

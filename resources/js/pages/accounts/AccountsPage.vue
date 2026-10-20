@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { api } from '@/api/client';
-import type { Account, AccountKind, Paginated } from '@/api/types';
+import type { Account, AccountKind } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -13,10 +13,11 @@ import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { ACCOUNT_KINDS } from '@/utils/accounts';
 import { formatAmount, formatMoney } from '@/utils/money';
+import { countOf } from '@/utils/plural';
 
 /**
- * Рахунки (S-Accounts): the profile's accounts by kind, with balances from tracked movements and the progress of a
- * limit where one is set.
+ * Рахунки (S-Accounts): the profile's accounts by kind, with balances from tracked movements, the progress of a
+ * limit where one is set, and the money a platform or foreign bank still holds past the repatriation rule.
  */
 const KINDS: AccountKind[] = ['platform', 'fop_bank', 'foreign_bank', 'personal'];
 const LIMIT_TEXTS = {
@@ -28,10 +29,18 @@ const { profileId, path, settings } = useCurrentProfile();
 const { can } = useSession();
 
 const { data: accounts, error, loading, reload } = useLoader(async (signal) => {
-    const { data } = await api.get<Paginated<Account>>(path('accounts'), { append: ['balance', 'limit_progress'], page: { size: 50 } }, signal);
-
-    return data;
+    return api.all<Account>(path('accounts'), { append: ['balance', 'limit_progress', 'late_holdings'] }, signal);
 }, [profileId]);
+
+const hasLate = (account: Account): boolean => Boolean(account.late_holdings && Number(account.late_holdings) > 0);
+
+/** When the late money should have left, by the profile's rule: "після кінця кварталу", "довше 30 днів". */
+const lateWhen = computed(() => {
+    const rule = settings.value?.compliance.platform_repatriation ?? 'quarter_end';
+    const days = /^days:(\d+)$/.exec(rule);
+
+    return days ? `довше ${countOf(Number(days[1]), ['дня', 'днів', 'днів'])}` : 'після кінця кварталу';
+});
 
 const groups = computed(() => KINDS
     .map((kind) => ({ kind, accounts: (accounts.value ?? []).filter((account) => account.kind === kind) }))
@@ -106,7 +115,15 @@ function caption(account: Account): string {
                                 </span>
                             </span>
                         </template>
-                        <span v-else class="text-13" :class="account.is_active ? 'text-ink-3' : ''">{{ caption(account) }}</span>
+                        <span v-else class="flex items-baseline justify-between gap-3 text-13">
+                            <span :class="account.is_active ? 'text-ink-3' : ''">{{ caption(account) }}</span>
+                            <span v-if="hasLate(account)" class="text-warning-text">
+                                <span class="num">{{ formatAmount(account.late_holdings) }}</span> {{ lateWhen }}
+                            </span>
+                        </span>
+                        <span v-if="account.limit_progress && account.is_active && hasLate(account)" class="text-right text-13 text-warning-text">
+                            <span class="num">{{ formatAmount(account.late_holdings) }}</span> {{ lateWhen }}
+                        </span>
                     </RouterLink>
                 </div>
             </section>

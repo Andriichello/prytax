@@ -400,6 +400,8 @@ export interface Account {
     balance?: Amount;
     /** Append: progress towards the limit, or null without a limit. */
     limit_progress?: AccountLimitProgress | null;
+    /** Append: money of receipts the account holds past the repatriation rule, in its currency ("0.00" if none). */
+    late_holdings?: Amount;
 }
 
 /** The balance of an account on a date, from which its flows are counted: `…/accounts/{account}/opening-balances`. */

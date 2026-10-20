@@ -6,10 +6,13 @@ use Carbon\Carbon;
 use Core\Models\BaseModel;
 use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
+use PryTax\Services\Transfers\TransferMetrics;
 
 /**
  * Class AccountTransfer.
@@ -122,6 +125,26 @@ class AccountTransfer extends BaseModel
     public function isFx(): bool
     {
         return $this->currency_sent !== $this->currency_received;
+    }
+
+    /**
+     * FX spread of the transfer's UAH leg in UAH, or null (see TransferMetrics::spread()).
+     *
+     * @return Attribute
+     */
+    protected function fxSpread(): Attribute
+    {
+        return Attribute::get(fn () => Decimal::moneyOrNull(TransferMetrics::spread($this)));
+    }
+
+    /**
+     * Effective rate of an FX transfer, `amount_received / amount_sent`, or null.
+     *
+     * @return Attribute
+     */
+    protected function effectiveRate(): Attribute
+    {
+        return Attribute::get(fn () => TransferMetrics::effectiveRate($this));
     }
 
     /**

@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PryTax\Enums\AccountKind;
+use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\FxGainPolicy;
 use PryTax\Enums\MoneyFormat;
 use PryTax\Enums\NumberingDateSource;
@@ -362,6 +363,39 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
 
             return Str::upper(implode('', array_map(fn (string $part) => mb_substr($part, 0, 1), array_slice($parts, 0, 2))));
         });
+    }
+
+    /**
+     * Number of the profile's notifications, which the signed-in user hasn't read.
+     *
+     * @return Attribute
+     */
+    protected function unreadAlertsCount(): Attribute
+    {
+        return Attribute::get(function () {
+            $user = auth()->user();
+
+            return $user ? Alert::query()
+                ->withoutGlobalScope(Alert::PROFILE_SCOPE)
+                ->where('profile_id', $this->getKey())
+                ->unresolved()
+                ->unreadBy($user)
+                ->count() : 0;
+        });
+    }
+
+    /**
+     * Whether a quarter of the profile needs an уточнююча декларація.
+     *
+     * @return Attribute
+     */
+    protected function needsCorrection(): Attribute
+    {
+        return Attribute::get(fn () => TaxPeriod::query()
+            ->withoutGlobalScope(TaxPeriod::PROFILE_SCOPE)
+            ->where('profile_id', $this->getKey())
+            ->where('declaration_status', DeclarationStatus::Corrected->value)
+            ->exists());
     }
 
     /**

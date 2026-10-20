@@ -8,12 +8,14 @@ use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PryTax\Enums\PaymentKind;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\PaymentQuery;
+use PryTax\Services\Payments\PaymentFlow;
 
 /**
  * Class Payment.
@@ -200,6 +202,16 @@ class Payment extends BaseModel
     public function sourceTransfer(): BelongsTo
     {
         return $this->belongsTo(AccountTransfer::class, 'source_transfer_id');
+    }
+
+    /**
+     * Fees, landing, holdings and net income of the receipt (see PaymentFlow::metrics()).
+     *
+     * @return Attribute
+     */
+    protected function metrics(): Attribute
+    {
+        return Attribute::get(fn () => app(PaymentFlow::class)->metrics($this));
     }
 
     /**

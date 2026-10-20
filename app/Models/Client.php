@@ -7,8 +7,10 @@ use Core\Models\BaseModel;
 use Core\Models\Traits\TracksCreator;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
 
@@ -130,6 +132,32 @@ class Client extends BaseModel
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * What the client owes on its open invoices, per currency, with the overdue part of it.
+     *
+     * @return Attribute
+     */
+    protected function outstanding(): Attribute
+    {
+        return Attribute::get(function () {
+            $today = now()->startOfDay();
+
+            return $this->invoices()->open()->withPaidAmount()->get()
+                ->groupBy('currency')
+                ->map(fn ($invoices, string $currency) => [
+                    'currency' => $currency,
+                    'amount' => Decimal::money(Decimal::sum($invoices->map(
+                        fn (Invoice $invoice) => Decimal::max(Decimal::of($invoice->total)->minus(Decimal::of($invoice->paid_amount)), 0)
+                    ))),
+                    'overdue' => Decimal::money(Decimal::sum($invoices
+                        ->filter(fn (Invoice $invoice) => $invoice->due_at?->lt($today))
+                        ->map(fn (Invoice $invoice) => Decimal::max(Decimal::of($invoice->total)->minus(Decimal::of($invoice->paid_amount)), 0)))),
+                ])
+                ->values()
+                ->all();
+        });
     }
 
     /**

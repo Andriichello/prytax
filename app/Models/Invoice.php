@@ -26,6 +26,7 @@ use PryTax\Enums\InvoiceStatus;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\InvoiceQuery;
+use PryTax\Services\Invoices\InvoiceNumberGenerator;
 
 /**
  * Class Invoice.
@@ -153,6 +154,15 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'subtotal' => '0.00',
         'adjustment_amount' => '0.00',
         'total' => '0.00',
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'paid_amount',
     ];
 
     /**
@@ -318,6 +328,29 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     protected function paidAmount(): Attribute
     {
         return Attribute::get(fn ($value) => Decimal::money($value ?? $this->receivedAmount()));
+    }
+
+    /**
+     * The number a draft would get, if it were frozen now, or null past the draft.
+     *
+     * @return Attribute
+     */
+    protected function numberPreview(): Attribute
+    {
+        return Attribute::get(fn () => $this->status === InvoiceStatus::Draft
+            ? app(InvoiceNumberGenerator::class)->preview($this->profile, $this)
+            : null);
+    }
+
+    /**
+     * Whether the invoice may return to its draft: it is ready and has no receipts.
+     *
+     * @return Attribute
+     */
+    protected function canUnfreeze(): Attribute
+    {
+        return Attribute::get(fn () => $this->status === InvoiceStatus::Ready
+            && !Payment::query()->where('invoice_id', $this->getKey())->exists());
     }
 
     /**

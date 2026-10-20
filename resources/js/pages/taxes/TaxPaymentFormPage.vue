@@ -83,12 +83,16 @@ if (form.tax_type === 'social_contribution' && form.allocation === 'payment') {
     form.allocation = 'quarter';
 }
 
-/* The receipt of the link, opened without its quarter: the quarter is taken from the receipt */
-if (queryPayment && queryQuarter === null) {
+/* The receipt of the link, opened without its quarter: the quarter is taken from the receipt, before its receipts load */
+const isPeriodPending = ref(queryPayment !== null && queryQuarter === null);
+
+if (isPeriodPending.value) {
     void api.get<ApiResponse<Payment>>(path(`payments/${queryPayment}`)).then(({ data }) => {
         form.period_year = data.period_year;
         form.period_quarter = data.period_quarter;
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => {
+        isPeriodPending.value = false;
+    });
 }
 
 /* Reference data, loaded as the choice changes; an answer for an earlier choice is never shown */
@@ -117,7 +121,7 @@ const reconciliation = computed(() => (taxesLoader.data.value?.key === taxesKey.
 const months = computed(() => (taxesLoader.data.value?.key === taxesKey.value ? taxesLoader.data.value.months : null));
 const toPay = computed(() => (reconciliation.value ? amountsToPay(reconciliation.value) : null));
 
-const receiptsKey = computed(() => (form.allocation === 'payment' ? `${form.period_year}:${form.period_quarter}` : null));
+const receiptsKey = computed(() => (form.allocation === 'payment' && !isPeriodPending.value ? `${form.period_year}:${form.period_quarter}` : null));
 const receiptsLoader = useLoader(async (signal) => {
     const key = receiptsKey.value;
 

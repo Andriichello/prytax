@@ -58,9 +58,35 @@ class AccountStatement
     {
         $from = CarbonImmutable::create($year);
         $to = $from->endOfYear()->startOfDay();
+        $holdings = $this->holdingsOf($profile, $account);
+
+        return [
+            'account_id' => $account->getKey(),
+            'year' => $year,
+            'currency' => $account->currency,
+            'balance' => $this->balances->balance($account),
+            'limit' => $this->limits->progress($account),
+            'flows' => $this->balances->flows($account, $from, $to),
+            'holdings' => $holdings->values()->all(),
+            'holdings_total' => Decimal::money(Decimal::sum($holdings->pluck('amount'))),
+            'history' => $this->history($account, $from, $to)->all(),
+        ];
+    }
+
+    /**
+     * Get the receipts, whose money is on the account today, each with its repatriation deadline and whether the
+     * money is late: past the deadline on a platform or a foreign bank, and the notice not dismissed.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     *
+     * @return Collection<int, array{payment_id: int, received_at: string, invoice_id: int|null, invoice_number: string|null, client_name: string|null, description: string|null, amount: string, repatriation_deadline: string|null, is_late: bool}>
+     */
+    public function holdingsOf(Profile $profile, Account $account): Collection
+    {
         $today = CarbonImmutable::today();
 
-        $holdings = $this->holdings->holdingsOn($account)->map(function (array $holding) use ($profile, $account, $today) {
+        return $this->holdings->holdingsOn($account)->map(function (array $holding) use ($profile, $account, $today) {
             /** @var Payment $payment */
             $payment = $holding['payment'];
             $deadline = $account->needsRepatriation() ? $this->repatriation->deadline($profile, $payment->received_at) : null;
@@ -76,19 +102,25 @@ class AccountStatement
                 'repatriation_deadline' => $deadline?->toDateString(),
                 'is_late' => $deadline !== null && $deadline->lt($today) && $payment->repatriation_ack_at === null,
             ];
-        });
+        })->values();
+    }
 
-        return [
-            'account_id' => $account->getKey(),
-            'year' => $year,
-            'currency' => $account->currency,
-            'balance' => $this->balances->balance($account),
-            'limit' => $this->limits->progress($account),
-            'flows' => $this->balances->flows($account, $from, $to),
-            'holdings' => $holdings->values()->all(),
-            'holdings_total' => Decimal::money(Decimal::sum($holdings->pluck('amount'))),
-            'history' => $this->history($account, $from, $to)->all(),
-        ];
+    /**
+     * Get the money of receipts, which the account still holds past the repatriation rule (the accounts list notes
+     * it), in the account's currency.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     *
+     * @return string
+     */
+    public function lateAmount(Profile $profile, Account $account): string
+    {
+        if (!$account->needsRepatriation()) {
+            return Decimal::money(Decimal::of('0'));
+        }
+
+        return Decimal::money(Decimal::sum($this->holdingsOf($profile, $account)->where('is_late', true)->pluck('amount')));
     }
 
     /**

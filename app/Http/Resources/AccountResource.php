@@ -35,5 +35,6 @@ class AccountResource extends BaseResource
     protected array $allowedAppends = [
         'balance',
         'limit_progress',
+        'late_holdings',
     ];
 }

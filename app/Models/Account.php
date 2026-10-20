@@ -19,6 +19,7 @@ use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
 use PryTax\Services\Accounts\AccountBalanceCalculator;
 use PryTax\Services\Accounts\AccountLimitCalculator;
+use PryTax\Services\Accounts\AccountStatement;
 
 /**
  * Class Account.
@@ -51,6 +52,7 @@ use PryTax\Services\Accounts\AccountLimitCalculator;
  *
  * @property-read string $balance
  * @property-read array|null $limit_progress
+ * @property-read string $late_holdings
  *
  * @method static TenantQuery query()
  *
@@ -220,6 +222,17 @@ class Account extends BaseModel
     protected function limitProgress(): Attribute
     {
         return Attribute::get(fn () => app(AccountLimitCalculator::class)->progress($this));
+    }
+
+    /**
+     * Money of receipts, which the account still holds past the repatriation rule, in the account's currency (see
+     * AccountStatement): "1 240.00 після кінця кварталу" in the accounts list.
+     *
+     * @return Attribute
+     */
+    protected function lateHoldings(): Attribute
+    {
+        return Attribute::get(fn () => app(AccountStatement::class)->lateAmount($this->profile, $this));
     }
 
     /**

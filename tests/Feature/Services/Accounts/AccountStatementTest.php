@@ -44,6 +44,34 @@ class AccountStatementTest extends TestCase
     }
 
     /**
+     * Test that the accounts list's late money is what a platform still holds past the rule, leaving out a receipt,
+     * whose deadline hasn't passed, one whose notice was dismissed, and every receipt on a ФОП account.
+     *
+     * @return void
+     */
+    public function testAppendsTheMoneyHeldPastTheRuleToAnAccount(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile, ['kind' => 'platform']);
+        $bank = $this->createAccount($profile, ['kind' => 'fop_bank', 'name' => 'ПриватБанк USD']);
+        $receipt = fn (array $attributes) => $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id, 'received_to_account_id' => $wise->id, ...$attributes,
+        ]));
+        $receipt(['received_at' => '2026-09-04', 'amount' => '1240.00']);
+        $receipt(['received_at' => '2026-09-10', 'amount' => '500.00', 'repatriation_ack_at' => now()]);
+        $receipt(['received_at' => '2026-10-05', 'amount' => '3877.50']);
+        $receipt(['received_at' => '2026-08-05', 'amount' => '700.00', 'received_to_account_id' => $bank->id]);
+
+        $late = collect($this->getJson($this->profilePath($profile, 'accounts?append=late_holdings'))->assertOk()->json('data'))
+            ->pluck('late_holdings', 'id');
+
+        $this->assertSame('1240.00', $late[$wise->id]);
+        $this->assertSame('0.00', $late[$bank->id]);
+    }
+
+    /**
      * Test that a transfer out of the account is dated on the day it was sent, and one into the account on the day
      * it arrived.
      *

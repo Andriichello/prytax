@@ -33,12 +33,13 @@ function load(force = false): Promise<Me | null> {
 }
 
 /**
- * Sign in to the session: the CSRF cookie first, then the credentials. A 422 carries the messages of the fields.
+ * Sign in to the session: the CSRF cookie first, then the credentials. A remembered login outlives the session in a
+ * cookie, until signing out. A 422 carries the messages of the fields.
  */
-async function signIn(email: string, password: string): Promise<Me> {
+async function signIn(email: string, password: string, remember = false): Promise<Me> {
     await fetchCsrfCookie();
 
-    const { data } = await api.post<ApiResponse<{ user: Me }>>('auth/login', { email, password });
+    const { data } = await api.post<ApiResponse<{ user: Me }>>('auth/login', { email, password, remember });
 
     user.value = data.user;
     loading = Promise.resolve(data.user);

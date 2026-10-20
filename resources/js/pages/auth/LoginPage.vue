@@ -8,7 +8,8 @@ import { useSession } from '@/composables/useSession';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Вхід: e-mail and password only (handoff §6.1).
+ * Вхід: e-mail and password only, and «Запам’ятати мене», which keeps the user signed in past the session (handoff
+ * §6.1).
  */
 const route = useRoute();
 const router = useRouter();
@@ -16,6 +17,7 @@ const { signIn } = useSession();
 
 const email = ref('');
 const password = ref('');
+const remember = ref(true);
 const busy = ref(false);
 const error = ref<unknown>(null);
 
@@ -24,7 +26,7 @@ async function submit(): Promise<void> {
     error.value = null;
 
     try {
-        await signIn(email.value.trim(), password.value);
+        await signIn(email.value.trim(), password.value, remember.value);
 
         const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
             ? route.query.redirect
@@ -58,7 +60,11 @@ async function submit(): Promise<void> {
                 required
                 :error="fieldError(error, 'password')"
             />
-            <div class="flex justify-end">
+            <div class="flex items-center justify-between gap-3">
+                <label class="flex min-h-11 items-center gap-2.5 text-14 text-ink-2">
+                    <input v-model="remember" type="checkbox" class="m-0 size-5 accent-accent">
+                    Запам’ятати мене
+                </label>
                 <RouterLink
                     :to="{ name: 'forgot-password', query: email ? { email } : {} }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"

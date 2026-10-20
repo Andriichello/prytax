@@ -9,8 +9,9 @@ import { formatPeriod } from '@/utils/dates';
 import { formatMoney } from '@/utils/money';
 
 /**
- * "Зафіксувати інвойс?" (S-InvoiceFreeze): what the invoice becomes, and what freezing does — the number, the
- * snapshot, the PDF — and that it can go back to its draft until money arrives.
+ * "Зафіксувати інвойс?" (S-InvoiceFreeze): what the invoice becomes, and what freezing does — the number (the one the
+ * freeze gives: a draft frozen before may get a new date in it), the snapshot, the PDF — and that it can go back to
+ * its draft until money arrives.
  */
 const { invoice, busy = false, error = null, counterScope = 'global' } = defineProps<{
     invoice: Invoice;
@@ -24,7 +25,8 @@ const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ confirm: [] }>();
 
 const isExternal = computed(() => invoice.source === 'external');
-const number = computed(() => invoice.number ?? invoice.number_preview ?? '—');
+const isTyped = computed(() => invoice.number !== null && invoice.sequence_number === null);
+const number = computed(() => (isExternal.value ? invoice.number : invoice.number_preview ?? invoice.number) ?? '—');
 </script>
 
 <template>
@@ -61,7 +63,8 @@ const number = computed(() => invoice.number ?? invoice.number_preview ?? '—')
         <ul class="m-0 flex list-none flex-col gap-3 p-0 text-15 leading-normal text-ink-2">
             <li v-if="!isExternal" class="flex gap-3">
                 <Icon name="check" :size="20" class="mt-0.5 text-positive" />
-                <span>Номер буде присвоєно з лічильника {{ counterScope === 'per_client' ? `клієнта ${invoice.client?.name ?? ''}` : 'ФОП' }}</span>
+                <span v-if="isTyped">Номер введено вручну — лічильник його не змінить</span>
+                <span v-else>Номер буде присвоєно з лічильника {{ counterScope === 'per_client' ? `клієнта ${invoice.client?.name ?? ''}` : 'ФОП' }}</span>
             </li>
             <li class="flex gap-3">
                 <Icon name="check" :size="20" class="mt-0.5 text-positive" />

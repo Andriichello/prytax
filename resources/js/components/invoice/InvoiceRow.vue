@@ -8,8 +8,9 @@ import { compareAmounts, formatAmount, formatMoney, percentOf } from '@/utils/mo
 import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
- * An invoice in Інвойси: number (a draft's preview with "наст."), status, client and total, and one context line:
- * the period, "Прострочено з …", or the paid share (handoff §6.6). No "не оплачено" text.
+ * An invoice in Інвойси: number (a generated draft's preview with "наст."; an external one has only its own),
+ * status, client and total, and one context line: the period, "Прострочено з …" while money is owed past the due
+ * date, or the paid share (handoff §6.6). No "не оплачено" text.
  */
 const { invoice } = defineProps<{ invoice: Invoice }>();
 
@@ -18,7 +19,18 @@ const isCancelled = computed(() => invoice.status === 'cancelled');
 const isOpen = computed(() => invoice.status === 'ready' || invoice.status === 'sent');
 const paid = computed(() => invoice.paid_amount ?? '0.00');
 const percent = computed(() => percentOf(paid.value, invoice.total));
-const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoice.due_at < today());
+const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoice.due_at < today()
+    && compareAmounts(paid.value, invoice.total) < 0);
+const draftNumber = computed(() => {
+    if (invoice.source === 'external') {
+        return invoice.number ?? 'без номера';
+    }
+
+    // A number typed by hand stays; a generated one is the preview, which follows the draft's dates
+    return invoice.number !== null && invoice.sequence_number === null
+        ? invoice.number
+        : `наст. ${invoice.number_preview ?? invoice.number ?? '…'}`;
+});
 const partlyPaid = computed(() => isOpen.value && compareAmounts(paid.value, '0') > 0);
 
 const to = computed(() => (isDraft.value
@@ -30,8 +42,8 @@ const to = computed(() => (isDraft.value
     <RouterLink :to="to" class="flex flex-col gap-1.5 py-3.5 text-ink no-underline hover:text-ink" :class="isCancelled ? 'text-ink-3 hover:text-ink-3' : ''">
         <span class="flex items-center justify-between gap-2">
             <span class="flex min-w-0 items-center gap-2">
-                <span v-if="isDraft" class="num truncate text-15 font-medium text-ink-3">
-                    {{ invoice.number ?? `наст. ${invoice.number_preview ?? '…'}` }}
+                <span v-if="isDraft" class="truncate text-15 font-medium text-ink-3" :class="invoice.source === 'external' && !invoice.number ? '' : 'num'">
+                    {{ draftNumber }}
                 </span>
                 <span v-else class="num truncate text-15" :class="isCancelled ? 'font-medium line-through' : 'font-semibold'">
                     {{ invoice.number }}

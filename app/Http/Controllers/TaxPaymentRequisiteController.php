@@ -13,6 +13,7 @@ use PryTax\Http\Requests\Taxes\UpdateTaxPaymentRequisiteRequest;
 use PryTax\Http\Resources\TaxPaymentRequisiteCollection;
 use PryTax\Http\Resources\TaxPaymentRequisiteResource;
 use PryTax\Models\TaxPaymentRequisite;
+use PryTax\Policies\ProfilePolicy;
 use PryTax\Policies\TaxPaymentRequisitePolicy;
 use PryTax\Repositories\TaxPaymentRequisiteRepository;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -22,7 +23,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * Budget requisites of the taxes of a profile, and the one of a tax in effect on a date, with the purpose of a payment
  * for a quarter or a month filled in (`tax-payment-requisites/current`): `{tax_id}`, `{full_name}` and `{period}`,
- * such as "III квартал 2026 року" or "жовтень 2026 року".
+ * such as "III квартал 2026 року" or "жовтень 2026 року". Users, who can't configure the profile (viewers), get the
+ * tax id masked in the purpose, as everywhere else.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -105,8 +107,13 @@ class TaxPaymentRequisiteController extends TenantController
             ? ['I', 'II', 'III', 'IV'][$data['period_quarter'] - 1] . " квартал {$data['period_year']} року"
             : self::MONTHS[(int) $data['period_month']] . " {$data['period_year']} року";
 
+        // The full tax id only for users, who may see it (ProfileResource masks it so for the others)
+        $taxId = app(ProfilePolicy::class)->canConfigure($request->user(), $profile)
+            ? (string) $profile->tax_id
+            : $profile->tax_id_masked;
+
         $purpose = strtr($requisite->purpose_template, [
-            '{tax_id}' => (string) $profile->tax_id,
+            '{tax_id}' => $taxId,
             '{full_name}' => (string) $profile->full_name,
             '{period}' => $period,
         ]);

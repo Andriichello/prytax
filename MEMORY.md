@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-20 (end of the backend audit). Read this file first when resuming, then `CLAUDE.md`,
+Status as of 2026-10-20 (backend merged into `main`; frontend started on `dev`). Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (§16 is the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design
 handoff; the screens are in `docs/prytax-design-handoff/`).
 
@@ -8,20 +8,21 @@ handoff; the screens are in `docs/prytax-design-handoff/`).
 
 | Phase | State |
 |---|---|
-| 1. Backend: migrations, models, services, API, tests | **Done and audited** on branch `backend-phase-1` (56 commits on top of `main`, not merged, not pushed) |
-| 2. Frontend: Vue screens of the "Simplified" design | **Not started** (blocked on the dependency approval below) |
+| 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
+| 2. Frontend: Vue screens of the "Simplified" design | **In progress** on branch `dev`: foundation and section «Вхід і головна» done |
 | 3. QA in the browser, going through scenarios like a tester | **Not started** |
 
-- `php artisan test --compact`: **283 tests, all passing** (about 85 s, on MySQL `prytax_test`). Run it in the
+- `php artisan test --compact`: **286 tests** (283 backend + `SpaRouteTest`), all passing on 2026-10-20 (about 85 s, on MySQL `prytax_test`). Run it in the
   foreground with a generous timeout; two test runs at once on `prytax_test` deadlock each other.
 - The dev database `prytax` was rebuilt with the demo data on 2026-10-20, after the audit (schema is current).
 - The user asked for commits in logical parts, with the `Co-Authored-By` trailer from the system reminder.
 
 ### First steps of the next session
 
-1. Phase 2: the user hasn't yet approved the frontend dependencies (asked again on 2026-10-20: "not yet"). Proposed: `vue`, `vue-router`,
-   `@vitejs/plugin-vue`, `typescript`, `vue-tsc`, optionally `pinia` (else composables); HTTP through `fetch`, no
-   axios. Then: route/component plan from handoff §4/§6, shared layout and formatters, screens in canvas order.
+1. Continue phase 2 on `dev`, section by section in canvas order: Інвойси (S-Invoices with infinite scroll and the
+   filters screen, S-InvoiceEdit/Item/Freeze/Detail/External) → Надходження → Рахунки й клієнти → Облік → Податки →
+   Ще. Routes not built yet render `ComingSoonPage` (see `resources/js/router/index.ts`).
+2. Before each screen: its PNG in `docs/prytax-design-handoff/screens/png/`, its export in `screens/html/` for sizes.
 
 ## The audit (2026-10-20)
 
@@ -201,16 +202,38 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 - Known differences from the mock: Payoneer's limit is at 76 % (mock 84 %), so no limit notice; the overview's IV кв.
   income per currency follows the spec (invoices issued in the quarter), so it differs from the mock's figures.
 
-## Frontend (next phase): what is known
+## Frontend (phase 2, branch `dev`)
 
-- Stack wanted: Vue 3 (+ TypeScript per design.md, Tailwind 4 is installed), rendered inside a Blade shell by Laravel
-  (handoff §2), mobile-first single column max ~480 px. **Vue, vue-router and friends are not installed yet: ask the
-  user before adding them** (CLAUDE.md). `resources/views/welcome.blade.php` is still Laravel's default.
-- Sanctum SPA sessions: `SANCTUM_STATEFUL_DOMAINS=localhost:5173,localhost:8000`, `statefulApi()` is on. Serving the
-  SPA from Laravel (same origin) is simplest; GET `/sanctum/csrf-cookie` before login. Send `If-Unmodified-Since`
-  (the invoice's `updated_at`) with every invoice PATCH, and an `Idempotency-Key` with receipt/refund/transfer/tax POSTs.
-- Design tokens: `docs/prytax-design-handoff/tokens.css`; fonts Geologica and IBM Plex Mono (local copies in
-  `docs/prytax-design-handoff/screens/html/fonts`); components and screens: handoff §4 and §6; Облік behaviour: §7.
+- **Stack (approved 2026-10-20):** Vue 3.5, vue-router 5, TypeScript 6.0 (not 7: vue-tsc needs the JS API), vue-tsc,
+  `@vitejs/plugin-vue`; Tailwind 4; HTTP through `fetch`, no axios, no Pinia (module-level composables).
+  `npm run typecheck` (vue-tsc), `npm run build`. **Node 22 is required** (Vite 8); the system's `node` is 18, so use
+  nvm (`.nvmrc`), e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH`.
+- **Served by Laravel:** `routes/web.php` answers every path outside `api/`, `sanctum/` and `up` with
+  `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app;
+  see the user's plan below). `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
+- **Layout of `resources/js/`:** `api/client.ts` (fetch, CSRF, 419 retry, 401 → sign-in, api-core bracketed queries,
+  `Accept-Language: uk`), `api/types.ts` (every response, checked against real ones), `composables/` (`useSession`,
+  `useCurrentProfile`: profiles + the current one, remembered per user in localStorage, settings and money format;
+  `useLoader`: load per source, stale answers dropped), `utils/` (`money`, `dates`, `plural`, `statuses`, `errors`:
+  Ukrainian texts for the API's English messages, `text`: figures in API texts set in mono), `components/layout`
+  (TabScreen, SubScreen, TopHeader, SubHeader, TabBar, AuthLayout), `components/ui` (Icon with the designs' icons,
+  Avatar, BottomSheet, Chip, StatusBadge, ProgressBar, PeriodStepper, PrimaryButton, LoadState, EmptyState),
+  `components/form/TextField`, `pages/` and `router/index.ts` (guards: session, then the current profile).
+- **Theme:** the tokens are Tailwind colours (`bg-paper`, `text-ink-2`, `border-line`, `bg-accent`, …; the default
+  palette is removed), sizes `text-11` … `text-30` in px, radii `rounded-card` / `-control` / `-button` / `-badge`,
+  the `num` utility for every number (mono, tabular, nowrap). Fonts are bundled from `resources/fonts`.
+- **The design's renders don't show Geologica:** the export's `fonts.css` points at `fonts/fonts/…`, so the PNGs and
+  HTML fall back to system fonts. The app uses Geologica and IBM Plex Mono as specified, so it looks a bit wider.
+- **Done:** Вхід (no "Запам'ятати мене": api-core has no remember-me), "Забули пароль?" and `/reset-password`,
+  Головна, the ФОП switcher sheet, Сповіщення (read on tap, card, action or ✓), Огляд практики (`?year&quarter`,
+  `?inactive=1`).
+- **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`). Serve PryTax elsewhere, e.g.
+  from `public/`: `APP_URL=http://localhost:8010 SANCTUM_STATEFUL_DOMAINS=localhost:8010,127.0.0.1:8010
+  php -S 127.0.0.1:8010 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`.
+- **The API answers in English.** The SPA translates the common messages (`utils/errors.ts`); real Ukrainian needs
+  api-core's `locale` middleware, `api-core.locales = ['uk', 'en']` and `lang/uk` (backend work, not done).
+- Sanctum SPA sessions: GET `/sanctum/csrf-cookie` before login. Send `If-Unmodified-Since` (the invoice's
+  `updated_at`) with every invoice PATCH, and an `Idempotency-Key` with receipt/refund/transfer/tax POSTs.
 - SPA paths, which the API links to (`alerts.action_route`, the reset e-mail): `/invoices/{id}`, `/accounts/{id}`,
   `/payments/{id}`, `/transfers/{id}`, `/transfers/new?from={accountId}`, `/clients/{clientId}/contracts/{id}`,
   `/taxes?year=`, `/taxes/declaration/{year}/{quarter}`, `/accounting/{year}/{quarter}`, `/accounting/esv?year=`,
@@ -218,6 +241,15 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 - Persist the Облік switches and grouping per user in localStorage (handoff §9 open question 1).
 - A new profile without records is tracked from the start of its creation year; the onboarding should offer tax
   opening balances (dated on a quarter's first day) so earlier quarters aren't reported as unpaid.
+- **Mobile later:** the user wants iOS and Android; the plan is Capacitor around this same app (a second Vite config
+  with an `index.html` entry, api-core's access/refresh tokens in secure storage instead of the session cookie,
+  downloads through the Filesystem/Share plugins). Keep the app free of Blade-injected data and keep sign-in and
+  downloads behind `api/client.ts` and one helper.
+- **API facts found while typing it:** `period.id` is null in `accounting/{y}/{q}` and `declarations/{y}/{q}` for
+  untracked quarters (don't link to `tax-periods/null`); a few timestamps carry `+03:00` instead of `Z` (alert
+  `read_at`, `declaration_submitted_at`, the snapshot's `frozen_at`); `quarter_balance` means the quarter's own
+  balance in `taxes/{year}` but the running one in `taxes/{year}/months`; statement tax entries put the raw tax type
+  in `title`; items come only with `?include=items`.
 
 ## Conventions to keep
 

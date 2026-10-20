@@ -18,7 +18,19 @@ const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July
 const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
- * A date in PHP's date() format, the letters the templates use: d j m n Y y F M D l (others are kept).
+ * The English ordinal suffix of a day, as PHP's `S`: 1st, 2nd, 3rd, 4th, 11th, 22nd.
+ */
+function ordinalSuffix(day: number): string {
+    if (day % 100 >= 11 && day % 100 <= 13) {
+        return 'th';
+    }
+
+    return ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] ?? 'th';
+}
+
+/**
+ * A date in PHP's date() format, the letters the templates use: d j S m n Y y F M D l N w (others are kept), and a
+ * backslash keeps the next character as it is (`\o\f` is "of").
  */
 function phpDate(date: string, format: string): string {
     const [year = 0, month = 1, day = 1] = date.slice(0, 10).split('-').map(Number);
@@ -26,6 +38,7 @@ function phpDate(date: string, format: string): string {
     const parts: Record<string, string> = {
         d: String(day).padStart(2, '0'),
         j: String(day),
+        S: ordinalSuffix(day),
         m: String(month).padStart(2, '0'),
         n: String(month),
         Y: String(year),
@@ -34,9 +47,23 @@ function phpDate(date: string, format: string): string {
         M: (MONTHS_EN[month - 1] ?? '').slice(0, 3),
         D: (DAYS_EN[weekday] ?? '').slice(0, 3),
         l: DAYS_EN[weekday] ?? '',
+        N: String(weekday === 0 ? 7 : weekday),
+        w: String(weekday),
     };
 
-    return [...format].map((char) => parts[char] ?? char).join('');
+    let text = '';
+
+    for (let index = 0; index < format.length; index++) {
+        const char = format[index] ?? '';
+
+        if (char === '\\') {
+            text += format[++index] ?? '';
+        } else {
+            text += parts[char] ?? char;
+        }
+    }
+
+    return text;
 }
 
 /**

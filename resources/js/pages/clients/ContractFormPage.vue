@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, ChargeType, Client, Contract, Paginated } from '@/api/types';
+import type { ApiResponse, ChargeType, Client, Contract } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextField from '@/components/form/TextField.vue';
@@ -22,7 +22,7 @@ import { formatAmount, parseAmount } from '@/utils/money';
 
 /**
  * Договір (S-ContractEdit): name and number, dates, currency, payment terms, the template of item descriptions with
- * a live preview, and hourly rates by work type, each from a date.
+ * a live preview, and hourly rates by work type, each from a date (one rate of a type per date).
  */
 interface RateDraft {
     key: number;
@@ -60,7 +60,7 @@ let nextKey = 1;
 const { data, error: loadError, loading, reload } = useLoader(async (signal) => {
     const [client, types, contract] = await Promise.all([
         api.get<ApiResponse<Client>>(path(`clients/${clientId.value}`), undefined, signal),
-        api.get<Paginated<ChargeType>>(path(`clients/${clientId.value}/charge-types`), { page: { size: 50 } }, signal),
+        api.all<ChargeType>(path(`clients/${clientId.value}/charge-types`), {}, signal),
         contractId.value === null
             ? Promise.resolve(null)
             : api.get<ApiResponse<Contract>>(path(`clients/${clientId.value}/contracts/${contractId.value}`), { include: ['rates'] }, signal)
@@ -88,7 +88,7 @@ const { data, error: loadError, loading, reload } = useLoader(async (signal) => 
         form.currency = client.data.currency ?? 'USD';
     }
 
-    return { client: client.data, chargeTypes: types.data };
+    return { client: client.data, chargeTypes: types };
 }, [profileId, clientId, contractId]);
 
 const preview = computed(() => describeContract(form.description_template, {
@@ -96,6 +96,8 @@ const preview = computed(() => describeContract(form.description_template, {
     number: form.number,
     started_at: form.started_at,
     ends_at: form.ends_at,
+    currency: form.currency,
+    payment_terms_days: form.payment_terms_days,
 }));
 
 const template = ref<HTMLTextAreaElement | null>(null);
@@ -121,7 +123,16 @@ function openRate(rate: RateDraft | null): void {
     rateOpen.value = true;
 }
 
+/** Another rate of the same work type starts on the same date: the API refuses two such rates. */
+const rateClash = computed(() => form.rates.some((rate) => rate.key !== rateDraft.value.key
+    && rate.charge_type_id === rateDraft.value.charge_type_id
+    && rate.effective_from === rateDraft.value.effective_from));
+
 function saveRate(): void {
+    if (rateClash.value) {
+        return;
+    }
+
     const index = form.rates.findIndex((rate) => rate.key === rateDraft.value.key);
 
     if (index === -1) {
@@ -267,12 +278,16 @@ const generalError = computed(() => {
                 @update:model-value="rateDraft.charge_type_id = $event || null"
             />
             <div class="grid grid-cols-2 gap-2.5">
-                <DateField v-model="rateDraft.effective_from" label="Діє з" />
+                <DateField
+                    v-model="rateDraft.effective_from"
+                    label="Діє з"
+                    :error="rateClash ? 'Ставка цього типу робіт з цієї дати вже є.' : undefined"
+                />
                 <TextField v-model="rateDraft.hourly_rate" :label="`За годину, ${form.currency}`" numeric />
             </div>
             <div class="grid grid-cols-[1fr_2fr] gap-2.5">
                 <SecondaryButton tone="negative" @click="removeRate">Видалити</SecondaryButton>
-                <PrimaryButton :disabled="!rateDraft.effective_from || parseAmount(rateDraft.hourly_rate) === null" @click="saveRate">Готово</PrimaryButton>
+                <PrimaryButton :disabled="!rateDraft.effective_from || parseAmount(rateDraft.hourly_rate) === null || rateClash" @click="saveRate">Готово</PrimaryButton>
             </div>
         </BottomSheet>
     </SubScreen>

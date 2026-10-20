@@ -26,8 +26,9 @@ use PryTax\Services\Taxes\TaxRuleResolver;
  * hints, its own tax payments and whether they are paid, covered by a month's or the quarter's payment, pending or
  * unpaid; each refund with the hints it takes back; the month and quarter payments as "covers N receipts"; and the
  * quarter's check of the owed amounts against the sum of the hints. By month: each month's income, the sum of its
- * hints as what it owes, its standalone ЄП and ВЗ at the month's rule, the tax payments mapped to it, its ЄСВ month,
- * and the state, deadline and running balance of its quarter (TaxReconciler).
+ * hints as what it owes, its standalone ЄП and ВЗ at the month's rule, the tax payments mapped to it (the quarter's
+ * own ones spread over its months, the earliest first), its ЄСВ month, and the state, deadline and running balance
+ * of its quarter (TaxReconciler).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Reports
@@ -185,8 +186,9 @@ class TaxBreakdown
 
         $taxPayments = TaxPayment::query()
             ->where('period_year', $year)
-            ->whereNotNull('period_month')
             ->get();
+        $quarterPayments = $taxPayments->whereNull('period_month');
+        $taxPayments = $taxPayments->whereNotNull('period_month');
 
         $esv = EsvObligation::query()->where('year', $year)->get()->keyBy('month');
 
@@ -224,7 +226,49 @@ class TaxBreakdown
             ];
         }
 
+        foreach (TaxType::cases() as $type) {
+            foreach (range(1, 4) as $quarter) {
+                $this->spread($months, $type, $quarter, $quarterPayments->where('tax_type', $type)->where('period_quarter', $quarter));
+            }
+        }
+
         return ['year' => $year, 'months' => $months];
+    }
+
+    /**
+     * Spread the quarter's own tax payments (allocated to the quarter, not to a month or a receipt) over its months,
+     * the earliest first: each month takes what it still owes after the payments, which it has, and the quarter's
+     * last month keeps the rest. Paid payments are spread before sent ones; `from_quarter` tells a month's share.
+     *
+     * @param array<int, array<string, mixed>> $months
+     * @param TaxType $type
+     * @param int $quarter
+     * @param Collection<int, TaxPayment> $payments
+     *
+     * @return void
+     */
+    protected function spread(array &$months, TaxType $type, int $quarter, $payments): void
+    {
+        $indexes = array_keys(array_filter($months, fn (array $month) => $month['quarter'] === $quarter));
+        $last = end($indexes);
+
+        foreach ($indexes as $index) {
+            $months[$index][$type->value]['from_quarter'] = '0.00';
+        }
+
+        foreach ($this->paidOf($payments) as $field => $amount) {
+            $amount = Decimal::of($amount);
+
+            foreach ($indexes as $index) {
+                $figures = $months[$index][$type->value];
+                $left = Decimal::max(Decimal::of($figures['owed'])->minus(Decimal::of($figures['paid']))->minus(Decimal::of($figures['pending'])), 0);
+                $share = $index === $last ? $amount : Decimal::min($amount, $left);
+
+                $months[$index][$type->value][$field] = Decimal::money(Decimal::of($figures[$field])->plus($share));
+                $months[$index][$type->value]['from_quarter'] = Decimal::money(Decimal::of($figures['from_quarter'])->plus($share));
+                $amount = $amount->minus($share);
+            }
+        }
     }
 
     /**

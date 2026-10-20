@@ -13,6 +13,10 @@ declare module 'vue-router' {
         guest?: boolean;
         /** Pages for anyone (the reset link, "not found"). */
         public?: boolean;
+        /** The permission a form needs (`[action, resource]`); without it, `denied` is shown instead. */
+        can?: [string, string];
+        /** Where people without the permission go: the record, or the list. */
+        denied?: string;
     }
 }
 
@@ -35,27 +39,27 @@ const routes: RouteRecordRaw[] = [
     { path: '/overview', name: 'overview', component: () => import('@/pages/OverviewPage.vue') },
 
     { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices' } },
-    { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue') },
+    { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['create', 'invoices'], denied: 'invoices' } },
     { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue') },
-    { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue') },
+    { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice' } },
 
-    { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue') },
+    { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home' } },
     { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue') },
-    { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue') },
+    { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment' } },
     { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue') },
-    { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue') },
+    { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['create', 'account-transfers'], denied: 'transfers' } },
     { path: '/transfers/:id(\\d+)', name: 'transfer', component: () => import('@/pages/transfers/TransferDetailPage.vue') },
-    { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue') },
+    { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['update', 'account-transfers'], denied: 'transfer' } },
 
     { path: '/accounts', name: 'accounts', component: () => import('@/pages/accounts/AccountsPage.vue') },
-    { path: '/accounts/new', name: 'account-new', component: () => import('@/pages/accounts/AccountFormPage.vue') },
+    { path: '/accounts/new', name: 'account-new', component: () => import('@/pages/accounts/AccountFormPage.vue'), meta: { can: ['create', 'accounts'], denied: 'accounts' } },
     { path: '/accounts/:id(\\d+)', name: 'account', component: () => import('@/pages/accounts/AccountDetailPage.vue') },
-    { path: '/accounts/:id(\\d+)/edit', name: 'account-edit', component: () => import('@/pages/accounts/AccountFormPage.vue') },
+    { path: '/accounts/:id(\\d+)/edit', name: 'account-edit', component: () => import('@/pages/accounts/AccountFormPage.vue'), meta: { can: ['update', 'accounts'], denied: 'account' } },
     { path: '/clients', name: 'clients', component: () => import('@/pages/clients/ClientsPage.vue') },
-    { path: '/clients/new', name: 'client-new', component: () => import('@/pages/clients/ClientFormPage.vue') },
+    { path: '/clients/new', name: 'client-new', component: () => import('@/pages/clients/ClientFormPage.vue'), meta: { can: ['create', 'clients'], denied: 'clients' } },
     { path: '/clients/:id(\\d+)', name: 'client', component: () => import('@/pages/clients/ClientDetailPage.vue') },
-    { path: '/clients/:id(\\d+)/edit', name: 'client-edit', component: () => import('@/pages/clients/ClientFormPage.vue') },
-    { path: '/clients/:clientId(\\d+)/contracts/new', name: 'contract-new', component: () => import('@/pages/clients/ContractFormPage.vue') },
+    { path: '/clients/:id(\\d+)/edit', name: 'client-edit', component: () => import('@/pages/clients/ClientFormPage.vue'), meta: { can: ['update', 'clients'], denied: 'client' } },
+    { path: '/clients/:clientId(\\d+)/contracts/new', name: 'contract-new', component: () => import('@/pages/clients/ContractFormPage.vue'), meta: { can: ['create', 'contracts'], denied: 'client' } },
     { path: '/clients/:clientId(\\d+)/contracts/:id(\\d+)', name: 'contract', component: () => import('@/pages/clients/ContractFormPage.vue') },
 
     { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: () => import('@/pages/accounting/AccountingPage.vue'), meta: { tab: 'accounting' } },
@@ -68,11 +72,11 @@ const routes: RouteRecordRaw[] = [
         name: 'taxes-by-payment',
         redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter, view: 'receipts' } }),
     },
-    { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue') },
+    { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
     { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: () => import('@/pages/taxes/DeclarationPage.vue') },
 
     { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },
-    { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue') },
+    { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue'), meta: { can: ['create', 'profiles'], denied: 'more' } },
     { path: '/settings/profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfileFormPage.vue') },
     { path: '/settings/numbering', name: 'settings-numbering', component: () => import('@/pages/settings/NumberingSettingsPage.vue') },
     { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
@@ -131,7 +135,18 @@ router.beforeEach(async (to) => {
             return to.name === start ? true : { name: start };
         }
 
-        return to.name === 'no-profile' ? { name: 'home' } : true;
+        if (to.name === 'no-profile') {
+            return { name: 'home' };
+        }
+
+        // A form, which the role can't save, shows its record (or the list) instead
+        if (to.meta.can && !can(...to.meta.can)) {
+            const id = to.params.clientId ?? to.params.id;
+
+            return { name: to.meta.denied ?? 'home', params: id === undefined ? {} : { id } };
+        }
+
+        return true;
     } catch (error) {
         startupError.value = error;
 

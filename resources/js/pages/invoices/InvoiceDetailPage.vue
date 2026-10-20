@@ -30,7 +30,8 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
 /**
  * Інвойс (S-InvoiceDetail): status and how much is received, the receipts, the dates, items and document, an
  * editable note, and the status changes (sending, paying and cancelling ask for their date, today by default; paying
- * defaults to the last receipt's date). A draft opens in its editor instead.
+ * defaults to the last receipt's date). A draft opens in its editor instead, for those who may edit it; others see it
+ * here, without a number yet.
  */
 type Action = 'send' | 'pay' | 'cancel' | 'unfreeze';
 
@@ -51,7 +52,7 @@ const { data: invoice, error, loading, reload } = useLoader(async (signal) => {
 }, [profileId, id]);
 
 watch(invoice, (loaded) => {
-    if (loaded?.status === 'draft') {
+    if (loaded?.status === 'draft' && can('update', 'invoices')) {
         void router.replace({ name: 'invoice-edit', params: { id: loaded.id } });
     }
 });
@@ -194,7 +195,7 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
         </template>
 
         <LoadState :loading="loading && !invoice" :error="error" @retry="reload">
-            <template v-if="invoice && invoice.status !== 'draft'">
+            <template v-if="invoice && (invoice.status !== 'draft' || !can('update', 'invoices'))">
                 <div class="flex flex-col gap-2">
                     <div class="flex flex-wrap items-center gap-2.5">
                         <StatusBadge :label="INVOICE_STATUSES[invoice.status].label + statusDate" :tone="INVOICE_STATUSES[invoice.status].tone" />
@@ -207,7 +208,7 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
                         </span>
                     </div>
                     <h1 class="num m-0 text-30 font-bold tracking-[-0.02em]" :class="invoice.status === 'cancelled' ? 'line-through' : ''">
-                        {{ invoice.number }}
+                        {{ invoice.number ?? 'Без номера' }}
                     </h1>
                     <RouterLink
                         :to="{ name: 'client', params: { id: invoice.client_id } }"

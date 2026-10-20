@@ -144,7 +144,9 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('accounting/{year}/{quarter}', [AccountingController::class, 'quarter'])->name('accounting.quarter');
                     Route::get('accounting/{year}/{quarter}/export', [AccountingController::class, 'exportQuarter'])
                         ->name('accounting.export');
+                    Route::get('accounting/{year}/export', [AccountingController::class, 'exportYear'])->name('accounting.export-year');
                     Route::get('esv/{year}', [AccountingController::class, 'esv'])->name('esv');
+                    Route::get('fees/{year}', [AccountingController::class, 'fees'])->name('fees');
                     Route::get('income-book/{year}', [AccountingController::class, 'incomeBook'])->name('income-book');
                     Route::get('income-book/{year}/export', [AccountingController::class, 'exportIncomeBook'])
                         ->name('income-book.export');

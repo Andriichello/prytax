@@ -13,6 +13,7 @@ use PryTax\Repositories\PaymentRepository;
 use PryTax\Services\Reports\AccountingExporter;
 use PryTax\Services\Reports\AccountingView;
 use PryTax\Services\Reports\EsvTable;
+use PryTax\Services\Reports\FeeStatistics;
 use PryTax\Services\Reports\IncomeBook;
 use Throwable;
 
@@ -20,8 +21,9 @@ use Throwable;
  * Class AccountingController.
  *
  * Облік of a profile (design.md §7): a quarter's receipts with its summary (`accounting/{year}/{quarter}`), the
- * year's ЄСВ (`esv/{year}`) and income book (`income-book/{year}`), and their CSV exports. Reading them needs the
- * `viewAny models.payments` permission.
+ * year's ЄСВ (`esv/{year}`), income book (`income-book/{year}`) and costs of its money paths (`fees/{year}`), and the
+ * CSV exports of the quarter, of the year's receipts and taxes (`accounting/{year}/export`) and of the income book.
+ * Reading them needs the `viewAny models.payments` permission.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -50,6 +52,8 @@ class AccountingController extends TenantController
     protected array $operations = [
         'quarter' => IndexRequest::class,
         'exportQuarter' => IndexRequest::class,
+        'exportYear' => IndexRequest::class,
+        'fees' => IndexRequest::class,
         'esv' => IndexRequest::class,
         'incomeBook' => IndexRequest::class,
         'exportIncomeBook' => IndexRequest::class,
@@ -64,6 +68,7 @@ class AccountingController extends TenantController
      * @param IncomeBook $incomeBook
      * @param EsvTable $esvTable
      * @param AccountingExporter $exporter
+     * @param FeeStatistics $fees
      */
     public function __construct(
         PaymentPolicy $policy,
@@ -71,7 +76,8 @@ class AccountingController extends TenantController
         protected AccountingView $accounting,
         protected IncomeBook $incomeBook,
         protected EsvTable $esvTable,
-        protected AccountingExporter $exporter
+        protected AccountingExporter $exporter,
+        protected FeeStatistics $fees
     ) {
         parent::__construct($policy, $repository);
     }
@@ -135,6 +141,36 @@ class AccountingController extends TenantController
             $this->exporter->quarter($this->profileOf($index), $year, $quarter),
             "oblik-$year-q$quarter.csv"
         );
+    }
+
+    /**
+     * Handle the `fees` operation: what the money paths cost in the year, by quarter, account, client and route, with
+     * each quarter's net income.
+     *
+     * @param IndexRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleFees(IndexRequest $request): ApiResponse
+    {
+        return ApiResponse::ok(['data' => $this->fees->forYear($this->profileOf($request), (int) $request->route('year'))]);
+    }
+
+    /**
+     * Download the CSV of the year's receipts and taxes.
+     *
+     * @param Request $request
+     *
+     * @return Response
+     * @throws Throwable
+     */
+    public function exportYear(Request $request): Response
+    {
+        /** @var IndexRequest $index */
+        $index = $this->prepareRequest('exportYear', $request);
+        $year = (int) $request->route('year');
+
+        return $this->csv($this->exporter->year($this->profileOf($index), $year), "nadkhodzhennia-ta-podatky-$year.csv");
     }
 
     /**

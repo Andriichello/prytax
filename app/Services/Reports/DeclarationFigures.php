@@ -48,10 +48,9 @@ class DeclarationFigures
     public function forQuarter(Profile $profile, int $year, int $quarter): array
     {
         $period = $this->deadlines->ensure($profile, $year, $quarter);
-        $liability = $this->liabilities->forQuarter($profile, $year, $quarter);
-
         $remaining = [];
 
+        // The reconciliation comes first: it creates the tracked months of ЄСВ, which the liability counts
         foreach (TaxType::cases() as $type) {
             $series = collect($this->reconciler->forYear($profile, $type, $year)['quarters'])->firstWhere('quarter', $quarter);
             $balance = Decimal::of($series['balance'] ?? '0');
@@ -65,7 +64,8 @@ class DeclarationFigures
             ];
         }
 
-        $esv = $quarter === 4 ? $this->esv->forYear($profile, $year) : null;
+        $liability = $this->liabilities->forQuarter($profile, $year, $quarter);
+        $esv = $this->esv->forYear($profile, $year);
 
         return [
             'year' => $year,
@@ -95,7 +95,10 @@ class DeclarationFigures
                 'to_pay' => $liability['military_levy']['owed'],
             ],
             'esv' => $liability['esv'],
-            'esv_months' => $esv ? collect($esv['quarters'])->pluck('months')->flatten(1)->values()->all() : null,
+            // The quarter's ЄСВ with its payments, and for the annual declaration (Додаток 1) every month of the year
+            'esv_quarter' => collect($esv['quarters'])->firstWhere('quarter', $quarter),
+            'esv_months' => $quarter === 4 ? collect($esv['quarters'])->pluck('months')->flatten(1)->values()->all() : null,
+            'income_cap' => $liability['cap'],
             'remaining' => $remaining,
         ];
     }

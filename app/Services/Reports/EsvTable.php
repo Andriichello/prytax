@@ -13,15 +13,18 @@ use PryTax\Models\Profile;
 use PryTax\Models\TaxPayment;
 use PryTax\Services\Taxes\DeadlineScheduler;
 use PryTax\Services\Taxes\EsvObligationScheduler;
+use PryTax\Services\Taxes\TaxReconciler;
 use PryTax\Services\Taxes\TaxRuleResolver;
 
 /**
  * Class EsvTable.
  *
  * The year of ЄСВ: its 12 months, each due or exempt, with what was paid for it, grouped by quarter with the
- * quarter's deadline and payment date, and the year's accrued, paid and remaining amounts. A payment of a month
- * counts for that month; a payment of a quarter covers its due months in order. Paying above the minimum (up to 15
- * minimum wages) is allowed and shown as such, not as an overpayment.
+ * quarter's deadline, payment date, pending payments and running balance, and the year's accrued, paid and remaining
+ * amounts. A payment of a month counts for that month; a payment of a quarter covers its due months in order. The
+ * balances are TaxReconciler's, so they agree with Податки: they start from the opening balance, and paying more than
+ * a quarter's minimum leaves a credit, which carries to the next quarters (a decision of the owner, which design.md's
+ * "paid above minimum" gave way to).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Reports
@@ -34,11 +37,13 @@ class EsvTable
      * @param EsvObligationScheduler $scheduler
      * @param DeadlineScheduler $deadlines
      * @param TaxRuleResolver $rules
+     * @param TaxReconciler $reconciler
      */
     public function __construct(
         protected EsvObligationScheduler $scheduler,
         protected DeadlineScheduler $deadlines,
-        protected TaxRuleResolver $rules
+        protected TaxRuleResolver $rules,
+        protected TaxReconciler $reconciler
     ) {}
 
     /**
@@ -80,6 +85,9 @@ class EsvTable
             $paidByMonth[end($months)] = $paidByMonth[end($months)]->plus($left);
         }
 
+        $reconciled = $this->reconciler->forYear($profile, TaxType::SocialContribution, $year);
+        $series = collect($reconciled['quarters'])->keyBy('quarter');
+
         $quarters = [];
         $accrued = Decimal::zero();
         $paid = Decimal::zero();
@@ -110,14 +118,22 @@ class EsvTable
 
             $lastPaidAt = $payments->where('period_quarter', $quarter)->max(fn (TaxPayment $payment) => $payment->paid_at?->toDateString());
 
+            $reconciledQuarter = $series->get($quarter);
+            $balance = $reconciledQuarter === null ? null : Decimal::of($reconciledQuarter['balance']);
+
             $quarters[] = [
                 'quarter' => $quarter,
                 'due_at' => $period->esv_due_at->toDateString(),
                 'is_annual' => $quarter === 4,
                 'owed' => Decimal::money($quarterOwed),
                 'paid' => Decimal::money($quarterPaid),
+                'pending' => $reconciledQuarter['pending'] ?? '0.00',
                 'paid_at' => $lastPaidAt,
-                'is_paid' => $quarterOwed->isPositive() && $quarterPaid->isGreaterThanOrEqualTo($quarterOwed),
+                // Running, with the opening balance and the credit of earlier quarters
+                'balance' => Decimal::moneyOrNull($balance),
+                'state' => $reconciledQuarter['state'] ?? null,
+                // By its own payments, or by the credit, which earlier quarters carried to it
+                'is_paid' => $quarterPaid->isGreaterThanOrEqualTo($quarterOwed) || ($balance?->isPositiveOrZero() ?? false),
                 'months' => $months,
             ];
 
@@ -133,7 +149,10 @@ class EsvTable
             'min_wage' => Decimal::money($rule?->min_wage),
             'accrued' => Decimal::money($accrued),
             'paid' => Decimal::money($paid),
-            'remaining' => Decimal::money(Decimal::max($accrued->minus($paid), 0)),
+            'opening_balance' => $reconciled['opening_balance'],
+            // The running balance today (at the year's end, for a past year): negative is still to pay
+            'balance' => $reconciled['balance'],
+            'remaining' => Decimal::money(Decimal::max(Decimal::of($reconciled['balance'])->negated(), 0)),
             'quarters' => $quarters,
         ];
     }

@@ -1,7 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-20, end of day: the backend is merged into `main`; every screen of the frontend is built on
-`dev`. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is the phase-1 UI scope) and
+Status as of 2026-10-21: the backend is merged into `main`; every screen of the frontend is built on `dev`; a QA pass
+(review against the specs + browser flows per role) is on `dev-qa-fixes`, on top of `dev`. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is the phase-1 UI scope) and
 `docs/prytax-simplified-design-handoff.md` (the design handoff; the screens are in `docs/prytax-design-handoff/`).
 
 ## Where things stand
@@ -9,31 +9,67 @@ Status as of 2026-10-20, end of day: the backend is merged into `main`; every sc
 | Phase | State |
 |---|---|
 | 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
-| 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged); polish and QA next |
-| 3. QA in the browser, going through scenarios like a tester | **Not started** |
+| 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged) |
+| 3. QA: specs review + browser flows per role | **First pass done** on `dev-qa-fixes` (2026-10-21); see "QA pass" for what is still open |
 
-- **Branches:** `main` = the audited backend (57 commits). `dev` = `main` + the whole frontend (about 20 commits),
-  checked out, clean, **not merged** (merge only when the user asks). `backend-phase-1` is merged and can go. No
-  git remote exists, so nothing is pushed.
-- `php artisan test --compact`: **286 tests** (283 backend + `SpaRouteTest`), all passing on 2026-10-20 (about 85 s,
-  on MySQL `prytax_test`). Run it in the foreground with a generous timeout; two runs at once deadlock each other.
-  The frontend's only automated check is `npm run typecheck` (clean) plus `npm run build`.
-- The dev database `prytax` was rebuilt with the demo data on 2026-10-20. Since then, UI tests created and deleted
-  a draft invoice (41), a receipt (36) and a transfer (39), and NBU rates got cached (USD 20.10.2026, EUR
-  18.10.2026). The figures are as in "Demo data"; rebuild for pristine data. `migrate:fresh` leaves old seeds' files
-  in `storage/app/private/files` (orphans; harmless).
+- **Branches:** `main` = the audited backend (57 commits). `dev` = `main` + the whole frontend (about 20 commits).
+  `dev-qa-fixes` = `dev` + the QA pass (32 commits), checked out, **not merged** (merge only when the user asks).
+  `backend-phase-1` is merged and can go. No git remote exists, so nothing is pushed.
+- `php artisan test --compact`: **292 tests**, all passing on 2026-10-21 (about 85 s, on MySQL `prytax_test`). Run it
+  in the foreground with a generous timeout; two runs at once deadlock each other (so parallel agents must not run
+  it). The frontend's only automated check is `npm run typecheck` (clean) plus `npm run build`.
+- The dev database `prytax` was rebuilt with the demo data at the end of 2026-10-21 (after the QA flows). NBU rates
+  get cached by previews (writes on read). `migrate:fresh` leaves old seeds' files in `storage/app/private/files`
+  (orphans; harmless).
 - The user asked for commits in logical parts, with the `Co-Authored-By` trailer from the system reminder.
 
 ### First steps of the next session
 
-1. **Ask the user which comes next** (asked at the end of 2026-10-20, not answered yet): (a) phase 3, QA in the
-   browser like a tester — every flow per role (owner olena, accountant maria, viewer taras) on all four demo ФОП,
-   including empty states, errors and the 409/422 paths; (b) Ukrainian API messages (backend: api-core's `locale`
-   middleware, `api-core.locales`, `lang/uk.json` + validation texts — check the dependency rule before adding
-   laravel-lang); (c) merging `dev` into `main`.
+1. **Ask the user** about the open decisions under "QA pass" (paid invoice whose receipt is deleted, Податки's
+   default view, fee statistics screen), then: merging `dev-qa-fixes` into `dev` (and `dev` into `main`), the
+   remaining frontend gaps, or Ukrainian API messages on the backend.
 2. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run dev`), sign in as
    `olena@example.com` / `password`.
 3. The open frontend gaps are listed under "Frontend".
+
+## QA pass (2026-10-21, branch `dev-qa-fixes`)
+
+Five read-only reviews compared the frontend with design.md, accounting.md, the handoff and the mocks (about 100
+findings); four agents fixed them in separate worktrees (cherry-picked onto the branch), and the app was then driven
+in headless Chrome as owner, accountant and viewer. Fixed, among others: inviting users (api-core rejected
+`locale: 'uk'`) and the missing `/accept-invitation` page; a transfer edit wiping its allocations; receipt edits
+previewed as new receipts (`payments/preview` takes `payment_id`); deletes in declared quarters (the note goes as the
+`correction_note` query); `corrected` declarations shown as done; tax debt counted twice across quarters
+(`utils/taxes.ts`); the full РНОКПП in viewers' payment purpose; lists cut at 50 (`api.all()`); stale counts, races
+in previews, unsaved settings overwritten; an accountant's profile edits silently dropped. Added: one receipt for
+several invoices, moving a receipt / linking an advance, refund delete and manual rate, account opening balances
+and movements, the late-money note on Рахунки (`late_holdings`), a ФОП's closing date, ЄСВ months marked exempt,
+`/change-password` (api-core's required update), `/no-profile`, a start-up error screen, route permissions
+(`meta.can`: forms a role can't save send it to the record or the list), Ukrainian texts for every API and Laravel
+validation message (`utils/errors.ts`).
+
+Verified in the browser (all passing): every screen per role without errors or failed requests; invoice create →
+freeze → PDF → sent → receipt → paid; refund and its delete; transfer with the exact-match proposal, edited without
+losing allocations; tax payment of a quarter's own debt; declaration submitted → receipt in the locked quarter with a
+note → "Потрібна уточнююча" + notification; invite → accept → sign in; external invoice with PDF, currency switch,
+duplicate check; one wire for two invoices (pro-rata fee); account movement; ЄСВ exemption; reading a notification
+lowers the bell; money format switch; accountant's locked identity fields; unfreeze keeps the number.
+
+Decisions taken in the pass (tell the user if they disagree):
+- The ISO code stays **after** the amount (`3 892.50 USD`, handoff §5 and the mocks; design §16 says before).
+- Головна orders a month's invoices by the period's start, **latest first** (as the mock).
+- Податки opens on `taxes.default_grouping` (default `payment`), so the demo ФОП open on "Надходження", not the
+  mock's quarters. Δ in the reconciliation stays owed − hints (the two mocks disagree).
+- The invoice editor asks with `window.confirm` before leaving unsaved changes.
+
+Open (not fixed):
+- **Needs a decision:** deleting (or reducing) a receipt of a **paid** invoice is allowed and leaves it "Оплачено"
+  but uncovered (`paid → *` never changes); either block it or let such an invoice return to `sent`.
+- `fees/{year}` (fees and spread by account, route, client — accounting.md's "which platform is best") has no
+  screen; the handoff has none either.
+- Back from an invoice returns to the top of Інвойси (no KeepAlive / scroll restore).
+- `.env`'s `API_CORE_INVITATION_URL` (and the reset URL) point at Vite's 5173; on 8010 rewrite the e-mailed link.
+- The gaps under "Frontend gaps" except those fixed here.
 
 ## The audit (2026-10-20)
 
@@ -274,20 +310,24 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   delete). A new ФОП lands on the taxes settings (opening balances). Forms hide saving from roles that can't save.
   Each screen was compared with its mock in headless Chrome; Облік, Податки and the declaration show the mock's
   figures exactly.
-- **Frontend gaps:** (1) links without a profile (`/invoices/{id}` from e-mails, another tab) open in the current
+- **Frontend gaps** (as of 2026-10-21; all still open): (1) links without a profile (`/invoices/{id}` from e-mails, another tab) open in the current
   ФОП only, else a 404 — consider `?profile=` or a lookup; (2) XLSX exports and the yearly PDF summary aren't built
   (no backend); (3) native date inputs show the device's format (en-US in headless Chrome, dd.mm.yyyy on a uk
   phone); (4) no JS test runner (formatters were checked ad hoc) — propose Vitest to the user; (5) `taxes/{year}/
   months` doesn't spread quarter payments over months, so the monthly view shows "—" for them; (6) no "Запам'ятати
   мене" (sessions end after `SESSION_LIFETIME`, 120 min); (7) PNG/HTML pixel polish wasn't done screen by screen
   beyond the comparison above.
-- **Checking the UI in a browser** (the script lived in the session scratchpad, which is gone): start
+- **Checking the UI in a browser** (the scripts lived in the session scratchpad, which is gone): start
   `google-chrome --headless=new --remote-debugging-port=9223 --user-data-dir=<scratch dir> about:blank` in the
   background, and drive it with a small Node 22 script (built-in `WebSocket`, no packages) over the DevTools protocol:
   `Emulation.setDeviceMetricsOverride` (390 × 844, scale 2, mobile), `Page.navigate`, `Runtime.evaluate` (fill inputs
   with the native value setter + an `input` event, click), `DOM.setFileInputFiles` for uploads,
   `Page.captureScreenshot` (with `captureBeyondViewport` and a clip of the scroll height for full pages). Sign in via
-  the form at `/login`; switch the ФОП through the header chip or the localStorage key above.
+  the form at `/login`; switch the ФОП through the header chip or the localStorage key above. Useful: a step runner
+  reading lines like `go /path`, `click TEXT`, `dclick TEXT` (inside `[role=dialog]` — `#app` is inert while a sheet
+  is open), `fill LABEL => VALUE`, `form` (each field's label and value), `expect REGEX`, `upload SELECTOR => FILE`;
+  accept `Page.javascriptDialogOpening`; clear the in-flight request set on each navigation (a `fetch` made through
+  `Runtime.evaluate` may never report finishing). The mail driver is `log`: invitation links are in `laravel.log`.
 - **API facts found while typing it:** `period.id` is null in `accounting/{y}/{q}` and `declarations/{y}/{q}` for
   untracked quarters (don't link to `tax-periods/null`); a few timestamps carry `+03:00` instead of `Z` (alert
   `read_at`, `declaration_submitted_at`, the snapshot's `frozen_at`); `quarter_balance` means the quarter's own
@@ -299,7 +339,7 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 - SPA paths, which the API links to (`alerts.action_route`, the reset e-mail): `/invoices/{id}`, `/accounts/{id}`,
   `/payments/{id}`, `/transfers/{id}`, `/transfers/new?from={accountId}`, `/clients/{clientId}/contracts/{id}`,
   `/taxes?year=`, `/taxes/declaration/{year}/{quarter}`, `/accounting/{year}/{quarter}`, `/accounting/esv?year=`,
-  `/reset-password`. Keep the routes consistent with these, or change both.
+  `/reset-password`, `/accept-invitation`. Keep the routes consistent with these, or change both.
 - **Mobile later:** the user wants iOS and Android; the plan is Capacitor around this same app (a second Vite config
   with an `index.html` entry, api-core's access/refresh tokens in secure storage instead of the session cookie,
   downloads through the Filesystem/Share plugins). Keep the app free of Blade-injected data and keep sign-in and

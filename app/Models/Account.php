@@ -192,6 +192,17 @@ class Account extends BaseModel
     }
 
     /**
+     * Determine if money on the account should reach a Ukrainian ФОП account by the repatriation rule: a platform's
+     * or a foreign bank's.
+     *
+     * @return bool
+     */
+    public function needsRepatriation(): bool
+    {
+        return in_array($this->kind, [AccountKind::Platform, AccountKind::ForeignBank], true);
+    }
+
+    /**
      * Balance of the tracked flows, in the account's currency (see AccountBalanceCalculator).
      *
      * @return Attribute

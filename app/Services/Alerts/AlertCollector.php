@@ -4,7 +4,6 @@ namespace PryTax\Services\Alerts;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use PryTax\Enums\AccountKind;
 use PryTax\Enums\AlertCategory;
 use PryTax\Enums\AlertSeverity;
 use PryTax\Enums\DeclarationStatus;
@@ -278,7 +277,7 @@ class AlertCollector
     {
         $alerts = [];
 
-        $platforms = Account::query()->whereIn('kind', [AccountKind::Platform->value, AccountKind::ForeignBank->value])->get();
+        $platforms = Account::query()->get()->filter(fn (Account $account) => $account->needsRepatriation());
 
         foreach ($platforms as $account) {
             foreach ($this->holdings->holdingsOn($account) as $holding) {

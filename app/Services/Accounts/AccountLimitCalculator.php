@@ -4,6 +4,7 @@ namespace PryTax\Services\Accounts;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use PryTax\Enums\AccountKind;
 use PryTax\Enums\LimitCounts;
 use PryTax\Enums\LimitPeriod;
 use PryTax\Enums\LimitWindow;
@@ -18,7 +19,7 @@ use PryTax\Models\Payment;
  *
  * Progress towards an account's limit (design.md §3, accounts): client receipts into it (`receipts`, as Payoneer's
  * $10 000 a year), or with the transfers in (`all_inbound`, for banks' inbound limits), within the current calendar
- * month, quarter or year, or within the period up to today (`rolling`).
+ * month, quarter or year, or within the period up to today (`rolling`: `[today − period, today]`).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Accounts
@@ -35,7 +36,8 @@ class AccountLimitCalculator
      */
     public function progress(Account $account, ?CarbonInterface $today = null): ?array
     {
-        if ($account->limit_amount === null || $account->limit_period === null) {
+        // A personal account isn't a business one, so a limit of it isn't tracked
+        if ($account->limit_amount === null || $account->limit_period === null || $account->kind === AccountKind::Personal) {
             return null;
         }
 
@@ -89,7 +91,7 @@ class AccountLimitCalculator
                 LimitPeriod::Year => $today->subYearNoOverflow(),
             };
 
-            return [$from->addDay(), $today];
+            return [$from, $today];
         }
 
         return match ($period) {

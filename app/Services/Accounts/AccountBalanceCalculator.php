@@ -4,6 +4,7 @@ namespace PryTax\Services\Accounts;
 
 use Brick\Math\BigDecimal;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use PryTax\Enums\MovementDirection;
 use PryTax\Enums\TaxPaymentStatus;
 use PryTax\Helpers\Decimal;
@@ -75,17 +76,22 @@ class AccountBalanceCalculator
      */
     public function flows(Account $account, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
-        $range = function ($query, string $column) use ($from, $to) {
+        $range = function ($query, $column) use ($from, $to) {
             return $query
                 ->when($from, fn ($query) => $query->where($column, '>=', $from->toDateString()))
                 ->when($to, fn ($query) => $query->where($column, '<=', $to->toDateString()));
         };
 
-        $sum = fn ($query, string $column, string $date) => Decimal::of((string) $range($query, $date)->sum($column));
+        $sum = fn ($query, string $column, $date) => Decimal::of((string) $range($query, $date)->sum($column));
 
         $receipts = $sum(Payment::query()->where('received_to_account_id', $account->getKey()), 'received_amount', 'received_at');
         $transfersIn = $sum(AccountTransfer::query()->where('to_account_id', $account->getKey()), 'amount_received', 'received_at');
-        $transfersOut = $sum(AccountTransfer::query()->where('from_account_id', $account->getKey()), 'amount_sent', 'received_at');
+        // A transfer leaves on its sent_at, when that is known
+        $transfersOut = $sum(
+            AccountTransfer::query()->where('from_account_id', $account->getKey()),
+            'amount_sent',
+            DB::raw('COALESCE(sent_at, received_at)')
+        );
         $taxes = $sum(
             TaxPayment::query()
                 ->where('paid_from_account_id', $account->getKey())

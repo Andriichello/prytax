@@ -4,6 +4,7 @@ namespace PryTax\Services\Accounts;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use PryTax\Enums\MovementDirection;
 use PryTax\Enums\TaxPaymentStatus;
 use PryTax\Helpers\Decimal;
@@ -62,7 +63,7 @@ class AccountStatement
         $holdings = $this->holdings->holdingsOn($account)->map(function (array $holding) use ($profile, $account, $today) {
             /** @var Payment $payment */
             $payment = $holding['payment'];
-            $deadline = $account->isPlatform() ? $this->repatriation->deadline($profile, $payment->received_at) : null;
+            $deadline = $account->needsRepatriation() ? $this->repatriation->deadline($profile, $payment->received_at) : null;
 
             return [
                 'payment_id' => $payment->getKey(),
@@ -123,9 +124,12 @@ class AccountStatement
                 'title' => $payment->invoice?->client?->name ?? $payment->description,
             ]));
 
+        // A transfer arrives on its received_at, and leaves on its sent_at, when that is known
         AccountTransfer::query()
-            ->where(fn ($query) => $query->where('to_account_id', $account->getKey())->orWhere('from_account_id', $account->getKey()))
-            ->whereBetween('received_at', $range)
+            ->where(fn ($query) => $query
+                ->where(fn ($inbound) => $inbound->where('to_account_id', $account->getKey())->whereBetween('received_at', $range))
+                ->orWhere(fn ($outbound) => $outbound->where('from_account_id', $account->getKey())
+                    ->whereBetween(DB::raw('COALESCE(sent_at, received_at)'), $range)))
             ->with(['fromAccount', 'toAccount'])
             ->get()
             ->each(function (AccountTransfer $transfer) use ($rows, $account) {
@@ -133,7 +137,7 @@ class AccountStatement
 
                 $rows->push([
                     'type' => $inbound ? 'transfer_in' : 'transfer_out',
-                    'date' => $transfer->received_at->toDateString(),
+                    'date' => ($inbound ? $transfer->received_at : ($transfer->sent_at ?? $transfer->received_at))->toDateString(),
                     'amount' => $inbound ? $transfer->amount_received : Decimal::money(Decimal::of($transfer->amount_sent)->negated()),
                     'fee' => $transfer->fee_amount,
                     'transfer_id' => $transfer->getKey(),

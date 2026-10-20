@@ -15,7 +15,7 @@ import { parseAmount } from '@/utils/money';
 
 /**
  * Повернення клієнту: money of a receipt sent back, from an account in its currency. It lowers the income of the
- * period it is made in.
+ * period it is made in, at the NBU rate of its day, or at a rate typed in when the NBU has none.
  */
 const { payment, accounts } = defineProps<{
     payment: Payment;
@@ -32,6 +32,7 @@ const refundedAt = ref(today());
 const fromAccountId = ref<number | null>(null);
 const reason = ref('');
 const correctionNote = ref('');
+const nbuRate = ref('');
 const saving = ref(false);
 const error = ref<unknown>(null);
 let idempotencyKey = newIdempotencyKey();
@@ -49,13 +50,22 @@ watch(open, (isOpen) => {
             : options.value[0]?.value ?? null;
         reason.value = '';
         correctionNote.value = '';
+        nbuRate.value = '';
         error.value = null;
+        locked.value = false;
         idempotencyKey = newIdempotencyKey();
     }
 });
 
 /** A declared quarter answers 409: the refund then needs a correction note. */
-const locked = computed(() => error.value instanceof ApiError && error.value.status === 409);
+const locked = ref(false);
+
+/** The NBU has no rate of the day: the sheet asks for one. */
+const needsRate = computed(() => !!fieldError(error.value, 'nbu_rate') || nbuRate.value !== '');
+
+watch(error, (caught) => {
+    locked.value ||= caught instanceof ApiError && caught.status === 409;
+});
 
 async function save(): Promise<void> {
     saving.value = true;
@@ -67,6 +77,7 @@ async function save(): Promise<void> {
             refunded_at: refundedAt.value,
             from_account_id: fromAccountId.value,
             reason: reason.value.trim() || null,
+            nbu_rate: parseAmount(nbuRate.value),
             correction_note: correctionNote.value.trim() || null,
         }, { 'Idempotency-Key': idempotencyKey });
         open.value = false;
@@ -95,9 +106,18 @@ async function save(): Promise<void> {
             :options="options"
             :error="fieldError(error, 'from_account_id')"
         />
+        <TextField
+            v-if="needsRate"
+            v-model="nbuRate"
+            :label="`Курс, ₴ за 1 ${payment.currency}`"
+            numeric
+            placeholder="41.8710"
+            hint="Вручну — лише поки НБУ не опублікував курс на цю дату."
+            :error="fieldError(error, 'nbu_rate')"
+        />
         <TextAreaField v-model="reason" label="Причина" :rows="2" placeholder="Напр., переплата" />
         <TextAreaField v-if="locked" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
-        <p v-if="error && !fieldError(error, 'amount') && !fieldError(error, 'refunded_at') && !fieldError(error, 'from_account_id')" class="m-0 text-14 text-negative" role="alert">
+        <p v-if="error && !fieldError(error, 'amount') && !fieldError(error, 'refunded_at') && !fieldError(error, 'from_account_id') && !fieldError(error, 'nbu_rate')" class="m-0 text-14 text-negative" role="alert">
             {{ errorMessage(error) }}
         </p>
 

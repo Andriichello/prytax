@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '@/api/client';
-import type { Account, ApiResponse, Paginated, Payment, PaymentFlow } from '@/api/types';
+import { ApiError, api } from '@/api/client';
+import type { Account, ApiResponse, Payment, PaymentFlow } from '@/api/types';
+import TextAreaField from '@/components/form/TextAreaField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import MoneyFlow from '@/components/payment/MoneyFlow.vue';
 import RefundSheet from '@/components/payment/RefundSheet.vue';
@@ -24,7 +25,7 @@ import { TAX_PAYMENT_STATUSES, TAX_TYPES } from '@/utils/statuses';
 /**
  * Надходження (S-PaymentDetail): the amount in its currency with hryvnias below, the invoice, the income date, the
  * NBU rate (only here), ЄП / ВЗ as hints, the way the money went, what it cost and what is left, and the taxes paid
- * for it.
+ * for it. Deleting it, or one of its refunds, in a declared quarter asks for a correction note.
  */
 const route = useRoute();
 const router = useRouter();
@@ -39,10 +40,10 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
             include: ['invoice.client', 'receivedToAccount', 'taxPayments.paidFromAccount', 'taxRule'],
         }, signal),
         api.get<ApiResponse<PaymentFlow>>(path(`payments/${id.value}/flow`), undefined, signal),
-        api.get<Paginated<Account>>(path('accounts'), { page: { size: 50 } }, signal),
+        api.all<Account>(path('accounts'), {}, signal),
     ]);
 
-    return { payment: payment.data, flow: flow.data, accounts: accounts.data };
+    return { payment: payment.data, flow: flow.data, accounts };
 }, [profileId, id]);
 
 const payment = computed(() => data.value?.payment ?? null);
@@ -54,11 +55,36 @@ const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding
 const landed = computed(() => flow.value?.landed_on_fop_bank.filter((holding) => compareAmounts(holding.amount, '0') > 0) ?? []);
 const taxPayments = computed(() => [...(payment.value?.taxPayments ?? [])].sort((a, b) => (a.paid_at ?? '').localeCompare(b.paid_at ?? '')));
 
+/** Invoices, which saving the receipt couldn't mark paid (the form passes their numbers). */
+const unpaid = computed(() => (typeof route.query.unpaid === 'string' ? route.query.unpaid : null));
+
 const menuOpen = ref(false);
 const refunding = ref(false);
 const deleteOpen = ref(false);
 const busy = ref(false);
 const actionError = ref<string | null>(null);
+
+/* A delete in a declared quarter answers 409: it then needs a correction note */
+const correctionNote = ref('');
+const needsNote = ref(false);
+
+/**
+ * Remember why a delete failed: a declared quarter asks for the correction note.
+ */
+function failed(caught: unknown): void {
+    needsNote.value ||= caught instanceof ApiError && caught.status === 409;
+    actionError.value = errorMessage(caught);
+}
+
+const noteQuery = () => (correctionNote.value.trim() ? { correction_note: correctionNote.value.trim() } : undefined);
+
+function openDelete(): void {
+    menuOpen.value = false;
+    actionError.value = null;
+    needsNote.value = false;
+    correctionNote.value = '';
+    deleteOpen.value = true;
+}
 
 async function acknowledge(): Promise<void> {
     menuOpen.value = false;
@@ -79,11 +105,44 @@ async function remove(): Promise<void> {
     try {
         const invoiceId = payment.value?.invoice_id;
 
-        await api.delete(path(`payments/${id.value}`));
+        await api.delete(path(`payments/${id.value}`), noteQuery());
         deleteOpen.value = false;
         await router.replace(invoiceId ? { name: 'invoice', params: { id: invoiceId } } : { name: 'home' });
     } catch (caught) {
-        actionError.value = errorMessage(caught);
+        failed(caught);
+    } finally {
+        busy.value = false;
+    }
+}
+
+/* Deleting a refund */
+const refundToRemove = ref<number | null>(null);
+const refundOpen = computed({
+    get: () => refundToRemove.value !== null,
+    set: (isOpen: boolean) => {
+        if (!isOpen) {
+            refundToRemove.value = null;
+        }
+    },
+});
+
+function openRefundRemoval(refundId: number): void {
+    actionError.value = null;
+    needsNote.value = false;
+    correctionNote.value = '';
+    refundToRemove.value = refundId;
+}
+
+async function removeRefund(): Promise<void> {
+    busy.value = true;
+    actionError.value = null;
+
+    try {
+        await api.delete(path(`payments/${id.value}/refunds/${refundToRemove.value}`), noteQuery());
+        refundToRemove.value = null;
+        await reload();
+    } catch (caught) {
+        failed(caught);
     } finally {
         busy.value = false;
     }
@@ -106,6 +165,9 @@ async function remove(): Promise<void> {
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="payment && flow">
+                <p v-if="unpaid" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning" role="alert">
+                    Надходження збережено, але позначити оплаченим інвойс <span class="num">{{ unpaid }}</span> не вдалося. Зробіть це на сторінці інвойсу.
+                </p>
                 <div class="flex flex-col gap-1.5">
                     <span class="num text-32 font-semibold tracking-[-0.03em]">{{ formatMoney(payment.amount, payment.currency) }}</span>
                     <span v-if="payment.currency !== 'UAH'" class="num text-16 font-light text-ink-2">{{ formatMoney(payment.uah_amount, 'UAH') }}</span>
@@ -153,7 +215,7 @@ async function remove(): Promise<void> {
 
                 <section class="flex flex-col gap-2.5">
                     <SectionTitle>Шлях коштів</SectionTitle>
-                    <MoneyFlow :flow="flow" />
+                    <MoneyFlow :flow="flow" :can-remove-refunds="can('delete', 'refunds')" @remove-refund="openRefundRemoval" />
                     <RouterLink
                         v-if="onPlatform && can('create', 'account-transfers')"
                         :to="{ name: 'transfer-new', query: { from: onPlatform.account_id ?? undefined } }"
@@ -168,9 +230,10 @@ async function remove(): Promise<void> {
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
                         <span class="text-12 text-ink-3">Втрати на комісіях</span>
                         <span class="num text-16 font-semibold">{{ flow.fees !== null ? formatMoney(flow.fees, flow.currency) : '—' }}</span>
-                        <span class="num text-11 text-ink-3">
-                            {{ formatAmount(flow.receipt_fee ?? '0') }}<template v-if="flow.transfer_fee_share && compareAmounts(flow.transfer_fee_share, '0') !== 0"> + {{ formatAmount(flow.transfer_fee_share) }}</template>
+                        <span v-if="flow.transfer_fee_share && compareAmounts(flow.transfer_fee_share, '0') !== 0" class="num text-11 text-ink-3">
+                            {{ formatAmount(flow.receipt_fee ?? '0') }} + {{ formatAmount(flow.transfer_fee_share) }}
                         </span>
+                        <span v-else class="text-11 text-ink-3">при отриманні</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
                         <span class="text-12 text-ink-3">Дійшло на ФОП</span>
@@ -201,7 +264,10 @@ async function remove(): Promise<void> {
                     <SectionTitle>
                         Сплата податків
                         <template v-if="can('create', 'tax-payments')" #aside>
-                            <RouterLink :to="{ name: 'tax-payment-new', query: { payment: payment.id } }" class="flex min-h-11 items-center text-14 font-medium no-underline">
+                            <RouterLink
+                                :to="{ name: 'tax-payment-new', query: { allocation: 'payment', payment: payment.id, year: payment.period_year, quarter: payment.period_quarter } }"
+                                class="flex min-h-11 items-center text-14 font-medium no-underline"
+                            >
                                 + Додати
                             </RouterLink>
                         </template>
@@ -254,7 +320,7 @@ async function remove(): Promise<void> {
                     v-if="can('delete', 'payments') && payment?.kind !== 'fx_gain'"
                     type="button"
                     class="flex min-h-13 items-center gap-3 text-left text-15 text-negative"
-                    @click="menuOpen = false; deleteOpen = true"
+                    @click="openDelete"
                 >
                     <Icon name="close" :size="20" /> Видалити надходження
                 </button>
@@ -273,6 +339,20 @@ async function remove(): Promise<void> {
             @confirm="remove"
         >
             <p class="m-0">Дохід і податки за ним зникнуть з обліку. Якщо кошти вже переказано, повернено або за ними сплачено податки, видалити не вийде.</p>
+            <TextAreaField v-if="needsNote" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
+        </ConfirmSheet>
+
+        <ConfirmSheet
+            v-model:open="refundOpen"
+            title="Видалити повернення?"
+            confirm-label="Видалити"
+            destructive
+            :busy="busy"
+            :error="actionError"
+            @confirm="removeRefund"
+        >
+            <p class="m-0">Повернення зникне з обліку, а дохід його періоду знову збільшиться. Щоб виправити повернення, видаліть його і запишіть знову.</p>
+            <TextAreaField v-if="needsNote" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
         </ConfirmSheet>
     </SubScreen>
 </template>

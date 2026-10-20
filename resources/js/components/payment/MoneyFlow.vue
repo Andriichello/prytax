@@ -5,10 +5,11 @@ import { formatDayMonth } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney } from '@/utils/money';
 
 /**
- * Шлях коштів: the receipt, the transfers that moved its money on, its refunds, and where it is now — money still on
- * a platform is marked as not yet moved.
+ * Шлях коштів: the receipt, the transfers that moved its money on, its refunds (which can be cancelled), and where it
+ * is now — money still on a platform is marked as not yet moved.
  */
-const { flow } = defineProps<{ flow: PaymentFlow }>();
+const { flow, canRemoveRefunds = false } = defineProps<{ flow: PaymentFlow; canRemoveRefunds?: boolean }>();
+const emit = defineEmits<{ removeRefund: [refundId: number] }>();
 
 const now = computed(() => flow.holdings.filter((holding) => compareAmounts(holding.amount, '0') > 0));
 </script>
@@ -50,6 +51,14 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 <span class="text-12 text-ink-3">{{ formatDayMonth(step.date) }} · повернення клієнту</span>
                 <span class="text-15 font-medium">з {{ step.from.account_name }}</span>
                 <span class="num text-13 font-semibold text-negative">{{ formatMoney(`-${step.amount}`, step.currency) }}</span>
+                <button
+                    v-if="canRemoveRefunds"
+                    type="button"
+                    class="flex min-h-11 items-center self-start text-13 font-medium text-negative"
+                    @click="emit('removeRefund', step.refund_id)"
+                >
+                    Видалити повернення
+                </button>
             </span>
         </li>
 

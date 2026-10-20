@@ -3,6 +3,7 @@
 namespace PryTax\Services\Invoices;
 
 use Carbon\CarbonImmutable;
+use Core\Exceptions\RecordLockedException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,19 @@ class InvoiceWriter
      */
     public function update(Profile $profile, Invoice $invoice, array $data): Invoice
     {
+        // A frozen invoice changes its notes only; its status changes have operations of their own
+        if ($invoice->isLocked()) {
+            $locked = array_values(array_diff(array_keys($data), ['notes']));
+
+            if (!empty($locked)) {
+                throw RecordLockedException::changing($invoice, $locked);
+            }
+
+            $invoice->update(Arr::only($data, ['notes']));
+
+            return $invoice->refresh()->load('items');
+        }
+
         $current = [
             ...Arr::only($invoice->attributesToArray(), self::FIELDS),
             'source' => $invoice->source->value,

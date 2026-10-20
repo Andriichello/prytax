@@ -141,4 +141,26 @@ class TaxLiabilityCalculatorTest extends TestCase
         $this->assertSame('0.00', $liability['military_levy']['owed']);
         $this->assertSame('10000.00', $liability['single_tax']['ytd']);
     }
+
+    /**
+     * Test that year-to-date income above the cap is taxed at 15 % instead of 5 %, in the year-to-date figure and in
+     * what the quarter owes (п. 293.4), while ВЗ stays 1 % of all income.
+     *
+     * @return void
+     */
+    public function testTaxesTheIncomeAboveTheCapAtTheExcessRate(): void
+    {
+        $profile = $this->createProfile();
+        $this->income($profile, '2026-02-10', '10000000.00', '500000.00', '100000.00');
+        $this->income($profile, '2026-05-10', '191049.00', '9552.45', '1910.49');
+
+        $liability = $this->inProfile($profile, fn () => app(TaxLiabilityCalculator::class)->forQuarter($profile, 2026, 2));
+
+        $this->assertSame('100000.00', $liability['cap']['excess']);
+        $this->assertSame('519552.45', $liability['single_tax']['ytd']);
+        $this->assertSame('500000.00', $liability['single_tax']['previous_ytd']);
+        $this->assertSame('19552.45', $liability['single_tax']['owed']);
+        $this->assertSame('19552.45', $liability['single_tax']['standalone']);
+        $this->assertSame('1910.49', $liability['military_levy']['owed']);
+    }
 }

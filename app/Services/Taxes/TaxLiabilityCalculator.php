@@ -21,7 +21,9 @@ use PryTax\Models\TaxRule;
  * ВЗ, `ROUND_HALF_UP(Σ YTD × rate, 2)`, are the declaration's figures, and a quarter owes the difference between its
  * year-to-date figure and the previous quarter's: that is authoritative. The standalone `ROUND(Σ quarter × rate)` and
  * the sum of the per-receipt hints are cross-checks, shown with their kopeck deltas. A rate, which changes during a
- * year, splits the income into segments by the receipts' tax rules.
+ * year, splits the income into segments by the receipts' tax rules. Year-to-date income above the cap is taxed at the
+ * excess rate (15 %) instead of the single tax's (п. 293.4), so the ЄП figures, the standalone check included, carry
+ * the difference on the excess, while the per-receipt hints stay at 5 % and their delta shows it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Taxes
@@ -80,7 +82,7 @@ class TaxLiabilityCalculator
             'ytd_income' => Decimal::money($ytdIncome),
             'previous_ytd_income' => Decimal::money($this->income($previous)),
             'payments_count' => array_sum(array_column($current, 'count')),
-            'single_tax' => $this->tax($ytd, $previous, $current, $rules, 'single_tax_rate', 'ep_hints', $rule),
+            'single_tax' => $this->tax($ytd, $previous, $current, $rules, 'single_tax_rate', 'ep_hints', $rule, $cap),
             'military_levy' => $this->tax($ytd, $previous, $current, $rules, 'military_levy_rate', 'vz_hints', $rule),
             'esv' => $this->esv($profile, $year, $quarter, $rule),
             'cap' => [
@@ -274,23 +276,44 @@ class TaxLiabilityCalculator
     }
 
     /**
-     * Get the liability of the segments: ROUND_HALF_UP(Σ segment income × the segment rule's rate, 2).
+     * Get the liability of the segments: ROUND_HALF_UP(Σ segment income × the segment rule's rate + extra, 2).
      *
      * @param array<int, array{income: BigDecimal}> $segments
      * @param Collection<int, TaxRule> $rules
      * @param string $rateColumn
+     * @param BigDecimal|null $extra Added before rounding, such as the surcharge on the excess over the cap.
      *
      * @return BigDecimal
      */
-    protected function liability(array $segments, $rules, string $rateColumn): BigDecimal
+    protected function liability(array $segments, $rules, string $rateColumn, ?BigDecimal $extra = null): BigDecimal
     {
-        $sum = Decimal::zero();
+        $sum = $extra ?? Decimal::zero();
 
         foreach ($segments as $ruleId => $segment) {
             $sum = $sum->plus($segment['income']->multipliedBy(Decimal::of($rules->get($ruleId)?->$rateColumn)));
         }
 
         return Decimal::round($sum);
+    }
+
+    /**
+     * Get what the excess of the year-to-date income over the cap adds to the single tax, before rounding: the excess
+     * at the excess rate instead of the single tax's.
+     *
+     * @param BigDecimal $income
+     * @param BigDecimal|null $cap
+     * @param TaxRule|null $rule
+     *
+     * @return BigDecimal
+     */
+    protected function excessSurcharge(BigDecimal $income, ?BigDecimal $cap, ?TaxRule $rule): BigDecimal
+    {
+        if ($cap === null || $cap->isZero() || $rule === null) {
+            return Decimal::zero();
+        }
+
+        return Decimal::max($income->minus($cap), 0)
+            ->multipliedBy(Decimal::of($rule->excess_rate)->minus(Decimal::of($rule->single_tax_rate)));
     }
 
     /**
@@ -304,6 +327,7 @@ class TaxLiabilityCalculator
      * @param string $rateColumn
      * @param string $hintsKey
      * @param TaxRule|null $rule
+     * @param BigDecimal|null $cap The income cap, above which the single tax is the excess rate; null for ВЗ.
      *
      * @return array<string, string>
      */
@@ -314,12 +338,16 @@ class TaxLiabilityCalculator
         $rules,
         string $rateColumn,
         string $hintsKey,
-        ?TaxRule $rule
+        ?TaxRule $rule,
+        ?BigDecimal $cap = null
     ): array {
-        $ytdLiability = $this->liability($ytd, $rules, $rateColumn);
-        $previousLiability = $this->liability($previous, $rules, $rateColumn);
+        $ytdExcess = $this->excessSurcharge($this->income($ytd), $cap, $rule);
+        $previousExcess = $this->excessSurcharge($this->income($previous), $cap, $rule);
+
+        $ytdLiability = $this->liability($ytd, $rules, $rateColumn, $ytdExcess);
+        $previousLiability = $this->liability($previous, $rules, $rateColumn, $previousExcess);
         $owed = $ytdLiability->minus($previousLiability);
-        $standalone = $this->liability($current, $rules, $rateColumn);
+        $standalone = $this->liability($current, $rules, $rateColumn, $ytdExcess->minus($previousExcess));
 
         $hints = Decimal::sum(array_column($current, $hintsKey));
 

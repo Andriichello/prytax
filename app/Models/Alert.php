@@ -5,6 +5,9 @@ namespace PryTax\Models;
 use Carbon\Carbon;
 use Core\Models\BaseModel;
 use Core\Models\User;
+use Database\Factories\AlertFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use PryTax\Enums\AlertCategory;
 use PryTax\Enums\AlertSeverity;
@@ -39,8 +42,12 @@ use PryTax\Queries\AlertQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(AlertFactory::class)]
 class Alert extends BaseModel
 {
+    /** @use HasFactory<AlertFactory> */
+    use HasFactory;
+
     use BelongsToProfile;
 
     /**

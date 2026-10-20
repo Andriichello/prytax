@@ -4,6 +4,9 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\ProjectFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -30,8 +33,12 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(ProjectFactory::class)]
 class Project extends BaseModel
 {
+    /** @use HasFactory<ProjectFactory> */
+    use HasFactory;
+
     use BelongsToProfile;
 
     /**

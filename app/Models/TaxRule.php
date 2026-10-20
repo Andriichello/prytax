@@ -4,6 +4,9 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\TaxRuleFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use LogicException;
 use PryTax\Queries\TaxRuleQuery;
@@ -34,8 +37,12 @@ use PryTax\Queries\TaxRuleQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(TaxRuleFactory::class)]
 class TaxRule extends BaseModel
 {
+    /** @use HasFactory<TaxRuleFactory> */
+    use HasFactory;
+
     /**
      * The attributes that are mass-assignable.
      *

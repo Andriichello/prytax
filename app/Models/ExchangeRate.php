@@ -4,6 +4,9 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\ExchangeRateFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use PryTax\Queries\GlobalQuery;
 
 /**
@@ -26,8 +29,12 @@ use PryTax\Queries\GlobalQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(ExchangeRateFactory::class)]
 class ExchangeRate extends BaseModel
 {
+    /** @use HasFactory<ExchangeRateFactory> */
+    use HasFactory;
+
     /**
      * The attributes that are mass-assignable.
      *

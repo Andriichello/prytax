@@ -7,6 +7,9 @@ use Core\Models\BaseModel;
 use Core\Models\Interfaces\LockableInterface;
 use Core\Models\Traits\Audited;
 use Core\Models\Traits\LockedByParent;
+use Database\Factories\InvoiceItemFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Enums\ItemUnit;
@@ -38,8 +41,12 @@ use PryTax\Enums\ItemUnit;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(InvoiceItemFactory::class)]
 class InvoiceItem extends BaseModel
 {
+    /** @use HasFactory<InvoiceItemFactory> */
+    use HasFactory;
+
     use Audited;
     use LockedByParent;
 

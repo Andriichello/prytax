@@ -6,6 +6,9 @@ use Carbon\Carbon;
 use Core\Models\BaseModel;
 use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
+use Database\Factories\RefundFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -45,8 +48,12 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(RefundFactory::class)]
 class Refund extends BaseModel
 {
+    /** @use HasFactory<RefundFactory> */
+    use HasFactory;
+
     use Audited;
     use BelongsToProfile;
     use TracksCreator;

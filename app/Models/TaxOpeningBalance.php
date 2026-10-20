@@ -4,6 +4,11 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
+use Core\Models\Traits\TracksCreator;
+use Database\Factories\TaxOpeningBalanceFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use PryTax\Enums\TaxType;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -16,6 +21,7 @@ use PryTax\Queries\TenantQuery;
  *
  * @property int $id
  * @property int $profile_id
+ * @property int|null $created_by_user_id
  * @property TaxType $tax_type
  * @property Carbon $as_of
  * @property string $amount
@@ -27,8 +33,14 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(TaxOpeningBalanceFactory::class)]
 class TaxOpeningBalance extends BaseModel
 {
+    /** @use HasFactory<TaxOpeningBalanceFactory> */
+    use HasFactory;
+
+    use Audited;
+    use TracksCreator;
     use BelongsToProfile;
 
     /**

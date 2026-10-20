@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use PryTax\Enums\PaymentKind;
+use PryTax\Helpers\Decimal;
 use PryTax\Models\Account;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
@@ -39,12 +40,17 @@ class PaymentFactory extends Factory
             'received_amount' => fn (array $attributes) => $attributes['amount'],
             'received_currency' => fn (array $attributes) => $attributes['currency'],
             'received_at' => '2026-10-05',
-            'nbu_rate' => '41.0000',
+            'nbu_rate' => fn (array $attributes) => $attributes['currency'] === 'UAH' ? '1.0000' : '41.0000',
             'nbu_rate_date' => fn (array $attributes) => $attributes['received_at'],
-            'uah_amount' => '41000.00',
-            'tax_rule_id' => fn () => TaxRule::query()->effectiveOn('2026-10-05')->value('id'),
-            'single_tax_uah' => '2050.00',
-            'military_levy_uah' => '410.00',
+            // The snapshot follows the attributes, as PaymentSnapshotter computes it
+            'uah_amount' => fn (array $attributes) => Decimal::money(Decimal::times($attributes['amount'], $attributes['nbu_rate'])),
+            'tax_rule_id' => fn (array $attributes) => TaxRule::query()->effectiveOn($attributes['received_at'])->value('id'),
+            'single_tax_uah' => fn (array $attributes) => Decimal::money(
+                Decimal::times($attributes['uah_amount'], TaxRule::query()->find($attributes['tax_rule_id'])?->single_tax_rate)
+            ),
+            'military_levy_uah' => fn (array $attributes) => Decimal::money(
+                Decimal::times($attributes['uah_amount'], TaxRule::query()->find($attributes['tax_rule_id'])?->military_levy_rate)
+            ),
         ];
     }
 }

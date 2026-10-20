@@ -4,6 +4,10 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
+use Database\Factories\EsvObligationFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Enums\EsvStatus;
 use PryTax\Models\Traits\BelongsToProfile;
@@ -33,8 +37,13 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(EsvObligationFactory::class)]
 class EsvObligation extends BaseModel
 {
+    /** @use HasFactory<EsvObligationFactory> */
+    use HasFactory;
+
+    use Audited;
     use BelongsToProfile;
 
     /**

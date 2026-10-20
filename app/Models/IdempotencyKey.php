@@ -4,7 +4,10 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\IdempotencyKeyFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\MassPrunable;
 
 /**
@@ -24,8 +27,12 @@ use Illuminate\Database\Eloquent\MassPrunable;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(IdempotencyKeyFactory::class)]
 class IdempotencyKey extends BaseModel
 {
+    /** @use HasFactory<IdempotencyKeyFactory> */
+    use HasFactory;
+
     use MassPrunable;
 
     /**

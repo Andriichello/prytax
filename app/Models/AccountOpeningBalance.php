@@ -4,6 +4,11 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
+use Core\Models\Traits\TracksCreator;
+use Database\Factories\AccountOpeningBalanceFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -16,6 +21,7 @@ use PryTax\Queries\TenantQuery;
  *
  * @property int $id
  * @property int $profile_id
+ * @property int|null $created_by_user_id
  * @property int $account_id
  * @property Carbon $as_of
  * @property string $amount
@@ -29,8 +35,14 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(AccountOpeningBalanceFactory::class)]
 class AccountOpeningBalance extends BaseModel
 {
+    /** @use HasFactory<AccountOpeningBalanceFactory> */
+    use HasFactory;
+
+    use Audited;
+    use TracksCreator;
     use BelongsToProfile;
 
     /**

@@ -6,7 +6,10 @@ use Carbon\Carbon;
 use Core\Models\BaseModel;
 use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
+use Database\Factories\AccountTransferFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PryTax\Helpers\Decimal;
@@ -49,8 +52,12 @@ use PryTax\Services\Transfers\TransferMetrics;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(AccountTransferFactory::class)]
 class AccountTransfer extends BaseModel
 {
+    /** @use HasFactory<AccountTransferFactory> */
+    use HasFactory;
+
     use Audited;
     use BelongsToProfile;
     use TracksCreator;

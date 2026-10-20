@@ -4,7 +4,11 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
+use Database\Factories\AccountMovementFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Enums\MovementCategory;
 use PryTax\Enums\MovementDirection;
@@ -36,8 +40,13 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(AccountMovementFactory::class)]
 class AccountMovement extends BaseModel
 {
+    /** @use HasFactory<AccountMovementFactory> */
+    use HasFactory;
+
+    use Audited;
     use BelongsToProfile;
     use TracksCreator;
 

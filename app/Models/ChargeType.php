@@ -4,6 +4,9 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\ChargeTypeFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -29,8 +32,12 @@ use PryTax\Queries\TenantQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(ChargeTypeFactory::class)]
 class ChargeType extends BaseModel
 {
+    /** @use HasFactory<ChargeTypeFactory> */
+    use HasFactory;
+
     use BelongsToProfile;
 
     /**

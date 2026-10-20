@@ -4,6 +4,10 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
+use Database\Factories\ContractRateFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -26,8 +30,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(ContractRateFactory::class)]
 class ContractRate extends BaseModel
 {
+    /** @use HasFactory<ContractRateFactory> */
+    use HasFactory;
+
+    use Audited;
+
     /**
      * The attributes that are mass-assignable.
      *

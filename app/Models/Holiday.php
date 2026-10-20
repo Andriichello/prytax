@@ -4,6 +4,9 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Database\Factories\HolidayFactory;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use PryTax\Queries\GlobalQuery;
 
 /**
@@ -23,8 +26,12 @@ use PryTax\Queries\GlobalQuery;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Models
  */
+#[UseFactory(HolidayFactory::class)]
 class Holiday extends BaseModel
 {
+    /** @use HasFactory<HolidayFactory> */
+    use HasFactory;
+
     /**
      * The attributes that are mass-assignable.
      *

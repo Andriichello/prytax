@@ -70,6 +70,26 @@ class PeriodLock
     }
 
     /**
+     * Get the first declared quarter, which a write of income on the date would change (its own or a later one of
+     * its year), so a form can ask for a correction note before saving, or null.
+     *
+     * @param Profile $profile
+     * @param CarbonInterface $date
+     *
+     * @return TaxPeriod|null
+     */
+    public function lockedBy(Profile $profile, CarbonInterface $date): ?TaxPeriod
+    {
+        return TaxPeriod::query()
+            ->where('profile_id', $profile->getKey())
+            ->where('year', $date->year)
+            ->where('quarter', '>=', $date->quarter)
+            ->whereNotNull('locked_at')
+            ->orderBy('quarter')
+            ->first();
+    }
+
+    /**
      * Mark the declared quarters as needing an уточнююча декларація, keeping the note in the written quarter's notes.
      *
      * @param Profile $profile

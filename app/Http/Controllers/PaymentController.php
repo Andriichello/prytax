@@ -6,6 +6,7 @@ use Core\Http\Requests\Crud\DestroyRequest;
 use Core\Http\Requests\Crud\IndexRequest;
 use Core\Http\Requests\Crud\ShowRequest;
 use Core\Http\Requests\Crud\StoreRequest;
+use Core\Http\Requests\Crud\UpdateRequest;
 use Core\Http\Responses\ApiResponse;
 use PryTax\Http\Requests\Payments\AcknowledgeRepatriationRequest;
 use PryTax\Http\Requests\Payments\GroupPaymentsRequest;
@@ -97,6 +98,26 @@ class PaymentController extends TenantController
         $payment = $this->repository->create($request->validated(), $request->getParents());
 
         return ApiResponse::created([
+            'data' => $this->asResource($payment)->resolve($request),
+            'meta' => ['invoice' => $this->recorder->coverage($payment->invoice)],
+        ]);
+    }
+
+    /**
+     * Handle the `update` operation: update the receipt, and tell how it covers its invoice.
+     *
+     * @param UpdateRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleUpdate(UpdateRequest $request): ApiResponse
+    {
+        /** @var Payment $payment */
+        $payment = $this->builder($request)->findOrFail($request->getId());
+        $this->repository->update($payment, $request->validated());
+        $payment->refresh();
+
+        return ApiResponse::ok([
             'data' => $this->asResource($payment)->resolve($request),
             'meta' => ['invoice' => $this->recorder->coverage($payment->invoice)],
         ]);

@@ -147,7 +147,8 @@ class AlertSyncTest extends TestCase
     }
 
     /**
-     * Test that unpaid ЄСВ past its deadline is a warning (design.md §9), while ЄП past its deadline is an error.
+     * Test that unpaid ЄСВ past its deadline is a warning (design.md §9), while ЄП past its deadline is an error, each
+     * one notice at the latest quarter due, which carries the earlier quarters' debt.
      *
      * @return void
      */
@@ -165,8 +166,10 @@ class AlertSyncTest extends TestCase
             return Alert::query()->whereNull('resolved_at')->where('type', 'deadline')->get()->keyBy(fn (Alert $alert) => $alert->payload['kind'] . ':' . $alert->title);
         });
 
-        $this->assertSame('warning', $alerts->get('esv:ЄСВ за II кв. 2026')->severity->value);
+        $this->assertSame('warning', $alerts->get('esv:ЄСВ за III кв. 2026')->severity->value);
+        $this->assertSame('До сплати 17' . "\u{202F}" . '121.06 ₴ — строк минув 19.10.2026.', $alerts->get('esv:ЄСВ за III кв. 2026')->body);
         $this->assertSame('error', $alerts->get('tax:ЄП і ВЗ за II кв. 2026')->severity->value);
+        $this->assertCount(1, $alerts->filter(fn (Alert $alert) => $alert->payload['kind'] === 'esv'));
     }
 
     /**

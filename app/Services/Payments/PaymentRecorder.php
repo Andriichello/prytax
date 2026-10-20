@@ -169,6 +169,8 @@ class PaymentRecorder
                 ? Decimal::money(Decimal::of($attributes['amount'])->minus(Decimal::of($attributes['received_amount'])))
                 : null,
             'invoice' => $this->coverage(isset($attributes['invoice_id']) ? Invoice::query()->find($attributes['invoice_id']) : null, $attributes['amount']),
+            // The declared quarter, which saving would correct, so the form asks for a correction note first
+            'locked_quarter' => ($locked = $this->lock->lockedBy($profile, $date)) ? ['year' => $locked->year, 'quarter' => $locked->quarter] : null,
         ];
     }
 

@@ -33,7 +33,7 @@ trait ProfileRules
             'full_name' => [$presence, 'string', 'max:255'],
             'full_name_en' => ['sometimes', 'nullable', 'string', 'max:255'],
             'tax_id' => [$presence, 'string', 'max:20', $this->taxIdFormat(), $this->uniqueTaxId($ignoreId)],
-            'tax_id_kind' => ['sometimes', Rule::enum(TaxIdKind::class)],
+            'tax_id_kind' => ['sometimes', Rule::enum(TaxIdKind::class), $this->storedTaxIdOfKind()],
             'registered_at' => ['sometimes', 'nullable', 'date'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'address_en' => ['sometimes', 'nullable', 'string', 'max:1000'],
@@ -74,7 +74,9 @@ trait ProfileRules
     protected function taxIdFormat(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) {
-            $kind = $this->input('tax_id_kind', TaxIdKind::Rnokpp->value);
+            // An update, which doesn't change the kind, checks the tax id against the stored one
+            $stored = $this->route('id') ? $this->target(Profile::class)?->tax_id_kind?->value : null;
+            $kind = $this->input('tax_id_kind', $stored ?? TaxIdKind::Rnokpp->value);
 
             $valid = $kind === TaxIdKind::Passport->value
                 ? preg_match('/^([А-ЯІЇЄҐ]{2}\d{6}|\d{9})$/u', (string) $value)
@@ -84,6 +86,22 @@ trait ProfileRules
                 $fail(__($kind === TaxIdKind::Passport->value
                     ? 'The passport is two letters and six digits, or the nine digits of an ID card.'
                     : 'РНОКПП is 10 digits.'));
+            }
+        };
+    }
+
+    /**
+     * Rule: a new kind, given without a new tax id, fits the stored tax id.
+     *
+     * @return Closure
+     */
+    protected function storedTaxIdOfKind(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            $stored = $this->has('tax_id') || !$this->route('id') ? null : $this->target(Profile::class)?->tax_id;
+
+            if ($stored !== null) {
+                $this->taxIdFormat()('tax_id', $stored, $fail);
             }
         };
     }

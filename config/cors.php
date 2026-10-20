@@ -25,7 +25,8 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    // Downloads name their files, and replays say so, also to a SPA on another origin (Vite's in development)
+    'exposed_headers' => ['Content-Disposition', 'Idempotent-Replayed'],
 
     'max_age' => 0,
 

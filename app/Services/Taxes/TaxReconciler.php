@@ -69,6 +69,14 @@ class TaxReconciler
         $today = CarbonImmutable::parse(($today ?? now())->toDateString());
         [$startYear, $startQuarter, $opening] = $this->start($profile, $type, $year);
 
+        // A later opening balance re-bases the series at its quarter, such as after a check against the ІКП
+        $rebases = TaxOpeningBalance::query()
+            ->where('profile_id', $profile->getKey())
+            ->where('tax_type', $type->value)
+            ->where('as_of', '<=', "$year-12-31")
+            ->get()
+            ->keyBy(fn (TaxOpeningBalance $balance) => $balance->as_of->year * 10 + $balance->as_of->quarter);
+
         $balance = Decimal::of($opening?->amount);
         $quarters = [];
 
@@ -77,6 +85,12 @@ class TaxReconciler
             $this->esv->ensureYear($profile, $y);
 
             for ($q = $y === $startYear ? $startQuarter : 1; $q <= 4; $q++) {
+                $rebase = $rebases->get($y * 10 + $q);
+
+                if ($rebase !== null && !$rebase->is($opening)) {
+                    $balance = Decimal::of($rebase->amount);
+                }
+
                 $owed = $this->owed($profile, $type, $y, $q);
                 $sums = $this->paymentSums($profile, $type, $y, $q);
                 $balance = $balance->plus($sums['paid'])->minus($owed);
@@ -153,7 +167,8 @@ class TaxReconciler
 
     /**
      * Get the first quarter of the series and the opening balance it starts from: the quarter of the latest opening
-     * balance up to the year's end, or else the first tracked quarter of the profile (TaxTracking).
+     * balance up to the year's start, or else of the earliest one in the year, or else the first tracked quarter of
+     * the profile (TaxTracking). Later opening balances re-base the series at their quarters.
      *
      * @param Profile $profile
      * @param TaxType $type
@@ -163,12 +178,15 @@ class TaxReconciler
      */
     protected function start(Profile $profile, TaxType $type, int $year): array
     {
-        $opening = TaxOpeningBalance::query()
+        $openings = TaxOpeningBalance::query()
             ->where('profile_id', $profile->getKey())
             ->where('tax_type', $type->value)
             ->where('as_of', '<=', "$year-12-31")
-            ->orderByDesc('as_of')
-            ->first();
+            ->orderBy('as_of')
+            ->get();
+
+        $opening = $openings->filter(fn (TaxOpeningBalance $balance) => $balance->as_of->year < $year
+            || ($balance->as_of->month === 1 && $balance->as_of->day === 1))->last() ?? $openings->first();
 
         if ($opening) {
             return [$opening->as_of->year, $opening->as_of->quarter, $opening];

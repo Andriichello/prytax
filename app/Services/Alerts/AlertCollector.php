@@ -153,6 +153,11 @@ class AlertCollector
             }
         }
 
+        // A debt is one notice, at the latest quarter due: its running balance holds the earlier quarters' debts, and a
+        // payment, which an earlier debt took through a later quarter, clears it
+        $lastTaxDue = $periods->filter(fn (TaxPeriod $period) => $period->tax_due_at->lte($horizon))->last();
+        $lastEsvDue = $periods->filter(fn (TaxPeriod $period) => $period->esv_due_at->lte($horizon))->last();
+
         foreach ($periods as $period) {
             $label = $this->quarterLabel($period->year, $period->quarter);
             $key = "{$period->year}:{$period->quarter}";
@@ -178,7 +183,7 @@ class AlertCollector
                 $taxDebt = $taxDebt->plus($balance->isNegative() ? $balance->negated() : Decimal::zero());
             }
 
-            if ($taxDebt->isPositive() && $period->tax_due_at->lte($horizon)) {
+            if ($taxDebt->isPositive() && $period->is($lastTaxDue)) {
                 $alerts["deadline:{$period->id}:tax"] = $this->deadline(
                     $period->tax_due_at,
                     "ЄП і ВЗ за $label",
@@ -191,7 +196,7 @@ class AlertCollector
 
             $esvBalance = $balances[TaxType::SocialContribution->value][$key] ?? Decimal::zero();
 
-            if ($esvBalance->isNegative() && $period->esv_due_at->lte($horizon)) {
+            if ($esvBalance->isNegative() && $period->is($lastEsvDue)) {
                 // An unpaid month of ЄСВ is a warning, also past its deadline (design.md §9)
                 $alerts["deadline:{$period->id}:esv"] = $this->deadline(
                     $period->esv_due_at,

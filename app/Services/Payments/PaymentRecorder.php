@@ -17,6 +17,7 @@ use PryTax\Models\Account;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
+use PryTax\Models\TaxPeriod;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Taxes\PeriodLock;
 
@@ -147,7 +148,10 @@ class PaymentRecorder
     }
 
     /**
-     * Compute the attributes and the snapshot of a receipt, without saving it, for the form's preview.
+     * Compute the attributes and the snapshot of a receipt, without saving it, for the form's preview. With a
+     * `payment_id`, it previews an update of that receipt, as `update()` would apply it: the receipt's own amount
+     * isn't counted twice in its invoice's coverage, the account it already landed on may be inactive since, and
+     * the quarters of both its old and new date are checked for a declaration, only when the update changes income.
      *
      * @param Profile $profile
      * @param array $data
@@ -157,8 +161,15 @@ class PaymentRecorder
      */
     public function preview(Profile $profile, array $data): array
     {
-        $attributes = $this->attributes($profile, $data, null);
+        $existing = empty($data['payment_id']) ? null : Payment::query()->find($data['payment_id']);
+
+        if ($existing !== null) {
+            $data = $this->merged($existing, Arr::except($data, ['payment_id']));
+        }
+
+        $attributes = $this->attributes($profile, $data, $existing);
         $date = CarbonImmutable::parse($attributes['received_at']);
+        $invoice = isset($attributes['invoice_id']) ? Invoice::query()->find($attributes['invoice_id']) : null;
 
         return [
             ...$attributes,
@@ -168,10 +179,62 @@ class PaymentRecorder
             'receipt_fee' => $attributes['received_currency'] === $attributes['currency']
                 ? Decimal::money(Decimal::of($attributes['amount'])->minus(Decimal::of($attributes['received_amount'])))
                 : null,
-            'invoice' => $this->coverage(isset($attributes['invoice_id']) ? Invoice::query()->find($attributes['invoice_id']) : null, $attributes['amount']),
+            'invoice' => $this->coverage($invoice, $this->addedTo($invoice, $existing, $attributes['amount'])),
             // The declared quarter, which saving would correct, so the form asks for a correction note first
-            'locked_quarter' => ($locked = $this->lock->lockedBy($profile, $date)) ? ['year' => $locked->year, 'quarter' => $locked->quarter] : null,
+            'locked_quarter' => ($locked = $this->lockedBy($profile, $existing, $attributes)) ? ['year' => $locked->year, 'quarter' => $locked->quarter] : null,
         ];
+    }
+
+    /**
+     * Get what a receipt adds to the receipts of the invoice: its amount, or, for an update of a receipt of the
+     * same invoice, the change of its amount; a receipt moved from another invoice brings its refunds along.
+     *
+     * @param Invoice|null $invoice
+     * @param Payment|null $existing
+     * @param string $amount
+     *
+     * @return string
+     */
+    protected function addedTo(?Invoice $invoice, ?Payment $existing, string $amount): string
+    {
+        if ($existing === null || $invoice === null) {
+            return $amount;
+        }
+
+        $counted = $existing->invoice_id === $invoice->getKey()
+            ? Decimal::of($existing->amount)
+            : Decimal::of((string) $existing->refunds()->sum('amount'));
+
+        return Decimal::money(Decimal::of($amount)->minus($counted));
+    }
+
+    /**
+     * Get the declared quarter, which saving the receipt would correct: of its date, or, for an update, which
+     * changes its income, of its old or new date; an update, which doesn't, corrects nothing.
+     *
+     * @param Profile $profile
+     * @param Payment|null $existing
+     * @param array<string, mixed> $attributes
+     *
+     * @return TaxPeriod|null
+     */
+    protected function lockedBy(Profile $profile, ?Payment $existing, array $attributes): ?TaxPeriod
+    {
+        $date = CarbonImmutable::parse($attributes['received_at']);
+
+        if ($existing === null) {
+            return $this->lock->lockedBy($profile, $date);
+        }
+
+        if (!$this->changesIncome($profile, $existing, $attributes)) {
+            return null;
+        }
+
+        return collect([CarbonImmutable::parse($existing->received_at->toDateString()), $date])
+            ->map(fn (CarbonImmutable $day) => $this->lock->lockedBy($profile, $day))
+            ->filter()
+            ->sortBy(fn (TaxPeriod $period) => $period->year * 10 + $period->quarter)
+            ->first();
     }
 
     /**
@@ -192,17 +255,7 @@ class PaymentRecorder
             ]);
         }
 
-        // Linking an advance to an invoice makes it a receipt of the invoice
-        if ($payment->kind === PaymentKind::Advance && !empty($data['invoice_id'])) {
-            $data['kind'] = PaymentKind::Invoice->value;
-        }
-
-        $merged = [...$payment->only([
-            'kind', 'invoice_id', 'description', 'currency', 'amount', 'client_fee_amount',
-            'received_to_account_id', 'received_amount', 'receipt_group_id',
-        ]), 'received_at' => $payment->received_at->toDateString(), ...$data];
-
-        $merged['kind'] = $merged['kind'] instanceof PaymentKind ? $merged['kind']->value : $merged['kind'];
+        $merged = $this->merged($payment, $data);
         $invoice = $merged['kind'] === PaymentKind::Invoice->value ? Invoice::query()->find($merged['invoice_id'] ?? null) : null;
 
         // The taxable event happened in the receipt's currency, which a link to an invoice can't change
@@ -265,6 +318,31 @@ class PaymentRecorder
         $this->alerts->syncAfterCommit($profile);
 
         return $payment->refresh();
+    }
+
+    /**
+     * Get the receipt's stored fields with the update's data over them. Linking an advance to an invoice makes it a
+     * receipt of the invoice.
+     *
+     * @param Payment $payment
+     * @param array $data
+     *
+     * @return array<string, mixed>
+     */
+    protected function merged(Payment $payment, array $data): array
+    {
+        if ($payment->kind === PaymentKind::Advance && !empty($data['invoice_id'])) {
+            $data['kind'] = PaymentKind::Invoice->value;
+        }
+
+        $merged = [...$payment->only([
+            'kind', 'invoice_id', 'description', 'currency', 'amount', 'client_fee_amount',
+            'received_to_account_id', 'received_amount', 'receipt_group_id',
+        ]), 'received_at' => $payment->received_at->toDateString(), ...$data];
+
+        $merged['kind'] = $merged['kind'] instanceof PaymentKind ? $merged['kind']->value : $merged['kind'];
+
+        return $merged;
     }
 
     /**

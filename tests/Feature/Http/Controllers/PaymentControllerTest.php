@@ -312,6 +312,59 @@ class PaymentControllerTest extends TestCase
     }
 
     /**
+     * Test that the preview of an edited receipt doesn't count the receipt twice in its invoice's coverage, and
+     * allows the account it already landed on, although it is inactive since.
+     *
+     * @return void
+     */
+    public function testPreviewsAnEditOfAReceiptWithoutCountingItTwice(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+        $payment = $this->recordReceipt($profile, $invoice, $wise);
+        $this->inProfile($profile, fn () => $wise->forceFill(['is_active' => false])->save());
+
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [
+            'payment_id' => $payment->id, 'invoice_id' => $invoice->id, 'amount' => '3892.50',
+            'received_to_account_id' => $wise->id, 'received_at' => '2026-10-05', 'client_fee_amount' => '5.00',
+        ])->assertOk()
+            ->assertJsonPath('data.invoice.paid_amount', '3892.50')
+            ->assertJsonPath('data.invoice.covers_total', true)
+            ->assertJsonPath('data.invoice.overpaid', false)
+            ->assertJsonPath('data.locked_quarter', null);
+    }
+
+    /**
+     * Test that the preview of an edited receipt names a declared quarter only when the edit changes income, and
+     * checks the quarter of the old date as well as of the new one.
+     *
+     * @return void
+     */
+    public function testPreviewsTheDeclaredQuarterOfAnEditOnlyWhenItChangesIncome(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-05-05' => '41.2000', '2026-10-05' => '42.2297']]);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+        $payment = $this->recordReceipt($profile, $invoice, $wise, ['received_at' => '2026-05-05']);
+        $this->declareQuarter($profile, 2026, 2);
+        $receipt = ['payment_id' => $payment->id, 'invoice_id' => $invoice->id, 'amount' => '3892.50', 'received_to_account_id' => $wise->id];
+
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [...$receipt, 'received_at' => '2026-05-05', 'client_fee_amount' => '5.00'])
+            ->assertOk()
+            ->assertJsonPath('data.locked_quarter', null);
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [...$receipt, 'received_at' => '2026-10-05'])
+            ->assertOk()
+            ->assertJsonPath('data.locked_quarter', ['year' => 2026, 'quarter' => 2]);
+    }
+
+    /**
      * Test that an FX gain can't be edited on its own (403): it follows its transfer.
      *
      * @return void

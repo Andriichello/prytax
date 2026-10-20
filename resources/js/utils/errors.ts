@@ -74,6 +74,8 @@ const MESSAGES: Record<string, string> = {
     'The email is used in several organizations, so choose one of them.': 'Ця пошта є в кількох організаціях. Зверніться до власника організації.',
     'The password field confirmation does not match.': 'Паролі не збігаються.',
     'The email has already been taken.': 'Користувач з такою поштою вже є.',
+    'Two rates have the same work type and start date.': 'Ставка цього типу робіт з цієї дати вже є.',
+    'The as of has already been taken.': 'Залишок на цю дату вже є.',
 };
 
 /**

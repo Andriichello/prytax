@@ -172,13 +172,36 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return body as T;
 }
 
+/**
+ * Every row of a list, page after page (the API serves 50 at most per page): for selects and short lists, which
+ * must not stop silently at the first page.
+ */
+async function all<T>(path: string, query: Query = {}, signal?: AbortSignal): Promise<T[]> {
+    const rows: T[] = [];
+
+    for (let page = 1; ; page++) {
+        const result = await request<{ data: T[]; meta: { links: { next: string | null } } }>(path, {
+            query: { ...query, page: { ...(query.page as Record<string, QueryValue> | undefined), size: 50, number: page } },
+            signal,
+        });
+
+        rows.push(...result.data);
+
+        if (result.meta.links.next === null || result.data.length === 0) {
+            return rows;
+        }
+    }
+}
+
 export const api = {
     get: <T>(path: string, query?: Query, signal?: AbortSignal) => request<T>(path, { query, signal }),
+    all,
     post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, { method: 'POST', body, headers }),
     patch: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, { method: 'PATCH', body, headers }),
-    delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+    /** A delete; the query carries what the API reads besides the path (a declared quarter's `correction_note`). */
+    delete: <T>(path: string, query?: Query) => request<T>(path, { method: 'DELETE', query }),
 };
 
 /**

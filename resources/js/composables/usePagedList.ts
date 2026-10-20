@@ -8,13 +8,17 @@ export interface PagedList<T> {
     loading: Ref<boolean>;
     loadingMore: Ref<boolean>;
     error: Ref<unknown>;
+    /** Why the last next page failed: the rows stay, and the next `loadMore()` tries again. */
+    moreError: Ref<unknown>;
     reload: () => Promise<void>;
     loadMore: () => Promise<void>;
 }
 
 /**
  * A list read page by page (api-core's `page[number]`), for infinite scroll: the first page loads, and again
- * whenever a source changes (the profile, the filters); `loadMore()` appends the next one.
+ * whenever a source changes (the profile, the filters); `loadMore()` appends the next one, leaving out rows already
+ * shown (a row added meanwhile shifts the pages). Only the latest request counts: a reload overtaken by another one
+ * neither shows its rows nor ends the loading state.
  */
 export function usePagedList<T>(
     fetchPage: (page: number, signal: AbortSignal) => Promise<Paginated<T>>,
@@ -26,39 +30,64 @@ export function usePagedList<T>(
     const loading = ref(true);
     const loadingMore = ref(false);
     const error = ref<unknown>(null);
+    const moreError = ref<unknown>(null);
 
     let page = 0;
     let controller: AbortController | null = null;
 
-    async function load(next: number): Promise<void> {
+    const idOf = (item: T): unknown => (item as { id?: unknown }).id;
+
+    /**
+     * Load a page; true when this request is still the latest one, once it is settled.
+     */
+    async function load(next: number): Promise<boolean> {
         controller?.abort();
 
         const own = (controller = new AbortController());
-
-        error.value = null;
 
         try {
             const result = await fetchPage(next, own.signal);
 
             if (own !== controller) {
-                return;
+                return false;
             }
 
-            items.value = next === 1 ? result.data : [...items.value, ...result.data];
+            if (next === 1) {
+                items.value = result.data;
+            } else {
+                const shown = new Set(items.value.map(idOf));
+
+                items.value = [...items.value, ...result.data.filter((item) => idOf(item) === undefined || !shown.has(idOf(item)))];
+            }
+
             total.value = result.meta.total;
             hasMore.value = result.meta.links.next !== null;
             page = next;
         } catch (caught) {
-            if (own === controller && !(caught instanceof DOMException && caught.name === 'AbortError')) {
-                error.value = caught;
+            if (own !== controller) {
+                return false;
+            }
+
+            if (!(caught instanceof DOMException && caught.name === 'AbortError')) {
+                if (next === 1) {
+                    error.value = caught;
+                } else {
+                    moreError.value = caught;
+                }
             }
         }
+
+        return true;
     }
 
     async function reload(): Promise<void> {
         loading.value = true;
-        await load(1);
-        loading.value = false;
+        error.value = null;
+        moreError.value = null;
+
+        if (await load(1)) {
+            loading.value = false;
+        }
     }
 
     async function loadMore(): Promise<void> {
@@ -67,6 +96,7 @@ export function usePagedList<T>(
         }
 
         loadingMore.value = true;
+        moreError.value = null;
         await load(page + 1);
         loadingMore.value = false;
     }
@@ -74,5 +104,5 @@ export function usePagedList<T>(
     watch(sources, reload, { immediate: true, deep: true });
     onScopeDispose(() => controller?.abort());
 
-    return { items, total, hasMore, loading, loadingMore, error, reload, loadMore };
+    return { items, total, hasMore, loading, loadingMore, error, moreError, reload, loadMore };
 }

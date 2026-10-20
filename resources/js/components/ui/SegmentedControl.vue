@@ -2,11 +2,13 @@
 /**
  * A segmented control: a sunk track, the selected item white with a soft shadow.
  */
-const { options, label, size = 'md' } = defineProps<{
+const { options, label, size = 'md', disabled = false } = defineProps<{
     options: { value: T; label: string }[];
     /** The group's name for screen readers. */
     label: string;
     size?: 'md' | 'lg';
+    /** Shown as it is, for people who can't change it. */
+    disabled?: boolean;
 }>();
 
 const model = defineModel<T>({ required: true });
@@ -19,6 +21,7 @@ const model = defineModel<T>({ required: true });
             :key="String(option.value)"
             type="button"
             :aria-pressed="model === option.value ? 'true' : 'false'"
+            :disabled="disabled"
             class="flex flex-1 items-center justify-center rounded-seg px-1 whitespace-nowrap"
             :class="[
                 size === 'lg' ? 'h-11 text-15' : 'h-10 text-14',

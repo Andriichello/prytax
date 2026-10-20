@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends string | number">
-import { useId } from 'vue';
+import { computed, useId } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 
 interface SelectOption<V> {
@@ -9,12 +9,15 @@ interface SelectOption<V> {
 }
 
 /**
- * A labelled native select (the phone's own picker), 52 px tall with a chevron.
+ * A labelled native select (the phone's own picker), 52 px tall with a chevron. A value, which isn't among the
+ * options (an account of another currency, left from before), shows as nothing chosen rather than as the first
+ * option, so picking that option still changes the value. With `clearable`, the placeholder chooses nothing (null).
  */
 const {
     label,
     options,
     placeholder = undefined,
+    clearable = false,
     error = undefined,
     hint = undefined,
     disabled = false,
@@ -22,6 +25,7 @@ const {
     label: string;
     options: SelectOption<T>[];
     placeholder?: string;
+    clearable?: boolean;
     error?: string;
     hint?: string;
     disabled?: boolean;
@@ -31,8 +35,13 @@ const model = defineModel<T | null>({ required: true });
 
 const id = useId();
 
+const isChosen = computed(() => options.some((option) => option.value === model.value));
+
+/** The first, empty option: the placeholder, or a hidden one while the value isn't among the options. */
+const hasEmptyOption = computed(() => placeholder !== undefined || !isChosen.value);
+
 function onChange(event: Event): void {
-    const index = (event.target as HTMLSelectElement).selectedIndex - (placeholder !== undefined ? 1 : 0);
+    const index = (event.target as HTMLSelectElement).selectedIndex - (hasEmptyOption.value ? 1 : 0);
 
     model.value = index >= 0 ? options[index]?.value ?? null : null;
 }
@@ -51,7 +60,7 @@ function onChange(event: Event): void {
                 :class="error ? 'border-negative' : 'border-line-input'"
                 @change="onChange"
             >
-                <option v-if="placeholder !== undefined" value="" :selected="model === null" disabled>{{ placeholder }}</option>
+                <option v-if="hasEmptyOption" value="" :selected="!isChosen" :disabled="!clearable" :hidden="placeholder === undefined">{{ placeholder }}</option>
                 <option
                     v-for="option in options"
                     :key="String(option.value)"

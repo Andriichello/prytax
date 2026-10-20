@@ -5,6 +5,7 @@
  * The app's format is the profile setting `display.money_format` (`1 234.99` by default); invoices have their own.
  */
 
+import { ref } from 'vue';
 import type { MoneyFormat } from '@/api/types';
 
 /** The narrow no-break space, which groups thousands in the "space" formats (as on the PDFs). */
@@ -25,17 +26,18 @@ const SEPARATORS: Record<MoneyFormat, { group: string; decimal: string }> = {
     dot_comma: { group: '.', decimal: ',' },
 };
 
-let appFormat: MoneyFormat = 'space_dot';
+/** Reactive, so amounts rendered before a profile's settings arrive are formatted again with them. */
+const appFormat = ref<MoneyFormat>('space_dot');
 
 /**
  * Set the format of the app's amounts (the current profile's `display.money_format`).
  */
 export function setMoneyFormat(format: MoneyFormat | null | undefined): void {
-    appFormat = format && format in SEPARATORS ? format : 'space_dot';
+    appFormat.value = format && format in SEPARATORS ? format : 'space_dot';
 }
 
 export function moneyFormat(): MoneyFormat {
-    return appFormat;
+    return appFormat.value;
 }
 
 export interface AmountOptions {
@@ -55,7 +57,7 @@ export function formatAmount(value: string | number | null | undefined, options:
     const text = String(value).trim();
     const negative = text.startsWith('-');
     const [whole = '0', fraction] = text.replace(/^[-+]/, '').split('.');
-    const { group, decimal } = SEPARATORS[options.format ?? appFormat];
+    const { group, decimal } = SEPARATORS[options.format ?? appFormat.value];
 
     const grouped = group ? whole.replace(/\B(?=(\d{3})+(?!\d))/g, group) : whole;
     const formatted = fraction === undefined ? grouped : `${grouped}${decimal}${fraction}`;

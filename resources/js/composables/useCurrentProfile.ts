@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
-import type { ApiResponse, Me, Paginated, Profile, ProfileSettings } from '@/api/types';
+import type { ApiResponse, Me, Profile, ProfileSettings } from '@/api/types';
 import { setMoneyFormat } from '@/utils/money';
 
 /**
@@ -34,25 +34,32 @@ function remember(id: number): void {
 }
 
 /**
- * Load the profiles with their unread notification counts.
+ * Load the profiles with their unread notification counts and correction flags (again after writes and on the screens
+ * that show them, as every write may raise or resolve notifications).
  */
 async function loadProfiles(): Promise<Profile[]> {
-    const { data } = await api.get<Paginated<Profile>>('profiles', {
-        append: ['unread_alerts_count', 'needs_correction'],
-        page: { size: 50 },
-    });
+    const data = await api.all<Profile>('profiles', { append: ['unread_alerts_count', 'needs_correction'] });
 
     profiles.value = data;
 
     return data;
 }
 
+/**
+ * Load the settings of the current profile; an answer for a profile, which is no longer current, is dropped.
+ */
 async function loadSettings(): Promise<void> {
-    if (currentId.value === null) {
+    const id = currentId.value;
+
+    if (id === null) {
         return;
     }
 
-    const { data } = await api.get<ApiResponse<ProfileSettings>>(`profiles/${currentId.value}/settings`);
+    const { data } = await api.get<ApiResponse<ProfileSettings>>(`profiles/${id}/settings`);
+
+    if (currentId.value !== id) {
+        return;
+    }
 
     settings.value = data;
     setMoneyFormat(data.display.money_format);

@@ -165,7 +165,7 @@ const chipClass = (active: boolean): string => (active
                 </div>
             </section>
 
-            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" @visible="list.loadMore" />
+            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" :failed="Boolean(list.moreError.value)" @visible="list.loadMore" />
         </LoadState>
 
         <InvoiceFiltersSheet v-model:open="filtering" :facets="facets" :filters="filters" @apply="apply" />

@@ -3,9 +3,10 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
 
 /**
- * The bottom of an infinite list: asks for more when it nears the screen, and shows the loading line meanwhile.
+ * The bottom of an infinite list: asks for more when it nears the screen, and shows the loading line meanwhile, or
+ * the failure of the last page with a retry.
  */
-const { loading = false } = defineProps<{ loading?: boolean }>();
+const { loading = false, failed = false } = defineProps<{ loading?: boolean; failed?: boolean }>();
 const emit = defineEmits<{ visible: [] }>();
 
 const element = ref<HTMLElement | null>(null);
@@ -31,6 +32,10 @@ onBeforeUnmount(() => observer?.disconnect());
         <template v-if="loading">
             <Icon name="spinner" :size="20" class="animate-spin text-accent" />
             <slot>Завантаження…</slot>
+        </template>
+        <template v-else-if="failed">
+            <span>Не вдалося завантажити далі.</span>
+            <button type="button" class="min-h-11 px-1 text-14 font-medium text-accent" @click="emit('visible')">Повторити</button>
         </template>
     </div>
 </template>

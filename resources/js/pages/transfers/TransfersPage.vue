@@ -121,7 +121,7 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
                 </div>
             </section>
 
-            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" @visible="list.loadMore" />
+            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" :failed="Boolean(list.moreError.value)" @visible="list.loadMore" />
         </LoadState>
     </SubScreen>
 </template>

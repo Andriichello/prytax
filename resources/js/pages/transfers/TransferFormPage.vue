@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api, newIdempotencyKey } from '@/api/client';
-import type { Account, AccountTransfer, ApiResponse, ExchangeRate, Paginated, TransferProposal } from '@/api/types';
+import type { Account, AccountTransfer, ApiResponse, ExchangeRate, TransferProposal } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
@@ -23,7 +23,9 @@ import { compareAmounts, formatAmount, formatMoney, multiplyDecimals, parseAmoun
 
 /**
  * Новий переказ (S-TransferNew), and its editing: money moved between two of the profile's accounts, what arrived,
- * the fee, and which receipts' money it moves (oldest first, or the one that matches exactly).
+ * the fee, and which receipts' money it moves (oldest first, or the one that matches exactly, of the receipts that
+ * arrived by the transfer's day). Saving waits for the proposal; an edit sends the allocations only when they
+ * changed, so the saved ones are never replaced by an empty list.
  */
 const route = useRoute();
 const router = useRouter();
@@ -52,13 +54,13 @@ const touchedReceived = ref(false);
 
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [accountList, transfer] = await Promise.all([
-        api.get<Paginated<Account>>(path('accounts'), { append: ['balance'], page: { size: 50 } }, signal),
+        api.all<Account>(path('accounts'), { append: ['balance'] }, signal),
         transferId.value === null
             ? Promise.resolve(null)
             : api.get<ApiResponse<AccountTransfer>>(path(`transfers/${transferId.value}`), { include: ['allocations'] }, signal).then(({ data }) => data),
     ]);
 
-    accounts.value = accountList.data;
+    accounts.value = accountList;
     existing.value = transfer;
 
     if (transfer) {
@@ -78,7 +80,7 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
         return;
     }
 
-    const active = accountList.data.filter((account) => account.is_active);
+    const active = accountList.filter((account) => account.is_active);
     const from = active.find((account) => account.id === Number(route.query.from)) ?? active.find((account) => account.kind === 'platform') ?? active[0];
 
     form.from_account_id = from?.id ?? null;
@@ -99,10 +101,10 @@ function swap(): void {
     [form.from_account_id, form.to_account_id] = [form.to_account_id, form.from_account_id];
 }
 
-/* Same currency: what arrives follows what was sent, until it is typed (the difference is the fee). */
+/* Same currency: what arrives follows what was sent, until it is typed (the difference is the fee); a sale's is typed. */
 watch(() => [form.amount_sent, isSale.value] as const, ([sent, sale]) => {
-    if (!touchedReceived.value && !sale) {
-        form.amount_received = sent;
+    if (!touchedReceived.value) {
+        form.amount_received = sale ? '' : sent;
     }
 });
 
@@ -117,8 +119,11 @@ const feePercent = computed(() => (fee.value && sent.value && Number(sent.value)
 
 /* A sale of currency: its rate against the NBU's on the day it arrived. */
 const nbuRate = ref<string | null>(null);
+let rateRun = 0;
 
 watch(() => [isSale.value, from.value?.currency, to.value?.currency, form.received_at] as const, async ([sale, fromCurrency, toCurrency, date]) => {
+    const run = ++rateRun;
+
     nbuRate.value = null;
 
     const foreign = fromCurrency === 'UAH' ? toCurrency : fromCurrency;
@@ -130,9 +135,11 @@ watch(() => [isSale.value, from.value?.currency, to.value?.currency, form.receiv
     try {
         const { data } = await api.get<ApiResponse<ExchangeRate>>(`exchange-rates/${foreign}/${date}`);
 
-        nbuRate.value = data.rate;
+        if (run === rateRun) {
+            nbuRate.value = data.rate;
+        }
     } catch {
-        nbuRate.value = null;
+        // No rate of the day: no spread is shown, and saving asks for a rate typed in
     }
 });
 
@@ -147,39 +154,70 @@ const effectiveRate = computed(() => {
         : (Number(received.value) / Number(sent.value)).toFixed(4);
 });
 
-/** The loss against the NBU in UAH: what the foreign amount was worth less what was got for it. */
+/**
+ * The loss against the NBU in UAH, as the API counts it (TransferMetrics::spread): the bank's separate fee isn't
+ * converted, so only the rest is sold or bought. Selling: what the rest was worth less the hryvnias got; buying: the
+ * hryvnias paid less what the currency got was worth.
+ */
 const spread = computed(() => {
-    if (!nbuRate.value || !sent.value || !received.value || from.value?.currency === 'UAH') {
+    if (!nbuRate.value || !sent.value || !received.value) {
         return null;
     }
 
-    return subtractAmounts(multiplyDecimals(sent.value, nbuRate.value), received.value);
+    const converted = subtractAmounts(sent.value, parseAmount(form.fee_amount) ?? '0.00');
+
+    if (to.value?.currency === 'UAH') {
+        return subtractAmounts(multiplyDecimals(converted, nbuRate.value), received.value);
+    }
+
+    if (from.value?.currency === 'UAH') {
+        return subtractAmounts(converted, multiplyDecimals(received.value, nbuRate.value));
+    }
+
+    return null;
 });
 
 /* Which receipts' money the transfer moves */
 const proposal = ref<TransferProposal | null>(null);
+const proposing = ref(false);
+const proposalFailed = ref(false);
 const mode = ref<'fifo' | 'exact'>('fifo');
 const allocations = reactive<Record<number, string>>({});
 let proposalTimer: ReturnType<typeof setTimeout> | undefined;
 let proposalRun = 0;
 
-watch(() => [form.from_account_id, sent.value] as const, ([accountId, amount]) => {
+/** The saved allocations of the edited transfer, which the form starts with. */
+let savedAllocations: string | null = null;
+
+/**
+ * Ask for the proposal of the current account, amount and day, after a pause in typing; answers of earlier
+ * requests are dropped.
+ */
+function requestProposal(): void {
     clearTimeout(proposalTimer);
+
+    const run = ++proposalRun;
+    const accountId = form.from_account_id;
+    const amount = sent.value;
+
+    proposalFailed.value = false;
 
     if (accountId === null || amount === null || Number(amount) <= 0) {
         proposal.value = null;
+        proposing.value = false;
 
         return;
     }
 
-    proposalTimer = setTimeout(async () => {
-        const run = ++proposalRun;
+    proposing.value = true;
 
+    proposalTimer = setTimeout(async () => {
         try {
             const { data } = await api.post<ApiResponse<TransferProposal>>(path('transfers/propose'), {
                 from_account_id: accountId,
                 amount_sent: amount,
                 transfer_id: transferId.value ?? undefined,
+                received_at: form.received_at || undefined,
             });
 
             if (run !== proposalRun) {
@@ -190,18 +228,26 @@ watch(() => [form.from_account_id, sent.value] as const, ([accountId, amount]) =
 
             proposal.value = data;
 
-            if (first && existing.value?.allocations) {
+            if (first && existing.value?.allocations && savedAllocations === null) {
                 setAllocations(existing.value.allocations.map((allocation) => ({ payment_id: allocation.payment_id, amount: allocation.amount })));
+                savedAllocations = JSON.stringify(allocationList());
             } else {
                 applyMode();
             }
         } catch {
             if (run === proposalRun) {
                 proposal.value = null;
+                proposalFailed.value = true;
+            }
+        } finally {
+            if (run === proposalRun) {
+                proposing.value = false;
             }
         }
     }, 300);
-});
+}
+
+watch(() => [form.from_account_id, sent.value, form.received_at] as const, requestProposal);
 
 function setAllocations(list: { payment_id: number; amount: string }[]): void {
     for (const key of Object.keys(allocations)) {
@@ -219,6 +265,15 @@ function applyMode(): void {
 
 watch(mode, applyMode);
 
+/**
+ * The allocations as the API takes them: the receipts with an amount.
+ */
+function allocationList(): { payment_id: number; amount: string | null }[] {
+    return Object.entries(allocations)
+        .map(([paymentId, amount]) => ({ payment_id: Number(paymentId), amount: parseAmount(amount) }))
+        .filter((allocation) => allocation.amount !== null && Number(allocation.amount) > 0);
+}
+
 const allocated = computed(() => sumAmounts(...Object.values(allocations).map((value) => parseAmount(value))));
 const allocationState = computed(() => (sent.value === null ? 'none' : compareAmounts(allocated.value, sent.value) === 0 ? 'full'
     : compareAmounts(allocated.value, sent.value) > 0 ? 'over' : 'partial'));
@@ -231,7 +286,12 @@ const needsNote = computed(() => saveError.value instanceof ApiError && saveErro
 const needsRate = computed(() => !!fieldError(saveError.value, 'nbu_rate') || form.nbu_rate !== '');
 
 function body(): Record<string, unknown> {
+    const list = allocationList();
+    // Without a proposal, or unchanged, an edit keeps its saved allocations (a missing key keeps them)
+    const keepsSaved = !isNew.value && (proposal.value === null || JSON.stringify(list) === savedAllocations);
+
     return {
+        ...(keepsSaved || proposal.value === null ? {} : { allocations: list }),
         from_account_id: form.from_account_id,
         to_account_id: form.to_account_id,
         amount_sent: sent.value ?? form.amount_sent,
@@ -242,9 +302,6 @@ function body(): Record<string, unknown> {
         reference: form.reference.trim() || null,
         nbu_rate: parseAmount(form.nbu_rate),
         correction_note: form.correction_note.trim() || null,
-        allocations: Object.entries(allocations)
-            .map(([paymentId, amount]) => ({ payment_id: Number(paymentId), amount: parseAmount(amount) }))
-            .filter((allocation) => allocation.amount !== null && Number(allocation.amount) > 0),
     };
 }
 
@@ -407,6 +464,11 @@ const generalError = computed(() => {
                 </p>
             </section>
 
+            <p v-if="proposalFailed" class="m-0 flex flex-wrap items-center gap-x-2 text-14 text-warning-text" role="alert">
+                Не вдалося запропонувати, які надходження переказуєте.
+                <button type="button" class="min-h-11 font-medium text-accent" @click="requestProposal">Повторити</button>
+            </p>
+
             <TextField v-model="form.reference" label="Референс або примітка" placeholder="Необов'язково" />
 
             <TextAreaField
@@ -423,7 +485,7 @@ const generalError = computed(() => {
         <template v-if="can(isNew ? 'create' : 'update', 'account-transfers')" #footer>
             <PrimaryButton
                 :busy="saving"
-                :disabled="loading || !form.from_account_id || !form.to_account_id || sent === null || received === null || allocationState === 'over'"
+                :disabled="loading || proposing || !form.from_account_id || !form.to_account_id || sent === null || received === null || allocationState === 'over'"
                 @click="save"
             >
                 {{ isNew ? 'Зберегти переказ' : 'Зберегти зміни' }}

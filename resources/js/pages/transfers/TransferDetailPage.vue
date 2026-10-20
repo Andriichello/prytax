@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '@/api/client';
+import { ApiError, api } from '@/api/client';
 import type { AccountTransfer, ApiResponse } from '@/api/types';
+import TextAreaField from '@/components/form/TextAreaField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import InfoRow from '@/components/ui/InfoRow.vue';
@@ -19,7 +20,8 @@ import { errorMessage } from '@/utils/errors';
 import { formatAmount, formatMoney, sumAmounts } from '@/utils/money';
 
 /**
- * Переказ: the route, what was sent and what arrived, its cost, and the receipts whose money it moved.
+ * Переказ: the route, what was sent and what arrived, its cost, and the receipts whose money it moved. Deleting a sale
+ * with an FX gain in a declared quarter asks for a correction note.
  */
 const route = useRoute();
 const router = useRouter();
@@ -44,15 +46,29 @@ const deleteOpen = ref(false);
 const deleting = ref(false);
 const deleteError = ref<string | null>(null);
 
+/* A declared quarter answers 409: the delete then needs a correction note */
+const correctionNote = ref('');
+const needsNote = ref(false);
+
+function openDelete(): void {
+    deleteError.value = null;
+    needsNote.value = false;
+    correctionNote.value = '';
+    deleteOpen.value = true;
+}
+
 async function remove(): Promise<void> {
     deleting.value = true;
     deleteError.value = null;
 
     try {
-        await api.delete(path(`transfers/${id.value}`));
+        const note = correctionNote.value.trim();
+
+        await api.delete(path(`transfers/${id.value}`), note ? { correction_note: note } : undefined);
         deleteOpen.value = false;
         await router.replace({ name: 'transfers' });
     } catch (caught) {
+        needsNote.value ||= caught instanceof ApiError && caught.status === 409;
         deleteError.value = errorMessage(caught);
     } finally {
         deleting.value = false;
@@ -123,7 +139,7 @@ async function remove(): Promise<void> {
 
                 <p v-if="transfer.note" class="m-0 text-14 text-ink-2">{{ transfer.note }}</p>
 
-                <SecondaryButton v-if="can('delete', 'account-transfers')" tone="negative" @click="deleteOpen = true">
+                <SecondaryButton v-if="can('delete', 'account-transfers')" tone="negative" @click="openDelete">
                     Видалити переказ
                 </SecondaryButton>
             </template>
@@ -139,6 +155,7 @@ async function remove(): Promise<void> {
             @confirm="remove"
         >
             <p class="m-0">Кошти знову рахуватимуться на рахунку «{{ transfer?.fromAccount?.name }}». Якщо їх уже переказано далі, видалити не вийде.</p>
+            <TextAreaField v-if="needsNote" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
         </ConfirmSheet>
     </SubScreen>
 </template>

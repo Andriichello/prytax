@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
-import type { Account, AccountStatement, ApiResponse, StatementEntry } from '@/api/types';
+import type { Account, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
+import MovementSheet from '@/components/account/MovementSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import CopyRow from '@/components/ui/CopyRow.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -15,24 +16,17 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { ACCOUNT_KINDS } from '@/utils/accounts';
+import { ACCOUNT_KINDS, MOVEMENT_CATEGORIES, type MovementDraft } from '@/utils/accounts';
 import { currentQuarter, formatDate, formatDayMonth, quarterOf, quarterLabel } from '@/utils/dates';
 import { formatAmount, formatMoney } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
 
 /**
- * Рахунок (S-AccountDetail): the balance from tracked movements with what came in and went out this year, the
- * receipts whose money is still here (late ones marked), the history of movements, and the requisites printed on
- * invoices, each copyable.
+ * Рахунок (S-AccountDetail): the balance from tracked movements (counted from the latest opening balance) with what
+ * came in and went out this year, the receipts whose money is still here (late ones marked), the history of
+ * movements, where bank fees, interest, expenses and withdrawals are added and changed, and the requisites printed
+ * on invoices, each copyable.
  */
-const MOVEMENTS = {
-    bank_fee: 'Комісія банку',
-    interest: 'Відсотки',
-    expense: 'Витрата',
-    owner_withdrawal: 'Зняття власником',
-    other: 'Інший рух',
-} as const;
-
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
@@ -43,7 +37,7 @@ const year = ref(now);
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
     const [account, statement] = await Promise.all([
-        api.get<ApiResponse<Account>>(path(`accounts/${id.value}`), undefined, signal),
+        api.get<ApiResponse<Account>>(path(`accounts/${id.value}`), { include: ['openingBalances'] }, signal),
         api.get<ApiResponse<AccountStatement>>(path(`accounts/${id.value}/statement`), { year: year.value }, signal),
     ]);
 
@@ -52,6 +46,32 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 
 const account = computed(() => data.value?.account ?? null);
 const statement = computed(() => data.value?.statement ?? null);
+
+/** The opening balance the tracked balance starts from: the latest one. */
+const opening = computed(() => [...account.value?.openingBalances ?? []].sort((a, b) => b.as_of.localeCompare(a.as_of))[0] ?? null);
+
+const hasRequisites = computed(() => Boolean(account.value && (
+    account.value.holder_name || account.value.bank_name || account.value.iban || account.value.swift
+    || account.value.account_number || account.value.details?.length
+)));
+
+/* Movements, which aren't income or transfers: bank fees, interest, expenses and withdrawals */
+const movementOpen = ref(false);
+const movement = ref<MovementDraft | null>(null);
+
+function openMovement(entry: StatementMovementEntry | null): void {
+    movement.value = entry && {
+        id: entry.movement_id,
+        direction: entry.amount.startsWith('-') ? 'out' : 'in',
+        amount: entry.amount.replace(/^-/, ''),
+        booked_at: entry.date,
+        category: entry.category,
+        note: entry.title,
+    };
+    movementOpen.value = true;
+}
+
+const entryTag = (entry: StatementEntry) => (entryLink(entry) ? 'RouterLink' : entry.type === 'movement' ? 'button' : 'div');
 
 const mask = (value: string): string => {
     const digits = value.replace(/\s/g, '');
@@ -72,7 +92,7 @@ function entryTitle(entry: StatementEntry): string {
         case 'refund':
             return `Повернення клієнту${entry.title ? ` · ${entry.title}` : ''}`;
         default:
-            return entry.title ? `${MOVEMENTS[entry.category]} · ${entry.title}` : MOVEMENTS[entry.category];
+            return entry.title ? `${MOVEMENT_CATEGORIES[entry.category].label} · ${entry.title}` : MOVEMENT_CATEGORIES[entry.category].label;
     }
 }
 
@@ -136,6 +156,9 @@ function entryLink(entry: StatementEntry) {
                     </template>
                     <p class="m-0 text-12 leading-normal text-ink-3">
                         <span class="num">{{ statement.year }}</span> рік · витрати та особисті зняття не відстежуються
+                        <template v-if="opening">
+                            · від залишку <span class="num">{{ formatMoney(opening.amount, account.currency) }}</span> на <span class="num">{{ formatDate(opening.as_of) }}</span>
+                        </template>
                     </p>
                 </section>
 
@@ -171,7 +194,12 @@ function entryLink(entry: StatementEntry) {
                 </section>
 
                 <section class="flex flex-col gap-2">
-                    <SectionTitle>Рух коштів</SectionTitle>
+                    <SectionTitle>
+                        Рух коштів
+                        <template v-if="can('create', 'account-movements')" #aside>
+                            <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openMovement(null)">+ Комісія, витрата</button>
+                        </template>
+                    </SectionTitle>
                     <PeriodStepper
                         :label="`${year} рік`"
                         :can-next="year < now"
@@ -183,11 +211,13 @@ function entryLink(entry: StatementEntry) {
                     <EmptyState v-if="statement.history.length === 0" text="Рухів за цей рік немає." />
                     <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                         <component
-                            :is="entryLink(entry) ? 'RouterLink' : 'div'"
+                            :is="entryTag(entry)"
                             v-for="(entry, index) in statement.history"
                             :key="`${entry.type}-${index}`"
                             :to="entryLink(entry) ?? undefined"
-                            class="flex items-center justify-between gap-3 py-3 text-ink no-underline hover:text-ink"
+                            :type="entry.type === 'movement' ? 'button' : undefined"
+                            class="flex items-center justify-between gap-3 py-3 text-left text-ink no-underline hover:text-ink"
+                            @click="entry.type === 'movement' && openMovement(entry)"
                         >
                             <span class="flex min-w-0 flex-col gap-0.5">
                                 <span class="truncate text-15">{{ entryTitle(entry) }}</span>
@@ -206,7 +236,7 @@ function entryLink(entry: StatementEntry) {
                     </div>
                 </section>
 
-                <section v-if="account.holder_name || account.iban || account.account_number || account.details?.length" class="flex flex-col gap-2">
+                <section v-if="hasRequisites" class="flex flex-col gap-2">
                     <SectionTitle>Реквізити для інвойсів</SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface pr-1 pl-4">
                         <CopyRow v-if="account.holder_name" label="Отримувач" :value="account.holder_name" :figure="false" />
@@ -234,5 +264,15 @@ function entryLink(entry: StatementEntry) {
                 </RouterLink>
             </template>
         </LoadState>
+
+        <MovementSheet
+            v-if="account"
+            v-model:open="movementOpen"
+            :account-id="account.id"
+            :currency="account.currency"
+            :movement="movement"
+            :editable="can(movement ? 'update' : 'create', 'account-movements')"
+            @saved="reload"
+        />
     </SubScreen>
 </template>

@@ -62,10 +62,14 @@ const routes: RouteRecordRaw[] = [
     { path: '/accounting/esv', name: 'accounting-esv', component: () => import('@/pages/accounting/EsvPage.vue'), meta: { tab: 'accounting' } },
     { path: '/accounting/income-book', name: 'income-book', component: () => import('@/pages/accounting/IncomeBookPage.vue'), meta: { tab: 'accounting' } },
 
-    { path: '/taxes', name: 'taxes', component: comingSoon, meta: { tab: 'taxes', title: 'Податки' } },
-    { path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments', name: 'taxes-by-payment', component: comingSoon, meta: { title: 'Податки за надходженнями' } },
-    { path: '/taxes/payments/new', name: 'tax-payment-new', component: comingSoon, meta: { title: 'Нова сплата податку' } },
-    { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: comingSoon, meta: { title: 'Декларація' } },
+    { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes' } },
+    {
+        path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments',
+        name: 'taxes-by-payment',
+        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter, view: 'receipts' } }),
+    },
+    { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue') },
+    { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: () => import('@/pages/taxes/DeclarationPage.vue') },
 
     { path: '/more', name: 'more', component: comingSoon, meta: { tab: 'more', title: 'Ще' } },
     { path: '/profiles/new', name: 'profile-new', component: comingSoon, meta: { title: 'Новий ФОП' } },

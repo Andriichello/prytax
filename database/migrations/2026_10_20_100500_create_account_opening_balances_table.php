@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('profile_id')->constrained()->restrictOnDelete();
             $table->foreignId('account_id')->constrained()->restrictOnDelete();
+            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->date('as_of');
             $table->decimal('amount', 15, 2);
             $table->timestamps();

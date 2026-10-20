@@ -15,6 +15,7 @@ return new class extends Migration
         Schema::create('tax_opening_balances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('profile_id')->constrained()->restrictOnDelete();
+            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tax_type', 24);
             $table->date('as_of');
             $table->decimal('amount', 15, 2);

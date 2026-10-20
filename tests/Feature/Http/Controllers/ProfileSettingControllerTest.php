@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http\Controllers;
 
+use Core\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
@@ -78,5 +79,24 @@ class ProfileSettingControllerTest extends TestCase
         $this->patchJson($this->profilePath($profile, 'settings'), ['alerts' => ['deadline_days' => 10]])
             ->assertOk()
             ->assertJsonPath('data.alerts.deadline_days', 10);
+    }
+
+    /**
+     * Test that a change of the settings, which change tax figures, is recorded in the audit log with who made it.
+     *
+     * @return void
+     */
+    public function testRecordsTheChangedSettingsInTheAuditLog(): void
+    {
+        $profile = $this->createProfile();
+        $user = $this->actAs($profile, 'accountant');
+
+        $this->patchJson($this->profilePath($profile, 'settings'), ['income' => ['taxable_base' => 'received']])->assertOk();
+
+        $entry = AuditLog::query()->where('event', 'settings_updated')->firstOrFail();
+        $this->assertSame($profile->id, (int) $entry->subject_id);
+        $this->assertSame($user->id, (int) $entry->causer_id);
+        $this->assertSame(['income.taxable_base' => 'invoiced'], $entry->changes['old']);
+        $this->assertSame(['income.taxable_base' => 'received'], $entry->changes['new']);
     }
 }

@@ -4,6 +4,7 @@ namespace PryTax\Models;
 
 use Carbon\Carbon;
 use Core\Models\BaseModel;
+use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -47,6 +48,7 @@ use PryTax\Queries\TenantQuery;
 #[UseFactory(ClientFactory::class)]
 class Client extends BaseModel
 {
+    use Audited;
     use BelongsToProfile;
 
     /** @use HasFactory<ClientFactory> */

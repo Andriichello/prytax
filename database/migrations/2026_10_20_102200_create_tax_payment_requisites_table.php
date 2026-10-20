@@ -15,6 +15,7 @@ return new class extends Migration
         Schema::create('tax_payment_requisites', function (Blueprint $table) {
             $table->id();
             $table->foreignId('profile_id')->constrained()->restrictOnDelete();
+            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tax_type', 24);
             $table->string('iban', 34);
             $table->string('recipient_name');

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Services\Transfers;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -195,6 +196,30 @@ class TransferRecorderTest extends TestCase
             ['payment_id' => $older->id, 'amount' => '1000.00'],
             ['payment_id' => $newer->id, 'amount' => '200.00'],
         ], $fifo['fifo']);
+    }
+
+    /**
+     * Test that receipts dated after the day the transfer arrived aren't proposed, so the proposal can be saved.
+     *
+     * @return void
+     */
+    public function testProposesNoReceiptOfADayAfterTheTransfer(): void
+    {
+        [$profile, $older, $payoneer] = $this->receiptOnPayoneer();
+        $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id,
+            'received_to_account_id' => $payoneer->id,
+            'amount' => '600.00',
+            'received_at' => '2026-10-07',
+        ]));
+
+        $proposal = $this->inProfile($profile, fn () => app(AllocationProposer::class)
+            ->propose($payoneer, '600.00', null, CarbonImmutable::parse('2026-10-06')));
+
+        $this->assertSame([$older->id], array_column($proposal['candidates'], 'payment_id'));
+        $this->assertNull($proposal['exact']);
+        $this->assertSame([['payment_id' => $older->id, 'amount' => '600.00']], $proposal['fifo']);
+        $this->assertSame('1000.00', $proposal['available']);
     }
 
     /**

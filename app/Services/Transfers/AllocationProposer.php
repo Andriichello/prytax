@@ -2,6 +2,7 @@
 
 namespace PryTax\Services\Transfers;
 
+use Carbon\CarbonInterface;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Account;
 
@@ -10,7 +11,8 @@ use PryTax\Models\Account;
  *
  * Proposes which receipts a transfer out of an account carries (design.md §6.3): an exact match, when one receipt
  * holds exactly the amount sent (the common case of one transfer per receipt), and a FIFO proposal over the
- * receipts, which hold money on the account, the oldest first, capped at the amount. The user edits either before
+ * receipts, which hold money on the account, the oldest first, capped at the amount. Receipts dated after the
+ * transfer arrived aren't proposed, as a transfer can't move money received later. The user edits either before
  * saving; what stays unallocated remains on the account, it isn't lost.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
@@ -33,6 +35,7 @@ class AllocationProposer
      * @param Account $from
      * @param string $amountSent
      * @param int|null $excludeTransferId The transfer being edited, whose own allocations are left out.
+     * @param CarbonInterface|null $receivedAt When the transfer arrived: receipts of later days aren't proposed.
      *
      * @return array{
      *     available: string,
@@ -42,9 +45,15 @@ class AllocationProposer
      *     unallocated: string,
      * }
      */
-    public function propose(Account $from, string $amountSent, ?int $excludeTransferId = null): array
-    {
-        $holdings = $this->holdings->holdingsOn($from, $excludeTransferId);
+    public function propose(
+        Account $from,
+        string $amountSent,
+        ?int $excludeTransferId = null,
+        ?CarbonInterface $receivedAt = null
+    ): array {
+        $holdings = $this->holdings->holdingsOn($from, $excludeTransferId)
+            ->filter(fn (array $holding) => $receivedAt === null || $holding['payment']->received_at->lte($receivedAt))
+            ->values();
         $amount = Decimal::of($amountSent);
 
         $exact = $holdings->first(fn (array $holding) => $holding['amount']->isEqualTo($amount));

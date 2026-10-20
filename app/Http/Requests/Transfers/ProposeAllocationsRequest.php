@@ -8,7 +8,8 @@ use PryTax\Http\Requests\Traits\ScopesToProfile;
 /**
  * Class ProposeAllocationsRequest.
  *
- * Proposes the receipts, which a transfer of an amount out of an account carries: an exact match and FIFO.
+ * Proposes the receipts, which a transfer of an amount out of an account carries: an exact match and FIFO, of the
+ * receipts dated on or before the day the transfer arrived (`received_at`), when it is given.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Transfers
@@ -28,6 +29,7 @@ class ProposeAllocationsRequest extends StoreRequest
             'from_account_id' => ['required', 'integer', $this->existsInProfile('accounts')],
             'amount_sent' => ['required', ...$this->moneyRules()],
             'transfer_id' => ['sometimes', 'nullable', 'integer', $this->existsInProfile('account_transfers')],
+            'received_at' => ['sometimes', 'nullable', 'date'],
         ];
     }
 

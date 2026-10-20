@@ -2,6 +2,7 @@
 
 namespace PryTax\Http\Controllers;
 
+use Carbon\CarbonImmutable;
 use Core\Http\Requests\Crud\DestroyRequest;
 use Core\Http\Requests\Crud\IndexRequest;
 use Core\Http\Requests\Crud\ShowRequest;
@@ -89,6 +90,7 @@ class AccountTransferController extends TenantController
             $from,
             $request->validated('amount_sent'),
             $request->validated('transfer_id'),
+            $request->validated('received_at') ? CarbonImmutable::parse($request->validated('received_at')) : null,
         )]);
     }
 

@@ -17,7 +17,8 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Фільтри інвойсів (S-InvoiceFilters): a period (years, quarters, months, all multi-select, or a range of issue
- * dates), clients, statuses and currencies. The button shows how many invoices the choice finds.
+ * dates — one kind at a time: switching the kind clears the other's choice), clients, statuses and currencies. The
+ * button shows how many invoices the choice finds.
  */
 type PeriodMode = 'years' | 'quarters' | 'months' | 'range';
 
@@ -84,6 +85,20 @@ function toggle<T>(list: T[], value: T): void {
     }
 }
 
+/**
+ * Switch the kind of period; what was chosen in another kind is dropped, as only one kind applies.
+ */
+function changeMode(next: PeriodMode): void {
+    if (next === mode.value) {
+        return;
+    }
+
+    mode.value = next;
+    draft.value.periods = [];
+    draft.value.from = '';
+    draft.value.to = '';
+}
+
 function togglePeriod(token: string): void {
     draft.value.from = '';
     draft.value.to = '';
@@ -103,9 +118,11 @@ const isFutureQuarter = (quarter: number): boolean => shownYear.value > now.year
 const isFutureMonth = (month: number): boolean => shownYear.value > now.year || (shownYear.value === now.year && month > now.month);
 
 let countTimer: ReturnType<typeof setTimeout> | undefined;
+let countRequest: AbortController | null = null;
 
 watch(draft, () => {
     clearTimeout(countTimer);
+    countRequest?.abort();
 
     if (!open.value) {
         return;
@@ -113,17 +130,23 @@ watch(draft, () => {
 
     counting.value = true;
     countTimer = setTimeout(async () => {
+        const own = (countRequest = new AbortController());
+
         try {
             const result = await api.get<Paginated<Invoice>>(path('invoices'), {
                 filter: filtersToApi(draft.value),
                 page: { size: 1 },
-            });
+            }, own.signal);
 
             count.value = result.meta.total;
         } catch {
-            count.value = null;
+            if (own === countRequest) {
+                count.value = null;
+            }
         } finally {
-            counting.value = false;
+            if (own === countRequest) {
+                counting.value = false;
+            }
         }
     }, 250);
 }, { deep: true });
@@ -152,7 +175,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">Період</SectionTitle></legend>
             <SegmentedControl
-                v-model="mode"
+                :model-value="mode"
                 label="Тип періоду"
                 :options="[
                     { value: 'years', label: 'Роки' },
@@ -160,6 +183,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                     { value: 'months', label: 'Місяці' },
                     { value: 'range', label: 'Діапазон' },
                 ]"
+                @update:model-value="changeMode"
             />
 
             <div v-if="mode === 'years'" class="flex flex-wrap gap-2">
@@ -230,7 +254,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                 <DateField v-model="draft.to" label="по" :min="draft.from || undefined" />
             </div>
 
-            <span class="text-13 text-ink-3">Можна обрати кілька. У «Діапазон» — дата початку й кінця.</span>
+            <span class="text-13 text-ink-3">Можна обрати кілька одного виду. У «Діапазон» — дата початку й кінця.</span>
         </fieldset>
 
         <fieldset v-if="facets?.clients.length" class="m-0 flex flex-col border-0 p-0">

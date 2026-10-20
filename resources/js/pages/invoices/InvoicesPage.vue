@@ -15,7 +15,7 @@ import { countFilters, emptyFilters, filtersToApi, useInvoiceFilters } from '@/c
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
 import { useSession } from '@/composables/useSession';
-import { dateParts, formatMonthYear } from '@/utils/dates';
+import { dateParts, formatMonthYear, monthNameGenitive } from '@/utils/dates';
 import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
@@ -57,6 +57,19 @@ const months = computed(() => {
     }
 
     return groups;
+});
+
+/** "липня 2026": the month the next page continues, for the loading line at the bottom. */
+const loadingMonth = computed(() => {
+    const last = list.items.value.at(-1);
+
+    if (!last) {
+        return null;
+    }
+
+    const { year, month } = dateParts(last.issued_at);
+
+    return `${monthNameGenitive(month)} ${year}`;
 });
 
 function chipLabel(kind: 'client' | 'status' | 'currency'): string {
@@ -165,7 +178,9 @@ const chipClass = (active: boolean): string => (active
                 </div>
             </section>
 
-            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" :failed="Boolean(list.moreError.value)" @visible="list.loadMore" />
+            <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" :failed="Boolean(list.moreError.value)" @visible="list.loadMore">
+                Завантаження{{ loadingMonth ? ` ${loadingMonth}` : '' }}…
+            </InfiniteSentinel>
         </LoadState>
 
         <InvoiceFiltersSheet v-model:open="filtering" :facets="facets" :filters="filters" @apply="apply" />

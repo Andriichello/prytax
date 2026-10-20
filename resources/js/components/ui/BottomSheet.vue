@@ -1,3 +1,18 @@
+<script lang="ts">
+/** The open sheets, the topmost last: one page lock for all of them, and Escape closes only the topmost. */
+const openSheets: symbol[] = [];
+
+/**
+ * Lock the page behind the sheets (no scrolling, no focus or taps reaching it) while any sheet is open.
+ */
+function lockPage(): void {
+    const locked = openSheets.length > 0;
+
+    document.body.style.overflow = locked ? 'hidden' : '';
+    document.getElementById('app')?.toggleAttribute('inert', locked);
+}
+</script>
+
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -5,12 +20,14 @@ import Icon from '@/components/ui/Icon.vue';
 /**
  * A sheet that slides up over the page: a handle, a title with a close button (or the `action` slot), its content,
  * and an optional sticky `footer` for its buttons. Escape, the close button and a tap on the dimmed page close it.
+ * The page behind is inert while it is open, and a sheet over another one closes first.
  */
 const { title } = defineProps<{ title: string }>();
 const open = defineModel<boolean>('open', { required: true });
 
 const titleId = useId();
 const sheet = ref<HTMLElement | null>(null);
+const token = Symbol('sheet');
 let returnFocus: HTMLElement | null = null;
 
 function close(): void {
@@ -18,29 +35,37 @@ function close(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && openSheets[openSheets.length - 1] === token) {
         close();
     }
 }
 
-watch(open, async (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : '';
+function release(): void {
+    const index = openSheets.indexOf(token);
 
+    if (index !== -1) {
+        openSheets.splice(index, 1);
+        lockPage();
+    }
+
+    document.removeEventListener('keydown', onKeydown);
+}
+
+watch(open, async (isOpen) => {
     if (isOpen) {
         returnFocus = document.activeElement as HTMLElement | null;
+        openSheets.push(token);
+        lockPage();
         document.addEventListener('keydown', onKeydown);
         await nextTick();
         sheet.value?.focus();
-    } else {
-        document.removeEventListener('keydown', onKeydown);
+    } else if (openSheets.includes(token)) {
+        release();
         returnFocus?.focus();
     }
 }, { immediate: true });
 
-onBeforeUnmount(() => {
-    document.body.style.overflow = '';
-    document.removeEventListener('keydown', onKeydown);
-});
+onBeforeUnmount(release);
 </script>
 
 <template>

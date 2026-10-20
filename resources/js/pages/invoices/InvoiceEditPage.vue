@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type {
     Account,
@@ -14,6 +14,7 @@ import type {
     InvoiceSource,
     Paginated,
     Project,
+    StoredFile,
 } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import SelectField from '@/components/form/SelectField.vue';
@@ -41,7 +42,8 @@ import { countOf, DAYS } from '@/utils/plural';
 
 /**
  * Новий інвойс / чернетка (S-InvoiceEdit, S-InvoiceExternal): an invoice made in PryTax from items, or an external
- * PDF with its total typed in. "Зберегти" keeps the draft; "Зафіксувати" saves it and asks before freezing.
+ * PDF with its total typed in. "Зберегти" keeps the draft; "Зафіксувати" saves it and asks before freezing. Leaving
+ * with unsaved changes asks first.
  */
 const route = useRoute();
 const router = useRouter();
@@ -131,24 +133,36 @@ function fill(invoice: Invoice): void {
     Object.assign(touched, { issued_at: true, due_at: true, receiving_account_id: true, currency: true, period: true });
 }
 
+/** The person changed the form since it was loaded or saved. */
+const dirty = ref(false);
+
+/**
+ * A saved draft with what the editor shows of it.
+ */
+async function fetchInvoice(id: number, signal?: AbortSignal): Promise<Invoice> {
+    const { data } = await api.get<ApiResponse<Invoice>>(path(`invoices/${id}`), {
+        include: ['items', 'client', 'receivingAccount', 'primaryFile'],
+        append: ['number_preview'],
+    }, signal);
+
+    return data;
+}
+
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [clientList, accountList, invoice, latest] = await Promise.all([
-        api.get<Paginated<Client>>(path('clients'), { page: { size: 50 } }, signal),
-        api.get<Paginated<Account>>(path('accounts'), { page: { size: 50 } }, signal),
-        invoiceId.value === null
-            ? Promise.resolve(null)
-            : api.get<ApiResponse<Invoice>>(path(`invoices/${invoiceId.value}`), {
-                include: ['items', 'client', 'receivingAccount', 'primaryFile'],
-                append: ['number_preview'],
-            }, signal).then(({ data }) => data),
+        api.all<Client>(path('clients'), {}, signal),
+        api.all<Account>(path('accounts'), {}, signal),
+        invoiceId.value === null ? Promise.resolve(null) : fetchInvoice(invoiceId.value, signal),
         invoiceId.value === null
             ? api.get<Paginated<Invoice>>(path('invoices'), { page: { size: 1 } }, signal).then(({ data }) => data[0] ?? null)
             : Promise.resolve(null),
     ]);
 
-    clients.value = clientList.data;
-    accounts.value = accountList.data;
+    clients.value = clientList;
+    accounts.value = accountList;
     existing.value = invoice;
+    // A PDF, which failed to upload with the first save, is still waiting
+    dirty.value = pendingFile.value !== null;
 
     if (invoice) {
         if (invoice.status !== 'draft') {
@@ -165,8 +179,8 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const wanted = Number(route.query.client) || latest?.client_id;
 
     form.source = route.query.source === 'external' ? 'external' : 'generated';
-    form.client_id = clientList.data.find((client) => client.id === wanted && client.is_active)?.id
-        ?? clientList.data.find((client) => client.is_active)?.id
+    form.client_id = clientList.find((client) => client.id === wanted && client.is_active)?.id
+        ?? clientList.find((client) => client.is_active)?.id
         ?? null;
 }, [profileId, invoiceId]);
 
@@ -180,9 +194,9 @@ watch(() => form.client_id, async (clientId, previous) => {
     }
 
     const [contractList, projectList, typeList, last] = await Promise.all([
-        api.get<Paginated<Contract>>(path(`clients/${clientId}/contracts`), { include: ['rates'], page: { size: 50 } }),
-        api.get<Paginated<Project>>(path(`clients/${clientId}/projects`), { page: { size: 50 } }),
-        api.get<Paginated<ChargeType>>(path(`clients/${clientId}/charge-types`), { page: { size: 50 } }),
+        api.all<Contract>(path(`clients/${clientId}/contracts`), { include: ['rates'] }),
+        api.all<Project>(path(`clients/${clientId}/projects`)),
+        api.all<ChargeType>(path(`clients/${clientId}/charge-types`)),
         isNew.value && !touched.period
             ? api.get<Paginated<Invoice>>(path('invoices'), {
                 filter: { client_id: { in: [clientId] }, status: { in: ['ready', 'sent', 'paid'] } },
@@ -196,9 +210,9 @@ watch(() => form.client_id, async (clientId, previous) => {
         return;
     }
 
-    contracts.value = contractList.data;
-    projects.value = projectList.data.filter((project) => project.is_active || form.items.some((item) => item.project_id === project.id));
-    chargeTypes.value = typeList.data.filter((type) => type.is_active || form.items.some((item) => item.charge_type_id === type.id));
+    contracts.value = contractList;
+    projects.value = projectList.filter((project) => project.is_active || form.items.some((item) => item.project_id === project.id));
+    chargeTypes.value = typeList.filter((type) => type.is_active || form.items.some((item) => item.charge_type_id === type.id));
 
     if (previous !== undefined && previous !== null && previous !== clientId) {
         form.items = form.items.map((item) => ({ ...item, project_id: null, charge_type_id: null }));
@@ -216,14 +230,38 @@ watch(() => form.client_id, async (clientId, previous) => {
     }
 });
 
+/** Whether the account is one of the profile's, in the currency. */
+const isAccountIn = (accountId: number | null, currency: string): boolean => accounts.value
+    .some((item) => item.id === accountId && item.currency === currency);
+
+/* An account left from another currency (a contract or a typed currency changed it) is chosen again */
+watch(() => form.currency, (currency) => {
+    if (form.receiving_account_id !== null && accounts.value.length && !isAccountIn(form.receiving_account_id, currency)) {
+        form.receiving_account_id = null;
+        touched.receiving_account_id = false;
+    }
+});
+
+/** Counts the requests for defaults, so only the answer to the latest one fills the form. */
+let defaultsRun = 0;
+
 /**
  * What the form starts with for the client, contract and period: currency, dates, account, the contract's
- * description and rates, and the number the freeze would give.
+ * description and rates, and the number the freeze would give. An external invoice has no contract: its currency is
+ * the client's, or the one typed.
  */
-watch(() => [form.client_id, form.contract_id, form.period_end, touched.issued_at ? form.issued_at : ''] as const, async ([clientId, contractId, periodEnd, issuedAt]) => {
+watch(() => [
+    form.client_id,
+    form.source === 'generated' ? form.contract_id : null,
+    form.period_end,
+    touched.issued_at ? form.issued_at : '',
+    form.source === 'external' && touched.currency ? form.currency : '',
+] as const, async ([clientId, contractId, periodEnd, issuedAt, currency]) => {
     if (clientId === null) {
         return;
     }
+
+    const run = ++defaultsRun;
 
     try {
         const { data } = await api.get<ApiResponse<InvoiceDefaults>>(path('invoices/defaults'), {
@@ -231,10 +269,10 @@ watch(() => [form.client_id, form.contract_id, form.period_end, touched.issued_a
             contract_id: contractId ?? undefined,
             period_end: periodEnd || undefined,
             issued_at: issuedAt || undefined,
-            currency: form.source === 'external' && touched.currency ? form.currency : undefined,
+            currency: currency || undefined,
         });
 
-        if (clientId !== form.client_id) {
+        if (run !== defaultsRun) {
             return;
         }
 
@@ -252,17 +290,65 @@ watch(() => [form.client_id, form.contract_id, form.period_end, touched.issued_a
             form.due_at = data.due_at ?? '';
         }
 
-        if (!touched.receiving_account_id && data.receiving_account_id !== null) {
+        if ((!touched.receiving_account_id || !isAccountIn(form.receiving_account_id, form.currency))
+            && isAccountIn(data.receiving_account_id, form.currency)) {
             form.receiving_account_id = data.receiving_account_id;
+            touched.receiving_account_id = false;
         }
     } catch {
-        defaults.value = null;
+        if (run === defaultsRun) {
+            defaults.value = null;
+        }
+    }
+});
+
+/* A PDF chosen for an external invoice isn't uploaded into one made in PryTax */
+watch(() => form.source, (source) => {
+    if (source === 'generated') {
+        dropFile();
     }
 });
 
 const contract = computed(() => contracts.value.find((item) => item.id === form.contract_id) ?? null);
 const rates = computed(() => (contract.value?.currency === form.currency ? contract.value.rates ?? [] : []));
-const numberPreview = computed(() => existing.value?.number_preview ?? defaults.value?.number_preview ?? null);
+const numbering = computed(() => settings.value?.invoice.numbering ?? null);
+
+/**
+ * The number the freeze would give: the saved draft's while its client and dates are as saved; a draft, which was
+ * frozen before, keeps its counter's number while the counter is the same (only the date in it changes); else the
+ * next number for the form's client and dates.
+ */
+const numberPreview = computed(() => {
+    const saved = existing.value;
+
+    if (saved && saved.client_id === form.client_id && saved.period_end === form.period_end && saved.issued_at === form.issued_at) {
+        return saved.number_preview ?? null;
+    }
+
+    if (saved?.sequence_number != null && numbering.value) {
+        const date = numbering.value.date_source === 'issued_at' ? form.issued_at : form.period_end;
+        const scope = (numbering.value.scope === 'global' ? 'global' : `client:${form.client_id}`)
+            + (numbering.value.reset === 'yearly' && date ? `:${date.slice(0, 4)}` : '');
+
+        if (date && scope === saved.sequence_scope_key) {
+            return numbering.value.strategy === 'sequence' ? String(saved.sequence_number) : `${date}-${saved.sequence_number}`;
+        }
+    }
+
+    return defaults.value?.number_preview ?? saved?.number_preview ?? null;
+});
+
+const numberHint = computed(() => {
+    const counter = numbering.value?.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП';
+
+    if (numbering.value?.strategy === 'sequence') {
+        return `Номер буде присвоєно під час фіксації: ${counter}.`;
+    }
+
+    const date = numbering.value?.date_source === 'issued_at' ? 'дата виставлення' : 'дата кінця періоду';
+
+    return `Номер буде присвоєно під час фіксації: ${date} + ${counter}.`;
+});
 
 const accountOptions = computed(() => accounts.value
     .filter((account) => account.currency === form.currency
@@ -347,6 +433,8 @@ function openItem(item: ItemDraft): void {
 function saveItem(item: ItemDraft): void {
     const index = form.items.findIndex((entry) => entry.key === item.key);
 
+    dirty.value = true;
+
     if (index === -1) {
         form.items.push(item);
     } else {
@@ -355,6 +443,7 @@ function saveItem(item: ItemDraft): void {
 }
 
 function removeItem(key: number): void {
+    dirty.value = true;
     form.items = form.items.filter((item) => item.key !== key);
 }
 
@@ -364,10 +453,12 @@ const editingPosition = computed(() => {
     return index === -1 ? form.items.length + 1 : index + 1;
 });
 
-/* External PDF: the file to upload, checked for duplicates by its SHA-256 before it's sent. */
+/* External PDF: the file to upload, checked for duplicates by its SHA-256 before it's sent (where the browser can
+ * hash it: a page served over HTTPS or from localhost), and by the upload itself. */
 const pendingFile = ref<File | null>(null);
-const duplicates = ref<InvoiceDuplicate[]>([]);
+const duplicates = ref<Pick<InvoiceDuplicate, 'invoice_id' | 'number'>[]>([]);
 const checkingFile = ref(false);
+const isChecked = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
 async function chooseFile(event: Event): Promise<void> {
@@ -379,6 +470,8 @@ async function chooseFile(event: Event): Promise<void> {
 
     pendingFile.value = file;
     duplicates.value = [];
+    isChecked.value = false;
+    dirty.value = true;
 
     if (!form.number) {
         form.number = file.name.replace(/\.pdf$/i, '');
@@ -395,7 +488,10 @@ async function chooseFile(event: Event): Promise<void> {
         const sha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
         const { data } = await api.get<ApiResponse<InvoiceDuplicate[]>>(path('invoices/duplicates'), { sha256 });
 
-        duplicates.value = data.filter((duplicate) => duplicate.invoice_id !== invoiceId.value);
+        if (pendingFile.value === file) {
+            duplicates.value = data.filter((duplicate) => duplicate.invoice_id !== existing.value?.id);
+            isChecked.value = true;
+        }
     } catch {
         duplicates.value = [];
     } finally {
@@ -406,6 +502,7 @@ async function chooseFile(event: Event): Promise<void> {
 function dropFile(): void {
     pendingFile.value = null;
     duplicates.value = [];
+    isChecked.value = false;
 
     if (fileInput.value) {
         fileInput.value.value = '';
@@ -425,12 +522,13 @@ function payload(): Record<string, unknown> {
     return {
         source: form.source,
         client_id: form.client_id,
-        contract_id: form.contract_id,
+        // An external invoice has neither a contract nor a due date on its form, so none is made up for it
+        contract_id: external ? null : form.contract_id,
         receiving_account_id: form.receiving_account_id,
         period_start: form.period_start,
         period_end: form.period_end,
         issued_at: form.issued_at || null,
-        due_at: form.due_at || null,
+        due_at: external ? null : form.due_at || null,
         currency: form.currency,
         adjustment_amount: form.showAdjustment ? parseAmount(form.adjustment_amount) ?? (form.adjustment_amount || '0') : '0',
         adjustment_label: form.showAdjustment ? form.adjustment_label.trim() || null : null,
@@ -452,7 +550,26 @@ function payload(): Record<string, unknown> {
 }
 
 /**
- * Save the draft (create or update it), then upload a chosen PDF as its primary document.
+ * Upload the chosen PDF as the external draft's primary document; the duplicates the upload finds are shown.
+ */
+async function upload(id: number, file: File): Promise<void> {
+    const body = new FormData();
+
+    body.append('file', file);
+    body.append('primary', '1');
+
+    const { data } = await api.post<ApiResponse<StoredFile & { duplicates?: Pick<InvoiceDuplicate, 'invoice_id' | 'number'>[] }>>(
+        path(`invoices/${id}/files`),
+        body,
+    );
+
+    duplicates.value = data.duplicates ?? [];
+    pendingFile.value = null;
+}
+
+/**
+ * Save the draft (create or update it), then upload a chosen PDF as its primary document. The draft is kept as saved
+ * the moment it is, so a failed upload leaves it saved: trying again updates it rather than making another.
  */
 async function save(): Promise<Invoice | null> {
     saving.value = true;
@@ -465,28 +582,33 @@ async function save(): Promise<Invoice | null> {
                 'If-Unmodified-Since': existing.value.updated_at,
             });
 
-        if (pendingFile.value) {
-            const body = new FormData();
+        existing.value = await fetchInvoice(data.id);
 
-            body.append('file', pendingFile.value);
-            body.append('primary', '1');
-            await api.post(path(`invoices/${data.id}/files`), body);
-            pendingFile.value = null;
+        let uploadError: unknown = null;
+
+        if (pendingFile.value && form.source === 'external') {
+            try {
+                await upload(data.id, pendingFile.value);
+                existing.value = await fetchInvoice(data.id);
+            } catch (caught) {
+                uploadError = caught;
+            }
         }
 
-        const { data: saved } = await api.get<ApiResponse<Invoice>>(path(`invoices/${data.id}`), {
-            include: ['items', 'client', 'receivingAccount', 'primaryFile'],
-            append: ['number_preview'],
-        });
-
-        existing.value = saved;
-        savedAt.value = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+        dirty.value = pendingFile.value !== null;
+        savedAt.value = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' }).format(new Date());
 
         if (isNew.value) {
-            await router.replace({ name: 'invoice-edit', params: { id: saved.id } });
+            await router.replace({ name: 'invoice-edit', params: { id: data.id } });
         }
 
-        return saved;
+        if (uploadError) {
+            saveError.value = uploadError;
+
+            return null;
+        }
+
+        return existing.value;
     } catch (caught) {
         saveError.value = caught;
 
@@ -495,6 +617,15 @@ async function save(): Promise<Invoice | null> {
         saving.value = false;
     }
 }
+
+/* Leaving with unsaved changes asks first (saving, freezing and deleting leave without asking) */
+onBeforeRouteLeave((to) => {
+    if (!dirty.value || to.name === 'invoice-edit') {
+        return true;
+    }
+
+    return window.confirm('Зміни в чернетці не збережено. Вийти без збереження?');
+});
 
 const freezeOpen = ref(false);
 const freezing = ref(false);
@@ -542,6 +673,7 @@ async function remove(): Promise<void> {
     try {
         await api.delete(path(`invoices/${existing.value.id}`));
         deleteOpen.value = false;
+        dirty.value = false;
         await router.replace({ name: 'invoices' });
     } catch (caught) {
         deleteError.value = errorMessage(caught);
@@ -575,250 +707,250 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? 'Зо�
         </template>
 
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <SegmentedControl
-                v-if="isNew"
-                v-model="form.source"
-                label="Джерело інвойсу"
-                :options="[
-                    { value: 'generated', label: 'Створити в PryTax' },
-                    { value: 'external', label: 'Зовнішній PDF' },
-                ]"
-            />
-
-            <!-- Generated: the number the freeze will give -->
-            <section v-if="form.source === 'generated'" class="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-4">
-                <div class="flex items-center justify-between">
-                    <span class="text-13 font-medium text-ink-2">Номер</span>
-                    <button
-                        type="button"
-                        class="min-h-9 text-14 font-medium text-accent"
-                        @click="form.customNumber = !form.customNumber"
-                    >
-                        {{ form.customNumber ? 'Автоматичний' : 'Ввести власний' }}
-                    </button>
-                </div>
-                <TextField
-                    v-if="form.customNumber"
-                    v-model="form.number"
-                    label="Власний номер"
-                    class="num"
-                    :error="fieldError(saveError, 'number')"
-                />
-                <template v-else>
-                    <div class="flex items-baseline gap-2.5">
-                        <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
-                        <span class="text-12 text-ink-3">попередній перегляд</span>
-                    </div>
-                    <p class="m-0 text-13 leading-[1.45] text-ink-3">
-                        Номер буде присвоєно під час фіксації: дата кінця періоду + лічильник
-                        {{ settings?.invoice.numbering.scope === 'per_client' ? 'клієнта' : 'ФОП' }}.
-                    </p>
-                </template>
-            </section>
-
-            <!-- External: the uploaded PDF -->
-            <template v-else>
-                <p class="m-0 text-15 leading-normal text-ink-2">
-                    Для історичних інвойсів або коли клієнт виставляє інвойс сам. Завантажений PDF стає основним
-                    документом, суму вводите вручну.
-                </p>
-                <div v-if="fileName" class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
-                    <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
-                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span class="truncate text-15">{{ fileName }}</span>
-                        <span v-if="checkingFile" class="text-12 text-ink-3">Перевіряю на дублікати…</span>
-                        <span v-else-if="duplicates.length" class="text-12 text-warning-text">
-                            Такий самий файл уже є в інвойсі
-                            <template v-for="(duplicate, index) in duplicates" :key="duplicate.invoice_id">
-                                {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? 'чернетка' }}</RouterLink>
-                            </template>
-                        </span>
-                        <span v-else-if="pendingFile" class="text-12 text-positive">Готово до завантаження · дублікатів не знайдено</span>
-                        <span v-else class="text-12 text-positive">Завантажено · основний документ</span>
-                    </span>
-                    <button v-if="pendingFile" type="button" aria-label="Прибрати файл" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
-                        <Icon name="close" :size="20" />
-                    </button>
-                </div>
-                <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
-                    <Icon name="upload" :size="20" />
-                    {{ fileName ? 'Замінити PDF' : 'Обрати PDF' }}
-                    <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="sr-only" @change="chooseFile">
-                </label>
-                <TextField
-                    v-model="form.number"
-                    label="Номер інвойсу"
-                    hint="Власний номер не змінюється генератором"
-                    :error="fieldError(saveError, 'number')"
-                />
-            </template>
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle>{{ form.source === 'generated' ? 'Клієнт і договір' : 'Клієнт' }}</SectionTitle>
-                <SelectField
-                    v-model="form.client_id"
-                    label="Клієнт"
-                    placeholder="Оберіть клієнта"
-                    :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
-                    :error="fieldError(saveError, 'client_id')"
-                />
-                <SelectField
-                    v-if="form.source === 'generated'"
-                    :model-value="form.contract_id ?? 0"
-                    label="Договір"
+            <div class="contents" @input="dirty = true" @change="dirty = true">
+                <SegmentedControl
+                    v-if="isNew"
+                    v-model="form.source"
+                    label="Джерело інвойсу"
                     :options="[
-                        { value: 0, label: 'Без договору' },
-                        ...contracts.map((item) => ({ value: item.id, label: `${item.name} · ${formatDate(item.started_at)}` })),
+                        { value: 'generated', label: 'Створити в PryTax' },
+                        { value: 'external', label: 'Зовнішній PDF' },
                     ]"
-                    :hint="contractHint"
-                    :error="fieldError(saveError, 'contract_id')"
-                    @update:model-value="form.contract_id = $event || null"
                 />
-            </section>
 
-            <section class="flex flex-col gap-3">
-                <SectionTitle>Період і дати</SectionTitle>
-                <div class="grid grid-cols-2 gap-2.5">
-                    <DateField
-                        v-model="form.period_start"
-                        label="Період з"
-                        :error="fieldError(saveError, 'period_start')"
-                        @update:model-value="touched.period = true"
+                <!-- Generated: the number the freeze will give -->
+                <section v-if="form.source === 'generated'" class="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-13 font-medium text-ink-2">Номер</span>
+                        <button
+                            type="button"
+                            class="min-h-9 text-14 font-medium text-accent"
+                            @click="form.customNumber = !form.customNumber"
+                        >
+                            {{ form.customNumber ? 'Автоматичний' : 'Ввести власний' }}
+                        </button>
+                    </div>
+                    <TextField
+                        v-if="form.customNumber"
+                        v-model="form.number"
+                        label="Власний номер"
+                        class="num"
+                        :error="fieldError(saveError, 'number')"
                     />
-                    <DateField
-                        v-model="form.period_end"
-                        label="по"
-                        :min="form.period_start || undefined"
-                        :error="fieldError(saveError, 'period_end')"
-                        @update:model-value="touched.period = true"
+                    <template v-else>
+                        <div class="flex items-baseline gap-2.5">
+                            <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
+                            <span class="text-12 text-ink-3">попередній перегляд</span>
+                        </div>
+                        <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ numberHint }}</p>
+                    </template>
+                </section>
+
+                <!-- External: the uploaded PDF -->
+                <template v-else>
+                    <p class="m-0 text-15 leading-normal text-ink-2">
+                        Для історичних інвойсів або коли клієнт виставляє інвойс сам. Завантажений PDF стає основним
+                        документом, суму вводите вручну.
+                    </p>
+                    <div v-if="fileName" class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
+                        <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span class="truncate text-15">{{ fileName }}</span>
+                            <span v-if="checkingFile" class="text-12 text-ink-3">Перевіряю на дублікати…</span>
+                            <span v-else-if="duplicates.length" class="text-12 text-warning-text">
+                                Такий самий файл уже є в інвойсі
+                                <template v-for="(duplicate, index) in duplicates" :key="duplicate.invoice_id">
+                                    {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? 'чернетка' }}</RouterLink>
+                                </template>
+                            </span>
+                            <span v-else-if="pendingFile && isChecked" class="text-12 text-positive">Готово до завантаження · дублікатів не знайдено</span>
+                            <span v-else-if="pendingFile" class="text-12 text-ink-3">Готово до завантаження · дублікати перевірить сервер</span>
+                            <span v-else class="text-12 text-positive">Завантажено · основний документ</span>
+                        </span>
+                        <button v-if="pendingFile" type="button" aria-label="Прибрати файл" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
+                            <Icon name="close" :size="20" />
+                        </button>
+                    </div>
+                    <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
+                        <Icon name="upload" :size="20" />
+                        {{ fileName ? 'Замінити PDF' : 'Обрати PDF' }}
+                        <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="sr-only" @change="chooseFile">
+                    </label>
+                    <TextField
+                        v-model="form.number"
+                        label="Номер інвойсу"
+                        hint="Власний номер не змінюється генератором"
+                        :error="fieldError(saveError, 'number')"
                     />
-                    <DateField
-                        v-model="form.issued_at"
-                        :label="form.source === 'generated' ? 'Дата виставлення' : 'Виставлено'"
-                        :error="fieldError(saveError, 'issued_at')"
-                        @update:model-value="touched.issued_at = true"
-                    />
-                    <DateField
-                        v-if="form.source === 'generated'"
-                        v-model="form.due_at"
-                        label="Сплатити до"
-                        :error="fieldError(saveError, 'due_at')"
-                        @update:model-value="touched.due_at = true"
+                </template>
+
+                <section class="flex flex-col gap-3">
+                    <SectionTitle>{{ form.source === 'generated' ? 'Клієнт і договір' : 'Клієнт' }}</SectionTitle>
+                    <SelectField
+                        v-model="form.client_id"
+                        label="Клієнт"
+                        placeholder="Оберіть клієнта"
+                        :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
+                        :error="fieldError(saveError, 'client_id')"
                     />
                     <SelectField
-                        v-else
-                        v-model="form.currency"
-                        label="Валюта"
-                        :options="currencies"
-                        @update:model-value="touched.currency = true"
+                        v-if="form.source === 'generated'"
+                        :model-value="form.contract_id ?? 0"
+                        label="Договір"
+                        :options="[
+                            { value: 0, label: 'Без договору' },
+                            ...contracts.map((item) => ({ value: item.id, label: `${item.name} · ${formatDate(item.started_at)}` })),
+                        ]"
+                        :hint="contractHint"
+                        :error="fieldError(saveError, 'contract_id')"
+                        @update:model-value="form.contract_id = $event || null"
                     />
-                </div>
-            </section>
+                </section>
 
-            <TextField
-                v-if="form.source === 'external'"
-                v-model="form.total"
-                label="Сума інвойсу"
-                numeric
-                class="text-18 font-bold"
-                :error="fieldError(saveError, 'total')"
-            />
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle v-if="form.source === 'generated'">Отримання коштів</SectionTitle>
-                <SelectField
-                    v-model="form.receiving_account_id"
-                    :label="form.source === 'generated' ? 'Рахунок для оплати' : 'Рахунок отримання'"
-                    placeholder="Оберіть рахунок"
-                    :options="accountOptions"
-                    :hint="`Лише активні рахунки в ${form.currency}`"
-                    :error="fieldError(saveError, 'receiving_account_id')"
-                    @update:model-value="touched.receiving_account_id = true"
-                />
-                <div
-                    v-if="form.source === 'generated' && account"
-                    class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2"
-                >
-                    <span v-if="account.holder_name">Отримувач: <span class="text-ink">{{ account.holder_name }}</span></span>
-                    <span v-if="requisites.length">
-                        <template v-for="(requisite, index) in requisites" :key="requisite.label">
-                            {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
-                        </template>
-                    </span>
-                    <span>Реквізити буде надруковано в інвойсі</span>
-                </div>
-            </section>
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle>
-                    Позиції<template v-if="form.source === 'external'"> (необов'язково)</template>
-                    <template #aside><span class="num">{{ form.currency }}</span></template>
-                </SectionTitle>
-                <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
-                    <InvoiceItemCard
-                        :item="{
-                            ...item,
-                            project_code: projects.find((project) => project.id === item.project_id)?.code ?? null,
-                            charge_type: chargeTypes.find((type) => type.id === item.charge_type_id)?.name ?? null,
-                            amount: itemAmounts[index] ?? null,
-                        }"
-                        editable
-                        @open="openItem(item)"
-                    />
-                    <p v-if="itemErrors[index]" class="m-0 px-1 text-12 text-negative">{{ itemErrors[index] }}</p>
-                </div>
-                <button
-                    type="button"
-                    class="flex h-12 items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
-                    :disabled="form.client_id === null"
-                    @click="newItem"
-                >
-                    <Icon name="plus" :size="20" />
-                    Додати позицію
-                </button>
-                <p v-if="fieldError(saveError, 'items')" class="m-0 text-12 text-negative">{{ fieldError(saveError, 'items') }}</p>
-
-                <template v-if="form.source === 'generated'">
-                    <button
-                        v-if="!form.showAdjustment"
-                        type="button"
-                        class="flex min-h-11 items-center self-start text-14 font-medium text-accent"
-                        @click="form.showAdjustment = true"
-                    >
-                        + Знижка або коригування
-                    </button>
-                    <div v-else class="grid grid-cols-[2fr_1fr] gap-2.5">
-                        <TextField v-model="form.adjustment_label" label="Коригування" placeholder="Знижка" />
-                        <TextField
-                            v-model="form.adjustment_amount"
-                            label="Сума, ±"
-                            numeric
-                            placeholder="-100.00"
-                            :error="fieldError(saveError, 'adjustment_amount')"
+                <section class="flex flex-col gap-3">
+                    <SectionTitle>Період і дати</SectionTitle>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <DateField
+                            v-model="form.period_start"
+                            label="Період з"
+                            :error="fieldError(saveError, 'period_start')"
+                            @update:model-value="touched.period = true"
+                        />
+                        <DateField
+                            v-model="form.period_end"
+                            label="по"
+                            :min="form.period_start || undefined"
+                            :error="fieldError(saveError, 'period_end')"
+                            @update:model-value="touched.period = true"
+                        />
+                        <DateField
+                            v-model="form.issued_at"
+                            :label="form.source === 'generated' ? 'Дата виставлення' : 'Виставлено'"
+                            :error="fieldError(saveError, 'issued_at')"
+                            @update:model-value="touched.issued_at = true"
+                        />
+                        <DateField
+                            v-if="form.source === 'generated'"
+                            v-model="form.due_at"
+                            label="Сплатити до"
+                            :error="fieldError(saveError, 'due_at')"
+                            @update:model-value="touched.due_at = true"
+                        />
+                        <SelectField
+                            v-else
+                            v-model="form.currency"
+                            label="Валюта"
+                            :options="currencies"
+                            @update:model-value="touched.currency = true"
                         />
                     </div>
-                </template>
-            </section>
+                </section>
 
-            <section v-if="form.source === 'generated'" class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" aria-label="Підсумок">
-                <div class="flex justify-between text-14 text-ink-2">
-                    <span>Проміжна сума</span>
-                    <span class="num">{{ formatAmount(subtotal) }}</span>
-                </div>
-                <div class="flex justify-between text-14 text-ink-2">
-                    <span>{{ form.adjustment_label || 'Коригування' }}</span>
-                    <span class="num">{{ formatAmount(adjustment) }}</span>
-                </div>
-                <div class="flex items-baseline justify-between border-t border-divider pt-2.5">
-                    <span class="text-16 font-semibold">Разом</span>
-                    <span class="num text-22 font-semibold">{{ formatMoney(total, form.currency) }}</span>
-                </div>
-            </section>
+                <TextField
+                    v-if="form.source === 'external'"
+                    v-model="form.total"
+                    label="Сума інвойсу"
+                    numeric
+                    class="text-18 font-bold"
+                    :error="fieldError(saveError, 'total')"
+                />
 
-            <TextAreaField v-model="form.notes" label="Внутрішня примітка" placeholder="Не друкується в інвойсі" />
+                <section class="flex flex-col gap-3">
+                    <SectionTitle v-if="form.source === 'generated'">Отримання коштів</SectionTitle>
+                    <SelectField
+                        v-model="form.receiving_account_id"
+                        :label="form.source === 'generated' ? 'Рахунок для оплати' : 'Рахунок отримання'"
+                        placeholder="Оберіть рахунок"
+                        :options="accountOptions"
+                        :hint="`Лише активні рахунки в ${form.currency}`"
+                        :error="fieldError(saveError, 'receiving_account_id')"
+                        @update:model-value="touched.receiving_account_id = true"
+                    />
+                    <div
+                        v-if="form.source === 'generated' && account"
+                        class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2"
+                    >
+                        <span v-if="account.holder_name">Отримувач: <span class="text-ink">{{ account.holder_name }}</span></span>
+                        <span v-if="requisites.length">
+                            <template v-for="(requisite, index) in requisites" :key="requisite.label">
+                                {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
+                            </template>
+                        </span>
+                        <span>Реквізити буде надруковано в інвойсі</span>
+                    </div>
+                </section>
 
-            <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
-            <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">Чернетку збережено о {{ savedAt }}.</p>
+                <section class="flex flex-col gap-3">
+                    <SectionTitle>
+                        Позиції<template v-if="form.source === 'external'"> (необов'язково)</template>
+                        <template #aside><span class="num">{{ form.currency }}</span></template>
+                    </SectionTitle>
+                    <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
+                        <InvoiceItemCard
+                            :item="{
+                                ...item,
+                                project_code: projects.find((project) => project.id === item.project_id)?.code ?? null,
+                                charge_type: chargeTypes.find((type) => type.id === item.charge_type_id)?.name ?? null,
+                                amount: itemAmounts[index] ?? null,
+                            }"
+                            editable
+                            @open="openItem(item)"
+                        />
+                        <p v-if="itemErrors[index]" class="m-0 px-1 text-12 text-negative">{{ itemErrors[index] }}</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="flex h-12 items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
+                        :disabled="form.client_id === null"
+                        @click="newItem"
+                    >
+                        <Icon name="plus" :size="20" />
+                        Додати позицію
+                    </button>
+                    <p v-if="fieldError(saveError, 'items')" class="m-0 text-12 text-negative">{{ fieldError(saveError, 'items') }}</p>
+
+                    <template v-if="form.source === 'generated'">
+                        <button
+                            v-if="!form.showAdjustment"
+                            type="button"
+                            class="flex min-h-11 items-center self-start text-14 font-medium text-accent"
+                            @click="form.showAdjustment = true"
+                        >
+                            + Знижка або коригування
+                        </button>
+                        <div v-else class="grid grid-cols-[2fr_1fr] gap-2.5">
+                            <TextField v-model="form.adjustment_label" label="Коригування" placeholder="Знижка" />
+                            <TextField
+                                v-model="form.adjustment_amount"
+                                label="Сума, ±"
+                                numeric
+                                placeholder="-100.00"
+                                :error="fieldError(saveError, 'adjustment_amount')"
+                            />
+                        </div>
+                    </template>
+                </section>
+
+                <section v-if="form.source === 'generated'" class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" aria-label="Підсумок">
+                    <div class="flex justify-between text-14 text-ink-2">
+                        <span>Проміжна сума</span>
+                        <span class="num">{{ formatAmount(subtotal) }}</span>
+                    </div>
+                    <div class="flex justify-between text-14 text-ink-2">
+                        <span>{{ form.adjustment_label || 'Коригування' }}</span>
+                        <span class="num">{{ formatAmount(adjustment) }}</span>
+                    </div>
+                    <div class="flex items-baseline justify-between border-t border-divider pt-2.5">
+                        <span class="text-16 font-semibold">Разом</span>
+                        <span class="num text-22 font-semibold">{{ formatMoney(total, form.currency) }}</span>
+                    </div>
+                </section>
+
+                <TextAreaField v-model="form.notes" label="Внутрішня примітка" placeholder="Не друкується в інвойсі" />
+
+                <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
+                <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">Чернетку збережено о <span class="num">{{ savedAt }}</span>.</p>
+            </div>
 
             <button
                 v-if="existing && can('delete', 'invoices')"

@@ -183,15 +183,20 @@ final class Decimal
     }
 
     /**
-     * Get the part as a percentage of the whole, with one decimal, such as "18.2", or "0.0" for a zero whole.
+     * Get the part as a percentage of the whole, with one decimal by default, such as "18.2", or zero for a zero
+     * whole.
      *
      * @param BigNumber|int|string|null $part
      * @param BigNumber|int|string|null $whole
+     * @param int $scale
      *
      * @return string
      */
-    public static function percent(BigNumber|int|string|null $part, BigNumber|int|string|null $whole): string
-    {
-        return (string) self::divide(self::of($part)->multipliedBy(100), $whole, 1);
+    public static function percent(
+        BigNumber|int|string|null $part,
+        BigNumber|int|string|null $whole,
+        int $scale = 1
+    ): string {
+        return (string) self::divide(self::of($part)->multipliedBy(100), $whole, $scale);
     }
 }

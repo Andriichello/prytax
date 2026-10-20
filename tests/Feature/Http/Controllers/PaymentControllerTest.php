@@ -1,0 +1,253 @@
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use PryTax\Enums\DeclarationStatus;
+use PryTax\Models\Payment;
+use PryTax\Services\Invoices\InvoiceWriter;
+use PryTax\Services\Taxes\DeadlineScheduler;
+use Tests\Concerns\ActsInProfiles;
+use Tests\TestCase;
+
+/**
+ * Class PaymentControllerTest.
+ *
+ * The receipts' endpoints (design.md §6.1, §8.3, §10): the snapshot of a receipt and how it covers its invoice, the
+ * invoice and account it may land with, the NBU rate or a manual one, the lock of a declared quarter, idempotent
+ * replays, and FX gains, which follow their transfers.
+ *
+ * @author Andrii Prykhodko <andriichello@gmail.com>
+ * @package Tests\Feature\Http\Controllers
+ */
+class PaymentControllerTest extends TestCase
+{
+    use ActsInProfiles;
+    use RefreshDatabase;
+
+    /**
+     * Test that a receipt is saved with its snapshot, and answers how it covers its invoice.
+     *
+     * @return void
+     */
+    public function testRecordsAReceiptWithItsSnapshotAndTheInvoicesCoverage(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+
+        $response = $this->postJson($this->profilePath($profile, 'payments'), [
+            'invoice_id' => $invoice->id,
+            'amount' => '3 892,50',
+            'received_to_account_id' => $wise->id,
+            'received_amount' => '3877.50',
+            'received_at' => '2026-10-05',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.nbu_rate', '42.2297')
+            ->assertJsonPath('data.uah_amount', '164379.11')
+            ->assertJsonPath('data.single_tax_uah', '8218.96')
+            ->assertJsonPath('data.military_levy_uah', '1643.79')
+            ->assertJsonPath('data.period_quarter', 4)
+            ->assertJsonPath('meta.invoice.covers_total', true)
+            ->assertJsonPath('meta.invoice.remaining', '0.00');
+        $this->assertDatabaseHas('payments', [
+            'invoice_id' => $invoice->id, 'amount' => '3892.50', 'received_amount' => '3877.50', 'received_currency' => 'USD',
+        ]);
+    }
+
+    /**
+     * Test that a draft invoice takes no receipts.
+     *
+     * @return void
+     */
+    public function testReturns422ForAReceiptOfADraft(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = $this->inProfile($profile, fn () => app(InvoiceWriter::class)->create($profile, [
+            'client_id' => $client->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']],
+        ]));
+
+        $this->postJson($this->profilePath($profile, 'payments'), [
+            'invoice_id' => $draft->id, 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-05',
+        ])->assertUnprocessable()->assertJsonValidationErrors([
+            'invoice_id' => 'Receipts are recorded for frozen invoices only: ready, sent or paid.',
+        ]);
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    /**
+     * Test that no receipt lands on an inactive account.
+     *
+     * @return void
+     */
+    public function testReturns422ForAReceiptOnAnInactiveAccount(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $closed = $this->createAccount($profile, ['is_active' => false]);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [
+            'kind' => 'other', 'currency' => 'USD', 'amount' => '50.00', 'received_to_account_id' => $closed->id, 'received_at' => '2026-10-05',
+        ])->assertUnprocessable()->assertJsonValidationErrors([
+            'received_to_account_id' => "The account is inactive, so receipts can't land on it.",
+        ]);
+    }
+
+    /**
+     * Test that the NBU rate of an uncached day is fetched for the receipt.
+     *
+     * @return void
+     */
+    public function testFetchesTheNbuRateOfAnUncachedDay(): void
+    {
+        Http::fake(['bank.gov.ua/NBUStatService/v1/statdirectory/exchange*' => Http::response('[{"rate":41.8710,"cc":"USD"}]')]);
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [
+            'kind' => 'other', 'currency' => 'USD', 'amount' => '3892.50', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07',
+        ])->assertCreated()->assertJsonPath('data.uah_amount', '162982.87');
+
+        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'rate' => '41.8710', 'source' => 'nbu']);
+    }
+
+    /**
+     * Test that an unavailable NBU rate asks for a manual one, which is then taken.
+     *
+     * @return void
+     */
+    public function testAsksForAManualRateWhenTheNbuIsUnavailable(): void
+    {
+        Http::fake(['bank.gov.ua/*' => Http::response('Service Unavailable', 503)]);
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07'];
+
+        $this->postJson($this->profilePath($profile, 'payments'), $receipt)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nbu_rate' => 'The NBU rate of USD on 07.07.2026 is unavailable. Enter the rate manually.']);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [...$receipt, 'nbu_rate' => '41,8710'])
+            ->assertCreated()
+            ->assertJsonPath('data.nbu_rate', '41.8710')
+            ->assertJsonPath('data.uah_amount', '4187.10');
+        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'source' => 'manual']);
+    }
+
+    /**
+     * Test that a receipt in a declared quarter needs a correction note (409), and with one marks the quarter and
+     * the later declared quarters of the year as needing an уточнююча декларація.
+     *
+     * @return void
+     */
+    public function testRequiresACorrectionNoteInADeclaredQuarter(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-05-06' => '41.3478']]);
+        [$second, $third] = $this->inProfile($profile, fn () => [
+            app(DeadlineScheduler::class)->ensure($profile, 2026, 2),
+            app(DeadlineScheduler::class)->ensure($profile, 2026, 3),
+        ]);
+        foreach ([$second, $third] as $period) {
+            $period->forceFill(['declaration_status' => DeclarationStatus::Accepted, 'locked_at' => now()])->save();
+        }
+        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-05-06'];
+
+        $this->postJson($this->profilePath($profile, 'payments'), $receipt)
+            ->assertConflict()
+            ->assertJsonPath('message', 'Quarter 2 of 2026 is locked by its submitted declaration. Give a correction note to change it.');
+        $this->assertDatabaseCount('payments', 0);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [...$receipt, 'correction_note' => 'Забутий бонус платформи'])
+            ->assertCreated();
+        $this->assertSame(DeclarationStatus::Corrected, $second->fresh()->declaration_status);
+        $this->assertSame(DeclarationStatus::Corrected, $third->fresh()->declaration_status);
+        $this->assertStringContainsString('Забутий бонус платформи', $second->fresh()->notes);
+        $this->assertDatabaseHas('alerts', ['profile_id' => $profile->id, 'dedupe_key' => "correction:{$second->id}"]);
+    }
+
+    /**
+     * Test that a replay of a receipt with its Idempotency-Key answers the first one without a second receipt, and
+     * the key with another body is refused.
+     *
+     * @return void
+     */
+    public function testReplaysAReceiptWithTheSameIdempotencyKey(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-05'];
+
+        $first = $this->withHeader('Idempotency-Key', 'tap-1')->postJson($this->profilePath($profile, 'payments'), $receipt);
+        $replay = $this->withHeader('Idempotency-Key', 'tap-1')->postJson($this->profilePath($profile, 'payments'), $receipt);
+
+        $first->assertCreated();
+        $replay->assertCreated()->assertHeader('Idempotent-Replayed', 'true')->assertJsonPath('data.id', $first->json('data.id'));
+        $this->assertDatabaseCount('payments', 1);
+
+        $this->withHeader('Idempotency-Key', 'tap-1')
+            ->postJson($this->profilePath($profile, 'payments'), [...$receipt, 'amount' => '200.00'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The Idempotency-Key was used for another request.');
+    }
+
+    /**
+     * Test that a preview computes the receipt without saving it.
+     *
+     * @return void
+     */
+    public function testPreviewsAReceiptWithoutSavingIt(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-20' => '42.0870']]);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [
+            'invoice_id' => $invoice->id, 'amount' => '792.50', 'received_to_account_id' => $wise->id,
+            'received_amount' => '777.50', 'received_at' => '2026-10-20',
+        ])->assertOk()
+            ->assertJsonPath('data.uah_amount', '33353.95')
+            ->assertJsonPath('data.single_tax_uah', '1667.70')
+            ->assertJsonPath('data.military_levy_uah', '333.54')
+            ->assertJsonPath('data.receipt_fee', '15.00')
+            ->assertJsonPath('data.invoice.remaining', '3100.00');
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    /**
+     * Test that an FX gain can't be edited on its own (403): it follows its transfer.
+     *
+     * @return void
+     */
+    public function testReturns403WhenEditingAnFxGain(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $gain = $this->inProfile($profile, fn () => Payment::factory()->create(['profile_id' => $profile->id, 'kind' => 'fx_gain']));
+
+        $this->patchJson($this->profilePath($profile, "payments/{$gain->id}"), ['description' => 'Mine'])->assertForbidden();
+        $this->deleteJson($this->profilePath($profile, "payments/{$gain->id}"))->assertForbidden();
+        $this->assertModelExists($gain);
+    }
+}

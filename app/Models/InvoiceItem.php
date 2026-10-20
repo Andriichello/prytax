@@ -107,12 +107,17 @@ class InvoiceItem extends BaseModel
     }
 
     /**
-     * The record, which locks the item: its invoice.
+     * The record, which locks the item: its invoice, found without the profile's scope, so the lock holds in code,
+     * which runs outside of a profile, such as a console command.
      *
      * @return (Model&LockableInterface)|null
      */
     public function lockingParent(): (Model&LockableInterface)|null
     {
-        return $this->getRelationValue('invoice');
+        if ($this->relationLoaded('invoice') && $this->getRelation('invoice') !== null) {
+            return $this->getRelation('invoice');
+        }
+
+        return Invoice::query()->withoutGlobalScopes()->find($this->getAttribute('invoice_id'));
     }
 }

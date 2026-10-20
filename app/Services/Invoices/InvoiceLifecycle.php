@@ -3,6 +3,8 @@
 namespace PryTax\Services\Invoices;
 
 use Carbon\CarbonImmutable;
+use Closure;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Helpers\Decimal;
@@ -10,6 +12,7 @@ use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Services\Alerts\AlertSync;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
  * Class InvoiceLifecycle.
@@ -43,14 +46,14 @@ class InvoiceLifecycle
      */
     public function send(Profile $profile, Invoice $invoice, ?string $sentAt = null): Invoice
     {
-        $invoice->forceFill([
+        $invoice = $this->change($invoice, [InvoiceStatus::Ready], fn (Invoice $invoice) => $invoice->forceFill([
             'status' => InvoiceStatus::Sent,
             'sent_at' => $sentAt ?? CarbonImmutable::today()->toDateString(),
-        ])->save();
+        ])->save());
 
         $this->alerts->syncAfterCommit($profile);
 
-        return $invoice->refresh();
+        return $invoice;
     }
 
     /**
@@ -65,32 +68,35 @@ class InvoiceLifecycle
      */
     public function pay(Profile $profile, Invoice $invoice, ?string $paidAt = null): Invoice
     {
-        $paid = $invoice->receivedAmount();
+        $invoice = $this->change($invoice, [InvoiceStatus::Ready, InvoiceStatus::Sent], function (Invoice $invoice) use ($paidAt) {
+            $paid = $invoice->receivedAmount();
 
-        if ($paid->isLessThan(Decimal::of($invoice->total)) && $invoice->status !== InvoiceStatus::Paid) {
-            throw ValidationException::withMessages([
-                'status' => [__('The receipts cover :paid of :total :currency, so the invoice isn\'t paid yet.', [
-                    'paid' => Decimal::money($paid),
-                    'total' => $invoice->total,
-                    'currency' => $invoice->currency,
-                ])],
-            ]);
-        }
+            if ($paid->isLessThan(Decimal::of($invoice->total))) {
+                throw ValidationException::withMessages([
+                    'status' => [__('The receipts cover :paid of :total :currency, so the invoice isn\'t paid yet.', [
+                        'paid' => Decimal::money($paid),
+                        'total' => $invoice->total,
+                        'currency' => $invoice->currency,
+                    ])],
+                ]);
+            }
 
-        $lastReceipt = Payment::query()->where('invoice_id', $invoice->getKey())->max('received_at');
+            $lastReceipt = Payment::query()->where('invoice_id', $invoice->getKey())->max('received_at');
 
-        $invoice->forceFill([
-            'status' => InvoiceStatus::Paid,
-            'paid_at' => $paidAt ?? ($lastReceipt ? CarbonImmutable::parse($lastReceipt)->toDateString() : CarbonImmutable::today()->toDateString()),
-        ])->save();
+            $invoice->forceFill([
+                'status' => InvoiceStatus::Paid,
+                'paid_at' => $paidAt ?? ($lastReceipt ? CarbonImmutable::parse($lastReceipt)->toDateString() : CarbonImmutable::today()->toDateString()),
+            ])->save();
+        });
 
         $this->alerts->syncAfterCommit($profile);
 
-        return $invoice->refresh();
+        return $invoice;
     }
 
     /**
-     * Cancel the invoice on the date (today by default).
+     * Cancel the invoice on the date (today by default), unless money of its receipts is still kept: receipts are
+     * moved to the invoice, which replaces it, or refunded, first.
      *
      * @param Profile $profile
      * @param Invoice $invoice
@@ -100,13 +106,50 @@ class InvoiceLifecycle
      */
     public function cancel(Profile $profile, Invoice $invoice, ?string $cancelledAt = null): Invoice
     {
-        $invoice->forceFill([
-            'status' => InvoiceStatus::Cancelled,
-            'cancelled_at' => $cancelledAt ?? CarbonImmutable::today()->toDateString(),
-        ])->save();
+        $invoice = $this->change($invoice, [InvoiceStatus::Ready, InvoiceStatus::Sent], function (Invoice $invoice) use ($cancelledAt) {
+            $kept = $invoice->receivedAmount();
+
+            if ($kept->isPositive()) {
+                throw new ConflictHttpException(__('The invoice has :amount :currency of receipts: move them to the invoice, which replaces it, or refund them, before cancelling it.', [
+                    'amount' => Decimal::money($kept),
+                    'currency' => $invoice->currency,
+                ]));
+            }
+
+            $invoice->forceFill([
+                'status' => InvoiceStatus::Cancelled,
+                'cancelled_at' => $cancelledAt ?? CarbonImmutable::today()->toDateString(),
+            ])->save();
+        });
 
         $this->alerts->syncAfterCommit($profile);
 
-        return $invoice->refresh();
+        return $invoice;
+    }
+
+    /**
+     * Change the invoice in a transaction, which locks its row and makes sure it still has one of the statuses, so
+     * two concurrent changes of its status can't both pass.
+     *
+     * @param Invoice $invoice
+     * @param array<int, InvoiceStatus> $statuses
+     * @param Closure(Invoice): mixed $change
+     *
+     * @return Invoice
+     * @throws ConflictHttpException
+     */
+    protected function change(Invoice $invoice, array $statuses, Closure $change): Invoice
+    {
+        return DB::transaction(function () use ($invoice, $statuses, $change) {
+            $locked = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+            if (!in_array($locked->status, $statuses, true)) {
+                throw new ConflictHttpException(__('The invoice is :status already.', ['status' => $locked->status->value]));
+            }
+
+            $change($locked);
+
+            return $locked->refresh();
+        });
     }
 }

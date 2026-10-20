@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Http\Controllers;
 
+use Core\Models\Sequence;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PryTax\Models\Invoice;
+use PryTax\Services\Invoices\InvoiceWriter;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -188,6 +191,8 @@ class InvoiceControllerTest extends TestCase
         $this->actAs($profile);
         $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile));
 
+        $this->withHeader('If-Unmodified-Since', $invoice->updated_at->toJSON());
+
         $this->patchJson($this->profilePath($profile, "invoices/{$invoice->id}"), ['period_end' => '2026-10-01'])
             ->assertConflict()
             ->assertJsonPath('message', "The record is locked, so its period_end can't be changed.");
@@ -214,7 +219,9 @@ class InvoiceControllerTest extends TestCase
             'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']],
         ])->json('data');
         $this->travelTo('2026-10-20 10:05:00');
-        $this->patchJson($this->profilePath($profile, "invoices/{$draft['id']}"), ['notes' => 'Edited by another accountant'])->assertOk();
+        $this->withHeader('If-Unmodified-Since', $draft['updated_at'])
+            ->patchJson($this->profilePath($profile, "invoices/{$draft['id']}"), ['notes' => 'Edited by another accountant'])
+            ->assertOk();
 
         $this->withHeader('If-Unmodified-Since', $draft['updated_at'])
             ->patchJson($this->profilePath($profile, "invoices/{$draft['id']}"), ['notes' => 'Mine'])
@@ -296,5 +303,245 @@ class InvoiceControllerTest extends TestCase
         $this->getJson($this->profilePath($profile, 'invoices?filter[status][in]=draft'))
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    /**
+     * Test that an update without If-Unmodified-Since is refused (428), so no write can miss a stale read.
+     *
+     * @return void
+     */
+    public function testReturns428ForAnUpdateWithoutIfUnmodifiedSince(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = $this->inProfile($profile, fn () => app(InvoiceWriter::class)->create($profile, [
+            'client_id' => $client->id, 'receiving_account_id' => $account->id, 'period_start' => '2026-10-01',
+            'period_end' => '2026-10-14', 'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']],
+        ]));
+
+        $this->patchJson($this->profilePath($profile, "invoices/{$draft->id}"), ['notes' => 'Mine'])
+            ->assertStatus(428)
+            ->assertJsonPath('message', 'If-Unmodified-Since is required: the updated_at of the invoice, which you edited.');
+        $this->assertNull($draft->fresh()->notes);
+    }
+
+    /**
+     * Test that an external invoice keeps its entered total with its items, needs its own number to be frozen, and
+     * takes nothing from the counter.
+     *
+     * @return void
+     */
+    public function testFreezesAnExternalInvoiceWithItsOwnNumberAndTotal(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'source' => 'external', 'client_id' => $client->id, 'period_start' => '2026-09-01', 'period_end' => '2026-09-30',
+            'total' => '5000.00', 'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Part of the work']],
+        ])->assertCreated()->assertJsonPath('data.total', '5000.00')->json('data');
+        $this->post($this->profilePath($profile, "invoices/{$draft['id']}/files"), [
+            'file' => UploadedFile::fake()->create('NW-2026-031.pdf', 20, 'application/pdf'), 'primary' => '1',
+        ])->assertCreated();
+
+        $this->postJson($this->profilePath($profile, "invoices/{$draft['id']}/freeze"))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['number' => 'An external invoice keeps its own number: type it.']);
+        $this->withHeader('If-Unmodified-Since', now()->toJSON())
+            ->patchJson($this->profilePath($profile, "invoices/{$draft['id']}"), ['number' => 'NW-2026-031'])
+            ->assertOk();
+        $this->postJson($this->profilePath($profile, "invoices/{$draft['id']}/freeze"))
+            ->assertOk()
+            ->assertJsonPath('data.number', 'NW-2026-031')
+            ->assertJsonPath('data.total', '5000.00');
+
+        $this->assertSame(1, $this->inProfile($profile, fn () => Sequence::peek($profile, 'invoices:global')));
+    }
+
+    /**
+     * Test that the primary document of a frozen invoice can't be replaced by an upload (409).
+     *
+     * @return void
+     */
+    public function testReturns409WhenAFrozenInvoiceTakesAnotherPrimaryDocument(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        $primary = $invoice->primary_file_id;
+
+        $this->post($this->profilePath($profile, "invoices/{$invoice->id}/files"), [
+            'file' => UploadedFile::fake()->create('other.pdf', 20, 'application/pdf'), 'primary' => '1',
+        ])->assertConflict()->assertJsonPath('message', "The primary document of a frozen invoice can't change.");
+
+        $this->assertSame($primary, $invoice->fresh()->primary_file_id);
+    }
+
+    /**
+     * Test that an invoice, whose receipts keep money, isn't cancelled (409), while one without receipts is.
+     *
+     * @return void
+     */
+    public function testReturns409WhenCancellingAnInvoiceWithReceipts(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $paid = $this->createFrozenInvoice($profile, $wise);
+        $this->recordReceipt($profile, $paid, $wise, ['amount' => '100.00']);
+        $unpaid = $this->createFrozenInvoice($profile, $wise);
+
+        $this->postJson($this->profilePath($profile, "invoices/{$paid->id}/cancel"))
+            ->assertConflict()
+            ->assertJsonPath('message', 'The invoice has 100.00 USD of receipts: move them to the invoice, which replaces it, or refund them, before cancelling it.');
+        $this->postJson($this->profilePath($profile, "invoices/{$unpaid->id}/cancel"))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+        $this->assertSame('ready', $paid->fresh()->status->value);
+    }
+
+    /**
+     * Test that the number of a deleted draft can be given to another invoice.
+     *
+     * @return void
+     */
+    public function testFreesTheNumberOfADeletedDraft(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = ['client_id' => $client->id, 'number' => 'INV-77', 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']]];
+        $id = $this->postJson($this->profilePath($profile, 'invoices'), $draft)->assertCreated()->json('data.id');
+
+        $this->deleteJson($this->profilePath($profile, "invoices/$id"))->assertOk();
+
+        $this->postJson($this->profilePath($profile, 'invoices'), $draft)->assertCreated()->assertJsonPath('data.number', 'INV-77');
+    }
+
+    /**
+     * Test that the form of a new invoice starts with the client's and contract's defaults, the expanded
+     * description, the rate by the end of the period and the next number.
+     *
+     * @return void
+     */
+    public function testFillsTheFormOfANewInvoice(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile);
+
+        $response = $this->getJson($this->profilePath($profile, 'invoices/defaults?' . http_build_query([
+            'client_id' => $client->id, 'contract_id' => $contract->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+        ])));
+
+        $response->assertOk()
+            ->assertJsonPath('data.currency', 'USD')
+            ->assertJsonPath('data.issued_at', '2026-10-14')
+            ->assertJsonPath('data.due_at', '2026-10-28')
+            ->assertJsonPath('data.receiving_account_id', $account->id)
+            ->assertJsonPath('data.description', $contract->describe())
+            ->assertJsonPath('data.hourly_rate', '45.00')
+            ->assertJsonPath('data.number_preview', '2026-10-14-1');
+    }
+
+    /**
+     * Test that the open invoices' totals tell what is left to pay per currency, and how much of it is overdue.
+     *
+     * @return void
+     */
+    public function testTotalsWhatTheOpenInvoicesLeaveToPay(): void
+    {
+        Storage::fake('local');
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'viewer');
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
+        $partly = $this->createFrozenInvoice($profile, $wise);
+        $this->recordReceipt($profile, $partly, $wise, ['amount' => '3100.00']);
+        $this->createFrozenInvoice($profile, $wise, ['period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'due_at' => '2026-11-01']);
+
+        $response = $this->getJson($this->profilePath($profile, 'invoices/outstanding'));
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.currency', 'USD')
+            ->assertJsonPath('data.0.count', 2)
+            ->assertJsonPath('data.0.remaining', '4685.00')
+            ->assertJsonPath('data.0.overdue_count', 1)
+            ->assertJsonPath('data.0.overdue', '792.50');
+    }
+
+    /**
+     * Test that the filters are offered the years, currencies, statuses and clients of the profile's invoices.
+     *
+     * @return void
+     */
+    public function testOffersTheFiltersOfTheProfilesInvoices(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'viewer');
+        $wise = $this->createAccount($profile);
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+
+        $this->getJson($this->profilePath($profile, 'invoices/facets'))
+            ->assertOk()
+            ->assertJsonPath('data.years', [['year' => 2026, 'count' => 1]])
+            ->assertJsonPath('data.currencies', [['currency' => 'USD', 'count' => 1]])
+            ->assertJsonPath('data.statuses', [['status' => 'ready', 'count' => 1]])
+            ->assertJsonPath('data.clients', [['client_id' => $invoice->client_id, 'name' => 'Brightline Labs LLC', 'count' => 1]]);
+    }
+
+    /**
+     * Test that the invoices with a file of the SHA-256 are found, before an external PDF's invoice is created.
+     *
+     * @return void
+     */
+    public function testFindsTheInvoicesWithAFileOfTheSameHash(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        $pdf = UploadedFile::fake()->createWithContent('NW-2026-031.pdf', '%PDF-1.4 external invoice');
+        $this->post($this->profilePath($profile, "invoices/{$invoice->id}/files"), ['file' => $pdf])->assertCreated();
+
+        $this->getJson($this->profilePath($profile, 'invoices/duplicates?sha256=' . hash('sha256', '%PDF-1.4 external invoice')))
+            ->assertOk()
+            ->assertJsonPath('data.0.invoice_id', $invoice->id)
+            ->assertJsonPath('data.0.number', $invoice->number);
+        $this->getJson($this->profilePath($profile, 'invoices/duplicates?sha256=' . str_repeat('a', 64)))
+            ->assertOk()
+            ->assertJsonPath('data', []);
+    }
+
+    /**
+     * Test that a counter moves forward, such as after an import, but never back.
+     *
+     * @return void
+     */
+    public function testMovesACounterForwardOnly(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createFrozenInvoice($profile, $this->createAccount($profile));
+
+        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => 'global', 'next_number' => 13])
+            ->assertOk()
+            ->assertJsonPath('data.0.last_number', 12);
+        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => 'global', 'next_number' => 5])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['next_number' => 'The counter is at 13 already, and never goes back.']);
     }
 }

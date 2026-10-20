@@ -65,6 +65,10 @@ class InvoiceFreezer
             throw ValidationException::withMessages(['file' => [__('An external invoice needs its uploaded PDF as the primary document.')]]);
         }
 
+        if (!$invoice->isGenerated() && blank($invoice->number)) {
+            throw ValidationException::withMessages(['number' => [__('An external invoice keeps its own number: type it.')]]);
+        }
+
         if (!$invoice->receivingAccount?->is_active) {
             throw ValidationException::withMessages(['receiving_account_id' => [__('The receiving account is inactive.')]]);
         }
@@ -75,6 +79,8 @@ class InvoiceFreezer
 
         try {
             DB::transaction(function () use ($profile, $invoice) {
+                // Locked until frozen, so a second tap waits and finds it frozen, rather than numbering it again
+                $this->assertStatus($invoice, InvoiceStatus::Draft, __('Only a draft can be frozen.'));
                 $this->numbers->assign($profile, $invoice);
 
                 $invoice->forceFill([
@@ -116,11 +122,14 @@ class InvoiceFreezer
             throw new ConflictHttpException(__('Only a ready invoice can return to its draft.'));
         }
 
-        if (Payment::query()->where('invoice_id', $invoice->getKey())->exists()) {
-            throw new ConflictHttpException(__('The invoice has receipts, so it can\'t return to its draft.'));
-        }
-
         DB::transaction(function () use ($invoice) {
+            $this->assertStatus($invoice, InvoiceStatus::Ready, __('Only a ready invoice can return to its draft.'));
+
+            // A receipt locks its invoice as it is recorded, so none can arrive while this one is locked
+            if (Payment::query()->where('invoice_id', $invoice->getKey())->exists()) {
+                throw new ConflictHttpException(__('The invoice has receipts, so it can\'t return to its draft.'));
+            }
+
             $generated = $invoice->filesIn(Invoice::GENERATED_COLLECTION)->get();
             $primaryIsGenerated = $generated->contains('id', $invoice->primary_file_id);
 
@@ -137,6 +146,25 @@ class InvoiceFreezer
         $this->alerts->syncAfterCommit($profile);
 
         return $invoice->refresh();
+    }
+
+    /**
+     * Lock the invoice's row until the transaction ends, and make sure it still has the status.
+     *
+     * @param Invoice $invoice
+     * @param InvoiceStatus $status
+     * @param string $message
+     *
+     * @return void
+     * @throws ConflictHttpException
+     */
+    protected function assertStatus(Invoice $invoice, InvoiceStatus $status, string $message): void
+    {
+        $locked = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+        if ($locked->status !== $status) {
+            throw new ConflictHttpException($message);
+        }
     }
 
     /**

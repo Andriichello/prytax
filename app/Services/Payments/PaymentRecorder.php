@@ -429,8 +429,10 @@ class PaymentRecorder
             }
 
             $frozen = [InvoiceStatus::Ready, InvoiceStatus::Sent, InvoiceStatus::Paid];
+            // A refunded receipt stays with its cancelled invoice, and may still be corrected there
+            $stays = $existing !== null && $existing->invoice_id === $invoice->getKey() && $invoice->status === InvoiceStatus::Cancelled;
 
-            if (!in_array($invoice->status, $frozen, true)) {
+            if (!in_array($invoice->status, $frozen, true) && !$stays) {
                 throw ValidationException::withMessages([
                     'invoice_id' => [__('Receipts are recorded for frozen invoices only: ready, sent or paid.')],
                 ]);

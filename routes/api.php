@@ -98,6 +98,11 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     $crud('clients/{client}/charge-types', ChargeTypeController::class, $all, 'clients.charge-types');
 
                     Route::get('invoices/counters', [InvoiceController::class, 'counters'])->name('invoices.counters');
+                    Route::patch('invoices/counters', [InvoiceController::class, 'setCounter'])->name('invoices.counters.update');
+                    Route::get('invoices/defaults', [InvoiceController::class, 'defaults'])->name('invoices.defaults');
+                    Route::get('invoices/outstanding', [InvoiceController::class, 'outstanding'])->name('invoices.outstanding');
+                    Route::get('invoices/facets', [InvoiceController::class, 'facets'])->name('invoices.facets');
+                    Route::get('invoices/duplicates', [InvoiceController::class, 'duplicates'])->name('invoices.duplicates');
                     Route::get('invoices/number-preview', [InvoiceController::class, 'previewNumber'])->name('invoices.number-preview');
                     $crud('invoices', InvoiceController::class, $all, 'invoices');
 

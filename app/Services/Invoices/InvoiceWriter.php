@@ -26,7 +26,9 @@ use PryTax\Services\Alerts\AlertSync;
  * Creates and edits draft invoices with their items (design.md §4, accounting.md). The client's contract gives the
  * currency, the payment terms and the items' description and rate; the receiving account defaults to the one of the
  * client's last invoice; `issued_at` defaults to the end of the period. A generated invoice's total is the sum of its
- * items, `ROUND_HALF_UP(quantity × unit_price, 2)` each, and its adjustment; an external one's is entered.
+ * items, `ROUND_HALF_UP(quantity × unit_price, 2)` each, and its adjustment; an external one's is entered, and its
+ * optional items describe it without changing it. The contract's rate prices an hour of an invoice in the contract's
+ * currency only.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Invoices
@@ -138,6 +140,40 @@ class InvoiceWriter
     }
 
     /**
+     * Get what the form of a new invoice starts with, before it is saved: the defaults of its client and contract
+     * (currency, dates, receiving account), the items' description expanded from the contract's template, and the
+     * contract's hourly rates by the end of the period, the default one and one per charge type of the client.
+     *
+     * @param array{client_id: int, contract_id?: int|null, period_start?: string|null, period_end?: string|null, issued_at?: string|null, currency?: string|null} $data
+     *
+     * @return array<string, mixed>
+     */
+    public function formDefaults(array $data): array
+    {
+        $defaults = $this->withDefaults(array_filter($data, fn ($value) => $value !== null));
+        $contract = Contract::query()->find($data['contract_id'] ?? null);
+        $periodEnd = empty($data['period_end']) ? null : CarbonImmutable::parse($data['period_end']);
+        $rated = $contract !== null && $periodEnd !== null && $contract->currency === $defaults['currency'];
+
+        $chargeTypes = ChargeType::query()->where('client_id', $data['client_id'])->where('is_active', true)->get(['id', 'name']);
+
+        return [
+            'source' => $defaults['source'],
+            'currency' => $defaults['currency'],
+            'issued_at' => $defaults['issued_at'],
+            'due_at' => $defaults['due_at'],
+            'receiving_account_id' => $defaults['receiving_account_id'],
+            'description' => $contract?->describe(),
+            'hourly_rate' => $rated ? $contract->rateFor($periodEnd) : null,
+            'charge_type_rates' => $chargeTypes->map(fn (ChargeType $chargeType) => [
+                'charge_type_id' => $chargeType->getKey(),
+                'name' => $chargeType->name,
+                'hourly_rate' => $rated ? $contract->rateFor($periodEnd, $chargeType->getKey()) : null,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
      * Get the default due date: the issue date plus the contract's payment terms, or null.
      *
      * @param array $data
@@ -230,12 +266,12 @@ class InvoiceWriter
         $items = $replaceItems ? $this->items($client, $data) : null;
         $adjustment = Decimal::of($data['adjustment_amount'] ?? '0');
 
-        if ($items !== null && ($source === InvoiceSource::Generated || !empty($items))) {
-            $subtotal = Decimal::sum(array_column($items, 'amount'));
-            $total = $subtotal->plus($adjustment);
-        } elseif ($source === InvoiceSource::External) {
+        if ($source === InvoiceSource::External) {
             $total = Decimal::of($data['total'] ?? $invoice->total);
             $subtotal = $total->minus($adjustment);
+        } elseif ($items !== null) {
+            $subtotal = Decimal::sum(array_column($items, 'amount'));
+            $total = $subtotal->plus($adjustment);
         } else {
             $subtotal = Decimal::of($invoice->subtotal);
             $total = $subtotal->plus($adjustment);
@@ -259,7 +295,7 @@ class InvoiceWriter
                 $invoice->save();
 
                 if ($items !== null) {
-                    $invoice->items()->delete();
+                    $invoice->items()->get()->each->delete();
                     $invoice->items()->createMany($items);
                 }
             });
@@ -309,10 +345,12 @@ class InvoiceWriter
                 throw ValidationException::withMessages(["items.$index.charge_type_id" => [__('The charge type isn\'t one of the client\'s.')]]);
             }
 
-            $price = $item['unit_price'] ?? $contract?->rateFor($periodEnd, $chargeType?->getKey());
+            $unit = $item['unit'] ?? ItemUnit::Hour->value;
+            $rated = $contract !== null && $contract->currency === $data['currency'] && $unit === ItemUnit::Hour->value;
+            $price = $item['unit_price'] ?? ($rated ? $contract->rateFor($periodEnd, $chargeType?->getKey()) : null);
 
             if ($price === null) {
-                throw ValidationException::withMessages(["items.$index.unit_price" => [__('The price is required: the contract has no rate.')]]);
+                throw ValidationException::withMessages(["items.$index.unit_price" => [__('The price is required: the contract has no hourly rate in the invoice\'s currency.')]]);
             }
 
             $description = $item['description'] ?? $contract?->describe();
@@ -330,7 +368,7 @@ class InvoiceWriter
                 'charge_type_id' => $chargeType?->getKey(),
                 'charge_type' => $chargeType?->name,
                 'description' => $description,
-                'unit' => $item['unit'] ?? ItemUnit::Hour->value,
+                'unit' => $unit,
                 'quantity' => Decimal::money($quantity),
                 'unit_price' => Decimal::money($price),
                 'amount' => Decimal::money(Decimal::times($quantity, $price)),

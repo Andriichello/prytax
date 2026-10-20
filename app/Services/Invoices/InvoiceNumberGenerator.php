@@ -5,6 +5,7 @@ namespace PryTax\Services\Invoices;
 use Carbon\CarbonInterface;
 use Core\Models\Sequence;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use PryTax\Enums\NumberingDateSource;
 use PryTax\Enums\NumberingReset;
 use PryTax\Enums\NumberingScope;
@@ -177,5 +178,35 @@ class InvoiceNumberGenerator
                 'client_name' => $clientId ? $clients->get($clientId)?->name : null,
             ];
         })->values();
+    }
+
+    /**
+     * Move a counter of the profile forward, such as after importing invoices numbered elsewhere: the next number it
+     * allocates. A counter never goes back, so no number is given twice.
+     *
+     * @param Profile $profile
+     * @param string $scope Such as `global`, `global:2027`, `client:5` or `client:5:2027`.
+     * @param int $next
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    public function setNext(Profile $profile, string $scope, int $next): void
+    {
+        if (!preg_match('/^(global|client:(\d+))(:\d{4})?$/', $scope, $match)) {
+            throw ValidationException::withMessages(['scope_key' => [__('A counter is global or client:{id}, with :{year} when it restarts yearly.')]]);
+        }
+
+        if (!empty($match[2]) && !Client::query()->whereKey((int) $match[2])->exists()) {
+            throw ValidationException::withMessages(['scope_key' => [__('The client of the counter is not found.')]]);
+        }
+
+        $current = Sequence::peek($profile, self::KEY_PREFIX . $scope);
+
+        if ($next < $current) {
+            throw ValidationException::withMessages(['next_number' => [__('The counter is at :current already, and never goes back.', ['current' => $current])]]);
+        }
+
+        Sequence::setNext($profile, self::KEY_PREFIX . $scope, $next);
     }
 }

@@ -7,14 +7,16 @@ use Core\Http\Requests\Crud\UpdateRequest;
 use PryTax\Models\Invoice;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\PreconditionFailedHttpException;
+use Symfony\Component\HttpKernel\Exception\PreconditionRequiredHttpException;
 use Throwable;
 
 /**
  * Class UpdateInvoiceRequest.
  *
- * Updates a draft invoice (its items, when given, replace its own), or the notes of a frozen one. With
- * `If-Unmodified-Since` (the invoice's `updated_at`), a stale write, such as two accountants editing one invoice,
- * is refused with 409 (design.md §10).
+ * Updates a draft invoice (its items, when given, replace its own), or the notes of a frozen one. It requires
+ * `If-Unmodified-Since` (the invoice's `updated_at`, 428 without it), so a stale write, such as two accountants
+ * editing one invoice, is refused with 409 (design.md §10). The comparison is to the second, as `updated_at` is
+ * stored.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Invoices
@@ -41,19 +43,22 @@ class UpdateInvoiceRequest extends UpdateRequest
     }
 
     /**
-     * Make sure the invoice wasn't changed since the client read it, when the client says when that was.
+     * Make sure the invoice wasn't changed since the client read it, which the client must say.
      *
      * @param Invoice $invoice
      *
      * @return void
      * @throws ConflictHttpException
+     * @throws PreconditionRequiredHttpException
      */
     public function ensureNotModified(Invoice $invoice): void
     {
         $header = $this->header(static::HEADER);
 
         if ($header === null || $header === '') {
-            return;
+            throw new PreconditionRequiredHttpException(
+                __(':header is required: the updated_at of the invoice, which you edited.', ['header' => static::HEADER])
+            );
         }
 
         try {

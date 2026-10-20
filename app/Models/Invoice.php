@@ -167,12 +167,14 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
 
     /**
      * The attributes that should be hidden for serialization: the snapshot copies the profile's tax id and the
-     * account's bank details, so a list doesn't carry it, unless asked to (`?append=snapshot`).
+     * account's bank details, so a list doesn't carry it, unless asked to (`?append=snapshot`); `active_number` is
+     * the number, which a deleted draft frees, kept unique by the database.
      *
      * @var array<int, string>
      */
     protected $hidden = [
         'snapshot',
+        'active_number',
     ];
 
     /**
@@ -210,7 +212,7 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
      */
     public function auditExcluded(): array
     {
-        return ['snapshot'];
+        return ['snapshot', 'active_number'];
     }
 
     /**

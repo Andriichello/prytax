@@ -60,8 +60,8 @@ class InvoiceFileController extends FileController
     }
 
     /**
-     * Upload a file of the invoice, making it primary, when asked, and reporting the invoices, which have the same
-     * file already.
+     * Upload a file of the invoice, making it primary, when asked of a draft, and reporting the invoices, which have
+     * the same file already. A frozen invoice takes further files, but keeps its primary document.
      *
      * @param StoreRequest $request
      *
@@ -71,6 +71,10 @@ class InvoiceFileController extends FileController
     {
         /** @var Invoice $invoice */
         $invoice = $this->fileableOf($request);
+
+        if ($request->boolean('primary') && $invoice->status !== InvoiceStatus::Draft) {
+            throw new ConflictHttpException(__('The primary document of a frozen invoice can\'t change.'));
+        }
 
         $file = DB::transaction(function () use ($request, $invoice) {
             $file = $invoice->attachFile($request->file('file'), $request->validated('name'), Invoice::UPLOADED_COLLECTION);

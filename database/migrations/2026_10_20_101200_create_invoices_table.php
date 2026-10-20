@@ -52,8 +52,10 @@ return new class extends Migration
 
             $table->timestamps();
             $table->softDeletes();
+            // The number of a deleted draft is free again
+            $table->string('active_number', 64)->nullable()->storedAs('IF(`deleted_at` IS NULL, `number`, NULL)');
 
-            $table->unique(['profile_id', 'number']);
+            $table->unique(['profile_id', 'active_number'], 'invoices_profile_id_number_unique');
             $table->index(['profile_id', 'client_id', 'status']);
             $table->index(['profile_id', 'issued_at']);
         });

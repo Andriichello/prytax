@@ -17,6 +17,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
 import { useLoader } from '@/composables/useLoader';
+import { accountLabel } from '@/utils/accounts';
 import { formatDate, monthName, quarterLabel, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
@@ -213,7 +214,7 @@ watch(() => [amountTotal.value, sameCurrency.value] as const, ([amount, same]) =
 
 const accountOptions = computed(() => accounts.value
     .filter((item) => (item.is_active && item.kind !== 'personal') || item.id === form.received_to_account_id)
-    .map((item) => ({ value: item.id, label: `${item.name} · ${KIND_ACCOUNT_LABELS[item.kind] ?? item.kind}` })));
+    .map((item) => ({ value: item.id, label: `${accountLabel(item.name, item.currency)} · ${KIND_ACCOUNT_LABELS[item.kind] ?? item.kind}` })));
 
 /**
  * The fields of the receipt; an advance linked to an invoice becomes a receipt of the invoice.

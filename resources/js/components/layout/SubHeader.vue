@@ -7,10 +7,12 @@ import Icon from '@/components/ui/Icon.vue';
  * and an optional action on the right (the `action` slot). Back returns to the previous page of the app, or goes to
  * `back` when the page was opened directly.
  */
-const { title, back = { name: 'home' }, muted = false } = defineProps<{
+const { title, back = { name: 'home' }, muted = false, subtitle = undefined } = defineProps<{
     title: string;
     back?: RouteLocationRaw;
     muted?: boolean;
+    /** A second line under the title, such as the client of a contract. */
+    subtitle?: string;
 }>();
 
 const router = useRouter();
@@ -30,6 +32,10 @@ function goBack(): void {
             <Icon name="back" :size="22" />
         </button>
         <span v-if="muted" class="min-w-0 flex-1 truncate text-15 text-ink-3">{{ title }}</span>
+        <div v-else-if="subtitle" class="flex min-w-0 flex-1 flex-col">
+            <h1 class="m-0 truncate text-17 font-semibold">{{ title }}</h1>
+            <span class="truncate text-12 text-ink-3">{{ subtitle }}</span>
+        </div>
         <h1 v-else class="m-0 min-w-0 flex-1 truncate text-17 font-semibold">{{ title }}</h1>
         <slot name="action" />
     </header>

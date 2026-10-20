@@ -15,6 +15,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useSession } from '@/composables/useSession';
 import { useLoader } from '@/composables/useLoader';
 import { formatDate, monthName, quarterLabel, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -32,6 +33,7 @@ const KIND_ACCOUNT_LABELS: Record<string, string> = {
 
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path } = useCurrentProfile();
 
 const paymentId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -421,7 +423,7 @@ const generalError = computed(() => {
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'payments')" #footer>
             <PrimaryButton
                 :busy="saving"
                 :disabled="loading || !ready || (lockedQuarter !== null && !form.correction_note.trim())"

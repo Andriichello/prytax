@@ -14,6 +14,7 @@ import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { useSession } from '@/composables/useSession';
 import { describeContract } from '@/utils/contracts';
 import { formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -35,6 +36,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
 
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path } = useCurrentProfile();
 
 const clientId = computed(() => Number(route.params.clientId));
@@ -253,7 +255,7 @@ const generalError = computed(() => {
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'contracts')" #footer>
             <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !form.started_at" @click="save">Зберегти</PrimaryButton>
         </template>
 

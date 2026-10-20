@@ -33,6 +33,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { useSession } from '@/composables/useSession';
 import { dateParts, formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } from '@/utils/money';
@@ -44,6 +45,7 @@ import { countOf, DAYS } from '@/utils/plural';
  */
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path, settings } = useCurrentProfile();
 
 const invoiceId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -819,7 +821,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? 'Зо�
             <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">Чернетку збережено о {{ savedAt }}.</p>
 
             <button
-                v-if="existing"
+                v-if="existing && can('delete', 'invoices')"
                 type="button"
                 class="flex min-h-11 items-center self-center text-15 font-medium text-negative"
                 @click="deleteOpen = true"
@@ -828,7 +830,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? 'Зо�
             </button>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'invoices')" #footer>
             <div class="grid grid-cols-[1fr_1.4fr] gap-2.5">
                 <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || form.client_id === null" @click="save">Зберегти</SecondaryButton>
                 <PrimaryButton :disabled="loading || saving || form.client_id === null" @click="askFreeze">

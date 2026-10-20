@@ -23,6 +23,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useSession } from '@/composables/useSession';
 import { currentQuarter, formatDayMonth, monthName, quarterLabel, quarterOf, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
@@ -37,6 +38,7 @@ const TAX_OPTIONS = TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] }
 
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path, settings } = useCurrentProfile();
 
 const now = currentQuarter();
@@ -363,7 +365,7 @@ const generalError = computed(() => {
 
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
 
-        <template #footer>
+        <template v-if="can('create', 'tax-payments')" #footer>
             <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || (form.allocation === 'payment' && !form.payment_id)" @click="save">
                 Зберегти сплату
             </PrimaryButton>

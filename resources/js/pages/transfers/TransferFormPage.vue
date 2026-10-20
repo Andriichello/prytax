@@ -14,6 +14,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useSession } from '@/composables/useSession';
 import { useLoader } from '@/composables/useLoader';
 import { ACCOUNT_KINDS, accountLabel } from '@/utils/accounts';
 import { formatDayMonth, today } from '@/utils/dates';
@@ -26,6 +27,7 @@ import { compareAmounts, formatAmount, formatMoney, multiplyDecimals, parseAmoun
  */
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path } = useCurrentProfile();
 
 const transferId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -418,7 +420,7 @@ const generalError = computed(() => {
             <p v-else-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'account-transfers')" #footer>
             <PrimaryButton
                 :busy="saving"
                 :disabled="loading || !form.from_account_id || !form.to_account_id || sent === null || received === null || allocationState === 'over'"

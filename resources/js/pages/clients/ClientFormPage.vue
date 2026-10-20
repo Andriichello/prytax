@@ -12,6 +12,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { useSession } from '@/composables/useSession';
 import { COMMON_COUNTRIES, countryName } from '@/utils/clients';
 import { errorMessage, fieldError } from '@/utils/errors';
 
@@ -23,6 +24,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
 
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path } = useCurrentProfile();
 
 const clientId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -164,7 +166,7 @@ const generalError = computed(() => {
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'clients')" #footer>
             <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim()" @click="save">Зберегти</PrimaryButton>
         </template>
     </SubScreen>

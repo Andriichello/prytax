@@ -271,7 +271,7 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
                     </div>
                 </section>
 
-                <div class="flex flex-col gap-1.5">
+                <div v-if="can('update', 'invoices')" class="flex flex-col gap-1.5">
                     <TextAreaField
                         v-model="notes"
                         label="Примітка (можна змінювати)"
@@ -281,6 +281,10 @@ const CONFIRMS: Record<Action, { title: string; label: string; text: string; des
                         :aside="savingNotes ? 'Зберігаю…' : undefined"
                         @focusout="saveNotes"
                     />
+                </div>
+                <div v-else-if="invoice.notes" class="flex flex-col gap-1.5">
+                    <span class="text-13 font-medium text-ink-2">Примітка</span>
+                    <p class="m-0 rounded-control border border-line bg-surface px-3.5 py-3 text-15 whitespace-pre-line">{{ invoice.notes }}</p>
                 </div>
 
                 <template v-if="isOpen && can('update', 'invoices')">

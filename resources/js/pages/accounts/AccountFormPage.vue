@@ -12,6 +12,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { useSession } from '@/composables/useSession';
 import { ACCOUNT_KINDS } from '@/utils/accounts';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { parseAmount } from '@/utils/money';
@@ -25,6 +26,7 @@ const CURRENCIES = ['USD', 'EUR', 'UAH', 'GBP', 'PLN', 'CHF', 'CAD'];
 
 const route = useRoute();
 const router = useRouter();
+const { can } = useSession();
 const { profileId, path } = useCurrentProfile();
 
 const accountId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -261,7 +263,7 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
-        <template #footer>
+        <template v-if="can(isNew ? 'create' : 'update', 'accounts')" #footer>
             <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim()" @click="save">Зберегти</PrimaryButton>
         </template>
     </SubScreen>

@@ -89,10 +89,12 @@ const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
                     <template v-for="quarter in esv.quarters" :key="quarter.quarter">
                         <div class="flex justify-between gap-2 bg-paper px-3.5 py-2 text-12 text-ink-2">
                             <span class="font-semibold">{{ quarterLabel(quarter.quarter) }} · до <span class="num">{{ deadline(quarter) }}</span></span>
-                            <span v-if="quarter.is_annual">річна декларація, додаток 1</span>
-                            <span v-else-if="quarter.is_paid && quarter.paid_at">сплачено <span class="num">{{ formatDayMonth(quarter.paid_at) }}</span></span>
-                            <span v-else-if="compareAmounts(quarter.pending, '0') > 0">надіслано <span class="num">{{ formatAmount(quarter.pending) }}</span></span>
-                            <span v-else-if="quarter.state === 'overdue'" class="text-negative">прострочено</span>
+                            <span class="text-right">
+                                <template v-if="quarter.is_paid && quarter.paid_at">сплачено <span class="num">{{ formatDayMonth(quarter.paid_at) }}</span></template>
+                                <template v-else-if="compareAmounts(quarter.pending, '0') > 0">надіслано <span class="num">{{ formatAmount(quarter.pending) }}</span></template>
+                                <span v-else-if="quarter.state === 'overdue'" class="text-negative">прострочено</span>
+                                <template v-if="quarter.is_annual">{{ quarter.is_paid || compareAmounts(quarter.pending, '0') > 0 || quarter.state === 'overdue' ? ' · ' : '' }}річна декларація, додаток 1</template>
+                            </span>
                         </div>
                         <div
                             v-for="(month, index) in quarter.months"
@@ -103,6 +105,10 @@ const grid = 'grid grid-cols-[1.2fr_1fr_1fr_28px] items-center gap-2 px-3.5';
                             <span>{{ monthName(month.month) }}</span>
                             <template v-if="month.status === 'exempt'">
                                 <span class="col-span-2 text-right text-13 text-ink-3">звільнено{{ month.note ? ` · ${month.note}` : '' }}</span>
+                                <span />
+                            </template>
+                            <template v-else-if="month.status === null">
+                                <span class="col-span-2 text-right text-13 text-ink-3">— · не відстежується</span>
                                 <span />
                             </template>
                             <template v-else>

@@ -49,11 +49,17 @@ const grouping = useStoredState<Grouping>('accounting.grouping', 'month', (value
 const showTaxes = useStoredState('accounting.taxes', true, (value): value is boolean => typeof value === 'boolean');
 const showFees = useStoredState('accounting.fees', false, (value): value is boolean => typeof value === 'boolean');
 
-const { data, error, loading, reload } = useLoader(async (signal) => {
+/** The profile and quarter on screen: another quarter's figures are never shown while the chosen one loads. */
+const key = computed(() => `${profileId.value}:${year.value}:${quarter.value}`);
+
+const { data: loaded, error, loading, reload } = useLoader(async (signal) => {
+    const own = key.value;
     const { data: quarterData } = await api.get<ApiResponse<AccountingQuarter>>(path(`accounting/${year.value}/${quarter.value}`), undefined, signal);
 
-    return quarterData;
-}, [profileId, year, quarter]);
+    return { key: own, quarter: quarterData };
+}, [key]);
+
+const data = computed(() => (loaded.value?.key === key.value ? loaded.value.quarter : null));
 
 function go(nextYear: number, nextQuarter: number): void {
     void router.replace({ name: 'accounting', params: { year: nextYear, quarter: nextQuarter } });
@@ -137,8 +143,14 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
             :to="{ name: 'declaration', params: { year, quarter } }"
             class="flex min-h-12 items-center gap-2.5 rounded-control border border-line bg-surface px-3.5 text-14 text-ink no-underline hover:text-ink"
         >
-            <StatusBadge v-bind="DECLARATION_STATUSES[data.period.declaration_status]" />
-            <span class="flex-1">Декларація до <span class="num">{{ formatDate(data.period.declaration_due_at) }}</span></span>
+            <template v-if="data.period.id === null">
+                <StatusBadge label="Не відстежується" tone="neutral" />
+                <span class="flex-1">Квартал поза обліком цього ФОП</span>
+            </template>
+            <template v-else>
+                <StatusBadge v-bind="DECLARATION_STATUSES[data.period.declaration_status]" />
+                <span class="flex-1">Декларація до <span class="num">{{ formatDate(data.period.declaration_due_at) }}</span></span>
+            </template>
             <Icon name="chevronRight" :size="18" class="text-ink-3" />
         </RouterLink>
 

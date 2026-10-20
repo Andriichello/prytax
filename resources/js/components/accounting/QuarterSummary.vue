@@ -12,12 +12,18 @@ const { summary } = defineProps<{ summary: QuarterLiability }>();
 
 const previous = computed(() => (summary.quarter > 1 ? `за ${quarterLabel(summary.quarter - 1)}` : 'на початок року'));
 
+const percent = (rate: string): string => `${Number((Number(rate) * 100).toFixed(2))} %`;
+const isAboveCap = computed(() => compareAmounts(summary.cap.excess, '0') > 0);
+
 const taxes = computed(() => [
-    { name: 'ЄП', liability: summary.single_tax },
-    { name: 'ВЗ', liability: summary.military_levy },
+    { name: 'ЄП', liability: summary.single_tax, aboveCap: isAboveCap.value },
+    { name: 'ВЗ', liability: summary.military_levy, aboveCap: false },
 ]);
 
-const ratePercent = (liability: TaxLiability): string => `${Number((Number(liability.rate) * 100).toFixed(2))} %`;
+/** "5 %"; ЄП above the income cap is taxed at the excess rate on the excess, so the check names both rates. */
+const rateOf = (liability: TaxLiability, aboveCap: boolean): string => (aboveCap
+    ? `${percent(liability.rate)}, понад ліміт ${percent(summary.cap.excess_rate)},`
+    : percent(liability.rate));
 const deltaClass = (delta: string): string => (compareAmounts(delta, '0') === 0 ? '' : 'text-warning-on-ink');
 </script>
 
@@ -41,7 +47,7 @@ const deltaClass = (delta: string): string => (compareAmounts(delta, '0') === 0 
                 {{ formatAmount(tax.liability.ytd) }} за рік − {{ formatAmount(tax.liability.previous_ytd) }} {{ previous }}
             </span>
             <div class="flex flex-col gap-1 pt-1">
-                <span class="text-13 text-on-ink-2">Перевірка: {{ ratePercent(tax.liability) }} від доходу кварталу</span>
+                <span class="text-13 text-on-ink-2">Перевірка: {{ rateOf(tax.liability, tax.aboveCap) }} від доходу кварталу</span>
                 <span class="num self-end text-14">
                     {{ formatAmount(tax.liability.standalone) }}
                     <span :class="deltaClass(tax.liability.standalone_delta)">Δ {{ formatAmount(tax.liability.standalone_delta) }}</span>
@@ -81,9 +87,9 @@ const deltaClass = (delta: string): string => (compareAmounts(delta, '0') === 0 
                 <span class="text-14 text-on-ink-2">Ліміт доходу</span>
                 <span class="num text-15 font-semibold" :class="Number(summary.cap.percent) >= 80 ? 'text-warning-on-ink' : ''">{{ summary.cap.percent }} %</span>
             </div>
-            <p v-if="compareAmounts(summary.cap.excess, '0') > 0" class="m-0 pt-3.5 text-13 leading-normal text-warning-on-ink">
+            <p v-if="isAboveCap" class="m-0 pt-3.5 text-13 leading-normal text-warning-on-ink">
                 Перевищення ліміту <span class="num">{{ formatMoney(summary.cap.excess, 'UAH') }}</span> оподатковується за
-                {{ Number((Number(summary.cap.excess_rate) * 100).toFixed(2)) }} %: <span class="num">{{ formatMoney(summary.cap.excess_tax, 'UAH') }}</span>.
+                {{ percent(summary.cap.excess_rate) }}: <span class="num">{{ formatMoney(summary.cap.excess_tax, 'UAH') }}</span>.
             </p>
         </div>
     </section>

@@ -37,8 +37,11 @@ the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design
 1. **Ask the user** about merging `dev-followups` into `dev`/`main`, and api-core's `feat/remember-login` into its
    `dev` (and pushing it). Then what is left: XLSX exports and the yearly PDF summary (need a package, so approval),
    pixel polish against the mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
-2. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run dev`), sign in as
-   `olena@example.com` / `password`.
+2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
+   end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
+   dev`), sign in as `olena@example.com` / `password`; start Chrome only to check the UI (under "Checking the UI").
+   Leave port 8000 (`php artisan serve` of `/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers
+   alone.
 
 ## QA pass (2026-10-21, branch `dev-qa-fixes`)
 

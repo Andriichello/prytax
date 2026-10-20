@@ -131,13 +131,14 @@ class TaxLiabilityCalculator
         $refunds = Refund::query()
             ->where('profile_id', $profile->getKey())
             ->where('period_year', $year)
-            ->groupBy('period_month')
-            ->selectRaw('period_month, SUM(uah_amount) as income, COUNT(*) as count')
-            ->get();
+            ->with('taxRule')
+            ->get(['id', 'period_month', 'tax_rule_id', 'uah_amount']);
 
-        foreach ($refunds as $row) {
-            $month = &$months[(int) $row->period_month];
-            $month['income'] = $month['income']->minus(Decimal::of((string) $row->income));
+        foreach ($refunds as $refund) {
+            $month = &$months[(int) $refund->period_month];
+            $month['income'] = $month['income']->minus(Decimal::of($refund->uah_amount));
+            $month['single_tax_hints'] = $month['single_tax_hints']->minus(Decimal::times($refund->uah_amount, $refund->taxRule->single_tax_rate));
+            $month['military_levy_hints'] = $month['military_levy_hints']->minus(Decimal::times($refund->uah_amount, $refund->taxRule->military_levy_rate));
             unset($month);
         }
 
@@ -191,15 +192,17 @@ class TaxLiabilityCalculator
             ->where('profile_id', $profile->getKey())
             ->where('period_year', $year)
             ->where('period_quarter', '<=', $quarter)
-            ->groupBy('period_quarter', 'tax_rule_id')
-            ->selectRaw('period_quarter, tax_rule_id, SUM(uah_amount) as refunded')
-            ->get();
+            ->with('taxRule')
+            ->get(['id', 'period_quarter', 'tax_rule_id', 'uah_amount']);
 
-        foreach ($refunds as $row) {
-            $segment = $segments[(int) $row->period_quarter][(int) $row->tax_rule_id] ?? $empty();
-            $segment['income'] = $segment['income']->minus(Decimal::of((string) $row->refunded));
-            $segment['refunds'] = $segment['refunds']->plus(Decimal::of((string) $row->refunded));
-            $segments[(int) $row->period_quarter][(int) $row->tax_rule_id] = $segment;
+        // A refund takes back the hints of its own amount, each rounded as a receipt's are
+        foreach ($refunds as $refund) {
+            $segment = $segments[(int) $refund->period_quarter][(int) $refund->tax_rule_id] ?? $empty();
+            $segment['income'] = $segment['income']->minus(Decimal::of($refund->uah_amount));
+            $segment['refunds'] = $segment['refunds']->plus(Decimal::of($refund->uah_amount));
+            $segment['ep_hints'] = $segment['ep_hints']->minus(Decimal::times($refund->uah_amount, $refund->taxRule->single_tax_rate));
+            $segment['vz_hints'] = $segment['vz_hints']->minus(Decimal::times($refund->uah_amount, $refund->taxRule->military_levy_rate));
+            $segments[(int) $refund->period_quarter][(int) $refund->tax_rule_id] = $segment;
         }
 
         return $segments;
@@ -318,13 +321,7 @@ class TaxLiabilityCalculator
         $owed = $ytdLiability->minus($previousLiability);
         $standalone = $this->liability($current, $rules, $rateColumn);
 
-        // Refunds have no hints of their own, so their share is taken off at the rule's rate
-        $hints = Decimal::zero();
-
-        foreach ($current as $ruleId => $segment) {
-            $hints = $hints->plus($segment[$hintsKey])
-                ->minus(Decimal::times($segment['refunds'], $rules->get($ruleId)?->$rateColumn));
-        }
+        $hints = Decimal::sum(array_column($current, $hintsKey));
 
         return [
             'rate' => Decimal::rate($rule?->$rateColumn),

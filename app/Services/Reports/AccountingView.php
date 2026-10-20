@@ -105,7 +105,7 @@ class AccountingView
         $payments = Payment::query()
             ->inQuarter($year, $quarter)
             ->chronologically()
-            ->with(['invoice.client', 'receivedToAccount', 'allocations.transfer.toAccount'])
+            ->with(['invoice.client', 'receivedToAccount', 'allocations.transfer.toAccount', 'refunds'])
             ->get()
             ->map(function (Payment $payment) {
                 $metrics = $this->flows->metrics($payment);
@@ -130,16 +130,15 @@ class AccountingView
                     'account_id' => $payment->received_to_account_id,
                     'account_name' => $payment->receivedToAccount?->name,
                     'fees' => $metrics['fees'],
-                    'net' => Decimal::money(
-                        Decimal::of($payment->amount)->minus(Decimal::of($metrics['fees']))->minus(Decimal::of($metrics['taxes_in_currency']))
-                    ),
+                    'fx_spread_uah' => $metrics['receipt_fx_spread'],
+                    'net' => $metrics['net_income'],
                 ];
             });
 
         $refunds = Refund::query()
             ->where('period_year', $year)
             ->where('period_quarter', $quarter)
-            ->with(['payment.invoice.client', 'fromAccount'])
+            ->with(['payment.invoice.client', 'fromAccount', 'taxRule'])
             ->get()
             ->map(fn (Refund $refund) => [
                 'type' => 'refund',
@@ -156,11 +155,13 @@ class AccountingView
                 'amount' => Decimal::money(Decimal::of($refund->amount)->negated()),
                 'nbu_rate' => $refund->nbu_rate,
                 'uah_amount' => Decimal::money(Decimal::of($refund->uah_amount)->negated()),
-                'single_tax_uah' => null,
-                'military_levy_uah' => null,
+                // The hints, which the refund takes back, as the quarter's sum of hints does
+                'single_tax_uah' => Decimal::money(Decimal::times($refund->uah_amount, $refund->taxRule->single_tax_rate)->negated()),
+                'military_levy_uah' => Decimal::money(Decimal::times($refund->uah_amount, $refund->taxRule->military_levy_rate)->negated()),
                 'account_id' => $refund->from_account_id,
                 'account_name' => $refund->fromAccount?->name,
                 'fees' => null,
+                'fx_spread_uah' => null,
                 'net' => null,
             ]);
 

@@ -105,6 +105,16 @@ class Refund extends BaseModel
     }
 
     /**
+     * Tax rule of the refund's date, whose rates its hints take back.
+     *
+     * @return BelongsTo
+     */
+    public function taxRule(): BelongsTo
+    {
+        return $this->belongsTo(TaxRule::class);
+    }
+
+    /**
      * Get the query builder of the model.
      *
      * @param mixed $query

@@ -1,11 +1,12 @@
 import { computed, ref } from 'vue';
-import { api } from '@/api/client';
+import { ApiError, api } from '@/api/client';
 import type { ApiResponse, Me, Profile, ProfileSettings } from '@/api/types';
 import { setMoneyFormat } from '@/utils/money';
 
 /**
  * The ФОП profiles of the organization and the one the app works in. The API links to profile records without the
- * profile in the path (`/invoices/12`), so the current profile is app state, remembered per user on the device.
+ * profile in the path (`/invoices/12`), so the current profile is app state, remembered per user on the device; a
+ * link opened from outside the app finds the profile of its record (`locate()`).
  */
 const profiles = ref<Profile[]>([]);
 const currentId = ref<number | null>(null);
@@ -105,6 +106,32 @@ async function ensure(user: Me): Promise<Profile | null> {
     return profile;
 }
 
+/**
+ * Find the profile, which has the record (`invoices/12`): the current one first, then the others. Null when none
+ * has it, or when the API can't tell (offline): the page then says what is wrong.
+ */
+async function locate(resource: string): Promise<number | null> {
+    const ids = [currentId.value, ...profiles.value.map((item) => item.id).filter((id) => id !== currentId.value)];
+
+    for (const id of ids) {
+        if (id === null) {
+            continue;
+        }
+
+        try {
+            await api.get(`profiles/${id}/${resource}`);
+
+            return id;
+        } catch (caught) {
+            if (!(caught instanceof ApiError) || caught.status !== 404) {
+                return null;
+            }
+        }
+    }
+
+    return null;
+}
+
 function reset(): void {
     profiles.value = [];
     currentId.value = null;
@@ -152,6 +179,7 @@ export function useCurrentProfile() {
         loadSettings,
         select,
         ensure,
+        locate,
         reset,
         markOneRead,
         setUnreadCount,

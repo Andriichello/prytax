@@ -11,6 +11,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { t } from '@/i18n';
 import { currentQuarter, monthName, quarterLabel } from '@/utils/dates';
 import { formatAmount } from '@/utils/money';
 
@@ -57,15 +58,15 @@ const lines = computed(() => {
 });
 
 const exports = computed(() => [
-    { label: 'Облік доходів за рік', hint: 'CSV', href: apiUrl(path(`income-book/${year.value}/export`)) },
-    { label: 'Усі надходження та податки', hint: 'CSV', href: apiUrl(path(`accounting/${year.value}/export`)) },
+    { label: t('Облік доходів за рік'), hint: 'CSV', href: apiUrl(path(`income-book/${year.value}/export`)) },
+    { label: t('Усі надходження та податки'), hint: 'CSV', href: apiUrl(path(`accounting/${year.value}/export`)) },
 ]);
 
 const grid = 'grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 px-4';
 </script>
 
 <template>
-    <TabScreen title="Облік">
+    <TabScreen :title="t('Облік')">
         <template #title-action>
             <YearSelect v-model="yearModel" />
         </template>
@@ -73,22 +74,21 @@ const grid = 'grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 px-4';
         <AccountingHeader active="income-book" :year="year" />
 
         <p class="m-0 text-14 leading-[1.45] text-ink-3">
-            Облік доходів у довільній формі (п. 296.1 ПКУ). Сума за місяць — з уже округлених надходжень; повернення
-            клієнтам зменшують дохід місяця повернення.
+            {{ t('Облік доходів у довільній формі (п. 296.1 ПКУ). Сума за місяць — з уже округлених надходжень; повернення клієнтам зменшують дохід місяця повернення.') }}
         </p>
 
         <LoadState :loading="loading && !book" :error="error" @retry="reload">
-            <section v-if="book" class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" aria-label="Книга доходів">
+            <section v-if="book" class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="t('Книга доходів')">
                 <div :class="grid" class="border-b border-divider bg-paper-light py-2.5 text-13 font-semibold text-ink-3">
-                    <span>Місяць</span>
-                    <span class="text-right">Дохід, ₴</span>
-                    <span class="w-28 text-right">Наростаючим</span>
+                    <span>{{ t('Місяць') }}</span>
+                    <span class="text-right">{{ t('Дохід, ₴') }}</span>
+                    <span class="w-28 text-right">{{ t('Наростаючим') }}</span>
                 </div>
                 <template v-for="(line, index) in lines" :key="index">
                     <div v-if="line.kind === 'month'" :class="[grid, index && lines[index - 1]?.kind === 'month' ? 'border-t border-divider' : '']" class="py-3.5">
                         <span class="flex flex-col">
                             <span class="text-16">{{ monthName(line.month.month) }}</span>
-                            <span v-if="line.month.is_current" class="text-12 text-ink-3">поточний</span>
+                            <span v-if="line.month.is_current" class="text-12 text-ink-3">{{ t('поточний') }}</span>
                         </span>
                         <span class="num text-right text-16">{{ formatAmount(line.month.income) }}</span>
                         <span class="num w-28 text-right text-16 text-ink-2">{{ formatAmount(line.month.cumulative) }}</span>
@@ -100,7 +100,7 @@ const grid = 'grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 px-4';
                     </div>
                 </template>
                 <div :class="grid" class="border-t border-line bg-paper-light py-3 text-15 font-semibold">
-                    <span>Рік</span>
+                    <span>{{ t('Рік') }}</span>
                     <span class="num text-right">{{ formatAmount(book.total) }}</span>
                     <span class="w-28" />
                 </div>
@@ -108,7 +108,7 @@ const grid = 'grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 px-4';
         </LoadState>
 
         <section class="flex flex-col gap-2">
-            <SectionTitle>Експорт</SectionTitle>
+            <SectionTitle>{{ t('Експорт') }}</SectionTitle>
             <a
                 v-for="file in exports"
                 :key="file.label"

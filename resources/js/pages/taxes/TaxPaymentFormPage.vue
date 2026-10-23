@@ -25,10 +25,11 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { currentQuarter, dateParts, formatDayMonth, monthName, quarterLabel, quarterOf, today } from '@/utils/dates';
+import { t } from '@/i18n';
+import { currentQuarter, dateParts, formatDayMonth, monthName, monthNameInText, quarterLabel, quarterOf, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts, sumAmounts } from '@/utils/money';
-import { TAX_TYPES } from '@/utils/statuses';
+import { TAX_PAYMENT_STATUSES, TAX_TYPES } from '@/utils/statuses';
 import { amountsToPay, isToPay } from '@/utils/taxes';
 
 /**
@@ -39,14 +40,11 @@ import { amountsToPay, isToPay } from '@/utils/taxes';
  * what is left of the chosen tax and period until it is typed by hand.
  */
 const TAXES: TaxType[] = ['single_tax', 'military_levy', 'social_contribution'];
-const TAX_OPTIONS = TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] }));
-const STATUS_OPTIONS: { value: TaxPaymentStatus; label: string }[] = [
-    { value: 'sent', label: 'Надіслано' },
-    { value: 'paid', label: 'Сплачено' },
-    { value: 'failed', label: 'Не пройшов' },
-];
-const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: monthName(index + 1) }));
-const QUARTER_OPTIONS = [1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) }));
+const STATUSES: TaxPaymentStatus[] = ['sent', 'paid', 'failed'];
+const taxOptions = computed(() => TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] })));
+const statusOptions = computed(() => STATUSES.map((value) => ({ value, label: TAX_PAYMENT_STATUSES[value].label })));
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, index) => ({ value: index + 1, label: monthName(index + 1) })));
+const quarterOptions = computed(() => [1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) })));
 
 const route = useRoute();
 const router = useRouter();
@@ -213,11 +211,11 @@ watch(remaining, (value) => {
 
 const periodLabel = computed(() => {
     if (form.allocation === 'month') {
-        return `${monthName(form.period_month).toLowerCase()} ${form.period_year}`;
+        return `${monthNameInText(form.period_month)} ${form.period_year}`;
     }
 
     if (form.allocation === 'payment') {
-        return receipt.value ? `надходження ${formatDayMonth(receipt.value.received_at)}` : 'надходження';
+        return receipt.value ? t('надходження {date}', { date: formatDayMonth(receipt.value.received_at) }) : t('надходження');
     }
 
     return `${quarterLabel(form.period_quarter)}`;
@@ -283,11 +281,11 @@ function retryLoading(): void {
 
 const allRequisites = computed(() => (requisite.value
     ? [
-        `Отримувач: ${requisite.value.recipient_name}`,
+        `${t('Отримувач')}: ${requisite.value.recipient_name}`,
         `IBAN: ${requisite.value.iban}`,
-        `Код отримувача: ${requisite.value.recipient_code}`,
-        `Призначення платежу: ${requisite.value.purpose}`,
-        `Сума: ${parseAmount(form.amount) ?? form.amount}`,
+        `${t('Код отримувача')}: ${requisite.value.recipient_code}`,
+        `${t('Призначення платежу')}: ${requisite.value.purpose}`,
+        `${t('Сума')}: ${parseAmount(form.amount) ?? form.amount}`,
     ].join('\n')
     : ''));
 
@@ -305,7 +303,7 @@ async function copyAll(): Promise<void> {
 
 const accountOptions = computed(() => accounts.value
     .filter((account) => account.currency === 'UAH' && account.is_active)
-    .map((account) => ({ value: account.id, label: account.kind === 'personal' ? `${account.name} · особистий` : account.name })));
+    .map((account) => ({ value: account.id, label: account.kind === 'personal' ? t('{name} · особистий', { name: account.name }) : account.name })));
 
 const receiptOptions = computed(() => (receipts.value?.rows ?? [])
     .filter((row) => row.type === 'payment')
@@ -315,8 +313,8 @@ const receiptOptions = computed(() => (receipts.value?.rows ?? [])
     })));
 
 const allocationOptions = computed<{ value: TaxAllocation; label: string }[]>(() => (form.tax_type === 'social_contribution'
-    ? [{ value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]
-    : [{ value: 'payment', label: 'Надходження' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]));
+    ? [{ value: 'month', label: t('Місяць') }, { value: 'quarter', label: t('Квартал') }]
+    : [{ value: 'payment', label: t('Надходження||одне') }, { value: 'month', label: t('Місяць') }, { value: 'quarter', label: t('Квартал') }]));
 
 const years = computed(() => [now.year, now.year - 1, now.year - 2].map((value) => ({ value, label: String(value) })));
 
@@ -378,109 +376,109 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen title="Сплата податку" :back="returnTo">
+    <SubScreen :title="t('Сплата податку')" :back="returnTo">
         <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-ink-2">Податок</span>
-            <SegmentedControl v-model="form.tax_type" label="Податок" size="lg" :options="TAX_OPTIONS" @update:model-value="onTaxChange" />
+            <span class="text-13 font-medium text-ink-2">{{ t('Податок') }}</span>
+            <SegmentedControl v-model="form.tax_type" :label="t('Податок')" size="lg" :options="taxOptions" @update:model-value="onTaxChange" />
         </div>
 
         <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-ink-2">Зарахувати на</span>
-            <SegmentedControl v-model="form.allocation" label="Зарахувати на" size="lg" :options="allocationOptions" />
+            <span class="text-13 font-medium text-ink-2">{{ t('Зарахувати на') }}</span>
+            <SegmentedControl v-model="form.allocation" :label="t('Зарахувати на')" size="lg" :options="allocationOptions" />
         </div>
 
         <div class="grid grid-cols-[2fr_1fr] gap-2.5">
             <SelectField
                 v-if="form.allocation === 'month'"
                 v-model="form.period_month"
-                label="Місяць"
-                :options="MONTH_OPTIONS"
+                :label="t('Місяць')"
+                :options="monthOptions"
                 :error="fieldError(saveError, 'period_month')"
                 @update:model-value="periodTouched = true"
             />
             <SelectField
                 v-else
                 v-model="form.period_quarter"
-                label="Квартал"
-                :options="QUARTER_OPTIONS"
+                :label="t('Квартал')"
+                :options="quarterOptions"
                 :error="fieldError(saveError, 'period_quarter')"
                 @update:model-value="periodTouched = true"
             />
-            <SelectField v-model="form.period_year" label="Рік" :options="years" @update:model-value="periodTouched = true" />
+            <SelectField v-model="form.period_year" :label="t('Рік')" :options="years" @update:model-value="periodTouched = true" />
         </div>
 
         <SelectField
             v-if="form.allocation === 'payment'"
             v-model="form.payment_id"
-            label="Надходження"
-            placeholder="Надходжень у кварталі немає"
+            :label="t('Надходження||одне')"
+            :placeholder="t('Надходжень у кварталі немає')"
             :options="receiptOptions"
             :error="fieldError(saveError, 'payment_id')"
         />
 
         <div v-if="remaining !== null" class="flex items-center justify-between gap-3 rounded-control px-4 py-3.5 text-15" :class="compareAmounts(remaining, '0') > 0 ? 'bg-warning-soft text-warning' : 'bg-positive-soft text-positive'">
-            <span>Залишок {{ TAX_TYPES[form.tax_type] }} за {{ periodLabel }}</span>
+            <span>{{ t('Залишок {tax} за {period}', { tax: TAX_TYPES[form.tax_type], period: periodLabel }) }}</span>
             <span class="num font-semibold">{{ formatMoney(remaining, 'UAH') }}</span>
         </div>
 
         <p v-if="loadError" class="m-0 flex flex-wrap items-center gap-x-2 text-14 text-negative" role="alert">
             {{ loadError }}
-            <button type="button" class="min-h-11 text-14 font-medium text-accent" @click="retryLoading">Повторити</button>
+            <button type="button" class="min-h-11 text-14 font-medium text-accent" @click="retryLoading">{{ t('Повторити') }}</button>
         </p>
 
         <div class="grid grid-cols-2 gap-2.5">
             <TextField
                 v-model="form.amount"
-                label="Сума, ₴"
+                :label="t('Сума, ₴')"
                 numeric
                 class="text-18 font-bold"
                 :error="fieldError(saveError, 'amount')"
                 @update:model-value="amountTouched = true"
             />
-            <DateField v-model="form.paid_at" label="Дата" :error="fieldError(saveError, 'paid_at')" />
+            <DateField v-model="form.paid_at" :label="t('Дата')" :error="fieldError(saveError, 'paid_at')" />
         </div>
 
         <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-ink-2">Статус</span>
-            <SegmentedControl v-model="form.status" label="Статус" size="lg" :options="STATUS_OPTIONS" />
-            <span class="text-12 text-ink-3">«Надіслано» показується як очікуване й не зменшує борг</span>
+            <span class="text-13 font-medium text-ink-2">{{ t('Статус') }}</span>
+            <SegmentedControl v-model="form.status" :label="t('Статус')" size="lg" :options="statusOptions" />
+            <span class="text-12 text-ink-3">{{ t('«Надіслано» показується як очікуване й не зменшує борг') }}</span>
         </div>
 
         <SelectField
             v-model="form.paid_from_account_id"
-            label="Сплачено з рахунку"
-            placeholder="Не вказувати"
+            :label="t('Сплачено з рахунку')"
+            :placeholder="t('Не вказувати')"
             clearable
             :options="accountOptions"
-            hint="За замовчуванням із налаштувань · лише активні рахунки в UAH"
+            :hint="t('За замовчуванням із налаштувань · лише активні рахунки в UAH')"
             :error="fieldError(saveError, 'paid_from_account_id')"
         />
 
         <section v-if="requisite" class="flex flex-col rounded-card border border-line bg-surface pr-1 pl-4">
             <div class="flex items-center justify-between py-2">
-                <SectionTitle as="span">Реквізити {{ TAX_TYPES[form.tax_type] }}</SectionTitle>
+                <SectionTitle as="span">{{ t('Реквізити {tax}', { tax: TAX_TYPES[form.tax_type] }) }}</SectionTitle>
                 <button type="button" class="flex min-h-11 items-center px-3 text-15 font-medium text-accent" @click="copyAll">
-                    {{ copiedAll ? 'Скопійовано' : 'Копіювати все' }}
+                    {{ copiedAll ? t('Скопійовано') : t('Копіювати все') }}
                 </button>
             </div>
             <div class="flex flex-col divide-y divide-divider border-t border-divider">
-                <CopyRow label="Отримувач" :value="requisite.recipient_name" :figure="false" />
+                <CopyRow :label="t('Отримувач')" :value="requisite.recipient_name" :figure="false" />
                 <CopyRow label="IBAN" :value="requisite.iban" />
-                <CopyRow label="Код отримувача" :value="requisite.recipient_code" />
-                <CopyRow label="Призначення платежу" :value="requisite.purpose" wrap />
+                <CopyRow :label="t('Код отримувача')" :value="requisite.recipient_code" />
+                <CopyRow :label="t('Призначення платежу')" :value="requisite.purpose" wrap />
             </div>
         </section>
         <p v-else-if="requisiteMissing" class="m-0 rounded-card border border-line bg-surface p-4 text-14 text-ink-2">
-            Реквізитів {{ TAX_TYPES[form.tax_type] }} для цього періоду немає. Додайте їх у налаштуваннях податків.
+            {{ t('Реквізитів {tax} для цього періоду немає. Додайте їх у налаштуваннях податків.', { tax: TAX_TYPES[form.tax_type] }) }}
         </p>
 
-        <TextField v-model="form.reference" label="Номер платіжки" placeholder="Необов'язково" />
+        <TextField v-model="form.reference" :label="t('Номер платіжки')" :placeholder="t('Необов\'язково')" />
 
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
 
         <template v-if="canPay" #footer>
             <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || (form.allocation === 'payment' && !form.payment_id)" @click="save">
-                Зберегти сплату
+                {{ t('Зберегти сплату') }}
             </PrimaryButton>
         </template>
     </SubScreen>

@@ -9,8 +9,10 @@ import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { t } from '@/i18n';
 import { accountLabel } from '@/utils/accounts';
 import { currentQuarter, quarterLabel } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney, sumAmounts } from '@/utils/money';
@@ -75,48 +77,50 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">Комісії</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Комісії') }}</h1>
                 <YearSelect v-model="yearModel" />
             </div>
-            <p class="m-0 text-14 text-ink-3">Скільки коштує шлях грошей від клієнта до гривні: комісії й курсовий спред.</p>
+            <p class="m-0 text-14 text-ink-3">{{ t('Скільки коштує шлях грошей від клієнта до гривні: комісії й курсовий спред.') }}</p>
         </div>
 
         <LoadState :loading="loading && !stats" :error="error" @retry="reload">
             <template v-if="stats">
-                <EmptyState v-if="isEmpty" :text="`За ${year} рік надходжень і переказів немає.`" />
+                <EmptyState v-if="isEmpty" :text="t('За {year} рік надходжень і переказів немає.', { year })" />
 
                 <template v-else>
-                    <section class="grid grid-cols-2 gap-2" aria-label="Підсумки року">
+                    <section class="grid grid-cols-2 gap-2" :aria-label="t('Підсумки року')">
                         <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                            <span class="text-12 text-ink-3">Дохід</span>
+                            <span class="text-12 text-ink-3">{{ t('Дохід') }}</span>
                             <span class="num text-16 font-semibold">{{ formatMoney(totals.income, 'UAH') }}</span>
                         </div>
                         <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                            <span class="text-12 text-ink-3">Чистий дохід</span>
+                            <span class="text-12 text-ink-3">{{ t('Чистий дохід') }}</span>
                             <span class="num text-16 font-semibold">{{ formatMoney(totals.net, 'UAH') }}</span>
                         </div>
                         <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                            <span class="text-12 text-ink-3">Комісії</span>
+                            <span class="text-12 text-ink-3">{{ t('Комісії') }}</span>
                             <span class="num text-16 font-semibold">{{ formatMoney(totals.fees, 'UAH') }}</span>
                         </div>
                         <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                            <span class="text-12 text-ink-3">Курсовий спред</span>
+                            <span class="text-12 text-ink-3">{{ t('Курсовий спред') }}</span>
                             <span class="num text-16 font-semibold">{{ formatMoney(totals.spread, 'UAH') }}</span>
                         </div>
                     </section>
                     <p class="-mt-1 m-0 text-12 leading-[1.45] text-ink-3">
-                        <template v-if="lossPercent !== null">Втрати на комісіях і спреді — <span class="num font-semibold">{{ lossPercent }} %</span> доходу. </template>
-                        Чистий дохід — це дохід мінус комісії, ЄП, ВЗ і ЄСВ; спред показано окремо, бо це втрата на обміні, а не комісія.
+                        <template v-if="lossPercent !== null">
+                            <Translated :text="t('Втрати на комісіях і спреді — {percent} доходу.')"><template #percent><span class="num font-semibold">{{ lossPercent }} %</span></template></Translated>
+                        </template>
+                        {{ t('Чистий дохід — це дохід мінус комісії, ЄП, ВЗ і ЄСВ; спред показано окремо, бо це втрата на обміні, а не комісія.') }}
                     </p>
 
                     <section class="flex flex-col gap-2">
-                        <SectionTitle>За кварталами</SectionTitle>
+                        <SectionTitle>{{ t('За кварталами') }}</SectionTitle>
                         <div class="flex flex-col overflow-hidden rounded-card border border-line bg-surface">
                             <div :class="grid" class="border-b border-divider bg-paper-light py-2.5 text-12 font-semibold text-ink-3">
-                                <span>Квартал</span>
-                                <span class="text-right">Дохід</span>
-                                <span class="text-right">Втрати</span>
-                                <span class="text-right">Чистий</span>
+                                <span>{{ t('Квартал') }}</span>
+                                <span class="text-right">{{ t('Дохід') }}</span>
+                                <span class="text-right">{{ t('Втрати') }}</span>
+                                <span class="text-right">{{ t('Чистий') }}</span>
                             </div>
                             <div
                                 v-for="quarter in stats.quarters"
@@ -133,7 +137,7 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
                     </section>
 
                     <section v-if="stats.by_account.length" class="flex flex-col gap-2">
-                        <SectionTitle>За рахунками</SectionTitle>
+                        <SectionTitle>{{ t('За рахунками') }}</SectionTitle>
                         <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                             <FeeRow
                                 v-for="group in stats.by_account"
@@ -145,34 +149,34 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
                                 :to="group.id !== null ? { name: 'account', params: { id: group.id } } : undefined"
                             >
                                 <template v-if="group.receipts > 0">{{ countOf(group.receipts, PAYMENTS) }} · <span class="num">{{ formatMoney(group.income, 'UAH') }}</span></template>
-                                <template v-else>лише перекази</template>
+                                <template v-else>{{ t('лише перекази') }}</template>
                             </FeeRow>
                         </div>
                     </section>
 
                     <section v-if="stats.by_client.length" class="flex flex-col gap-2">
-                        <SectionTitle>За клієнтами</SectionTitle>
+                        <SectionTitle>{{ t('За клієнтами') }}</SectionTitle>
                         <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                             <FeeRow
                                 v-for="group in stats.by_client"
                                 :key="group.id ?? 0"
-                                :title="group.name ?? 'Без клієнта'"
+                                :title="group.name ?? t('Без клієнта')"
                                 :percent="group.loss_percent"
                                 :fees="group.fees"
                                 :spread="group.spread"
                                 :to="group.id !== null ? { name: 'client', params: { id: group.id } } : undefined"
                             >
                                 <template v-if="group.receipts > 0">{{ countOf(group.receipts, PAYMENTS) }} · <span class="num">{{ formatMoney(group.income, 'UAH') }}</span></template>
-                                <template v-else>лише перекази</template>
+                                <template v-else>{{ t('лише перекази') }}</template>
                             </FeeRow>
                         </div>
                     </section>
 
                     <section v-if="stats.routes.length" class="flex flex-col gap-2">
                         <SectionTitle>
-                            За маршрутами
+                            {{ t('За маршрутами') }}
                             <template #aside>
-                                <RouterLink :to="{ name: 'transfers' }" class="flex min-h-11 items-center text-14 font-medium no-underline">Перекази</RouterLink>
+                                <RouterLink :to="{ name: 'transfers' }" class="flex min-h-11 items-center text-14 font-medium no-underline">{{ t('Перекази') }}</RouterLink>
                             </template>
                         </SectionTitle>
                         <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -190,7 +194,7 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
                     </section>
 
                     <p v-if="stats.unknown_fees_count" class="m-0 text-12 text-ink-3">
-                        Без курсу НБУ не пораховано комісій переказів: {{ stats.unknown_fees_count }}.
+                        {{ t('Без курсу НБУ не пораховано комісій переказів: {count}.', { count: stats.unknown_fees_count }) }}
                     </p>
                 </template>
             </template>

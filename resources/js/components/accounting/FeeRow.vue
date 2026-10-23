@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
+import Translated from '@/components/ui/Translated.vue';
+import { t } from '@/i18n';
 import { compareAmounts, formatAmount } from '@/utils/money';
 
 /**
@@ -34,9 +36,9 @@ const tone = (value: string | null): string => (value === null ? 'text-ink-3' : 
             </span>
             <span class="text-12 text-ink-3"><slot /></span>
             <span class="text-12 text-ink-3">
-                <template v-if="compareAmounts(fees, '0') !== 0 || compareAmounts(spread, '0') === 0">комісії <span class="num">{{ formatAmount(fees) }}</span></template>
+                <Translated v-if="compareAmounts(fees, '0') !== 0 || compareAmounts(spread, '0') === 0" :text="t('комісії {amount}')"><template #amount><span class="num">{{ formatAmount(fees) }}</span></template></Translated>
                 <template v-if="compareAmounts(fees, '0') !== 0 && compareAmounts(spread, '0') !== 0"> · </template>
-                <template v-if="compareAmounts(spread, '0') !== 0">спред <span class="num">{{ formatAmount(spread) }}</span></template>
+                <Translated v-if="compareAmounts(spread, '0') !== 0" :text="t('спред {amount}')"><template #amount><span class="num">{{ formatAmount(spread) }}</span></template></Translated>
                 ₴
             </span>
         </span>

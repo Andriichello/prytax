@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { AccountingRow } from '@/api/types';
+import { t } from '@/i18n';
 import { formatDayMonthWords } from '@/utils/dates';
 import { formatAmount, formatCompact, formatMoney, formatRate } from '@/utils/money';
 
@@ -17,7 +18,7 @@ const { row, showTaxes, showFees, byInvoice = false } = defineProps<{
 }>();
 
 const isRefund = computed(() => row.type === 'refund');
-const title = computed(() => row.invoice_number ?? row.description ?? (row.kind === 'advance' ? 'Аванс' : 'Інший дохід'));
+const title = computed(() => row.invoice_number ?? row.description ?? (row.kind === 'advance' ? t('Аванс') : t('Інший дохід')));
 </script>
 
 <template>
@@ -28,7 +29,7 @@ const title = computed(() => row.invoice_number ?? row.description ?? (row.kind 
         <span class="flex items-center justify-between gap-3">
             <span v-if="byInvoice" class="text-15 font-semibold">{{ formatDayMonthWords(row.date) }}</span>
             <span v-else class="truncate text-15 font-semibold" :class="row.invoice_number ? 'num' : ''">
-                <template v-if="isRefund">Повернення · </template>{{ title }}
+                <template v-if="isRefund">{{ t('Повернення') }} · </template>{{ title }}
             </span>
             <span
                 class="num shrink-0 rounded-badge px-2 py-0.5 text-15 font-semibold"
@@ -38,7 +39,7 @@ const title = computed(() => row.invoice_number ?? row.description ?? (row.kind 
             </span>
         </span>
         <span class="flex items-baseline justify-between gap-3">
-            <span class="truncate text-13 text-ink-2">{{ byInvoice ? `на ${row.account_name ?? ''}` : row.client_name ?? row.description }}</span>
+            <span class="truncate text-13 text-ink-2">{{ byInvoice ? t('на {account}', { account: row.account_name ?? '' }) : row.client_name ?? row.description }}</span>
             <span v-if="row.currency !== 'UAH'" class="num text-12 text-ink-3">{{ formatRate(row.nbu_rate, row.currency) }}</span>
         </span>
         <span class="flex items-baseline justify-between gap-3">
@@ -49,21 +50,21 @@ const title = computed(() => row.invoice_number ?? row.description ?? (row.kind 
         <span v-if="showTaxes || (showFees && row.type === 'payment')" class="mt-1 flex flex-col">
             <template v-if="showTaxes">
                 <span class="flex items-baseline justify-between border-t border-dashed border-line-input py-2.25">
-                    <span class="text-14 text-ink-2">ЄП</span>
+                    <span class="text-14 text-ink-2">{{ t('ЄП') }}</span>
                     <span class="num text-15 font-semibold">{{ formatAmount(row.single_tax_uah) }}</span>
                 </span>
                 <span class="flex items-baseline justify-between border-t border-divider py-2.25">
-                    <span class="text-14 text-ink-2">ВЗ</span>
+                    <span class="text-14 text-ink-2">{{ t('ВЗ') }}</span>
                     <span class="num text-15 font-semibold">{{ formatAmount(row.military_levy_uah) }}</span>
                 </span>
             </template>
             <template v-if="showFees && row.type === 'payment'">
                 <span class="flex items-baseline justify-between py-2.25" :class="showTaxes ? 'border-t border-divider' : 'border-t border-dashed border-line-input'">
-                    <span class="text-14 text-ink-2">Комісії</span>
+                    <span class="text-14 text-ink-2">{{ t('Комісії') }}</span>
                     <span class="num text-15 font-semibold">{{ row.fees !== null ? formatCompact(row.fees, row.currency) : '—' }}</span>
                 </span>
                 <span class="flex items-baseline justify-between border-t border-divider py-2.25">
-                    <span class="text-14 text-ink-2">Чисто</span>
+                    <span class="text-14 text-ink-2">{{ t('Чисто') }}</span>
                     <span class="num text-15 font-semibold text-positive">{{ row.net !== null ? formatCompact(row.net, row.currency) : '—' }}</span>
                 </span>
             </template>

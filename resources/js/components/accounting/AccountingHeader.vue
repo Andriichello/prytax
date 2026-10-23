@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { t } from '@/i18n';
 
 /**
  * The tabs of Облік — Квартали, ЄСВ, Книга доходів — keeping the chosen year between them.
@@ -12,14 +13,14 @@ const { active, year } = defineProps<{
 }>();
 
 const tabs = computed(() => [
-    { name: 'quarters' as const, label: 'Квартали', to: { name: 'accounting', params: { year } } },
-    { name: 'esv' as const, label: 'ЄСВ', to: { name: 'accounting-esv', query: { year } } },
-    { name: 'income-book' as const, label: 'Книга доходів', to: { name: 'income-book', query: { year } } },
+    { name: 'quarters' as const, label: t('Квартали'), to: { name: 'accounting', params: { year } } },
+    { name: 'esv' as const, label: t('ЄСВ'), to: { name: 'accounting-esv', query: { year } } },
+    { name: 'income-book' as const, label: t('Книга доходів'), to: { name: 'income-book', query: { year } } },
 ]);
 </script>
 
 <template>
-    <nav aria-label="Розділи обліку" class="-mt-1 flex gap-5 border-b border-line">
+    <nav :aria-label="t('Розділи обліку')" class="-mt-1 flex gap-5 border-b border-line">
         <RouterLink
             v-for="tab in tabs"
             :key="tab.name"

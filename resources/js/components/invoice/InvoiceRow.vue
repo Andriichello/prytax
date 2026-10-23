@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { Invoice } from '@/api/types';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { t } from '@/i18n';
 import { formatDayMonth, formatPeriod, today } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney, percentOf } from '@/utils/money';
 import { INVOICE_STATUSES } from '@/utils/statuses';
@@ -23,13 +24,13 @@ const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoic
     && compareAmounts(paid.value, invoice.total) < 0);
 const draftNumber = computed(() => {
     if (invoice.source === 'external') {
-        return invoice.number ?? 'без номера';
+        return invoice.number ?? t('без номера');
     }
 
     // A number typed by hand stays; a generated one is the preview, which follows the draft's dates
     return invoice.number !== null && invoice.sequence_number === null
         ? invoice.number
-        : `наст. ${invoice.number_preview ?? invoice.number ?? '…'}`;
+        : t('наст. {number}', { number: invoice.number_preview ?? invoice.number ?? '…' });
 });
 const partlyPaid = computed(() => isOpen.value && compareAmounts(paid.value, '0') > 0);
 
@@ -52,7 +53,7 @@ const to = computed(() => (isDraft.value
                     v-if="invoice.source === 'external'"
                     class="shrink-0 rounded-md border border-line-input px-1.5 py-0.5 text-11 font-semibold text-ink-2"
                 >
-                    зовнішній
+                    {{ t('зовнішній') }}
                 </span>
             </span>
             <StatusBadge v-bind="INVOICE_STATUSES[invoice.status]" />
@@ -62,14 +63,14 @@ const to = computed(() => (isDraft.value
             <span class="num" :class="isCancelled ? '' : 'font-semibold'">{{ formatMoney(invoice.total, invoice.currency) }}</span>
         </span>
         <span v-if="overdue" class="text-12 text-negative">
-            Прострочено з {{ formatDayMonth(invoice.due_at) }}<template v-if="invoice.receivingAccount"> · {{ invoice.receivingAccount.name }}</template>
+            {{ t('Прострочено з {date}', { date: formatDayMonth(invoice.due_at) }) }}<template v-if="invoice.receivingAccount"> · {{ invoice.receivingAccount.name }}</template>
         </span>
         <span v-else-if="partlyPaid" class="mt-0.5 flex items-center gap-2.5">
             <ProgressBar :percent="percent" />
             <span class="num text-12 text-ink-2">{{ formatAmount(paid) }} · {{ percent }} %</span>
         </span>
         <span v-else-if="isDraft || isOpen" class="text-12 text-ink-3">
-            Період {{ formatPeriod(invoice.period_start, invoice.period_end) }}<template v-if="isOpen && invoice.due_at"> · сплатити до {{ formatDayMonth(invoice.due_at) }}</template>
+            {{ t('Період {period}', { period: formatPeriod(invoice.period_start, invoice.period_end) }) }}<template v-if="isOpen && invoice.due_at"> · {{ t('сплатити до {date}', { date: formatDayMonth(invoice.due_at) }) }}</template>
         </span>
     </RouterLink>
 </template>

@@ -11,7 +11,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { emptyFilters, filtersToApi, type InvoiceFilters } from '@/composables/useInvoiceFilters';
-import { dateParts, quarterLabel, today } from '@/utils/dates';
+import { t } from '@/i18n';
+import { dateParts, monthName, quarterLabel, today } from '@/utils/dates';
 import { countOf, INVOICES } from '@/utils/plural';
 import { INVOICE_STATUSES } from '@/utils/statuses';
 
@@ -22,7 +23,6 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
  */
 type PeriodMode = 'years' | 'quarters' | 'months' | 'range';
 
-const MONTHS_SHORT = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
 const STATUSES: InvoiceStatus[] = ['draft', 'ready', 'sent', 'paid', 'cancelled'];
 
 const { facets, filters } = defineProps<{
@@ -48,6 +48,16 @@ const years = computed(() => {
     return [...new Set([...known, now.year])].sort((a, b) => b - a);
 });
 const firstYear = computed(() => Math.min(...years.value));
+
+/** "Січ", "Jan": the first three letters of each month's name, in the language of the screens. */
+const monthsShort = computed(() => Array.from({ length: 12 }, (_, index) => monthName(index + 1).slice(0, 3)));
+
+const periodModes = computed<{ value: PeriodMode; label: string }[]>(() => [
+    { value: 'years', label: t('Роки') },
+    { value: 'quarters', label: t('Квартали') },
+    { value: 'months', label: t('Місяці') },
+    { value: 'range', label: t('Діапазон') },
+]);
 
 watch(open, (isOpen) => {
     if (!isOpen) {
@@ -167,22 +177,17 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" title="Фільтри">
+    <BottomSheet v-model:open="open" :title="t('Фільтри')">
         <template #action>
-            <button type="button" class="flex min-h-11 items-center px-1 text-15 font-medium text-accent" @click="reset">Скинути</button>
+            <button type="button" class="flex min-h-11 items-center px-1 text-15 font-medium text-accent" @click="reset">{{ t('Скинути') }}</button>
         </template>
 
         <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
-            <legend class="mb-2.5 p-0"><SectionTitle as="span">Період</SectionTitle></legend>
+            <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('Період') }}</SectionTitle></legend>
             <SegmentedControl
                 :model-value="mode"
-                label="Тип періоду"
-                :options="[
-                    { value: 'years', label: 'Роки' },
-                    { value: 'quarters', label: 'Квартали' },
-                    { value: 'months', label: 'Місяці' },
-                    { value: 'range', label: 'Діапазон' },
-                ]"
+                :label="t('Тип періоду')"
+                :options="periodModes"
                 @update:model-value="changeMode"
             />
 
@@ -201,7 +206,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                 <div class="flex items-center justify-between">
                     <button
                         type="button"
-                        aria-label="Попередній рік"
+                        :aria-label="t('Попередній рік')"
                         :disabled="shownYear <= firstYear"
                         class="flex size-11 items-center justify-center rounded-full border border-line-input bg-surface disabled:border-line disabled:bg-paper disabled:text-switch-off"
                         @click="shownYear -= 1"
@@ -211,7 +216,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                     <span class="num text-16 font-semibold">{{ shownYear }}</span>
                     <button
                         type="button"
-                        aria-label="Наступний рік"
+                        :aria-label="t('Наступний рік')"
                         :disabled="shownYear >= now.year"
                         class="flex size-11 items-center justify-center rounded-full border border-line-input bg-surface disabled:border-line disabled:bg-paper disabled:text-switch-off"
                         @click="shownYear += 1"
@@ -220,7 +225,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                     </button>
                 </div>
 
-                <div v-if="mode === 'quarters'" role="group" :aria-label="`Квартали ${shownYear}`" class="grid grid-cols-4 gap-2">
+                <div v-if="mode === 'quarters'" role="group" :aria-label="t('Квартали {year}', { year: shownYear })" class="grid grid-cols-4 gap-2">
                     <button
                         v-for="quarter in 4"
                         :key="quarter"
@@ -234,10 +239,10 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                     </button>
                 </div>
 
-                <div v-else role="group" :aria-label="`Місяці ${shownYear}`" class="grid grid-cols-4 gap-2">
+                <div v-else role="group" :aria-label="t('Місяці {year}', { year: shownYear })" class="grid grid-cols-4 gap-2">
                     <button
-                        v-for="(name, index) in MONTHS_SHORT"
-                        :key="name"
+                        v-for="(name, index) in monthsShort"
+                        :key="index"
                         type="button"
                         :disabled="isFutureMonth(index + 1)"
                         :aria-pressed="draft.periods.includes(monthToken(index + 1)) ? 'true' : 'false'"
@@ -250,15 +255,15 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
             </template>
 
             <div v-else class="grid grid-cols-2 gap-2.5">
-                <DateField v-model="draft.from" label="Виставлено з" :max="draft.to || undefined" />
-                <DateField v-model="draft.to" label="по" :min="draft.from || undefined" />
+                <DateField v-model="draft.from" :label="t('Виставлено з')" :max="draft.to || undefined" />
+                <DateField v-model="draft.to" :label="t('по')" :min="draft.from || undefined" />
             </div>
 
-            <span class="text-13 text-ink-3">Можна обрати кілька одного виду. У «Діапазон» — дата початку й кінця.</span>
+            <span class="text-13 text-ink-3">{{ t('Можна обрати кілька одного виду. У «Діапазон» — дата початку й кінця.') }}</span>
         </fieldset>
 
         <fieldset v-if="facets?.clients.length" class="m-0 flex flex-col border-0 p-0">
-            <legend class="mb-2.5 p-0"><SectionTitle as="span">Клієнти</SectionTitle></legend>
+            <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('Клієнти') }}</SectionTitle></legend>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                 <label v-for="client in facets.clients" :key="client.client_id" class="flex min-h-12 items-center gap-3 text-15">
                     <input
@@ -274,7 +279,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         </fieldset>
 
         <fieldset class="m-0 flex flex-col border-0 p-0">
-            <legend class="mb-2.5 p-0"><SectionTitle as="span">Статус</SectionTitle></legend>
+            <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('Статус') }}</SectionTitle></legend>
             <div class="flex flex-wrap gap-2">
                 <Chip v-for="status in STATUSES" :key="status" :selected="draft.statuses.includes(status)" @click="toggle(draft.statuses, status)">
                     {{ INVOICE_STATUSES[status].label }}
@@ -283,7 +288,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         </fieldset>
 
         <fieldset v-if="facets && facets.currencies.length > 1" class="m-0 flex flex-col border-0 p-0">
-            <legend class="mb-2.5 p-0"><SectionTitle as="span">Валюта</SectionTitle></legend>
+            <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('Валюта') }}</SectionTitle></legend>
             <div class="flex flex-wrap gap-2">
                 <Chip
                     v-for="currency in facets.currencies"
@@ -298,7 +303,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
 
         <template #footer>
             <PrimaryButton :busy="counting && count === null" @click="apply">
-                {{ count === null ? 'Показати інвойси' : count === 0 ? 'Нічого не знайдено' : `Показати ${countOf(count, INVOICES)}` }}
+                {{ count === null ? t('Показати інвойси') : count === 0 ? t('Нічого не знайдено') : t('Показати {invoices}', { invoices: countOf(count, INVOICES) }) }}
             </PrimaryButton>
         </template>
     </BottomSheet>

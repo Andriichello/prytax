@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 import type { Query } from '@/api/client';
 import type { InvoiceStatus } from '@/api/types';
+import { t } from '@/i18n';
 import { formatDate, monthName, quarterLabel } from '@/utils/dates';
 
 /**
@@ -113,7 +114,7 @@ export function useInvoiceFilters() {
             return periodLabel(periods[0]!);
         }
 
-        return periods.length ? `Період · ${periods.length}` : null;
+        return periods.length ? t('Період · {count}', { count: periods.length }) : null;
     });
 
     function apply(next: InvoiceFilters): void {

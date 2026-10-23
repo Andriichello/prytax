@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ItemUnit } from '@/api/types';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 import { formatAmount } from '@/utils/money';
 
 /**
@@ -24,7 +25,18 @@ const { item, editable = false } = defineProps<{
 
 const emit = defineEmits<{ open: [] }>();
 
-const UNITS = { hour: 'год', fixed: 'фікс.', item: 'шт' } as const;
+/** The short names of the units, which translate when they are read. */
+const UNITS: Record<ItemUnit, string> = {
+    get hour() {
+        return t('год');
+    },
+    get fixed() {
+        return t('фікс.');
+    },
+    get item() {
+        return t('шт');
+    },
+};
 </script>
 
 <template>
@@ -40,7 +52,7 @@ const UNITS = { hour: 'год', fixed: 'фікс.', item: 'шт' } as const;
             <span class="flex-1" />
             <Icon v-if="editable" name="chevronRight" :size="18" class="text-ink-2" />
         </span>
-        <span class="text-14 leading-[1.45]">{{ item.description || 'Без опису' }}</span>
+        <span class="text-14 leading-[1.45]">{{ item.description || t('Без опису') }}</span>
         <span class="flex items-baseline justify-between border-t border-divider pt-2">
             <span class="num text-13 text-ink-2">
                 {{ formatAmount(item.quantity) }} {{ UNITS[item.unit] }}<template v-if="item.unit_price"> × {{ formatAmount(item.unit_price) }}</template>

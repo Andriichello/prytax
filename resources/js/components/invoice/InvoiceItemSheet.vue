@@ -8,6 +8,8 @@ import BottomSheet from '@/components/ui/BottomSheet.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import Translated from '@/components/ui/Translated.vue';
+import { t } from '@/i18n';
 import { rateOn } from '@/utils/contracts';
 import { formatDate } from '@/utils/dates';
 import { formatMoney, multiplyAmounts, parseAmount } from '@/utils/money';
@@ -55,7 +57,8 @@ const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ save: [item: ItemDraft]; remove: [key: number] }>();
 
 const draft = ref<ItemDraft>({ key: 0, project_id: null, charge_type_id: null, description: '', unit: 'hour', quantity: '', unit_price: '' });
-const errors = ref<{ quantity?: string; unit_price?: string }>({});
+/** The fields, which are missing: their messages are translated as they are shown. */
+const errors = ref<{ quantity?: boolean; unit_price?: boolean }>({});
 
 watch(open, (isOpen) => {
     if (isOpen && item) {
@@ -102,13 +105,26 @@ const chargeTypeId = computed({
     },
 });
 
-const quantityLabel = computed(() => ({ hour: 'Кількість, год', fixed: 'Кількість', item: 'Кількість, шт' })[draft.value.unit]);
+const quantityLabel = computed(() => ({ hour: t('Кількість, год'), fixed: t('Кількість'), item: t('Кількість, шт') })[draft.value.unit]);
+const projectOptions = computed(() => [
+    { value: 0, label: t('Без проєкту') },
+    ...projects.map((project) => ({ value: project.id, label: project.code ?? project.name })),
+]);
+const chargeTypeOptions = computed(() => [
+    { value: 0, label: t('Без типу') },
+    ...chargeTypes.map((type) => ({ value: type.id, label: type.name })),
+]);
+const unitOptions = computed<{ value: ItemUnit; label: string }[]>(() => [
+    { value: 'hour', label: t('Година') },
+    { value: 'fixed', label: t('Фіксовано') },
+    { value: 'item', label: t('Штука') },
+]);
 const chargeTypeName = computed(() => chargeTypes.find((type) => type.id === draft.value.charge_type_id)?.name);
 
 function done(): void {
     errors.value = {
-        quantity: parseAmount(draft.value.quantity) === null || Number(parseAmount(draft.value.quantity)) <= 0 ? 'Вкажіть кількість.' : undefined,
-        unit_price: parseAmount(draft.value.unit_price) === null ? 'Вкажіть ціну.' : undefined,
+        quantity: parseAmount(draft.value.quantity) === null || Number(parseAmount(draft.value.quantity)) <= 0,
+        unit_price: parseAmount(draft.value.unit_price) === null,
     };
 
     if (errors.value.quantity || errors.value.unit_price) {
@@ -126,60 +142,50 @@ function remove(): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="`Позиція ${position}`">
+    <BottomSheet v-model:open="open" :title="t('Позиція {position}', { position })">
         <div class="grid grid-cols-2 gap-2.5">
-            <SelectField
-                v-model="projectId"
-                label="Проєкт"
-                :options="[{ value: 0, label: 'Без проєкту' }, ...projects.map((project) => ({ value: project.id, label: project.code ?? project.name }))]"
-            />
-            <SelectField
-                v-model="chargeTypeId"
-                label="Тип робіт"
-                :options="[{ value: 0, label: 'Без типу' }, ...chargeTypes.map((type) => ({ value: type.id, label: type.name }))]"
-            />
+            <SelectField v-model="projectId" :label="t('Проєкт')" :options="projectOptions" />
+            <SelectField v-model="chargeTypeId" :label="t('Тип робіт')" :options="chargeTypeOptions" />
         </div>
 
         <TextAreaField
             v-model="draft.description"
-            label="Опис"
+            :label="t('Опис')"
             :rows="3"
-            :aside="template && draft.description === template ? 'з шаблону договору' : undefined"
+            :aside="template && draft.description === template ? t('з шаблону договору') : undefined"
         />
 
         <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-ink-2">Одиниця</span>
-            <SegmentedControl
-                v-model="draft.unit"
-                label="Одиниця"
-                size="lg"
-                :options="[
-                    { value: 'hour', label: 'Година' },
-                    { value: 'fixed', label: 'Фіксовано' },
-                    { value: 'item', label: 'Штука' },
-                ]"
-            />
+            <span class="text-13 font-medium text-ink-2">{{ t('Одиниця') }}</span>
+            <SegmentedControl v-model="draft.unit" :label="t('Одиниця')" size="lg" :options="unitOptions" />
         </div>
 
         <div class="flex flex-col gap-1.5">
             <div class="grid grid-cols-2 gap-2.5">
-                <TextField v-model="draft.quantity" :label="quantityLabel" numeric :error="errors.quantity" />
-                <TextField v-model="draft.unit_price" :label="`Ціна, ${currency}`" numeric :error="errors.unit_price" />
+                <TextField v-model="draft.quantity" :label="quantityLabel" numeric :error="errors.quantity ? t('Вкажіть кількість.') : undefined" />
+                <TextField
+                    v-model="draft.unit_price"
+                    :label="t('Ціна, {currency}', { currency })"
+                    numeric
+                    :error="errors.unit_price ? t('Вкажіть ціну.') : undefined"
+                />
             </div>
             <p v-if="rate" class="m-0 text-13 text-ink-3">
-                Ставка договору<template v-if="rate.charge_type_id && chargeTypeName"> для {{ chargeTypeName }}</template>
-                з <span class="num">{{ formatDate(rate.effective_from) }}</span>
+                <Translated :text="rate.charge_type_id && chargeTypeName ? t('Ставка договору для {type} з {date}') : t('Ставка договору з {date}')">
+                    <template #type>{{ chargeTypeName }}</template>
+                    <template #date><span class="num">{{ formatDate(rate.effective_from) }}</span></template>
+                </Translated>
             </p>
         </div>
 
         <div class="flex items-center justify-between rounded-card border border-line bg-surface px-4 py-4">
-            <span class="text-15 text-ink-2">Сума позиції</span>
+            <span class="text-15 text-ink-2">{{ t('Сума позиції') }}</span>
             <span class="num text-22 font-bold">{{ amount ? formatMoney(amount, currency) : '—' }}</span>
         </div>
 
         <div class="grid grid-cols-[1fr_2fr] gap-2.5">
-            <SecondaryButton v-if="removable" tone="negative" @click="remove">Видалити</SecondaryButton>
-            <PrimaryButton :class="removable ? '' : 'col-span-2'" @click="done">Готово</PrimaryButton>
+            <SecondaryButton v-if="removable" tone="negative" @click="remove">{{ t('Видалити') }}</SecondaryButton>
+            <PrimaryButton :class="removable ? '' : 'col-span-2'" @click="done">{{ t('Готово') }}</PrimaryButton>
         </div>
     </BottomSheet>
 </template>

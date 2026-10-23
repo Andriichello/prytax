@@ -7,9 +7,11 @@ import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { dateParts, formatMonthYear } from '@/utils/dates';
 import { formatMoney } from '@/utils/money';
 import { countOf, INVOICES } from '@/utils/plural';
@@ -67,11 +69,11 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
 </script>
 
 <template>
-    <TabScreen title="Головна">
+    <TabScreen :title="t('Головна')">
         <template #action>
             <RouterLink
                 :to="{ name: 'alerts' }"
-                :aria-label="unread ? `Сповіщення, непрочитаних: ${unread}` : 'Сповіщення'"
+                :aria-label="unread ? t('Сповіщення, непрочитаних: {count}', { count: unread }) : t('Сповіщення')"
                 class="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
             >
                 <Icon name="bell" :size="22" />
@@ -86,18 +88,21 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
 
         <template #subtitle>
             <p v-if="data" class="m-0 text-14 text-ink-3">
-                Відкриті інвойси<template v-if="toPay"> · <span class="num">{{ toPay }}</span> до оплати</template>
+                <Translated v-if="toPay" :text="t('Відкриті інвойси · {amount} до оплати')">
+                    <template #amount><span class="num">{{ toPay }}</span></template>
+                </Translated>
+                <template v-else>{{ t('Відкриті інвойси') }}</template>
             </p>
         </template>
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
-            <EmptyState v-if="months.length === 0" text="Відкритих інвойсів немає: усі оплачені або ще в чернетках.">
+            <EmptyState v-if="months.length === 0" :text="t('Відкритих інвойсів немає: усі оплачені або ще в чернетках.')">
                 <RouterLink
                     v-if="can('create', 'invoices')"
                     :to="{ name: 'invoice-new' }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"
                 >
-                    Створити інвойс
+                    {{ t('Створити інвойс') }}
                 </RouterLink>
             </EmptyState>
 
@@ -114,7 +119,7 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
             </section>
 
             <RouterLink :to="{ name: 'invoices' }" class="flex min-h-11 items-center self-center text-14 font-medium no-underline">
-                Усі інвойси
+                {{ t('Усі інвойси') }}
             </RouterLink>
         </LoadState>
     </TabScreen>

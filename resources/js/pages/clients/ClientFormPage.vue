@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, Client } from '@/api/types';
@@ -13,13 +13,13 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { COMMON_COUNTRIES, countryName } from '@/utils/clients';
+import { ABBREVIATION_MAX, COMMON_COUNTRIES, countryName, suggestAbbreviation } from '@/utils/clients';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Клієнт — новий або редагування: the name on invoices, the legal name, country and currency, the address (up to
- * four lines) and tax numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner
- * note.
+ * Клієнт — новий або редагування: the name on invoices and the abbreviation, which prefixes its invoice numbers
+ * (suggested from the name until it is typed), the legal name, country and currency, the address (up to four lines)
+ * and tax numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner note.
  */
 const MAX_LINES = 4;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
@@ -34,6 +34,7 @@ const isNew = computed(() => clientId.value === null);
 
 const form = reactive({
     name: '',
+    abbreviation: '',
     legal_name: '',
     country: 'US',
     currency: 'USD',
@@ -48,6 +49,9 @@ const form = reactive({
     notes: '',
 });
 
+/** Whether the abbreviation was typed (or is the saved one), so the name no longer suggests it. */
+const abbreviationTyped = ref(false);
+
 const { data: existing, error: loadError, loading, reload } = useLoader(async (signal) => {
     if (clientId.value === null) {
         return null;
@@ -55,8 +59,10 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
 
     const { data } = await api.get<ApiResponse<Client>>(path(`clients/${clientId.value}`), undefined, signal);
 
+    abbreviationTyped.value = true;
     Object.assign(form, {
         name: data.name,
+        abbreviation: data.abbreviation,
         legal_name: data.legal_name ?? '',
         country: data.country ?? '',
         currency: data.currency ?? 'USD',
@@ -73,6 +79,25 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
 
     return data;
 }, [profileId, clientId]);
+
+watch(() => form.name, (name) => {
+    if (!abbreviationTyped.value) {
+        form.abbreviation = suggestAbbreviation(name);
+    }
+});
+
+/** The abbreviation as it is typed, in upper case; an emptied one is suggested from the name again. */
+const abbreviation = computed({
+    get: () => form.abbreviation,
+    set: (value: string) => {
+        form.abbreviation = value.toUpperCase();
+        abbreviationTyped.value = value !== '';
+    },
+});
+
+const abbreviationError = computed(() => (/^[A-Z0-9]*$/.test(form.abbreviation.trim())
+    ? fieldError(saveError.value, 'abbreviation')
+    : 'Лише латинські літери й цифри.'));
 
 const countries = computed(() => {
     const codes = COMMON_COUNTRIES.includes(form.country) || !form.country ? COMMON_COUNTRIES : [form.country, ...COMMON_COUNTRIES];
@@ -93,6 +118,7 @@ async function save(): Promise<void> {
     const address = { lines, city: form.city.trim() || null, state: form.state.trim() || null, zip: form.zip.trim() || null };
     const body = {
         name: form.name.trim(),
+        abbreviation: form.abbreviation.trim(),
         legal_name: form.legal_name.trim() || null,
         country: form.country || null,
         currency: form.currency || null,
@@ -118,7 +144,7 @@ async function save(): Promise<void> {
 }
 
 const generalError = computed(() => {
-    const fields = ['name', 'legal_name', 'country', 'currency', 'email', 'tax_id', 'vat_number'];
+    const fields = ['name', 'abbreviation', 'legal_name', 'country', 'currency', 'email', 'tax_id', 'vat_number'];
 
     return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
 });
@@ -128,6 +154,18 @@ const generalError = computed(() => {
     <SubScreen :title="isNew ? 'Новий клієнт' : existing?.name ?? 'Клієнт'" :back="isNew ? { name: 'clients' } : { name: 'client', params: { id: clientId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <TextField v-model="form.name" label="Назва" placeholder="Brightline Labs LLC" hint="Так клієнт називається в інвойсах і списках" :error="fieldError(saveError, 'name')" />
+            <TextField
+                v-model="abbreviation"
+                label="Абревіатура"
+                placeholder="BL"
+                class="num"
+                autocapitalize="characters"
+                autocomplete="off"
+                spellcheck="false"
+                :maxlength="ABBREVIATION_MAX"
+                :hint="`Префікс номерів інвойсів: ${form.abbreviation.trim() || 'BL'}-РРРР-ММ-ДД-n. Латинські літери й цифри, своя в кожного клієнта ФОП.`"
+                :error="abbreviationError"
+            />
             <TextField v-model="form.legal_name" label="Юридична назва" placeholder="Brightline Labs, LLC" :error="fieldError(saveError, 'legal_name')" />
             <div class="grid grid-cols-2 gap-2.5">
                 <SelectField v-model="form.country" label="Країна" :options="countries" :error="fieldError(saveError, 'country')" />
@@ -179,7 +217,7 @@ const generalError = computed(() => {
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'clients')" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim()" @click="save">Зберегти</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !/^[A-Z0-9]+$/.test(form.abbreviation.trim())" @click="save">Зберегти</PrimaryButton>
         </template>
     </SubScreen>
 </template>

@@ -20,8 +20,9 @@ import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney } from '@/utils/money';
 
 /**
- * Клієнт (S-ClientDetail): what the client paid (all time, this year, last year) and still owes, per currency, then
- * its contracts, projects, work types and requisites. Clients are deactivated, never deleted.
+ * Клієнт (S-ClientDetail): the abbreviation beside the legal name, what the client paid (all time, this year, last
+ * year) and still owes, per currency, then its contracts, projects, work types and requisites. Clients are
+ * deactivated, never deleted.
  */
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
@@ -132,7 +133,7 @@ const addressLines = computed(() => {
                 <div class="-mt-1 flex flex-col gap-1">
                     <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]" :class="client.is_active ? '' : 'text-ink-3'">{{ client.name }}</h1>
                     <span class="text-15 text-ink-3">
-                        {{ [client.legal_name, countryName(client.country)].filter(Boolean).join(' · ') }}<template v-if="!client.is_active"> · неактивний</template>
+                        <span class="num">{{ client.abbreviation }}</span> · {{ [client.legal_name, countryName(client.country)].filter(Boolean).join(' · ') }}<template v-if="!client.is_active"> · неактивний</template>
                     </span>
                 </div>
 

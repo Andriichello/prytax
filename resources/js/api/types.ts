@@ -675,6 +675,8 @@ export interface Client {
     profile_id: number;
     created_by_user_id: number | null;
     name: string;
+    /** Upper-case Latin letters and digits, unique within the profile: the prefix of its invoice numbers (`BL`). */
+    abbreviation: string;
     legal_name: string | null;
     name_uk: string | null;
     legal_name_uk: string | null;

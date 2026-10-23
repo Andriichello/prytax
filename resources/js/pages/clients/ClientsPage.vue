@@ -15,8 +15,8 @@ import { compareAmounts, formatMoney } from '@/utils/money';
 import { CONTRACTS, countOf, INVOICES } from '@/utils/plural';
 
 /**
- * Клієнти (S-Clients): the active clients with their country, currency, contracts and invoices, and what they owe —
- * overdue in red. Inactive ones on request.
+ * Клієнти (S-Clients): the active clients with their abbreviation, country, currency, contracts and invoices, and
+ * what they owe — overdue in red. Inactive ones on request; the search finds a client by its abbreviation too.
  */
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
@@ -34,7 +34,10 @@ const shown = computed(() => {
     const term = search.value.trim().toLowerCase();
 
     return (clients.value ?? []).filter((client) => (showInactive.value || client.is_active)
-        && (!term || client.name.toLowerCase().includes(term) || (client.legal_name ?? '').toLowerCase().includes(term)));
+        && (!term
+            || client.name.toLowerCase().includes(term)
+            || (client.legal_name ?? '').toLowerCase().includes(term)
+            || client.abbreviation.toLowerCase().startsWith(term)));
 });
 
 const inactiveCount = computed(() => (clients.value ?? []).filter((client) => !client.is_active).length);
@@ -52,6 +55,7 @@ function details(client: Client): string {
     const ends = endingContract(client);
 
     return [
+        client.abbreviation,
         client.country,
         client.currency,
         ends ? `договір до ${formatDayMonth(ends)}` : client.contracts_count ? countOf(client.contracts_count, CONTRACTS) : null,
@@ -84,7 +88,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
                 id="client-search"
                 v-model="search"
                 type="search"
-                placeholder="Назва клієнта"
+                placeholder="Назва або абревіатура"
                 class="h-12 w-full rounded-control border border-line-input bg-surface pr-3.5 pl-11 text-16 placeholder:text-ink-3"
             >
         </div>
@@ -114,7 +118,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span class="truncate text-17">{{ client.name }}</span>
                         <span class="text-13" :class="endingContract(client) ? 'text-warning-text' : 'text-ink-3'">
-                            {{ client.is_active ? details(client) : `Неактивний · ${client.country ?? ''}` }}
+                            {{ client.is_active ? details(client) : `Неактивний · ${[client.abbreviation, client.country].filter(Boolean).join(' · ')}` }}
                         </span>
                     </span>
                     <span class="flex shrink-0 flex-col items-end gap-0.5">

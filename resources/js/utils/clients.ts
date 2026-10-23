@@ -1,5 +1,5 @@
 /**
- * Helpers for clients: the name of a country, and initials for the avatar.
+ * Helpers for clients: the name of a country, initials for the avatar, and an abbreviation to suggest.
  */
 
 const regions = (() => {
@@ -35,6 +35,31 @@ export function clientInitials(name: string): string {
     const letters = words.length > 1 ? `${words[0]![0]}${words[1]![0]}` : (words[0] ?? name).slice(0, 2);
 
     return letters.toUpperCase();
+}
+
+/** The longest abbreviation of a client: the prefix of its invoice numbers. */
+export const ABBREVIATION_MAX = 10;
+
+/**
+ * An abbreviation to suggest for a client, as design.md §5 describes it: the initials of up to four words of the name,
+ * legal forms left out, or the first three letters of a one-word name — Latin letters and digits, upper case
+ * ("Brightline Labs LLC" → "BL", "Nordwave GmbH" → "NOR"). Empty, when the name has no Latin letters or digits.
+ */
+export function suggestAbbreviation(name: string): string {
+    const words = name.split(/[\s,]+/)
+        .filter((word) => word && !LEGAL_FORMS.test(word))
+        .map((word) => normalizeAbbreviation(word))
+        .filter(Boolean);
+    const abbreviation = words.length > 1 ? words.slice(0, 4).map((word) => word[0]).join('') : (words[0] ?? '').slice(0, 3);
+
+    return abbreviation.slice(0, ABBREVIATION_MAX);
+}
+
+/**
+ * An abbreviation as it is stored: upper case, Latin letters and digits only ("bl-2" → "BL2").
+ */
+export function normalizeAbbreviation(value: string): string {
+    return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 /**

@@ -116,6 +116,8 @@ export type MovementDirection = 'in' | 'out';
 
 export type NumberingDateSource = 'period_end' | 'issued_at';
 
+export type NumberingPrefix = 'client_abbreviation' | 'none';
+
 export type NumberingReset = 'never' | 'yearly';
 
 export type NumberingScope = 'per_client' | 'global';
@@ -313,6 +315,8 @@ export type PlatformRepatriation = 'quarter_end' | 'off' | `days:${number}`;
 export interface ProfileSettings {
     invoice: {
         numbering: {
+            /** What generated numbers start with: the client's abbreviation (`BL-2026-10-18-13`) or nothing. */
+            prefix: NumberingPrefix;
             strategy: NumberingStrategy;
             scope: NumberingScope;
             reset: NumberingReset;
@@ -947,6 +951,7 @@ export interface InvoiceCounter {
     last_number: number;
     client_id: number | null;
     client_name: string | null;
+    client_abbreviation: string | null;
 }
 
 /** `GET profiles/{profile}/invoices/number-preview?client_id=&period_end=&issued_at=`. */

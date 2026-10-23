@@ -7,13 +7,13 @@ export interface TextSegment {
 }
 
 /**
- * Amounts with their currency ("1 240.00 USD", "8 218.96 ₴", "8 420.00 / 10 000.00 USD"), invoice numbers
- * ("2026-08-31-11") and rates, as the API writes them into its texts. Dates ("19.10.2026") stay plain: a figure
- * neither follows nor precedes another digit group.
+ * Amounts with their currency ("1 240.00 USD", "8 218.96 ₴", "8 420.00 / 10 000.00 USD"), invoice numbers with the
+ * client's abbreviation or without it ("BL-2026-08-31-11", "2026-08-31-11") and rates, as the API writes them into
+ * its texts. Dates ("19.10.2026") stay plain: a figure neither follows nor precedes another digit group.
  */
 const AMOUNT = String.raw`\d{1,3}(?:[\s\u00A0\u202F,.]\d{3})*[.,]\d{2,4}(?![.,]?\d)`;
 const FIGURES = new RegExp(
-    String.raw`(\d{4}-\d{2}-\d{2}-\d+|(?<![\d.,])[−-]?${AMOUNT}(?:\s?\/\s?${AMOUNT})?(?:[\s\u00A0](?:[A-Z]{3}|₴))?)`,
+    String.raw`((?:\b[A-Z0-9]{1,10}-)?\d{4}-\d{2}-\d{2}-\d+|(?<![\d.,])[−-]?${AMOUNT}(?:\s?\/\s?${AMOUNT})?(?:[\s\u00A0](?:[A-Z]{3}|₴))?)`,
     'g',
 );
 

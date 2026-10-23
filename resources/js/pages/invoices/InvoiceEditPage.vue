@@ -315,8 +315,8 @@ const numbering = computed(() => settings.value?.invoice.numbering ?? null);
 
 /**
  * The number the freeze would give: the saved draft's while its client and dates are as saved; a draft, which was
- * frozen before, keeps its counter's number while the counter is the same (only the date in it changes); else the
- * next number for the form's client and dates.
+ * frozen before, keeps its counter's number while the counter is the same (only the client's abbreviation and the
+ * date in it change); else the next number for the form's client and dates.
  */
 const numberPreview = computed(() => {
     const saved = existing.value;
@@ -329,9 +329,11 @@ const numberPreview = computed(() => {
         const date = numbering.value.date_source === 'issued_at' ? form.issued_at : form.period_end;
         const scope = (numbering.value.scope === 'global' ? 'global' : `client:${form.client_id}`)
             + (numbering.value.reset === 'yearly' && date ? `:${date.slice(0, 4)}` : '');
+        const abbreviation = clients.value.find((client) => client.id === form.client_id)?.abbreviation;
+        const prefix = numbering.value.prefix === 'client_abbreviation' && abbreviation ? `${abbreviation}-` : '';
 
         if (date && scope === saved.sequence_scope_key) {
-            return numbering.value.strategy === 'sequence' ? String(saved.sequence_number) : `${date}-${saved.sequence_number}`;
+            return prefix + (numbering.value.strategy === 'sequence' ? String(saved.sequence_number) : `${date}-${saved.sequence_number}`);
         }
     }
 
@@ -339,15 +341,13 @@ const numberPreview = computed(() => {
 });
 
 const numberHint = computed(() => {
-    const counter = numbering.value?.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП';
+    const parts = [
+        numbering.value?.prefix === 'none' ? null : 'абревіатура клієнта',
+        numbering.value?.strategy === 'sequence' ? null : (numbering.value?.date_source === 'issued_at' ? 'дата виставлення' : 'дата кінця періоду'),
+        numbering.value?.scope === 'global' ? 'лічильник ФОП' : 'лічильник клієнта',
+    ];
 
-    if (numbering.value?.strategy === 'sequence') {
-        return `Номер буде присвоєно під час фіксації: ${counter}.`;
-    }
-
-    const date = numbering.value?.date_source === 'issued_at' ? 'дата виставлення' : 'дата кінця періоду';
-
-    return `Номер буде присвоєно під час фіксації: ${date} + ${counter}.`;
+    return `Номер буде присвоєно під час фіксації: ${parts.filter(Boolean).join(' + ')}.`;
 });
 
 const accountOptions = computed(() => accounts.value

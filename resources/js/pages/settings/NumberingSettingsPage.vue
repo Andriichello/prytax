@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, Client, InvoiceCounter, NumberingDateSource, NumberingReset, NumberingScope, NumberingStrategy, NumberPreview, Paginated, ProfileSettings } from '@/api/types';
+import type { ApiResponse, Client, InvoiceCounter, NumberingDateSource, NumberingPrefix, NumberingReset, NumberingScope, NumberingStrategy, NumberPreview, Paginated, ProfileSettings } from '@/api/types';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
@@ -18,17 +18,24 @@ import { dateParts, formatDayMonth, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Нумерація інвойсів (S-NumberingSettings): the format of numbers, the date in them, one counter per ФОП or per
- * client, its yearly reset, the current counters (which move forward only), and the note printed under invoices.
+ * Нумерація інвойсів (S-NumberingSettings): the client's abbreviation in front of numbers or none, the format of
+ * numbers, the date in them, one counter per ФОП or per client, its yearly reset, the current counters (which move
+ * forward only), and the note printed under invoices.
  */
+const PREFIX_OPTIONS: { value: NumberingPrefix; label: string }[] = [
+    { value: 'client_abbreviation', label: 'Абревіатура клієнта' },
+    { value: 'none', label: 'Без префікса' },
+];
+
 const router = useRouter();
 const { can } = useSession();
 const { profileId, path, loadSettings } = useCurrentProfile();
 
 const form = reactive({
+    prefix: 'client_abbreviation' as NumberingPrefix,
     strategy: 'date_sequence' as NumberingStrategy,
     date_source: 'period_end' as NumberingDateSource,
-    scope: 'global' as NumberingScope,
+    scope: 'per_client' as NumberingScope,
     reset: 'never' as NumberingReset,
     footer_note: '',
 });
@@ -84,10 +91,34 @@ const { data: preview, reload: reloadPreview } = useLoader(async (signal) => {
 }, [sampleClient]);
 
 const exampleCount = computed(() => preview.value?.number.split('-').pop() ?? '14');
-const exampleDated = computed(() => (saved.value?.strategy === 'date_sequence' && preview.value
-    ? preview.value.number
-    : `${periodEnd.value}-${exampleCount.value}`));
+const examplePrefix = computed(() => (form.prefix === 'client_abbreviation' ? `${sampleClient.value?.abbreviation ?? 'BL'}-` : ''));
+const patternPrefix = computed(() => (form.prefix === 'client_abbreviation' ? 'АБР-' : ''));
+const formatOptions = computed(() => [
+    { value: 'date_sequence' as const, title: 'Дата + номер', example: `${patternPrefix.value}РРРР-ММ-ДД-n → ${examplePrefix.value}${periodEnd.value}-${exampleCount.value}` },
+    { value: 'sequence' as const, title: 'Лише номер', example: `${patternPrefix.value}n → ${examplePrefix.value}${exampleCount.value}` },
+]);
+
+/** What the saved numbering is made of, under the next number. */
+const savedSummary = computed(() => (saved.value
+    ? [
+        saved.value.prefix === 'client_abbreviation' ? 'абревіатура клієнта' : null,
+        saved.value.strategy === 'date_sequence' ? (saved.value.date_source === 'period_end' ? 'дата кінця періоду' : 'дата виставлення') : null,
+        saved.value.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП',
+    ].filter(Boolean).join(' · ')
+    : ''));
+
+/** Without the prefix, two clients' counters give the same number for the same date, which the freeze refuses. */
+const mayCollide = computed(() => form.prefix === 'none' && form.scope === 'per_client');
 const canConfigure = computed(() => can('configure', 'profiles'));
+
+/** The name of a counter: its client with the abbreviation, or the ФОП's one. */
+function counterName(counter: InvoiceCounter | null): string {
+    if (!counter?.client_id) {
+        return 'Один на ФОП';
+    }
+
+    return [counter.client_abbreviation, counter.client_name].filter(Boolean).join(' · ');
+}
 
 /* Moving a counter forward */
 const editing = ref<InvoiceCounter | null>(null);
@@ -133,7 +164,7 @@ async function save(): Promise<void> {
     try {
         await api.patch(path('settings'), {
             invoice: {
-                numbering: { strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
+                numbering: { prefix: form.prefix, strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
                 footer_note: form.footer_note.trim() || null,
             },
         });
@@ -155,20 +186,21 @@ async function save(): Promise<void> {
                     Наступний номер<template v-if="sampleClient"> · {{ sampleClient.name }}, період до {{ formatDayMonth(periodEnd) }}</template>
                 </span>
                 <span class="num text-30 font-bold">{{ preview.number }}</span>
-                <span v-if="saved" class="text-13 text-on-ink-2">
-                    {{ saved.strategy === 'date_sequence' ? (saved.date_source === 'period_end' ? 'дата кінця періоду' : 'дата виставлення') + ' · ' : '' }}{{ saved.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП' }}
-                </span>
+                <span v-if="saved" class="text-13 text-on-ink-2">{{ savedSummary }}</span>
                 <span class="text-12 text-on-ink-3">Показано зі збереженими налаштуваннями</span>
+            </section>
+
+            <section class="flex flex-col gap-2">
+                <SectionTitle>Префікс</SectionTitle>
+                <SegmentedControl v-model="form.prefix" label="Префікс" size="lg" :disabled="!canConfigure" :options="PREFIX_OPTIONS" />
+                <p class="m-0 text-13 leading-normal text-ink-3">Абревіатуру задають у картці клієнта, вона своя в кожного клієнта ФОП.</p>
             </section>
 
             <section class="flex flex-col gap-2">
                 <SectionTitle>Формат</SectionTitle>
                 <div role="radiogroup" aria-label="Формат номера" class="flex flex-col gap-2">
                     <button
-                        v-for="option in [
-                            { value: 'date_sequence', title: 'Дата + номер', example: `РРРР-ММ-ДД-n → ${exampleDated}` },
-                            { value: 'sequence', title: 'Лише номер', example: `n → ${exampleCount}` },
-                        ] as const"
+                        v-for="option in formatOptions"
                         :key="option.value"
                         type="button"
                         role="radio"
@@ -197,6 +229,9 @@ async function save(): Promise<void> {
             <section class="flex flex-col gap-2">
                 <SectionTitle>Лічильник</SectionTitle>
                 <SegmentedControl v-model="form.scope" label="Лічильник" size="lg" :disabled="!canConfigure" :options="[{ value: 'per_client', label: 'Для кожного клієнта' }, { value: 'global', label: 'Один на ФОП' }]" />
+                <p v-if="mayCollide" class="m-0 text-13 leading-normal text-warning-text" role="status">
+                    Без префікса лічильники різних клієнтів дадуть однакові номери на ту саму дату — такий інвойс не зафіксується.
+                </p>
             </section>
 
             <section class="flex flex-col gap-2">
@@ -216,7 +251,7 @@ async function save(): Promise<void> {
                         @click="openCounter(counter)"
                     >
                         <span class="text-15">
-                            {{ counter.client_name ?? 'Один на ФОП' }}
+                            {{ counterName(counter) }}
                             <span v-if="/:\d{4}$/.test(counter.scope_key)" class="num text-13 text-ink-3">{{ counter.scope_key.slice(-4) }}</span>
                         </span>
                         <span class="num text-16 font-semibold">{{ counter.last_number }}</span>
@@ -224,8 +259,9 @@ async function save(): Promise<void> {
                     <p v-if="counters.length === 0" class="m-0 py-3.5 text-14 text-ink-3">Лічильників ще немає: перший з'явиться з першим зафіксованим інвойсом.</p>
                 </div>
                 <p class="m-0 text-13 leading-normal text-ink-3">
-                    Номер присвоюється при фіксації. Якщо після повернення в чернетку змінилась дата — оновлюється лише дата,
-                    порядковий номер лишається. Введений вручну номер не змінюється. Пропуски після скасування — нормально.
+                    Номер присвоюється при фіксації. Якщо після повернення в чернетку змінилась дата чи абревіатура клієнта —
+                    оновлюються лише вони, порядковий номер лишається. Видані номери зберігають свою абревіатуру. Введений
+                    вручну номер не змінюється. Пропуски після скасування — нормально.
                 </p>
             </section>
 
@@ -243,7 +279,7 @@ async function save(): Promise<void> {
 
         <BottomSheet v-model:open="counterOpen" title="Лічильник">
             <p class="m-0 text-15 leading-normal text-ink-2">
-                {{ editing?.client_name ?? 'Один на ФОП' }}: останній номер <span class="num font-semibold text-ink">{{ editing?.last_number }}</span>.
+                {{ counterName(editing) }}: останній номер <span class="num font-semibold text-ink">{{ editing?.last_number }}</span>.
                 Наступний можна лише збільшити — наприклад, щоб продовжити нумерацію з попередньої системи.
             </p>
             <TextField v-model="nextNumber" label="Наступний номер" inputmode="numeric" class="num" :error="fieldError(counterError, 'next_number')" />

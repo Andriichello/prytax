@@ -13,7 +13,7 @@ import { formatMoney } from '@/utils/money';
  * freeze gives: a draft frozen before may get a new date in it), the snapshot, the PDF — and that it can go back to
  * its draft until money arrives.
  */
-const { invoice, busy = false, error = null, counterScope = 'global' } = defineProps<{
+const { invoice, busy = false, error = null, counterScope = 'per_client' } = defineProps<{
     invoice: Invoice;
     busy?: boolean;
     error?: string | null;

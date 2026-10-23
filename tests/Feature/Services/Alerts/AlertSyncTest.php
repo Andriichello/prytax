@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Class AlertSyncTest.
  *
  * Notifications follow their conditions (design.md §9): one row per dedupe key while the condition holds, resolved,
- * never deleted, when it clears, with the users' reads kept.
+ * never deleted, when it clears, with the users' reads kept, and their texts written in every language of the app.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Alerts
@@ -147,6 +147,43 @@ class AlertSyncTest extends TestCase
     }
 
     /**
+     * Test that a notification's texts are written in English too, and its Ukrainian ones in its columns.
+     *
+     * @return void
+     */
+    public function testWritesTheTextsOfANotificationInEveryLanguage(): void
+    {
+        Storage::fake('local');
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['name' => 'Brightline Labs LLC', 'abbreviation' => 'BL']);
+        $invoice = $this->createFrozenInvoice($profile, $account, [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-09-16', 'period_end' => '2026-10-15', 'due_at' => '2026-10-19',
+        ]);
+
+        $alert = $this->inProfile($profile, function () use ($profile, $invoice) {
+            app(AlertSync::class)->sync($profile);
+
+            return Alert::query()->where('dedupe_key', "overdue:{$invoice->id}")->firstOrFail();
+        });
+
+        // A JSON column keeps no order of keys
+        $this->assertEquals([
+            'title' => 'BL-2026-10-15-1 · Brightline Labs LLC',
+            'body' => "Payment was due on 19.10.2026. Unpaid: 3\u{202F}892.50 USD.",
+            'action_label' => 'Open the invoice',
+            'context' => 'Overdue invoice',
+        ], $alert->texts['en']);
+        $this->assertEquals(
+            ['title' => $alert->title, 'body' => $alert->body, 'action_label' => $alert->action_label, 'context' => $alert->payload['context']],
+            $alert->texts['uk'],
+        );
+        $this->assertSame('Інвойс прострочено', $alert->payload['context']);
+    }
+
+    /**
      * Test that unpaid ЄСВ past its deadline is a warning (design.md §9), while ЄП past its deadline is an error, each
      * one notice at the latest quarter due, which carries the earlier quarters' debt.
      *
@@ -168,6 +205,8 @@ class AlertSyncTest extends TestCase
 
         $this->assertSame('warning', $alerts->get('esv:ЄСВ за III кв. 2026')->severity->value);
         $this->assertSame('До сплати 17' . "\u{202F}" . '121.06 ₴ — строк минув 19.10.2026.', $alerts->get('esv:ЄСВ за III кв. 2026')->body);
+        $this->assertSame('SSC for Q3 2026', $alerts->get('esv:ЄСВ за III кв. 2026')->texts['en']['title']);
+        $this->assertSame('Due 17' . "\u{202F}" . '121.06 ₴ — the deadline passed on 19.10.2026.', $alerts->get('esv:ЄСВ за III кв. 2026')->texts['en']['body']);
         $this->assertSame('error', $alerts->get('tax:ЄП і ВЗ за II кв. 2026')->severity->value);
         $this->assertCount(1, $alerts->filter(fn (Alert $alert) => $alert->payload['kind'] === 'esv'));
     }

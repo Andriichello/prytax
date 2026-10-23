@@ -13,7 +13,7 @@ use Tests\TestCase;
  * Class AlertControllerTest.
  *
  * Notifications are read only by an explicit tap (design.md §9): listing never marks them, and a read is the
- * user's own.
+ * user's own. They come in the user's own language.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Http\Controllers
@@ -37,6 +37,40 @@ class AlertControllerTest extends TestCase
         return $this->inProfile($profile, fn () => Alert::query()->create([
             'type' => 'overdue', 'category' => $category, 'severity' => 'info', 'dedupe_key' => $key, 'title' => 'Інвойс прострочено',
         ]));
+    }
+
+    /**
+     * Test that the list gives each user a notification's texts in the user's own language.
+     *
+     * @return void
+     */
+    public function testListsTheTextsInTheUsersLanguage(): void
+    {
+        $profile = $this->createProfile();
+        $this->inProfile($profile, fn () => Alert::query()->create([
+            'type' => 'overdue', 'category' => 'invoices', 'severity' => 'info', 'dedupe_key' => 'overdue:1',
+            'title' => 'BL-2026-10-15-1 · Brightline', 'payload' => ['invoice_id' => 1, 'context' => 'Інвойс прострочено'],
+            'texts' => [
+                'uk' => ['title' => 'BL-2026-10-15-1 · Brightline', 'body' => 'Термін оплати минув 19.10.2026.', 'action_label' => 'Відкрити інвойс', 'context' => 'Інвойс прострочено'],
+                'en' => ['title' => 'BL-2026-10-15-1 · Brightline', 'body' => 'Payment was due on 19.10.2026.', 'action_label' => 'Open the invoice', 'context' => 'Overdue invoice'],
+            ],
+        ]));
+        $user = $this->actAs($profile, 'viewer');
+
+        $user->forceFill(['locale' => 'en'])->save();
+        $this->getJson($this->profilePath($profile, 'alerts'))
+            ->assertOk()
+            ->assertJsonPath('data.0.body', 'Payment was due on 19.10.2026.')
+            ->assertJsonPath('data.0.action_label', 'Open the invoice')
+            ->assertJsonPath('data.0.payload.context', 'Overdue invoice')
+            ->assertJsonPath('data.0.payload.invoice_id', 1)
+            ->assertJsonMissingPath('data.0.texts');
+
+        $user->forceFill(['locale' => 'uk'])->save();
+        $this->getJson($this->profilePath($profile, 'alerts'))
+            ->assertOk()
+            ->assertJsonPath('data.0.body', 'Термін оплати минув 19.10.2026.')
+            ->assertJsonPath('data.0.payload.context', 'Інвойс прострочено');
     }
 
     /**

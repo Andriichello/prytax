@@ -20,7 +20,9 @@ use PryTax\Queries\AlertQuery;
  * A notification of a profile ("Сповіщення", design.md §9): one row per condition (`dedupe_key`), which AlertSync
  * upserts while the condition holds and resolves when it clears, never deleting it. It informs and never blocks.
  * Read state is per user, and is written only when the user taps the notification, its action or its ✓, never when
- * the list is loaded. (api-core's `notifications` are another thing: database notifications of a user.)
+ * the list is loaded. Its texts are kept in every language of the app (`texts`), and in Ukrainian, PryTax's own, in
+ * `title`, `body`, `action_label` and the payload's `context`. (api-core's `notifications` are another thing: database
+ * notifications of a user.)
  *
  * @property int $id
  * @property int $profile_id
@@ -33,6 +35,7 @@ use PryTax\Queries\AlertQuery;
  * @property array|null $payload
  * @property string|null $action_label
  * @property string|null $action_route
+ * @property array<string, array{title: string, body: string|null, action_label: string|null, context: string|null}>|null $texts
  * @property Carbon|null $resolved_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -65,6 +68,7 @@ class Alert extends BaseModel
         'payload',
         'action_label',
         'action_route',
+        'texts',
         'resolved_at',
     ];
 
@@ -77,9 +81,28 @@ class Alert extends BaseModel
         'category' => AlertCategory::class,
         'severity' => AlertSeverity::class,
         'payload' => 'array',
+        'texts' => 'array',
         'resolved_at' => 'datetime',
         'read_at' => 'datetime',
     ];
+
+    /**
+     * Get the notification's texts in the language: its own, or else the Ukrainian ones of its columns (a notification
+     * synced before it had them).
+     *
+     * @param string $locale
+     *
+     * @return array{title: string, body: string|null, action_label: string|null, context: string|null}
+     */
+    public function textsIn(string $locale): array
+    {
+        return $this->texts[$locale] ?? [
+            'title' => $this->title,
+            'body' => $this->body,
+            'action_label' => $this->action_label,
+            'context' => $this->payload['context'] ?? null,
+        ];
+    }
 
     /**
      * Users, who read the notification.

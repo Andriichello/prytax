@@ -2,6 +2,8 @@
 
 namespace PryTax\Services\Alerts;
 
+use Closure;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use PryTax\Enums\AlertSeverity;
 use PryTax\Helpers\CurrentProfile;
@@ -14,14 +16,22 @@ use PryTax\Models\Profile;
  * Keeps a profile's notifications in step with their conditions (design.md §9): upserts one row per dedupe key,
  * which AlertCollector reports, and resolves the rows, whose conditions cleared. Rows are never deleted. A resolved
  * one, whose condition holds again, and one, which grew more severe (a deadline, which passed), are news again: they
- * are dated now and unread by everyone. Otherwise read state is kept. It runs after the writes, which can change the
- * conditions, and daily.
+ * are dated now and unread by everyone. Otherwise read state is kept. Each one's texts are written in every language
+ * of the app (`texts`), and in Ukrainian, PryTax's own, into its columns. It runs after the writes, which can change
+ * the conditions, and daily.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Alerts
  */
 class AlertSync
 {
+    /**
+     * The language of the texts in the columns of notifications.
+     *
+     * @var string
+     */
+    public const string LOCALE = 'uk';
+
     /**
      * Whether syncing after writes is paused, such as while seeding.
      *
@@ -94,8 +104,19 @@ class AlertSync
                 $alert = $existing->get($key) ?? new Alert(['dedupe_key' => $key]);
                 $opened += $alert->exists && $alert->resolved_at === null ? 0 : 1;
                 $isNews = $alert->exists && ($alert->resolved_at !== null || $this->escalates($alert, $attributes['severity']));
+                $texts = $this->texts($attributes['texts']);
+                $own = $texts[self::LOCALE];
+                unset($attributes['texts']);
 
-                $alert->fill([...$attributes, 'resolved_at' => null]);
+                $alert->fill([
+                    ...$attributes,
+                    'title' => $own['title'],
+                    'body' => $own['body'],
+                    'action_label' => $own['action_label'],
+                    'payload' => [...$attributes['payload'] ?? [], 'context' => $own['context']],
+                    'texts' => $texts,
+                    'resolved_at' => null,
+                ]);
                 $alert->profile_id = $profile->getKey();
 
                 if ($isNews) {
@@ -115,6 +136,30 @@ class AlertSync
 
             return ['opened' => $opened, 'resolved' => $resolved];
         });
+    }
+
+    /**
+     * Write a notification's texts in every language of the app.
+     *
+     * @param Closure(): array{title: string, body: string|null, action_label: string|null, context: string|null} $describe
+     *
+     * @return array<string, array{title: string, body: string|null, action_label: string|null, context: string|null}>
+     */
+    protected function texts(Closure $describe): array
+    {
+        $current = App::getLocale();
+        $texts = [];
+
+        try {
+            foreach (array_unique([self::LOCALE, ...config('api-core.locales')]) as $locale) {
+                App::setLocale($locale);
+                $texts[$locale] = $describe();
+            }
+        } finally {
+            App::setLocale($current);
+        }
+
+        return $texts;
     }
 
     /**

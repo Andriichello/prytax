@@ -4,6 +4,7 @@ namespace PryTax\Services\Alerts;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Closure;
 use PryTax\Enums\AlertCategory;
 use PryTax\Enums\AlertSeverity;
 use PryTax\Enums\DeclarationStatus;
@@ -36,7 +37,8 @@ use PryTax\Services\Transfers\HoldingCalculator;
  * repatriated by the rule, account limits at 80 % and 100 %, the income cap at 80, 90 and 100 %, quarters needing an
  * уточнююча декларація, contracts ending or ended with open invoices, overdue invoices, ready invoices without
  * receipts for too long, and receipts or transfers saved at a manual rate, which differs from the NBU's published
- * since. Their texts are Ukrainian, as the app's.
+ * since. Each one's texts are a closure (`texts`), which AlertSync renders in every language of the app: the title,
+ * the body, the action's label and the context line, written with `__()`.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Alerts
@@ -159,7 +161,6 @@ class AlertCollector
         $lastEsvDue = $periods->filter(fn (TaxPeriod $period) => $period->esv_due_at->lte($horizon))->last();
 
         foreach ($periods as $period) {
-            $label = $this->quarterLabel($period->year, $period->quarter);
             $key = "{$period->year}:{$period->quarter}";
             $route = "/taxes/declaration/{$period->year}/{$period->quarter}";
 
@@ -168,10 +169,10 @@ class AlertCollector
             if (!$declared && $period->declaration_due_at->lte($horizon)) {
                 $alerts["deadline:{$period->id}:declaration"] = $this->deadline(
                     $period->declaration_due_at,
-                    "Декларація за $label",
-                    'Подайте декларацію',
+                    fn () => __('Declaration for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                    fn () => __('File the declaration'),
                     $route,
-                    'Відкрити декларацію',
+                    fn () => __('Open the declaration'),
                     ['tax_period_id' => $period->id, 'kind' => 'declaration'],
                 );
             }
@@ -186,10 +187,10 @@ class AlertCollector
             if ($taxDebt->isPositive() && $period->is($lastTaxDue)) {
                 $alerts["deadline:{$period->id}:tax"] = $this->deadline(
                     $period->tax_due_at,
-                    "ЄП і ВЗ за $label",
-                    'До сплати ' . $this->money->money($taxDebt, 'UAH'),
+                    fn () => __('Single tax and military levy for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                    fn () => __('Due :amount', ['amount' => $this->money->money($taxDebt, 'UAH')]),
                     "/taxes?year={$period->year}",
-                    'Сплатити',
+                    fn () => __('Pay'),
                     ['tax_period_id' => $period->id, 'kind' => 'tax', 'amount' => Decimal::money($taxDebt)],
                 );
             }
@@ -200,10 +201,10 @@ class AlertCollector
                 // An unpaid month of ЄСВ is a warning, also past its deadline (design.md §9)
                 $alerts["deadline:{$period->id}:esv"] = $this->deadline(
                     $period->esv_due_at,
-                    "ЄСВ за $label",
-                    'До сплати ' . $this->money->money($esvBalance->negated(), 'UAH'),
+                    fn () => __('SSC for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                    fn () => __('Due :amount', ['amount' => $this->money->money($esvBalance->negated(), 'UAH')]),
                     "/accounting/esv?year={$period->year}",
-                    'Сплатити ЄСВ',
+                    fn () => __('Pay SSC'),
                     ['tax_period_id' => $period->id, 'kind' => 'esv', 'amount' => Decimal::money($esvBalance->negated())],
                     AlertSeverity::Warning,
                 );
@@ -217,10 +218,10 @@ class AlertCollector
      * Describe a deadline: a warning, while it is ahead, and an error, once it passed.
      *
      * @param CarbonImmutable|CarbonInterface $due
-     * @param string $title
-     * @param string $body
+     * @param Closure(): string $title
+     * @param Closure(): string $todo What is to be done, which the deadline follows.
      * @param string $route
-     * @param string $action
+     * @param Closure(): string $action
      * @param array $payload
      * @param AlertSeverity $pastSeverity
      *
@@ -228,26 +229,32 @@ class AlertCollector
      */
     protected function deadline(
         $due,
-        string $title,
-        string $body,
+        Closure $title,
+        Closure $todo,
         string $route,
-        string $action,
+        Closure $action,
         array $payload,
         AlertSeverity $pastSeverity = AlertSeverity::Error
     ): array {
         $past = $due->lt($this->today);
         $days = (int) $this->today->diffInDays($due, false);
+        $date = $due->format('d.m.Y');
 
         return [
             'type' => 'deadline',
             'category' => AlertCategory::Deadlines,
             'severity' => $past ? $pastSeverity : AlertSeverity::Warning,
-            'title' => $title,
-            'body' => $body . ($past
-                ? ' — строк минув ' . $due->format('d.m.Y') . '.'
-                : ' до ' . $due->format('d.m.Y') . ($days === 0 ? ' — сьогодні.' : " — через $days дн.")),
-            'payload' => [...$payload, 'due_at' => $due->toDateString(), 'context' => 'Термін'],
-            'action_label' => $action,
+            'texts' => fn () => [
+                'title' => $title(),
+                'body' => match (true) {
+                    $past => __(':todo — the deadline passed on :date.', ['todo' => $todo(), 'date' => $date]),
+                    $days === 0 => __(':todo by :date — today.', ['todo' => $todo(), 'date' => $date]),
+                    default => trans_choice(':todo by :date — in :count day.|:todo by :date — in :count days.', $days, ['todo' => $todo(), 'date' => $date]),
+                },
+                'action_label' => $action(),
+                'context' => __('Deadline'),
+            ],
+            'payload' => [...$payload, 'due_at' => $due->toDateString()],
             'action_route' => $route,
         ];
     }
@@ -265,16 +272,17 @@ class AlertCollector
             ->where('declaration_status', DeclarationStatus::Corrected->value)
             ->get()
             ->each(function (TaxPeriod $period) use (&$alerts) {
-                $label = $this->quarterLabel($period->year, $period->quarter);
-
                 $alerts["correction:{$period->id}"] = [
                     'type' => 'correction',
                     'category' => AlertCategory::Deadlines,
                     'severity' => AlertSeverity::Error,
-                    'title' => "Потрібна уточнююча декларація за $label",
-                    'body' => 'Дохід поданого кварталу змінено. Декларації наростаючим підсумком, тож уточнення потрібне для цього й наступних поданих кварталів року.',
-                    'payload' => ['tax_period_id' => $period->id, 'context' => 'Декларація'],
-                    'action_label' => 'Відкрити декларацію',
+                    'texts' => fn () => [
+                        'title' => __('A corrective declaration is needed for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                        'body' => __('The income of a filed quarter changed. Declarations are cumulative, so this quarter and the later filed quarters of the year need correcting.'),
+                        'action_label' => __('Open the declaration'),
+                        'context' => __('Declaration'),
+                    ],
+                    'payload' => ['tax_period_id' => $period->id],
                     'action_route' => "/taxes/declaration/{$period->year}/{$period->quarter}",
                 ];
             });
@@ -305,24 +313,32 @@ class AlertCollector
                     continue;
                 }
 
-                $invoice = $payment->invoice?->number ? ' за інвойсом ' . $payment->invoice->number : '';
+                $replace = [
+                    'amount' => $this->money->money($holding['amount'], $account->currency),
+                    'date' => $payment->received_at->format('d.m.Y'),
+                    'invoice' => $payment->invoice?->number,
+                    'account' => $account->name,
+                ];
+                $since = $deadline->addDay()->format('d.m.Y');
 
                 $alerts["repatriation:{$payment->id}:{$account->id}"] = [
                     'type' => 'repatriation',
                     'category' => AlertCategory::Funds,
                     'severity' => AlertSeverity::Warning,
-                    'title' => 'Кошти на платформі після кінця строку',
-                    'body' => $this->money->money($holding['amount'], $account->currency)
-                        . ' з надходження ' . $payment->received_at->format('d.m.Y') . $invoice
-                        . " досі на {$account->name}. ДПС може вважати це доходом фізособи (18 % ПДФО + 5 % ВЗ).",
+                    'texts' => fn () => [
+                        'title' => __('Money left on the platform past the deadline'),
+                        'body' => $replace['invoice'] !== null
+                            ? __(':amount of the receipt of :date for invoice :invoice is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% military levy).', $replace)
+                            : __(':amount of the receipt of :date is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% military levy).', $replace),
+                        'action_label' => __('Create a transfer'),
+                        'context' => __('Repatriation · since :date', ['date' => $since]),
+                    ],
                     'payload' => [
                         'payment_id' => $payment->id,
                         'account_id' => $account->id,
                         'amount' => Decimal::money($holding['amount']),
                         'currency' => $account->currency,
-                        'context' => 'Репатріація · з ' . $deadline->addDay()->format('d.m.Y'),
                     ],
-                    'action_label' => 'Створити переказ',
                     'action_route' => "/transfers/new?from={$account->id}",
                 ];
             }
@@ -339,9 +355,8 @@ class AlertCollector
     protected function accountLimits(): array
     {
         $alerts = [];
-        $periods = ['month' => 'місячного', 'quarter' => 'квартального', 'year' => 'річного'];
 
-        Account::query()->active()->whereNotNull('limit_amount')->get()->each(function (Account $account) use (&$alerts, $periods) {
+        Account::query()->active()->whereNotNull('limit_amount')->get()->each(function (Account $account) use (&$alerts) {
             $progress = $this->limits->progress($account, $this->today);
 
             if ($progress === null) {
@@ -358,15 +373,29 @@ class AlertCollector
             // A calendar window's crossing is news in each window; a rolling one's is one condition
             $window = $progress['window'] === 'calendar' ? ":{$progress['from']}" : '';
 
+            $title = ['account' => $account->name, 'percent' => $percent];
+            $body = [
+                'used' => $this->money->amount($progress['used']),
+                'limit' => $this->money->money($progress['limit'], $account->currency),
+                'remaining' => $this->money->money($progress['remaining'], $account->currency),
+            ];
+
             $alerts["limit:{$account->id}:$threshold$window"] = [
                 'type' => 'limit',
                 'category' => AlertCategory::Funds,
                 'severity' => $threshold === 100 ? AlertSeverity::Error : AlertSeverity::Warning,
-                'title' => "{$account->name} — $percent % " . ($periods[$progress['period']] ?? '') . ' ліміту',
-                'body' => $this->money->amount($progress['used']) . ' / ' . $this->money->money($progress['limit'], $account->currency)
-                    . '. Залишок ' . $this->money->money($progress['remaining'], $account->currency) . '.',
-                'payload' => [...$progress, 'account_id' => $account->id, 'context' => 'Ліміт рахунку'],
-                'action_label' => 'Відкрити рахунок',
+                'texts' => fn () => [
+                    'title' => match ($progress['period']) {
+                        'month' => __(':account — :percent% of the monthly limit', $title),
+                        'quarter' => __(':account — :percent% of the quarterly limit', $title),
+                        'year' => __(':account — :percent% of the yearly limit', $title),
+                        default => __(':account — :percent% of the limit', $title),
+                    },
+                    'body' => __(':used / :limit. :remaining left.', $body),
+                    'action_label' => __('Open the account'),
+                    'context' => __('Account limit'),
+                ],
+                'payload' => [...$progress, 'account_id' => $account->id],
                 'action_route' => "/accounts/{$account->id}",
             ];
         });
@@ -390,19 +419,27 @@ class AlertCollector
             return [];
         }
 
+        $replace = [
+            'income' => $this->money->money($cap['ytd_income'], 'UAH'),
+            'cap' => $this->money->money($cap['income_cap'], 'UAH'),
+            'excess' => $this->money->money($cap['excess'], 'UAH'),
+            'rate' => rtrim(rtrim(Decimal::of($cap['excess_rate'])->multipliedBy(100)->toScale(2)->__toString(), '0'), '.'),
+            'tax' => $this->money->money($cap['excess_tax'], 'UAH'),
+        ];
+
         return ["cap:{$this->today->year}:$threshold" => [
             'type' => 'cap',
             'category' => AlertCategory::Funds,
             'severity' => $threshold === 100 ? AlertSeverity::Error : AlertSeverity::Warning,
-            'title' => "Дохід — {$cap['percent']} % річного ліміту",
-            'body' => $this->money->money($cap['ytd_income'], 'UAH') . ' з ' . $this->money->money($cap['income_cap'], 'UAH')
-                . ($threshold === 100
-                    ? '. Перевищення ' . $this->money->money($cap['excess'], 'UAH') . ' оподатковується за '
-                        . rtrim(rtrim(Decimal::of($cap['excess_rate'])->multipliedBy(100)->toScale(2)->__toString(), '0'), '.') . ' % ('
-                        . $this->money->money($cap['excess_tax'], 'UAH') . '), з наступного кварталу — загальна система.'
-                    : '.'),
-            'payload' => [...$cap, 'context' => 'Ліміт доходу'],
-            'action_label' => 'Відкрити облік',
+            'texts' => fn () => [
+                'title' => __('Income — :percent% of the yearly cap', ['percent' => $cap['percent']]),
+                'body' => $threshold === 100
+                    ? __(':income of :cap. The excess of :excess is taxed at :rate% (:tax); from the next quarter, the general system applies.', $replace)
+                    : __(':income of :cap.', $replace),
+                'action_label' => __('Open accounting'),
+                'context' => __('Income cap'),
+            ],
+            'payload' => $cap,
             'action_route' => "/accounting/{$this->today->year}/{$this->today->quarter}",
         ]];
     }
@@ -431,19 +468,28 @@ class AlertCollector
                 }
 
                 $days = (int) $this->today->diffInDays($contract->ends_at);
-                $name = trim($contract->name . ' ' . ($contract->number ?? ''));
+                $replace = [
+                    'client' => $contract->client->name,
+                    'contract' => trim($contract->name . ' ' . ($contract->number ?? '')),
+                    'date' => $contract->ends_at->format('d.m.Y'),
+                ];
 
                 $alerts["contract:{$contract->id}:" . ($ended ? 'ended' : 'ending')] = [
                     'type' => 'contract',
                     'category' => AlertCategory::Invoices,
                     'severity' => AlertSeverity::Info,
-                    'title' => "Договір з {$contract->client->name} " . ($ended ? 'закінчився' : 'закінчується'),
-                    'body' => $name . ($ended
-                        ? ' діяв до ' . $contract->ends_at->format('d.m.Y') . '.'
-                        : ' діє до ' . $contract->ends_at->format('d.m.Y') . " — через $days дн.")
-                        . ($open > 0 ? " Відкритих інвойсів: $open." : ''),
-                    'payload' => ['contract_id' => $contract->id, 'client_id' => $contract->client_id, 'open_invoices' => $open, 'context' => 'Договір'],
-                    'action_label' => 'Відкрити договір',
+                    'texts' => fn () => [
+                        'title' => $ended
+                            ? __('The contract with :client has ended', $replace)
+                            : __('The contract with :client is ending', $replace),
+                        'body' => ($ended
+                            ? __(':contract was valid until :date.', $replace)
+                            : trans_choice(':contract is valid until :date — in :count day.|:contract is valid until :date — in :count days.', $days, $replace))
+                            . ($open > 0 ? ' ' . __('Open invoices: :count.', ['count' => $open]) : ''),
+                        'action_label' => __('Open the contract'),
+                        'context' => __('Contract'),
+                    ],
+                    'payload' => ['contract_id' => $contract->id, 'client_id' => $contract->client_id, 'open_invoices' => $open],
                     'action_route' => "/clients/{$contract->client_id}/contracts/{$contract->id}",
                 ];
             });
@@ -467,15 +513,19 @@ class AlertCollector
             $left = Decimal::of($invoice->total)->minus(Decimal::of($invoice->paid_amount));
 
             if ($invoice->due_at !== null && $invoice->due_at->lt($this->today) && $left->isPositive()) {
+                $replace = ['date' => $invoice->due_at->format('d.m.Y'), 'amount' => $this->money->money($left, $invoice->currency)];
+
                 $alerts["overdue:{$invoice->id}"] = [
                     'type' => 'overdue',
                     'category' => AlertCategory::Invoices,
                     'severity' => AlertSeverity::Info,
-                    'title' => "{$invoice->number} · {$invoice->client->name}",
-                    'body' => 'Термін оплати минув ' . $invoice->due_at->format('d.m.Y') . '. Не оплачено '
-                        . $this->money->money($left, $invoice->currency) . '.',
-                    'payload' => ['invoice_id' => $invoice->id, 'remaining' => Decimal::money($left), 'currency' => $invoice->currency, 'context' => 'Інвойс прострочено'],
-                    'action_label' => 'Відкрити інвойс',
+                    'texts' => fn () => [
+                        'title' => "{$invoice->number} · {$invoice->client->name}",
+                        'body' => __('Payment was due on :date. Unpaid: :amount.', $replace),
+                        'action_label' => __('Open the invoice'),
+                        'context' => __('Overdue invoice'),
+                    ],
+                    'payload' => ['invoice_id' => $invoice->id, 'remaining' => Decimal::money($left), 'currency' => $invoice->currency],
                     'action_route' => "/invoices/{$invoice->id}",
                 ];
             }
@@ -486,14 +536,19 @@ class AlertCollector
                 && Decimal::of($invoice->paid_amount)->isZero();
 
             if ($stale) {
+                $frozen = $invoice->locked_at->format('d.m.Y');
+
                 $alerts["ready:{$invoice->id}"] = [
                     'type' => 'ready_without_receipts',
                     'category' => AlertCategory::Invoices,
                     'severity' => AlertSeverity::Info,
-                    'title' => "{$invoice->number} · {$invoice->client->name}",
-                    'body' => 'Інвойс зафіксовано ' . $invoice->locked_at->format('d.m.Y') . ', але не позначено надісланим і надходжень немає.',
-                    'payload' => ['invoice_id' => $invoice->id, 'context' => 'Інвойс без руху'],
-                    'action_label' => 'Відкрити інвойс',
+                    'texts' => fn () => [
+                        'title' => "{$invoice->number} · {$invoice->client->name}",
+                        'body' => __('The invoice was frozen on :date, but it isn’t marked sent and has no receipts.', ['date' => $frozen]),
+                        'action_label' => __('Open the invoice'),
+                        'context' => __('Invoice without activity'),
+                    ],
+                    'payload' => ['invoice_id' => $invoice->id],
                     'action_route' => "/invoices/{$invoice->id}",
                 ];
             }
@@ -519,16 +574,19 @@ class AlertCollector
                 return;
             }
 
-            $what = $payment->invoice?->number ? 'за інвойсом ' . $payment->invoice->number : 'від ' . $payment->received_at->format('d.m.Y');
+            $number = $payment->invoice?->number;
+            $date = $payment->received_at->format('d.m.Y');
 
             $alerts["manual_rate:payment:{$payment->id}"] = $this->manualRate(
-                "Надходження $what записано за курсом, введеним вручну",
+                fn () => $number !== null
+                    ? __('The receipt for invoice :invoice was saved at a manually entered rate', ['invoice' => $number])
+                    : __('The receipt of :date was saved at a manually entered rate', ['date' => $date]),
                 $payment->currency,
                 $payment->nbu_rate,
                 $nbu->rate,
                 ['payment_id' => $payment->id],
                 "/payments/{$payment->id}",
-                'Відкрити надходження',
+                fn () => __('Open the receipt'),
             );
         });
 
@@ -540,14 +598,16 @@ class AlertCollector
                 return;
             }
 
+            $date = $transfer->received_at->format('d.m.Y');
+
             $alerts["manual_rate:transfer:{$transfer->id}"] = $this->manualRate(
-                'Переказ ' . $transfer->received_at->format('d.m.Y') . ' записано за курсом, введеним вручну',
+                fn () => __('The transfer of :date was saved at a manually entered rate', ['date' => $date]),
                 $currency,
                 $transfer->nbu_rate,
                 $nbu->rate,
                 ['transfer_id' => $transfer->id],
                 "/transfers/{$transfer->id}",
-                'Відкрити переказ',
+                fn () => __('Open the transfer'),
             );
         });
 
@@ -557,26 +617,33 @@ class AlertCollector
     /**
      * Describe a record saved at a manual rate, which differs from the NBU's.
      *
-     * @param string $title
+     * @param Closure(): string $title
      * @param string $currency
      * @param string $manual
      * @param string $nbu
      * @param array $payload
      * @param string $route
-     * @param string $action
+     * @param Closure(): string $action
      *
      * @return array<string, mixed>
      */
-    protected function manualRate(string $title, string $currency, string $manual, string $nbu, array $payload, string $route, string $action): array
+    protected function manualRate(Closure $title, string $currency, string $manual, string $nbu, array $payload, string $route, Closure $action): array
     {
         return [
             'type' => 'manual_rate',
             'category' => AlertCategory::Funds,
             'severity' => AlertSeverity::Warning,
-            'title' => $title,
-            'body' => "Курс 1 $currency = $manual ₴, а НБУ опублікував $nbu ₴. Оновіть запис, щоб він узяв курс НБУ.",
-            'payload' => [...$payload, 'currency' => $currency, 'manual_rate' => $manual, 'nbu_rate' => $nbu, 'context' => 'Курс НБУ'],
-            'action_label' => $action,
+            'texts' => fn () => [
+                'title' => $title(),
+                'body' => __('The rate is 1 :currency = :manual ₴, while the NBU published :nbu ₴. Update the record to take the NBU’s rate.', [
+                    'currency' => $currency,
+                    'manual' => $manual,
+                    'nbu' => $nbu,
+                ]),
+                'action_label' => $action(),
+                'context' => __('NBU rate'),
+            ],
+            'payload' => [...$payload, 'currency' => $currency, 'manual_rate' => $manual, 'nbu_rate' => $nbu],
             'action_route' => $route,
         ];
     }
@@ -599,11 +666,13 @@ class AlertCollector
             'type' => 'tax_rules',
             'category' => AlertCategory::Deadlines,
             'severity' => AlertSeverity::Warning,
-            'title' => "Податкові правила на $next рік ще не додано",
-            'body' => "Мінімальна зарплата, ЄСВ і ліміт доходу на $next рік ще не внесені в PryTax. Без них надходження "
-                . "$next року не прийматимуться, а ЄСВ не нараховуватиметься. Додайте їх оновленням застосунку.",
-            'payload' => ['year' => $next, 'context' => 'Податкові правила'],
-            'action_label' => null,
+            'texts' => fn () => [
+                'title' => __('The tax rules of :year aren’t added yet', ['year' => $next]),
+                'body' => __('The minimum wage, SSC and the income cap of :year aren’t in PryTax yet. Without them, receipts of :year won’t be accepted and SSC won’t be charged. Add them by updating the app.', ['year' => $next]),
+                'action_label' => null,
+                'context' => __('Tax rules'),
+            ],
+            'payload' => ['year' => $next],
             'action_route' => null,
         ]];
     }
@@ -636,7 +705,7 @@ class AlertCollector
     }
 
     /**
-     * Name a quarter, such as "III кв. 2026".
+     * Name a quarter in the current language, such as "III кв. 2026" or "Q3 2026".
      *
      * @param int $year
      * @param int $quarter
@@ -645,6 +714,6 @@ class AlertCollector
      */
     protected function quarterLabel(int $year, int $quarter): string
     {
-        return ['I', 'II', 'III', 'IV'][$quarter - 1] . " кв. $year";
+        return __('Q:quarter :year', ['quarter' => $quarter, 'roman' => ['I', 'II', 'III', 'IV'][$quarter - 1], 'year' => $year]);
     }
 }

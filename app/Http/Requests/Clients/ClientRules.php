@@ -20,13 +20,21 @@ trait ClientRules
      * Get the rules of the fields, each prefixed with the given presence rule.
      *
      * @param string $presence
+     * @param mixed $clientId The client, which is updated: its own abbreviation isn't a duplicate.
      *
      * @return array
      */
-    protected function clientRules(string $presence): array
+    protected function clientRules(string $presence, mixed $clientId = null): array
     {
         return [
             'name' => [$presence, 'string', 'max:255'],
+            'abbreviation' => [
+                $presence,
+                'string',
+                'max:10',
+                'regex:/^[A-Z0-9]+$/',
+                $this->uniqueInProfile('clients', 'abbreviation')->ignore($clientId),
+            ],
             'legal_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'name_uk' => ['sometimes', 'nullable', 'string', 'max:255'],
             'legal_name_uk' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -48,7 +56,7 @@ trait ClientRules
     }
 
     /**
-     * Normalize the country and the currency (upper case).
+     * Normalize the country, the currency and the abbreviation (upper case).
      *
      * @return array
      */
@@ -56,7 +64,7 @@ trait ClientRules
     {
         $overrides = [];
 
-        foreach (['country', 'currency'] as $field) {
+        foreach (['country', 'currency', 'abbreviation'] as $field) {
             if (is_string($this->input($field))) {
                 $overrides[$field] = strtoupper($this->input($field));
             }

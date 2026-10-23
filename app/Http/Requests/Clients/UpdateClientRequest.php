@@ -7,7 +7,7 @@ use Core\Http\Requests\Crud\UpdateRequest;
 /**
  * Class UpdateClientRequest.
  *
- * Updates the given fields of a client, such as deactivating it.
+ * Updates the given fields of a client, such as deactivating it or changing its abbreviation.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Clients
@@ -23,6 +23,6 @@ class UpdateClientRequest extends UpdateRequest
      */
     public function rules(): array
     {
-        return $this->clientRules('sometimes');
+        return $this->clientRules('sometimes', $this->getId());
     }
 }

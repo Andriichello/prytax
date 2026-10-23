@@ -1,17 +1,29 @@
+import { locale, type Locale } from '@/i18n';
+
 /**
  * Helpers for clients: the name of a country, initials for the avatar, and an abbreviation to suggest.
  */
 
-const regions = (() => {
-    try {
-        return new Intl.DisplayNames(['uk'], { type: 'region' });
-    } catch {
-        return null;
-    }
-})();
+const regions = new Map<Locale, Intl.DisplayNames | null>();
 
 /**
- * A country's Ukrainian name by its ISO code: "US" → "США" (the code itself, when unknown).
+ * The names of countries in the language of the screens.
+ */
+function regionNames(): Intl.DisplayNames | null {
+    if (!regions.has(locale.value)) {
+        try {
+            regions.set(locale.value, new Intl.DisplayNames([locale.value], { type: 'region' }));
+        } catch {
+            regions.set(locale.value, null);
+        }
+    }
+
+    return regions.get(locale.value) ?? null;
+}
+
+/**
+ * A country's name in the language of the screens by its ISO code: "US" → "США", "United States" (the code itself,
+ * when unknown).
  */
 export function countryName(code: string | null | undefined): string {
     if (!code) {
@@ -19,7 +31,7 @@ export function countryName(code: string | null | undefined): string {
     }
 
     try {
-        return regions?.of(code.toUpperCase()) ?? code;
+        return regionNames()?.of(code.toUpperCase()) ?? code;
     } catch {
         return code;
     }

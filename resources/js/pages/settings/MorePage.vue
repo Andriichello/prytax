@@ -6,15 +6,32 @@ import type { Account, Client, Paginated } from '@/api/types';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
+import LanguageSwitch from '@/components/ui/LanguageSwitch.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 
 /**
- * Ще (S-More): money and counterparties, the ФОП's settings, the organization, and signing out.
+ * Ще (S-More): money and counterparties, the ФОП's settings, the organization with signing out, and the language.
  */
-const ROLES: Record<string, string> = { owner: 'власник', accountant: 'бухгалтер', viewer: 'перегляд' };
+
+/**
+ * A role as the footnote names it: власник, бухгалтер, перегляд.
+ */
+function roleName(role: string): string {
+    switch (role) {
+        case 'owner':
+            return t('власник');
+        case 'accountant':
+            return t('бухгалтер');
+        case 'viewer':
+            return t('перегляд');
+        default:
+            return role;
+    }
+}
 
 const router = useRouter();
 const { user, can, signOut } = useSession();
@@ -29,29 +46,32 @@ const { data: counts } = useLoader(async (signal) => {
     return { accounts: accounts.meta.total, clients: clients.meta.total };
 }, [profileId]);
 
-const sections = computed<{ title: string; items: { label: string; icon: IconName; to: string; count?: number | null; visible?: boolean }[] }[]>(() => [
+const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; visible?: boolean }[] }[]>(() => [
     {
-        title: 'Гроші й контрагенти',
+        key: 'money',
+        title: t('Гроші й контрагенти'),
         items: [
-            { label: 'Рахунки', icon: 'account', to: '/accounts', count: counts.value?.accounts },
-            { label: 'Перекази та комісії', icon: 'transfer', to: '/transfers' },
-            { label: 'Комісії й чистий дохід', icon: 'percent', to: '/fees' },
-            { label: 'Клієнти й договори', icon: 'briefcase', to: '/clients', count: counts.value?.clients },
+            { label: t('Рахунки'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
+            { label: t('Перекази та комісії'), icon: 'transfer', to: '/transfers' },
+            { label: t('Комісії й чистий дохід'), icon: 'percent', to: '/fees' },
+            { label: t('Клієнти й договори'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
         ],
     },
     {
-        title: 'Налаштування ФОП',
+        key: 'settings',
+        title: t('Налаштування ФОП'),
         items: [
-            { label: 'Профіль і реквізити ФОП', icon: 'person', to: '/settings/profile' },
-            { label: 'Нумерація інвойсів', icon: 'hash', to: '/settings/numbering' },
-            { label: 'Податки й сповіщення', icon: 'sliders', to: '/settings/taxes' },
+            { label: t('Профіль і реквізити ФОП'), icon: 'person', to: '/settings/profile' },
+            { label: t('Нумерація інвойсів'), icon: 'hash', to: '/settings/numbering' },
+            { label: t('Податки й сповіщення'), icon: 'sliders', to: '/settings/taxes' },
         ],
     },
     {
-        title: 'Організація',
+        key: 'organization',
+        title: t('Організація'),
         items: [
-            { label: 'Огляд усіх ФОП', icon: 'overview', to: '/overview' },
-            { label: 'Користувачі й ролі', icon: 'people', to: '/users', visible: can('viewAny', 'users') },
+            { label: t('Огляд усіх ФОП'), icon: 'overview', to: '/overview' },
+            { label: t('Користувачі й ролі'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
         ],
     },
 ]);
@@ -72,8 +92,8 @@ async function leave(): Promise<void> {
 </script>
 
 <template>
-    <TabScreen title="Ще">
-        <section v-for="section in sections" :key="section.title" class="flex flex-col gap-2">
+    <TabScreen :title="t('Ще')">
+        <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
             <SectionTitle>{{ section.title }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                 <template v-for="item in section.items" :key="item.to">
@@ -89,20 +109,25 @@ async function leave(): Promise<void> {
                     </RouterLink>
                 </template>
                 <button
-                    v-if="section.title === 'Організація'"
+                    v-if="section.key === 'organization'"
                     type="button"
                     class="flex min-h-14 items-center gap-3.5 text-left text-negative"
                     :disabled="signingOut"
                     @click="leave"
                 >
                     <Icon name="signOut" :size="22" />
-                    <span class="flex-1 text-16">Вийти</span>
+                    <span class="flex-1 text-16">{{ t('Вийти') }}</span>
                 </button>
             </div>
         </section>
 
+        <section class="flex flex-col gap-2">
+            <SectionTitle>{{ t('Мова') }}</SectionTitle>
+            <LanguageSwitch size="lg" />
+        </section>
+
         <p v-if="user" class="m-0 text-center text-13 text-ink-3">
-            PryTax · {{ user.email }} · {{ user.roles.map((role) => ROLES[role] ?? role).join(', ') }}
+            PryTax · {{ user.email }} · {{ user.roles.map(roleName).join(', ') }}
         </p>
     </TabScreen>
 </template>

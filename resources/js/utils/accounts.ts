@@ -1,24 +1,25 @@
 import type { AccountKind, MovementCategory, MovementDirection } from '@/api/types';
+import { t } from '@/i18n';
 
 /**
- * The kinds of accounts, as the screens name them.
+ * The kinds of accounts, as the screens name them (getters, which translate when they are read).
  */
 export const ACCOUNT_KINDS: Record<AccountKind, { label: string; group: string }> = {
-    platform: { label: 'Платформа', group: 'Платформи' },
-    fop_bank: { label: 'ФОП-рахунок в Україні', group: 'ФОП-рахунки в Україні' },
-    foreign_bank: { label: 'Іноземний банк', group: 'Іноземні банки' },
-    personal: { label: 'Особистий', group: 'Особисті' },
+    platform: { get label() { return t('Платформа'); }, get group() { return t('Платформи'); } },
+    fop_bank: { get label() { return t('ФОП-рахунок в Україні'); }, get group() { return t('ФОП-рахунки в Україні'); } },
+    foreign_bank: { get label() { return t('Іноземний банк'); }, get group() { return t('Іноземні банки'); } },
+    personal: { get label() { return t('Особистий'); }, get group() { return t('Особисті'); } },
 };
 
 /**
  * The categories of an account's movements (neither income nor transfers), with the directions each may have.
  */
 export const MOVEMENT_CATEGORIES: Record<MovementCategory, { label: string; directions: MovementDirection[] }> = {
-    bank_fee: { label: 'Комісія банку', directions: ['out'] },
-    expense: { label: 'Витрата', directions: ['out'] },
-    owner_withdrawal: { label: 'Зняття власником', directions: ['out'] },
-    interest: { label: 'Відсотки', directions: ['in'] },
-    other: { label: 'Інший рух', directions: ['in', 'out'] },
+    bank_fee: { get label() { return t('Комісія банку'); }, directions: ['out'] },
+    expense: { get label() { return t('Витрата'); }, directions: ['out'] },
+    owner_withdrawal: { get label() { return t('Зняття власником'); }, directions: ['out'] },
+    interest: { get label() { return t('Відсотки'); }, directions: ['in'] },
+    other: { get label() { return t('Інший рух'); }, directions: ['in', 'out'] },
 };
 
 /**

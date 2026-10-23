@@ -1,7 +1,9 @@
 import type { AlertSeverity, DeclarationStatus, Invoice, InvoiceStatus, TaxPaymentStatus, TaxType } from '@/api/types';
+import { t } from '@/i18n';
 
 /**
- * The colours of status badges.
+ * The colours of status badges. The labels are getters, which translate when they are read, so they follow the
+ * language of the screens.
  */
 export type Tone = 'neutral' | 'info' | 'warning' | 'positive' | 'negative';
 
@@ -11,11 +13,11 @@ export interface StatusLabel {
 }
 
 export const INVOICE_STATUSES: Record<InvoiceStatus, StatusLabel> = {
-    draft: { label: 'Чернетка', tone: 'neutral' },
-    ready: { label: 'Готовий', tone: 'info' },
-    sent: { label: 'Надіслано', tone: 'warning' },
-    paid: { label: 'Оплачено', tone: 'positive' },
-    cancelled: { label: 'Скасовано', tone: 'negative' },
+    draft: { get label() { return t('Чернетка'); }, tone: 'neutral' },
+    ready: { get label() { return t('Готовий'); }, tone: 'info' },
+    sent: { get label() { return t('Надіслано'); }, tone: 'warning' },
+    paid: { get label() { return t('Оплачено'); }, tone: 'positive' },
+    cancelled: { get label() { return t('Скасовано'); }, tone: 'negative' },
 };
 
 /**
@@ -27,32 +29,39 @@ export function unpaidStatusOf(invoice: Pick<Invoice, 'sent_at'>): StatusLabel {
 }
 
 export const ALERT_SEVERITIES: Record<AlertSeverity, StatusLabel> = {
-    info: { label: 'Інфо', tone: 'info' },
-    warning: { label: 'Увага', tone: 'warning' },
-    error: { label: 'Терміново', tone: 'negative' },
+    info: { get label() { return t('Інфо'); }, tone: 'info' },
+    warning: { get label() { return t('Увага'); }, tone: 'warning' },
+    error: { get label() { return t('Терміново'); }, tone: 'negative' },
 };
 
 export const DECLARATION_STATUSES: Record<DeclarationStatus, StatusLabel> = {
-    none: { label: 'Не подано', tone: 'neutral' },
-    filled: { label: 'Заповнено', tone: 'info' },
-    submitted: { label: 'Подано', tone: 'warning' },
-    accepted: { label: 'Прийнято', tone: 'positive' },
-    rejected: { label: 'Відхилено', tone: 'negative' },
+    none: { get label() { return t('Не подано'); }, tone: 'neutral' },
+    filled: { get label() { return t('Заповнено'); }, tone: 'info' },
+    submitted: { get label() { return t('Подано'); }, tone: 'warning' },
+    accepted: { get label() { return t('Прийнято'); }, tone: 'positive' },
+    rejected: { get label() { return t('Відхилено'); }, tone: 'negative' },
     /** A write into the declared quarter (or an earlier one of the year) needs an уточнююча декларація. */
-    corrected: { label: 'Потрібна уточнююча', tone: 'warning' },
+    corrected: { get label() { return t('Потрібна уточнююча'); }, tone: 'warning' },
 };
 
 export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {
-    sent: { label: 'Надіслано', tone: 'warning' },
-    paid: { label: 'Сплачено', tone: 'positive' },
-    failed: { label: 'Не пройшов', tone: 'negative' },
+    sent: { get label() { return t('Надіслано'); }, tone: 'warning' },
+    paid: { get label() { return t('Сплачено'); }, tone: 'positive' },
+    failed: { get label() { return t('Не пройшов'); }, tone: 'negative' },
 };
 
 /**
- * The short names of the taxes: ЄП (єдиний податок), ВЗ (військовий збір), ЄСВ.
+ * The short names of the taxes: ЄП (єдиний податок), ВЗ (військовий збір), ЄСВ — in English "Single tax", "Military
+ * levy" and "SSC" (the single social contribution).
  */
 export const TAX_TYPES: Record<TaxType, string> = {
-    single_tax: 'ЄП',
-    military_levy: 'ВЗ',
-    social_contribution: 'ЄСВ',
+    get single_tax() {
+        return t('ЄП');
+    },
+    get military_levy() {
+        return t('ВЗ');
+    },
+    get social_contribution() {
+        return t('ЄСВ');
+    },
 };

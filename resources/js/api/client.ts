@@ -1,3 +1,5 @@
+import { locale } from '@/i18n';
+
 /**
  * The API client: `fetch` with the session cookie, Sanctum's CSRF header and api-core's JSON envelopes.
  *
@@ -110,7 +112,7 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
     const method = options.method ?? 'GET';
     const headers: Record<string, string> = {
         Accept: 'application/json',
-        'Accept-Language': 'uk',
+        'Accept-Language': locale.value,
         'X-Requested-With': 'XMLHttpRequest',
         ...options.headers,
     };

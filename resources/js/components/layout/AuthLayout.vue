@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import Icon from '@/components/ui/Icon.vue';
+import LanguageSwitch from '@/components/ui/LanguageSwitch.vue';
+import { t } from '@/i18n';
 
 /**
- * The frame of the signed-out pages: the PryTax logo and tagline, the form, and a footnote at the bottom.
+ * The frame of the signed-out pages: the PryTax logo and tagline, the form, a footnote and the language switch at the
+ * bottom.
  */
 </script>
 
@@ -15,13 +18,16 @@ import Icon from '@/components/ui/Icon.vue';
                 </span>
                 <span class="text-[32px] font-bold tracking-[-0.03em]">Pry<span class="text-accent">Tax</span></span>
             </div>
-            <p class="m-0 max-w-75 text-17 leading-[1.45] text-ink-2">Облік доходів, інвойси та податки для ФОП 3 групи</p>
+            <p class="m-0 max-w-75 text-17 leading-[1.45] text-ink-2">{{ t('Облік доходів, інвойси та податки для ФОП 3 групи') }}</p>
         </div>
 
         <slot />
 
-        <p v-if="$slots.footer" class="m-0 mt-auto text-center text-13 leading-normal text-ink-3">
-            <slot name="footer" />
-        </p>
+        <div class="mt-auto flex flex-col gap-4">
+            <p v-if="$slots.footer" class="m-0 text-center text-13 leading-normal text-ink-3">
+                <slot name="footer" />
+            </p>
+            <LanguageSwitch />
+        </div>
     </div>
 </template>

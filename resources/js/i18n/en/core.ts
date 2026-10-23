@@ -1,0 +1,75 @@
+/**
+ * English texts of the shared helpers (statuses, kinds of accounts, the names of taxes, errors), the language switch,
+ * Ще and the frame of the sign-in screens, keyed by their Ukrainian source (see `i18n/index.ts`).
+ */
+export default {
+    // Statuses of invoices, notifications, declarations and tax payments
+    'Чернетка': 'Draft',
+    'Готовий': 'Ready',
+    'Надіслано': 'Sent',
+    'Оплачено': 'Paid',
+    'Скасовано': 'Cancelled',
+    'Інфо': 'Info',
+    'Увага': 'Warning',
+    'Терміново': 'Urgent',
+    'Не подано': 'Not filed',
+    'Заповнено': 'Filled in',
+    'Подано': 'Filed',
+    'Прийнято': 'Accepted',
+    'Відхилено': 'Rejected',
+    'Потрібна уточнююча': 'Correction needed',
+    'Сплачено': 'Paid',
+    'Не пройшов': 'Failed',
+
+    // The short names of the taxes
+    'ЄП': 'Single tax',
+    'ВЗ': 'Military levy',
+    'ЄСВ': 'SSC',
+
+    // Kinds of accounts and their movements
+    'Платформа': 'Platform',
+    'Платформи': 'Platforms',
+    'ФОП-рахунок в Україні': 'FOP account in Ukraine',
+    'ФОП-рахунки в Україні': 'FOP accounts in Ukraine',
+    'Іноземний банк': 'Foreign bank',
+    'Іноземні банки': 'Foreign banks',
+    'Особистий': 'Personal',
+    'Особисті': 'Personal',
+    'Комісія банку': 'Bank fee',
+    'Витрата': 'Expense',
+    'Зняття власником': 'Owner withdrawal',
+    'Відсотки': 'Interest',
+    'Інший рух': 'Other movement',
+
+    // Errors of requests
+    'Сесія завершилась. Увійдіть знову.': 'Your session has ended. Sign in again.',
+    'Недостатньо прав для цієї дії.': 'You don’t have permission to do this.',
+    'Не знайдено.': 'Not found.',
+    'Запис змінився або заблокований. Оновіть сторінку.': 'The record has changed or is locked. Reload the page.',
+    'Сесія застаріла. Оновіть сторінку.': 'The session has expired. Reload the page.',
+    'Перевірте дані форми.': 'Check the form.',
+    'Забагато спроб. Зачекайте хвилину і спробуйте знову.': 'Too many attempts. Wait a minute and try again.',
+    'Щось пішло не так. Спробуйте ще раз.': 'Something went wrong. Try again.',
+    'Не вдалося зв’язатися із сервером. Перевірте з’єднання і спробуйте ще раз.': 'Couldn’t reach the server. Check your connection and try again.',
+
+    // The language switch, Ще and the sign-in screens
+    'Мова': 'Language',
+    'Облік доходів, інвойси та податки для ФОП 3 групи': 'Income records, invoices and taxes for 3rd-group FOPs',
+    'Ще': 'More',
+    'Гроші й контрагенти': 'Money and counterparties',
+    'Рахунки': 'Accounts',
+    'Перекази та комісії': 'Transfers and fees',
+    'Комісії й чистий дохід': 'Fees and net income',
+    'Клієнти й договори': 'Clients and contracts',
+    'Налаштування ФОП': 'FOP settings',
+    'Профіль і реквізити ФОП': 'FOP profile and details',
+    'Нумерація інвойсів': 'Invoice numbering',
+    'Податки й сповіщення': 'Taxes and notifications',
+    'Організація': 'Organization',
+    'Огляд усіх ФОП': 'Overview of all FOPs',
+    'Користувачі й ролі': 'Users and roles',
+    'Вийти': 'Sign out',
+    'власник': 'owner',
+    'бухгалтер': 'accountant',
+    'перегляд': 'viewer',
+} satisfies Record<string, string>;

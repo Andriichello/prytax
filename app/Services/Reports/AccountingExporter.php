@@ -22,13 +22,6 @@ use PryTax\Models\TaxPayment;
 class AccountingExporter
 {
     /**
-     * Names of the taxes in the exports.
-     *
-     * @var array<string, string>
-     */
-    public const array TAXES = ['single_tax' => 'ЄП', 'military_levy' => 'ВЗ', 'social_contribution' => 'ЄСВ'];
-
-    /**
      * AccountingExporter constructor.
      *
      * @param AccountingView $accounting
@@ -71,12 +64,12 @@ class AccountingExporter
         $rows = [$this->rowsHeader()];
 
         for ($quarter = 1; $quarter <= 4; $quarter++) {
-            $rows[] = [['I', 'II', 'III', 'IV'][$quarter - 1] . " кв. $year"];
+            $rows[] = [$this->quarterLabel($quarter, $year)];
             $rows = [...$rows, ...$this->rows($year, $quarter), ...$this->summary($this->accounting->forQuarter($profile, $year, $quarter)['summary']), []];
         }
 
-        $rows[] = ['Сплата податків'];
-        $rows[] = ['Дата', 'Податок', 'Період', 'Сума, ₴', 'Статус', 'Рахунок', 'Призначення'];
+        $rows[] = [__('Tax payments')];
+        $rows[] = [__('Date'), __('Tax'), __('Period'), __('Amount, ₴'), __('Status'), __('Account'), __('Purpose')];
 
         TaxPayment::query()
             ->where('period_year', $year)
@@ -86,11 +79,11 @@ class AccountingExporter
             ->each(function (TaxPayment $payment) use (&$rows) {
                 $rows[] = [
                     $payment->paid_at?->toDateString() ?? '',
-                    self::TAXES[$payment->tax_type->value],
+                    $this->taxName($payment->tax_type->value),
                     match ($payment->allocation->value) {
-                        'payment' => 'надходження ' . ($payment->payment?->invoice?->number ?? $payment->payment?->received_at?->toDateString() ?? ''),
+                        'payment' => __('receipt :invoice', ['invoice' => $payment->payment?->invoice?->number ?? $payment->payment?->received_at?->toDateString() ?? '']),
                         'month' => sprintf('%d-%02d', $payment->period_year, $payment->period_month),
-                        default => ['I', 'II', 'III', 'IV'][$payment->period_quarter - 1] . " кв. {$payment->period_year}",
+                        default => $this->quarterLabel($payment->period_quarter, $payment->period_year),
                     },
                     $payment->amount,
                     $payment->status->value,
@@ -114,14 +107,14 @@ class AccountingExporter
     public function incomeBook(Profile $profile, int $year): string
     {
         $book = $this->incomeBook->forYear($profile, $year);
-        $rows = [['Дата', 'Документ', 'Клієнт / опис', 'Валюта', 'Сума', 'Курс НБУ', 'Дохід, ₴', 'За місяць, ₴', 'Наростаючим, ₴']];
+        $rows = [[__('Date'), __('Document'), __('Client / description'), __('Currency'), __('Amount'), __('NBU rate'), __('Income, ₴'), __('For the month, ₴'), __('Cumulative, ₴')]];
         $documents = collect(range(1, 4))->flatMap(fn (int $quarter) => $this->accounting->rows($year, $quarter))->groupBy('month');
 
         foreach ($book['months'] as $month) {
             foreach ($documents->get($month['month'], []) as $row) {
                 $rows[] = [
                     $row['date'],
-                    $row['invoice_number'] ?? ($row['type'] === 'refund' ? 'Повернення' : ''),
+                    $row['invoice_number'] ?? ($row['type'] === 'refund' ? __('Refund') : ''),
                     $row['client_name'] ?? $row['description'] ?? '',
                     $row['currency'],
                     $row['amount'],
@@ -132,15 +125,15 @@ class AccountingExporter
                 ];
             }
 
-            $rows[] = [sprintf('%d-%02d', $year, $month['month']), 'Підсумок місяця', '', '', '', '', '', $month['income'], $month['cumulative']];
+            $rows[] = [sprintf('%d-%02d', $year, $month['month']), __('Month total'), '', '', '', '', '', $month['income'], $month['cumulative']];
 
             if ($month['month'] % 3 === 0) {
                 $quarter = $book['quarters'][$month['quarter'] - 1];
-                $rows[] = [['I', 'II', 'III', 'IV'][$month['quarter'] - 1] . ' кв.', 'Підсумок кварталу', '', '', '', '', '', $quarter['income'], $quarter['cumulative']];
+                $rows[] = [$this->quarterLabel($month['quarter']), __('Quarter total'), '', '', '', '', '', $quarter['income'], $quarter['cumulative']];
             }
         }
 
-        $rows[] = ['Рік', 'Підсумок року', '', '', '', '', '', $book['total'], $book['total']];
+        $rows[] = [__('Year'), __('Year total'), '', '', '', '', '', $book['total'], $book['total']];
 
         return $this->csv($profile, $rows);
     }
@@ -152,7 +145,10 @@ class AccountingExporter
      */
     protected function rowsHeader(): array
     {
-        return ['Дата', 'Документ', 'Клієнт / опис', 'Валюта', 'Сума', 'Курс НБУ', 'Дохід, ₴', 'ЄП', 'ВЗ', 'Комісії', 'Чисто', 'Рахунок'];
+        return [
+            __('Date'), __('Document'), __('Client / description'), __('Currency'), __('Amount'), __('NBU rate'), __('Income, ₴'),
+            $this->taxName('single_tax'), $this->taxName('military_levy'), __('Fees'), __('Net'), __('Account'),
+        ];
     }
 
     /**
@@ -167,7 +163,7 @@ class AccountingExporter
     {
         return $this->accounting->rows($year, $quarter)->map(fn (array $row) => [
             $row['date'],
-            $row['invoice_number'] ?? ($row['type'] === 'refund' ? 'Повернення' : ''),
+            $row['invoice_number'] ?? ($row['type'] === 'refund' ? __('Refund') : ''),
             $row['client_name'] ?? $row['description'] ?? '',
             $row['currency'],
             $row['amount'],
@@ -191,14 +187,47 @@ class AccountingExporter
      */
     protected function summary(array $summary): array
     {
+        $checks = fn (string $tax) => [__('standalone'), $summary[$tax]['standalone'], __('by receipts'), $summary[$tax]['hints_sum']];
+
         return [
-            ['Дохід кварталу, ₴', $summary['quarter_income']],
-            ['Дохід з початку року, ₴', $summary['ytd_income']],
-            ['ЄП до сплати, ₴', $summary['single_tax']['owed'], 'окремо', $summary['single_tax']['standalone'], 'за надходженнями', $summary['single_tax']['hints_sum']],
-            ['ВЗ до сплати, ₴', $summary['military_levy']['owed'], 'окремо', $summary['military_levy']['standalone'], 'за надходженнями', $summary['military_levy']['hints_sum']],
-            ['ЄСВ, ₴', $summary['esv']['owed']],
-            ['Ліміт доходу, %', $summary['cap']['percent']],
+            [__('Quarter income, ₴'), $summary['quarter_income']],
+            [__('Year-to-date income, ₴'), $summary['ytd_income']],
+            [__('Single tax owed, ₴'), $summary['single_tax']['owed'], ...$checks('single_tax')],
+            [__('Military levy owed, ₴'), $summary['military_levy']['owed'], ...$checks('military_levy')],
+            [__('SSC, ₴'), $summary['esv']['owed']],
+            [__('Income cap, %'), $summary['cap']['percent']],
         ];
+    }
+
+    /**
+     * Name a tax, as the exports do: ЄП, ВЗ, ЄСВ in Ukrainian.
+     *
+     * @param string $type
+     *
+     * @return string
+     */
+    protected function taxName(string $type): string
+    {
+        return match ($type) {
+            'single_tax' => __('Single tax'),
+            'military_levy' => __('Military levy'),
+            default => __('SSC'),
+        };
+    }
+
+    /**
+     * Name a quarter, such as "III кв. 2026" or "Q3 2026", or the quarter alone ("III кв.", "Q3").
+     *
+     * @param int $quarter
+     * @param int|null $year
+     *
+     * @return string
+     */
+    protected function quarterLabel(int $quarter, ?int $year = null): string
+    {
+        $replace = ['quarter' => $quarter, 'roman' => ['I', 'II', 'III', 'IV'][$quarter - 1], 'year' => $year];
+
+        return $year === null ? __('Q:quarter', $replace) : __('Q:quarter :year', $replace);
     }
 
     /**

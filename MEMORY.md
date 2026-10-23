@@ -102,9 +102,9 @@ statistics screen; and go on with the rest. Done, each verified in tests and in 
 - **Monthly taxes:** `taxes/{year}/months` spreads a quarter's own payments over its months, the earliest first (each
   takes what it still owes after its own payments; the last month keeps the rest; paid before sent), `from_quarter`
   per month; the view marks "за кв.".
-- **Ukrainian API:** api-core's `locale` middleware on the `api` group, `api-core.locales = ['uk']` (so users' stored
-  `en` never overrides the SPA's `Accept-Language: uk`; requests without the header stay English, so tests assert
-  English); `lang/uk.json` (every `__()` of `app/` — `LocalizationTest` scans them —, the invitation and reset
+- **Ukrainian API:** api-core's `locale` middleware on the `api` group (since 2026-10-24 `api-core.locales = ['uk',
+  'en']` and the user's own `locale` decides, see "English"); requests without a user or a header stay English, so
+  tests assert English; `lang/uk.json` (every `__()` of `app/` — `LocalizationTest` scans them —, the invitation and reset
   e-mails, Laravel's mail layout) and `lang/uk/{validation,auth,passwords}.php` (messages without the field's name,
   as they show under the field). `utils/errors.ts` now shows any Cyrillic message as is and translates only
   api-core's English-only messages (suspended account, required password update, invitation link, several
@@ -117,6 +117,33 @@ statistics screen; and go on with the rest. Done, each verified in tests and in 
   `feat/remember-login` branch turns into the remember cookie; the published migration
   `2026_10_21_010000_add_remember_token_to_users_table` adds `users.remember_token`. Verified: with it, a dropped
   session signs in again from the cookie; without it, back to Вхід.
+
+## English (2026-10-24, branch `dev-followups`)
+
+The user asked for English, switchable with Ukrainian. Ukrainian stays the source language of both sides:
+
+- **SPA:** `resources/js/i18n/index.ts` — `t('Український текст', { name })` looks the Ukrainian text up in the English
+  dictionaries `i18n/en/{core,invoices,money,accounting,clients,shell}.ts` while English is on (`locale` ref; missing
+  English falls back to Ukrainian). No package: a 70-line module (vue-i18n would need approval). `t()` must run at
+  render (computed, getters, templates), never in a frozen constant, since Інвойси and Перекази stay alive.
+  `components/ui/Translated.vue` fills a translated sentence's `{name}` with slots (markup inside a sentence).
+  Plurals are `{ uk: [one, few, many], en: [one, other] }`; month names, `quarterLabel` (`Q4`), statuses, kinds of
+  accounts, `TAX_TYPES` (Single tax, Military levy, SSC) and country names follow the language; dates stay
+  дд.мм.рррр. The guard `i18n/i18n.test.ts` fails on Ukrainian outside `t()` (comments skipped; mark Ukrainian data
+  `// i18n-ignore`, or a block with `i18n-ignore-start`/`-end`), on a text without English, a non-literal key, an
+  unused entry, one text with two Englishes, or a lost placeholder.
+- **The language is the user's:** `users.locale` (`PATCH auth/me`, which `useSession().switchLocale()` sends), shown on
+  Ще and on the sign-in screens (`LanguageSwitch`); before signing in, the device's last choice (localStorage
+  `prytax.locale`), which the client sends as `Accept-Language`; a language chosen on the sign-in screen becomes the
+  account's. A migration moved existing users from api-core's default `en` to `uk`; demo users are `uk`; an
+  invitation goes in the inviter's language.
+- **API:** English is the source of `__()`, Ukrainian is `lang/uk.json` (`LocalizationTest` scans `__()` and
+  `trans_choice()`). Notifications: `AlertCollector` gives each a `texts` closure; `AlertSync` renders it in every
+  locale into `alerts.texts` (the columns keep the Ukrainian ones); `AlertResource` returns the request's language
+  (rows synced before fall back to the columns: run `prytax:sync-alerts`). CSV exports name their columns in the
+  request's language.
+- **Stays Ukrainian on purpose:** tax payments' purposes (the treasury's), an FX gain's stored description, the
+  treasury recipient example and the ІПК consultation number on the tax settings.
 
 ## The audit (2026-10-20)
 
@@ -155,7 +182,8 @@ finding was fixed with tests, except the items under "Not done yet". The user de
    notification, which returns or grows more severe, is dated anew and unread by everyone. A tax debt is one notice
    per tax, at the latest quarter due (its running balance holds the earlier debts). Unpaid ЄСВ past its deadline is
    a warning, ЄП/ВЗ an error. Limits and the cap are compared exactly (80/90/100 %); a calendar limit window is in
-   the dedupe key. Read only via `POST alerts/{id}/read`. Texts are Ukrainian; `action_route` holds SPA paths.
+   the dedupe key. Read only via `POST alerts/{id}/read`. Texts are in every language (`alerts.texts`; the columns
+   hold the Ukrainian ones); `action_route` holds SPA paths.
    Writes of contracts, accounts, clients, tax opening balances and settings sync them (`TenantRepository::$syncsAlerts`).
 4. **Pagination** is api-core's `page[number]` / `page[size]` (20 by default, 50 at most, `config/pagination.php`),
    not a cursor; infinite scroll pages by number.
@@ -210,9 +238,9 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 22. **Personal accounts** take no receipts and have no tracked limits; rolling limit windows are `[today − period, today]`.
 23. **The app runs in Europe/Kyiv**; signed file URLs last 15 minutes; CORS exposes `Content-Disposition` and
     `Idempotent-Replayed`.
-24. **API messages are Ukrainian for the SPA** (`Accept-Language: uk`, `api-core.locales = ['uk']`, `lang/uk*`) and
-    English without the header; api-core's own error messages stay English by its design, and the SPA translates
-    those few (`utils/errors.ts`).
+24. **API messages are in the user's own language** (`users.locale`, `uk` or `en`; before signing in the request's
+    `Accept-Language`; `lang/uk*`), English without either; api-core's own error messages stay English by its
+    design, and the SPA translates those few into Ukrainian (`utils/errors.ts`).
 25. **Dependencies added (approved by the user)**: `barryvdh/laravel-dompdf` and `brick/math`. CLAUDE.md forbids other
     new dependencies without approval.
 
@@ -315,7 +343,7 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`. The local `.env` says 8010 now, so no
   env overrides are needed.
 - **`resources/js/`:**
-  - `api/client.ts` (fetch, CSRF cookie, 419 retry, 401 → sign-in, api-core bracketed queries, `Accept-Language: uk`,
+  - `api/client.ts` (fetch, CSRF cookie, 419 retry, 401 → sign-in, api-core bracketed queries, `Accept-Language` of the screens,
     `apiUrl()` for downloads, `newIdempotencyKey()` for receipt/refund/transfer/tax POSTs); `api/types.ts` (every
     response, checked against 342 real ones; enums: `ItemUnit` is `hour|fixed|item`, `NumberingScope` is
     `per_client|global`).
@@ -402,8 +430,8 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `ActsInProfiles` helpers; NBU rates are cached with `cacheRates()` or faked with `Http::fake()` per test.
 - An Eloquent collection's `except()` takes model ids, not keys: use `->toBase()` before keying by another column.
 - Work on a feature branch and commit in logical parts; don't push or merge without the user asking.
-- Frontend: match the screens' HTML exports (`storage/handoff/prytax-design-handoff/screens/html`) for sizes; Ukrainian UI
-  texts; `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
+- Frontend: match the screens' HTML exports (`storage/handoff/prytax-design-handoff/screens/html`) for sizes; UI
+  texts in Ukrainian through `t()`, with their English in `i18n/en/*.ts` (see "English"); `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
   selects/segments in the script (inline `list.map(… ({ value, label: MAP[x] }))` in a template trips vue-tsc with
   "Property 'value' does not exist on type Record<…>").
 - Tool gotcha: `\u…` escapes typed into tool inputs arrive as the characters themselves, so invisible U+00A0/U+202F

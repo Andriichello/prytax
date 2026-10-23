@@ -205,11 +205,11 @@ class DemoSeeder extends Seeder
 
             [$brightline, $brightlineContract] = $this->brightline($profile);
             [$nordwave, $nordwaveContract] = $this->client($profile, [
-                'name' => 'Nordwave GmbH', 'legal_name' => 'Nordwave GmbH', 'country' => 'DE', 'currency' => 'EUR', 'vat_number' => 'DE123456789',
+                'name' => 'Nordwave GmbH', 'abbreviation' => 'NW', 'legal_name' => 'Nordwave GmbH', 'country' => 'DE', 'currency' => 'EUR', 'vat_number' => 'DE123456789',
                 'invoice_footer_note' => 'Reverse charge: the services are not subject to Ukrainian VAT.',
             ], ['name' => 'Framework Agreement', 'number' => 'NW-FA-2024', 'started_at' => '2024-02-01', 'currency' => 'EUR', 'payment_terms_days' => 30]);
             [$kestrel, $kestrelContract] = $this->client($profile, [
-                'name' => 'Kestrel Studio', 'legal_name' => 'Kestrel Studio Ltd', 'country' => 'GB', 'currency' => 'USD',
+                'name' => 'Kestrel Studio', 'abbreviation' => 'KS', 'legal_name' => 'Kestrel Studio Ltd', 'country' => 'GB', 'currency' => 'USD',
             ], ['name' => 'Service Agreement', 'number' => 'KS-2025', 'started_at' => '2025-06-01', 'ends_at' => '2026-11-15', 'currency' => 'USD', 'payment_terms_days' => 4]);
 
             $proto = $brightline->projects()->where('code', 'PROTO')->first();
@@ -283,7 +283,7 @@ class DemoSeeder extends Seeder
     protected function brightline(Profile $profile): array
     {
         [$client, $contract] = $this->client($profile, [
-            'name' => 'Brightline Labs LLC', 'legal_name' => 'Brightline Labs, LLC', 'country' => 'US', 'currency' => 'USD',
+            'name' => 'Brightline Labs LLC', 'abbreviation' => 'BL', 'legal_name' => 'Brightline Labs, LLC', 'country' => 'US', 'currency' => 'USD',
             'tax_id' => '84-1234567', 'email' => 'ap@brightline.example',
             'address' => ['lines' => ['500 Market St, Suite 200'], 'city' => 'San Francisco, CA', 'zip' => '94105'],
         ], [
@@ -449,7 +449,7 @@ class DemoSeeder extends Seeder
         CurrentProfile::run($profile, function () use ($profile) {
             $wise = $this->account($profile, 'Wise USD', AccountKind::Platform, 'USD', ['bank_name' => 'Wise']);
             $bank = $this->account($profile, 'Монобанк ФОП', AccountKind::FopBank, 'UAH', ['bank_name' => 'АТ «Універсал Банк»', 'iban' => 'UA563220010000026001234560001']);
-            [$client, $contract] = $this->client($profile, ['name' => 'Orbit Analytics Inc', 'country' => 'US', 'currency' => 'USD'], [
+            [$client, $contract] = $this->client($profile, ['name' => 'Orbit Analytics Inc', 'abbreviation' => 'OA', 'country' => 'US', 'currency' => 'USD'], [
                 'name' => 'Consulting Agreement', 'started_at' => '2024-01-15', 'currency' => 'USD', 'payment_terms_days' => 10,
             ]);
             $items = fn () => [['unit' => 'fixed', 'quantity' => '1', 'unit_price' => '2150.00', 'description' => 'Data engineering consulting']];
@@ -493,7 +493,7 @@ class DemoSeeder extends Seeder
         CurrentProfile::run($profile, function () use ($profile) {
             $wise = $this->account($profile, 'Wise EUR', AccountKind::Platform, 'EUR', ['bank_name' => 'Wise']);
             $bank = $this->account($profile, 'Райффайзен ФОП', AccountKind::FopBank, 'UAH', ['bank_name' => 'АТ «Райффайзен Банк»', 'iban' => 'UA813800050000026001234560002']);
-            [$client, $contract] = $this->client($profile, ['name' => 'Lumen Systems GmbH', 'country' => 'DE', 'currency' => 'EUR'], [
+            [$client, $contract] = $this->client($profile, ['name' => 'Lumen Systems GmbH', 'abbreviation' => 'LS', 'country' => 'DE', 'currency' => 'EUR'], [
                 'name' => 'Rahmenvertrag', 'number' => 'LS-2022-07', 'started_at' => '2022-09-01', 'currency' => 'EUR', 'payment_terms_days' => 14,
             ]);
 

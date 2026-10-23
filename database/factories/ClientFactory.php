@@ -9,7 +9,7 @@ use PryTax\Models\Profile;
 /**
  * Class ClientFactory.
  *
- * Clients of a new profile, unless one is given.
+ * Clients of a new profile, unless one is given, each with an abbreviation of four random letters.
  *
  * @extends Factory<Client>
  *
@@ -30,6 +30,7 @@ class ClientFactory extends Factory
         return [
             'profile_id' => Profile::factory(),
             'name' => $name,
+            'abbreviation' => strtoupper(fake()->unique()->lexify('????')),
             'legal_name' => "$name LLC",
             'country' => 'US',
             'currency' => 'USD',

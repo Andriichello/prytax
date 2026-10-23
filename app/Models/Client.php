@@ -19,12 +19,14 @@ use PryTax\Queries\TenantQuery;
  * Class Client.
  *
  * A counterparty of invoices (an accountant's ФОПs are always profiles, never clients). Clients are deactivated,
- * never deleted, so their invoice history stays. Under a client live its contracts, projects and charge types.
+ * never deleted, so their invoice history stays. Its abbreviation, unique within the profile, prefixes its invoice
+ * numbers (design.md §5). Under a client live its contracts, projects and charge types.
  *
  * @property int $id
  * @property int $profile_id
  * @property int|null $created_by_user_id
  * @property string $name
+ * @property string $abbreviation
  * @property string|null $legal_name
  * @property string|null $name_uk
  * @property string|null $legal_name_uk
@@ -63,6 +65,7 @@ class Client extends BaseModel
      */
     protected $fillable = [
         'name',
+        'abbreviation',
         'legal_name',
         'name_uk',
         'legal_name_uk',

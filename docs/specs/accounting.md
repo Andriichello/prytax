@@ -101,7 +101,11 @@ cannot be chosen for new invoices or receipts but keep their history; nothing th
 every FK to an account is `RESTRICT`.
 
 Clients are my invoice counterparties: `name`, `legal_name`, address as JSON (lines, city, zip, country), their tax
-id, e-mail and notes; they are deactivated, never deleted. Under a client I keep its service agreements as contracts:
+id, e-mail and notes; they are deactivated, never deleted. Each client also has an `abbreviation` — one to ten
+upper-case Latin letters and digits, such as `BL` for Brightline Labs — which prefixes its invoice numbers. It is
+required, unique among the clients of the profile (inactive ones included, so two clients never share a prefix) and
+suggested from the initials of the name when I create the client; I can change it later, and the numbers already given
+keep the prefix they were given with. Under a client I keep its service agreements as contracts:
 a name, an optional number, a required start date, an optional end date, the contract currency, an optional default
 hourly rate and a `description_template` such as "IT services in accordance to the Service Agreement {name} dated
 {started_at:F j, Y}", which is expanded into the line-item description when an item is created (the item keeps the
@@ -113,14 +117,19 @@ Invoice creation starts by picking a client — its contracts, projects and char
 defaults from the contract, the receiving account from the client's last invoice and the description from the
 contract's template — then a service period `period_start … period_end` with `issued_at` defaulting to `period_end`,
 then the receiving account (filtered by currency and `is_active`), then the line items. The unique number follows
-`{LAST_DATE_OF_THE_RANGE}-{INVOICE_NUMBER}` by default (2026-10-14-13: the invoice is for the period ending on
-14 October 2026 and it is invoice #13), and the mechanism is configured in settings → invoices → numbering:
-`invoice.numbering.strategy` is `date_sequence` (`{YYYY-MM-DD}-{n}`) or `sequence` (just `{n}`),
-`invoice.numbering.date_source` is `period_end` or `issued_at`, `invoice.numbering.scope` is `per_client` (the counter
-is per client — the default) or `global` (one counter for the whole profile), and `invoice.numbering.reset` is `never`
-or `yearly`. Counters are rows of `invoice_sequences` keyed by `global`, `client:{id}` or the same with a `:{year}`
-suffix, incremented inside a transaction under `SELECT … FOR UPDATE`, so two concurrent freezes can never get the same
-number. While the invoice is a draft the number is only previewed (`next: 2026-10-14-13`); it is allocated when the
+`{CLIENT_ABBREVIATION}-{LAST_DATE_OF_THE_RANGE}-{INVOICE_NUMBER_OF_THE_CLIENT}` by default (BL-2026-10-14-13: the
+invoice is to Brightline Labs, for the period ending on 14 October 2026, and it is that client's invoice #13), and the
+mechanism is configured in settings → invoices → numbering: `invoice.numbering.prefix` is `client_abbreviation` (the
+number starts with the client's abbreviation — the default) or `none`, `invoice.numbering.strategy` is
+`date_sequence` (`{YYYY-MM-DD}-{n}`) or `sequence` (just `{n}`), `invoice.numbering.date_source` is `period_end` or
+`issued_at`, `invoice.numbering.scope` is `per_client` (the counter is per client — the default) or `global` (one
+counter for the whole profile), and `invoice.numbering.reset` is `never` or `yearly`. So `sequence` gives `BL-13`, a
+global counter `BL-2026-10-14-41`, and without the prefix the numbers are `2026-10-14-13` or `13` — then two clients'
+counters can arrive at the same number on the same date, which the freeze refuses, so the prefix is what makes
+per-client counters safe. Counters are rows of `invoice_sequences` keyed by `global`, `client:{id}` or the same with a
+`:{year}` suffix — by the client's id, not its abbreviation, so changing the abbreviation keeps the count —
+incremented inside a transaction under `SELECT … FOR UPDATE`, so two concurrent freezes can never get the same
+number. While the invoice is a draft the number is only previewed (`next: BL-2026-10-14-13`); it is allocated when the
 invoice is frozen, unless I typed my own number, which bypasses the generator — `UNIQUE(profile_id, number)` guards
 collisions either way. Line items carry `position`, the project and charge type (id + text copy), the description, a
 `unit` of `hour`, `fixed` or `item`, `quantity` (two decimals), `unit_price` and the computed `amount`; in my case it is
@@ -141,9 +150,10 @@ so later edits to the profile, client or account do not alter issued documents) 
 an invoice can go back to `draft` as long as it has no receipts: generated files are deleted, uploads are untouched,
 snapshot and `locked_at` are cleared, and the number is kept (gaps are acceptable). Because the draft can then change
 its dates, the invoice remembers the `sequence_scope_key` and `sequence_number` its number was allocated from: on the
-next freeze a generator-allocated `date_sequence` number is rebuilt from the current date source with the same `{n}`
-(`2026-10-14-13` becomes `2026-10-15-13` if `period_end` moved a day), a new `{n}` is allocated only if the scope key
-itself changed (yearly reset and the date moved into another year), and a number the user typed is never touched.
+next freeze a generator-allocated number is rebuilt from the client's current abbreviation and the current date source
+with the same `{n}` (`BL-2026-10-14-13` becomes `BL-2026-10-15-13` if `period_end` moved a day), a new `{n}` is
+allocated only if the scope key itself changed (another client, or a yearly reset and the date moved into another
+year), and a number the user typed is never touched.
 `ready → sent` sets `sent_at`,
 `sent → paid` is suggested automatically once the receipts cover the total and confirmed manually with `paid_at`
 defaulting to the last receipt date, `ready` or `sent` can become `cancelled` (the number is never reused; a
@@ -324,4 +334,4 @@ expenses, VAT and other tax groups, employees, bank and platform API integration
 invoices, sending invoices from the app, e-mail or Telegram delivery of notifications, free-text search, ДПС XML
 export, per-profile access and the "recognise income on ФОП-account arrival" mode — are listed with the remaining
 open decisions in `SUGGESTIONS.md`; refunds, one wire for several invoices, the `personal` account kind with opening
-balances, period locking, FX gain and ДПС payment requisites are already in the design spec (v3.1).
+balances, period locking, FX gain and ДПС payment requisites are already in the design spec (v3.2).

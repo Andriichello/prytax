@@ -1,10 +1,21 @@
-# PryTax — ФОП Finance App — Design Spec (v3.1, multi-profile on api-core)
+# PryTax — ФОП Finance App — Design Spec (v3.2, multi-profile on api-core)
 
 Target: accounting + invoicing app for Ukrainian ФОПs (3 група, спрощена система, no employees), built on the `api-core`
 package (organizations, users, Sanctum tokens, spatie roles/permissions, HTTP filtering/resources/pagination). Stack:
 Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first, Ukrainian UI) consuming the API (Blade only for PDF/email
 templates). Functional rules live in `ACCOUNTING.md`; this document is the implementation of them. §16 fixes the
 phase-1 ("Simplified") UI scope; the full redesign brief is `claude/prytax-design-review.md`.
+
+### Changes from v3.1 (v3.2 — client abbreviations in invoice numbers)
+
+- `clients.abbreviation VARCHAR(10) NOT NULL`: upper-case Latin letters and digits (`BL`), `UNIQUE(profile_id,
+  abbreviation)` — unique among all the profile's clients, inactive ones included; required for a new client (§3).
+- `invoice.numbering.prefix = client_abbreviation | none` (default `client_abbreviation`), and the counter is the
+  client's own by default (`invoice.numbering.scope = per_client`): the default number is
+  `{ABBREVIATION}-{YYYY-MM-DD}-{n}`, such as `BL-2026-10-18-13` — Brightline Labs' 13th invoice, for the period ending
+  on 18 October 2026 (§5).
+- Counters stay keyed by the client's id, so a changed abbreviation keeps its counter; numbers already given keep
+  their prefix, and a re-freeze rebuilds the prefix together with the date (§5).
 
 ### Changes from v3 (v3.1 — phase-1 UI scope)
 
@@ -209,6 +220,7 @@ profiles            organization_id → organizations (RESTRICT), tax_group(enum
                     signature_path NULL, is_active, timestamps, soft deletes
 profile_settings    [P] key VARCHAR(64), value JSON     UNIQUE(profile_id, key)
                     -- read through ProfileSettings DTO (typed getters + defaults, per-request cache); no spatie/laravel-settings
+                    invoice.numbering.prefix          = client_abbreviation | none            (client_abbreviation)
                     invoice.numbering.strategy        = date_sequence | sequence             (date_sequence)
                     invoice.numbering.scope           = per_client | global                   (per_client)
                     invoice.numbering.reset           = never | yearly                        (never)
@@ -241,8 +253,11 @@ account_movements   [P] account_id (RESTRICT), direction(enum in|out), amount DE
                     -- non-taxable cash movements so the derived balance reconciles; never enters income
                     INDEX(account_id, booked_at)
 
-clients             [P] name, legal_name, name_uk NULL, legal_name_uk NULL, country CHAR(2), vat_number NULL,
-                    address JSON (lines, city, zip), tax_id NULL, email, invoice_footer_note NULL, notes, is_active
+clients             [P] name, abbreviation VARCHAR(10), legal_name, name_uk NULL, legal_name_uk NULL, country CHAR(2),
+                    vat_number NULL, address JSON (lines, city, zip), tax_id NULL, email, invoice_footer_note NULL,
+                    notes, is_active
+                    UNIQUE(profile_id, abbreviation)   -- [A-Z0-9]{1,10}, typed in any case, stored upper case;
+                                                       -- inactive clients keep theirs: two clients never share a prefix (§5)
 contracts           [P] client_id, name, number NULL, started_at DATE NOT NULL, ends_at DATE NULL, currency,
                     payment_terms_days SMALLINT NULL, description_template, is_active
                     -- template: "IT services in accordance to the Service Agreement {name} dated {started_at:F j, Y}"
@@ -392,8 +407,21 @@ draft ──(freeze)──▶ ready ──▶ sent ──▶ paid
 ## 5. Numbering
 
 `InvoiceNumberGenerator` (interface) → `DateSequenceGenerator` (`{YYYY-MM-DD}-{n}`, date from
-`invoice.numbering.date_source`) and `SequenceGenerator` (`{n}`). Scope key = `global` | `client:{id}`, suffixed
-`:{year}` when `reset = yearly`; sequences are per profile.
+`invoice.numbering.date_source`) and `SequenceGenerator` (`{n}`), each prefixed with `{ABBREVIATION}-` — the client's
+`abbreviation` — when `invoice.numbering.prefix = client_abbreviation` (the default). Scope key = `global` |
+`client:{id}`, suffixed `:{year}` when `reset = yearly`; sequences are per profile.
+
+| prefix | strategy | scope | Number |
+|---|---|---|---|
+| `client_abbreviation` | `date_sequence` | `per_client` | `BL-2026-10-18-13` — **the default**: the client's 13th invoice |
+| `client_abbreviation` | `sequence` | `per_client` | `BL-13` |
+| `client_abbreviation` | `date_sequence` | `global` | `BL-2026-10-18-41` — the profile's 41st invoice |
+| `none` | `date_sequence` | `global` | `2026-10-18-41` |
+| `none` | `date_sequence` / `sequence` | `per_client` | `2026-10-18-13` / `13` — two clients' numbers can collide (see below) |
+
+The scope key carries the client's **id**, never its abbreviation, so a changed abbreviation keeps its counter. The
+abbreviation is read when the number is formatted (preview, freeze, re-freeze), not stored on the invoice apart from
+the number itself.
 
 Allocation (race-free, including the first row of a scope):
 
@@ -408,14 +436,25 @@ carries the allocated value on both paths). Fallback if the driver misbehaves: `
 single retry on the unique violation of the first insert.
 
 Rules:
-- Draft shows a preview (`next: 2026-10-14-13`) computed without consuming the sequence.
+- Draft shows a preview (`next: BL-2026-10-14-13`) computed without consuming the sequence.
 - On freeze the invoice stores `sequence_scope_key` and `sequence_number`; a user-typed number leaves both NULL and
   bypasses the generator (`UNIQUE(profile_id, number)` guards collisions, 422 on conflict).
 - **Re-freeze** (`InvoiceNumberGenerator::rebuild`): if `sequence_*` are set and the scope key computed from the
-  current dates equals the stored one, rebuild the prefix from the current date source with the same `{n}`
-  (`2026-10-14-13` → `2026-10-15-13`); if the scope key changed (yearly reset, year moved), allocate a new `{n}` in
-  the new scope and leave the old one as a gap; user-typed numbers are never touched.
+  current dates equals the stored one, rebuild the abbreviation and the date from the current client and date source
+  with the same `{n}` (`BL-2026-10-14-13` → `BL-2026-10-15-13`); if the scope key changed (yearly reset, year moved,
+  another client), allocate a new `{n}` in the new scope and leave the old one as a gap; user-typed numbers are never
+  touched.
 - Gaps after unfreeze/cancel are acceptable.
+- **Abbreviations** (`clients.abbreviation`): required for a new client, 1–10 upper-case Latin letters and digits
+  (typed in any case, stored upper case), unique within the profile among all its clients, inactive ones included —
+  so with the prefix, per-client counters never give two clients one number. The client form suggests one from the
+  initials of the name (legal forms such as LLC or GmbH left out; the first three letters of a one-word name) until it
+  is typed. It may be changed later: numbers already given keep the old prefix, drafts and re-freezes take the new
+  one. Clients created before abbreviations existed get one derived the same way, made unique with a digit suffix.
+- A generated number can still collide: without the prefix, per-client counters give two clients the same number
+  for the same date; with it, only when an abbreviation was given up and another client took it. The freeze then
+  answers 422 (`Another invoice has the number … already.`) and the invoice stays a draft; the numbering screen warns
+  about `none` with `per_client`.
 
 ## 6. Receipts, transfers, holdings and loss metrics
 
@@ -626,7 +665,8 @@ Policies. **Not** `spatie/laravel-settings` (per-profile keys need custom work; 
 ## 13. Tests (Pest)
 
 Rounding identities (`|Σ hints − standalone| ≤ 0.01 × n`, `owed` vs standalone kopeck delta) · YTD delta across a
-rate change · numbering under concurrency incl. first-row race, prefix rebuild, year rollover, user number preserved ·
+rate change · numbering under concurrency incl. first-row race, prefix rebuild, year rollover, user number preserved,
+the client abbreviation prefix and its uniqueness per profile ·
 lock enforcement (observer + policy + 409) · quarter assignment of cross-quarter receipts · holdings with a fee hop and
 a cross-currency hop; allocation bounds; FIFO and exact-match proposals · fee/spread/net math; `receipt_fx_spread`;
 `fx_gain` synthetic row lifecycle · one wire → several invoices (`receipt_group_id`, pro-rata fee) · refunds reduce
@@ -700,7 +740,8 @@ Ukrainian UI, bottom tab bar, bottom sheets for secondary flows; the invoice scr
 | Рахунок (detail) | Two full-width rows, no background fill: **Надходження** — inbound (client receipts + transfers in) in success green; **Перекази** — outbound (transfers out, and tax payments when paid from this account) in danger red. Balance and limit progress above them. |
 | Облік (quarter) | Each income row: a dashed divider above the tax block; line 1 `ЄП · ВЗ`, line 2 `комісії · чистий дохід`, each line two equal flex columns (`flex: 1 1 0`). The summary card may grow: YTD income on its own row; quarter income on its own row; "Перевірки" (cross-checks, §8.1) as a header with each value right-aligned on the following line; the four closing sections each as a full-width row — nothing squeezed onto one line. |
 | Клієнт (detail) | Stats block (`GET clients/{client}/stats`), per currency: **paid all-time** · **paid this year** · **paid previous year** · **outstanding** = `Σ (total − paid_amount)` over the client's `ready` / `sent` invoices, shown as **"Усе оплачено"** in success green with a check icon when it is 0. Paid = Σ `payments.amount` − Σ `refunds.amount` on the client's invoices, bucketed by `received_at` / `refunded_at` year. Below: contracts, projects/charge types, recent invoices. |
-| Налаштування | Profile data · invoice numbering · **money format for the app and for invoices** (§10) · default tax account · repatriation rule · deadline days. No income-recognition option. |
+| Клієнт (form) | Required **Абревіатура** (`BL`, the prefix of the client's invoice numbers, §5) under the name: suggested from the name while it is untouched, upper case, Latin letters and digits, up to 10; a duplicate within the ФОП is an error of the field. The list and the client page show it beside the name. |
+| Налаштування | Profile data · invoice numbering (prefix, format, date, counter, reset, current counters) · **money format for the app and for invoices** (§10) · default tax account · repatriation rule · deadline days. No income-recognition option. |
 
 Display rules that apply everywhere in phase 1: amounts use `display.money_format` (default `1 234.99`) with
 `tabular-nums` and `nowrap`; the invoice currency is shown as an ISO code before the amount (`USD 3 892.50`), UAH as

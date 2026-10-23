@@ -7,6 +7,7 @@ use Core\Models\Sequence;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use PryTax\Enums\NumberingDateSource;
+use PryTax\Enums\NumberingPrefix;
 use PryTax\Enums\NumberingReset;
 use PryTax\Enums\NumberingScope;
 use PryTax\Enums\NumberingStrategy;
@@ -17,11 +18,13 @@ use PryTax\Models\Profile;
 /**
  * Class InvoiceNumberGenerator.
  *
- * Numbers invoices by the profile's settings (design.md §5): `{YYYY-MM-DD}-{n}`, such as `2026-10-14-13` (the
- * period ending on 14 October, invoice 13 of the client), or `{n}`. The counter is per client or one per profile,
- * restarting never or yearly; counters are api-core sequences of the profile, allocated under a row lock within the
- * freeze's transaction. A draft only previews its number. A re-freeze rebuilds a generated number's date with the
- * same `{n}`, unless the counter's scope changed; a number the user typed is never touched.
+ * Numbers invoices by the profile's settings (design.md §5): `{ABBREVIATION}-{YYYY-MM-DD}-{n}` by default, such as
+ * `BL-2026-10-14-13` (Brightline Labs' invoice 13, for the period ending on 14 October), or `{n}`, each with the
+ * client's abbreviation in front or without it. The counter is per client (by default) or one per profile, restarting
+ * never or yearly; counters are api-core sequences of the profile, keyed by the client's id (so a changed abbreviation
+ * keeps its counter), allocated under a row lock within the freeze's transaction. A draft only previews its number. A
+ * re-freeze rebuilds a generated number's abbreviation and date with the same `{n}`, unless the counter's scope
+ * changed; a number the user typed is never touched.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Invoices
@@ -82,11 +85,36 @@ class InvoiceNumberGenerator
      */
     public function format(Profile $profile, Invoice $invoice, int $number): string
     {
-        if ($profile->setting('invoice.numbering.strategy') === NumberingStrategy::Sequence->value) {
-            return (string) $number;
+        $formatted = $profile->setting('invoice.numbering.strategy') === NumberingStrategy::Sequence->value
+            ? (string) $number
+            : $this->dateOf($profile, $invoice)->format('Y-m-d') . '-' . $number;
+
+        return $this->prefixOf($profile, $invoice) . $formatted;
+    }
+
+    /**
+     * Get what the invoice's number starts with: the abbreviation of its client and a hyphen (`BL-`), as it is now,
+     * or nothing, when numbers have no prefix.
+     *
+     * @param Profile $profile
+     * @param Invoice $invoice
+     *
+     * @return string
+     */
+    public function prefixOf(Profile $profile, Invoice $invoice): string
+    {
+        if ($profile->setting('invoice.numbering.prefix') === NumberingPrefix::None->value) {
+            return '';
         }
 
-        return $this->dateOf($profile, $invoice)->format('Y-m-d') . '-' . $number;
+        // A draft, whose client changed, still holds the client it was loaded with
+        if ($invoice->relationLoaded('client') && $invoice->client?->getKey() !== $invoice->client_id) {
+            $invoice->unsetRelation('client');
+        }
+
+        $abbreviation = $invoice->client?->abbreviation;
+
+        return filled($abbreviation) ? $abbreviation . '-' : '';
     }
 
     /**
@@ -141,6 +169,9 @@ class InvoiceNumberGenerator
 
         $scope = $this->scopeKey($profile, $invoice);
 
+        // The client's abbreviation as it is now, rather than as the invoice was loaded with
+        $invoice->load('client');
+
         if ($invoice->sequence_number === null || $invoice->sequence_scope_key !== $scope) {
             $invoice->forceFill([
                 'sequence_scope_key' => $scope,
@@ -156,7 +187,7 @@ class InvoiceNumberGenerator
      *
      * @param Profile $profile
      *
-     * @return Collection<int, array{scope_key: string, last_number: int, client_id: int|null, client_name: string|null}>
+     * @return Collection<int, array{scope_key: string, last_number: int, client_id: int|null, client_name: string|null, client_abbreviation: string|null}>
      */
     public function counters(Profile $profile): Collection
     {
@@ -165,7 +196,7 @@ class InvoiceNumberGenerator
             ->orderBy('key')
             ->get();
 
-        $clients = Client::query()->get(['id', 'name'])->keyBy('id');
+        $clients = Client::query()->get(['id', 'name', 'abbreviation'])->keyBy('id');
 
         return $sequences->map(function (Sequence $sequence) use ($clients) {
             $scope = substr($sequence->key, strlen(self::KEY_PREFIX));
@@ -176,6 +207,7 @@ class InvoiceNumberGenerator
                 'last_number' => (int) $sequence->next_number - 1,
                 'client_id' => $clientId,
                 'client_name' => $clientId ? $clients->get($clientId)?->name : null,
+                'client_abbreviation' => $clientId ? $clients->get($clientId)?->abbreviation : null,
             ];
         })->values();
     }

@@ -129,7 +129,7 @@ class InvoiceControllerTest extends TestCase
         $profile = $this->createProfile();
         $this->actAs($profile);
         $account = $this->createAccount($profile);
-        [$client, $contract] = $this->createClientWithContract($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
         $id = $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'contract_id' => $contract->id,
             'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '86.50']],
@@ -139,7 +139,7 @@ class InvoiceControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('message', 'Frozen')
-            ->assertJsonPath('data.number', '2026-10-14-1')
+            ->assertJsonPath('data.number', 'BL-2026-10-14-1')
             ->assertJsonPath('data.status', 'ready')
             ->assertJsonPath('data.snapshot.schema_version', 1)
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
@@ -148,7 +148,7 @@ class InvoiceControllerTest extends TestCase
         $invoice = $this->inProfile($profile, fn () => Invoice::query()->findOrFail($id));
         $this->assertSame('application/pdf', $invoice->primaryFile->mime_type);
         $this->assertTrue($invoice->primaryFile->isStored());
-        $this->get($this->profilePath($profile, "invoices/$id/pdf"))->assertOk()->assertDownload('2026-10-14-1.pdf');
+        $this->get($this->profilePath($profile, "invoices/$id/pdf"))->assertOk()->assertDownload('BL-2026-10-14-1.pdf');
     }
 
     /**
@@ -438,7 +438,7 @@ class InvoiceControllerTest extends TestCase
         $profile = $this->createProfile();
         $this->actAs($profile);
         $account = $this->createAccount($profile);
-        [$client, $contract] = $this->createClientWithContract($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
 
         $response = $this->getJson($this->profilePath($profile, 'invoices/defaults?' . http_build_query([
             'client_id' => $client->id, 'contract_id' => $contract->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
@@ -451,7 +451,7 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.receiving_account_id', $account->id)
             ->assertJsonPath('data.description', $contract->describe())
             ->assertJsonPath('data.hourly_rate', '45.00')
-            ->assertJsonPath('data.number_preview', '2026-10-14-1');
+            ->assertJsonPath('data.number_preview', 'BL-2026-10-14-1');
     }
 
     /**
@@ -526,7 +526,8 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
-     * Test that a counter moves forward, such as after an import, but never back.
+     * Test that a client's counter, listed with the client's abbreviation, moves forward, such as after an import, but
+     * never back.
      *
      * @return void
      */
@@ -535,12 +536,15 @@ class InvoiceControllerTest extends TestCase
         Storage::fake('local');
         $profile = $this->createProfile();
         $this->actAs($profile);
-        $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $this->createFrozenInvoice($profile, $this->createAccount($profile), ['client_id' => $client->id, 'contract_id' => $contract->id]);
+        $scope = 'client:' . $client->id;
 
-        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => 'global', 'next_number' => 13])
+        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => $scope, 'next_number' => 13])
             ->assertOk()
-            ->assertJsonPath('data.0.last_number', 12);
-        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => 'global', 'next_number' => 5])
+            ->assertJsonPath('data.0.last_number', 12)
+            ->assertJsonPath('data.0.client_abbreviation', 'BL');
+        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => $scope, 'next_number' => 5])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['next_number' => 'The counter is at 13 already, and never goes back.']);
     }

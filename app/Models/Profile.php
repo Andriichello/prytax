@@ -25,6 +25,7 @@ use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\FxGainPolicy;
 use PryTax\Enums\MoneyFormat;
 use PryTax\Enums\NumberingDateSource;
+use PryTax\Enums\NumberingPrefix;
 use PryTax\Enums\NumberingReset;
 use PryTax\Enums\NumberingScope;
 use PryTax\Enums\NumberingStrategy;
@@ -195,12 +196,16 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
     public function settingDefinitions(): array
     {
         return [
+            'invoice.numbering.prefix' => [
+                'default' => NumberingPrefix::ClientAbbreviation->value,
+                'rules' => [Rule::in(NumberingPrefix::values())],
+            ],
             'invoice.numbering.strategy' => [
                 'default' => NumberingStrategy::DateSequence->value,
                 'rules' => [Rule::in(NumberingStrategy::values())],
             ],
             'invoice.numbering.scope' => [
-                'default' => NumberingScope::Global->value,
+                'default' => NumberingScope::PerClient->value,
                 'rules' => [Rule::in(NumberingScope::values())],
             ],
             'invoice.numbering.reset' => [

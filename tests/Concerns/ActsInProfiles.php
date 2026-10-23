@@ -150,13 +150,14 @@ trait ActsInProfiles
      * Create a client of the profile with a USD contract at 45.00 an hour, payable in 14 days.
      *
      * @param Profile $profile
+     * @param array $attributes Attributes of the client, such as its abbreviation.
      *
      * @return array{0: Client, 1: Contract}
      */
-    protected function createClientWithContract(Profile $profile): array
+    protected function createClientWithContract(Profile $profile, array $attributes = []): array
     {
-        return $this->inProfile($profile, function () use ($profile) {
-            $client = Client::factory()->create(['profile_id' => $profile->id, 'name' => 'Brightline Labs LLC']);
+        return $this->inProfile($profile, function () use ($profile, $attributes) {
+            $client = Client::factory()->create(['profile_id' => $profile->id, 'name' => 'Brightline Labs LLC', ...$attributes]);
             $contract = Contract::factory()->create(['client_id' => $client->id, 'profile_id' => $profile->id]);
             $contract->rates()->create(['effective_from' => '2023-04-13', 'hourly_rate' => '45.00']);
 

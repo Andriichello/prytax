@@ -41,8 +41,8 @@ use PryTax\Services\Transfers\TransferRecorder;
 /**
  * Class DemoSeeder.
  *
- * The sample practice of the design (docs/prytax-simplified-design-handoff.md): an organization with an owner
- * (olena@example.com), an accountant (maria@example.com) and a viewer (taras@example.com), all with the password
+ * The sample practice of the design (storage/handoff/prytax-simplified-design-handoff.md): an organization with an
+ * owner (olena@example.com), an accountant (maria@example.com) and a viewer (taras@example.com), all with the password
  * `password`, and four ФОП. Коваленко О. П. has the mock's 2026 to the kopeck: III кв. income 503 118.73 ₴, IV кв.
  * so far 352 960.01 ₴, 1 840 135.05 ₴ year-to-date, ЄП for IV кв. 17 648.00, and the ЄП balance today −18 413.69.
  * Everything is recorded through the services, with the NBU rates cached, so no request reaches the NBU.

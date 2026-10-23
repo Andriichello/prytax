@@ -3,8 +3,8 @@
 Status as of 2026-10-21 (late): backend, frontend and the QA pass are merged into `main` (= `dev` = `dev-qa-fixes`);
 the follow-ups of the QA pass (the user's decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене») are
 on `dev-followups`, not merged. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is
-the phase-1 UI scope) and `docs/prytax-simplified-design-handoff.md` (the design handoff; the screens are in
-`docs/prytax-design-handoff/`).
+the phase-1 UI scope) and `storage/handoff/prytax-simplified-design-handoff.md` (the design handoff; the screens are
+in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.gitignore`), on disk only.
 
 ## Where things stand
 
@@ -399,7 +399,7 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `ActsInProfiles` helpers; NBU rates are cached with `cacheRates()` or faked with `Http::fake()` per test.
 - An Eloquent collection's `except()` takes model ids, not keys: use `->toBase()` before keying by another column.
 - Work on a feature branch and commit in logical parts; don't push or merge without the user asking.
-- Frontend: match the screens' HTML exports (`docs/prytax-design-handoff/screens/html`) for sizes; Ukrainian UI
+- Frontend: match the screens' HTML exports (`storage/handoff/prytax-design-handoff/screens/html`) for sizes; Ukrainian UI
   texts; `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
   selects/segments in the script (inline `list.map(… ({ value, label: MAP[x] }))` in a template trips vue-tsc with
   "Property 'value' does not exist on type Record<…>").

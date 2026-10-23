@@ -5,8 +5,9 @@
 @source '../views';
 
 /*
- * Design tokens of the "Simplified" screens (docs/prytax-design-handoff/tokens.css). The default palette is dropped,
- * so only the design's colours exist as utilities: bg-paper, text-ink-2, border-line, bg-accent, text-positive, …
+ * Design tokens of the "Simplified" screens (storage/handoff/prytax-design-handoff/tokens.css). The default palette is
+ * dropped, so only the design's colours exist as utilities: bg-paper, text-ink-2, border-line, bg-accent,
+ * text-positive, …
  */
 @theme {
     --color-*: initial;

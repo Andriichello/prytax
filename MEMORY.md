@@ -124,6 +124,9 @@ Six parallel reviews compared the backend with design.md, accounting.md, suggest
 finding was fixed with tests, except the items under "Not done yet". The user decided four questions:
 
 - **Numbering**: one counter per ФОП by default (`invoice.numbering.scope = global`); per client stays a setting.
+  *Superseded on 2026-10-23 (the user's request, design.md v3.2):* every client has an `abbreviation`, unique per
+  profile, and numbers are `{abbreviation}-{date}-{n}` with the client's own counter by default (`BL-2026-10-18-13`;
+  `invoice.numbering.prefix = client_abbreviation`, `scope = per_client`).
 - **Manual exchange rates** live only on the record they were entered for (`rate_is_manual` on payments, refunds and
   transfers); `exchange_rates` caches NBU rates only.
 - **ЄСВ paid above a quarter's minimum carries forward as credit** (design.md said "paid above minimum", not

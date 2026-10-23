@@ -5,6 +5,7 @@ import TextField from '@/components/form/TextField.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
@@ -46,7 +47,7 @@ async function submit(): Promise<void> {
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
             <TextField
                 v-model="email"
-                label="Електронна пошта"
+                :label="t('Електронна пошта')"
                 type="email"
                 autocomplete="username"
                 required
@@ -54,7 +55,7 @@ async function submit(): Promise<void> {
             />
             <TextField
                 v-model="password"
-                label="Пароль"
+                :label="t('Пароль')"
                 type="password"
                 autocomplete="current-password"
                 required
@@ -63,23 +64,23 @@ async function submit(): Promise<void> {
             <div class="flex items-center justify-between gap-3">
                 <label class="flex min-h-11 items-center gap-2.5 text-14 text-ink-2">
                     <input v-model="remember" type="checkbox" class="m-0 size-5 accent-accent">
-                    Запам’ятати мене
+                    {{ t('Запам’ятати мене') }}
                 </label>
                 <RouterLink
                     :to="{ name: 'forgot-password', query: email ? { email } : {} }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"
                 >
-                    Забули пароль?
+                    {{ t('Забули пароль?') }}
                 </RouterLink>
             </div>
             <p v-if="error && !fieldError(error, 'email') && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">Увійти</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Увійти') }}</PrimaryButton>
         </form>
 
         <template #footer>
-            Доступ надає власник організації.<br>Бухгалтер бачить усі ФОП своєї практики.
+            {{ t('Доступ надає власник організації.') }}<br>{{ t('Бухгалтер бачить усі ФОП своєї практики.') }}
         </template>
     </AuthLayout>
 </template>

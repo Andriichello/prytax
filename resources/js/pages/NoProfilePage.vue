@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 
 /**
  * An organization without any ФОП yet, for people who can't create one (owners are sent to the new ФОП's form).
@@ -20,11 +21,11 @@ async function leave(): Promise<void> {
 <template>
     <AuthLayout>
         <div class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">Ще немає жодного ФОП</h1>
+            <h1 class="m-0 text-22 font-semibold">{{ t('Ще немає жодного ФОП') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                Власник організації має додати ФОП, перш ніж {{ user?.name ?? 'ви' }} зможете працювати з обліком.
+                {{ t('Власник організації має додати ФОП, перш ніж {name} зможете працювати з обліком.', { name: user?.name ?? t('ви') }) }}
             </p>
-            <button type="button" class="flex min-h-11 items-center self-start text-15 font-medium text-accent" @click="leave">Вийти</button>
+            <button type="button" class="flex min-h-11 items-center self-start text-15 font-medium text-accent" @click="leave">{{ t('Вийти') }}</button>
         </div>
     </AuthLayout>
 </template>

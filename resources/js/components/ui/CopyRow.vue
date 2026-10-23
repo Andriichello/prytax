@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 
 /**
  * A requisite of an account: its label, the value as shown (masked), and a button copying the full value.
@@ -36,8 +37,8 @@ async function copy(): Promise<void> {
             <span class="text-12 text-ink-3">{{ label }}</span>
             <span class="text-15" :class="[figure ? 'num' : '', wrap ? 'break-words whitespace-normal!' : 'truncate']">{{ shown ?? value }}</span>
         </span>
-        <span v-if="copied" class="text-12 text-positive" role="status">Скопійовано</span>
-        <button type="button" :aria-label="`Копіювати: ${label}`" class="flex size-11 shrink-0 items-center justify-center text-ink-2" @click="copy">
+        <span v-if="copied" class="text-12 text-positive" role="status">{{ t('Скопійовано') }}</span>
+        <button type="button" :aria-label="t('Копіювати: {label}', { label })" class="flex size-11 shrink-0 items-center justify-center text-ink-2" @click="copy">
             <Icon :name="copied ? 'check' : 'copy'" :size="20" />
         </button>
     </div>

@@ -16,6 +16,7 @@ function lockPage(): void {
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 
 /**
  * A sheet that slides up over the page: a handle, a title with a close button (or the `action` slot), its content,
@@ -104,7 +105,7 @@ onBeforeUnmount(release);
                         <slot name="action">
                             <button
                                 type="button"
-                                aria-label="Закрити"
+                                :aria-label="t('Закрити')"
                                 class="flex size-11 items-center justify-center text-ink"
                                 @click="close"
                             >

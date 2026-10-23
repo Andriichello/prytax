@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 import { formatDate, parseDisplayDate } from '@/utils/dates';
 
 /**
@@ -65,15 +66,15 @@ const ownError = computed(() => {
     }
 
     if (!model.value) {
-        return 'Дата у форматі дд.мм.рррр';
+        return t('Дата у форматі дд.мм.рррр');
     }
 
     if (min && model.value < min) {
-        return `Не раніше ${formatDate(min)}`;
+        return t('Не раніше {date}', { date: formatDate(min) });
     }
 
     if (max && model.value > max) {
-        return `Не пізніше ${formatDate(max)}`;
+        return t('Не пізніше {date}', { date: formatDate(max) });
     }
 
     return undefined;
@@ -92,7 +93,7 @@ const shownError = computed(() => error ?? ownError.value);
                 type="text"
                 inputmode="numeric"
                 autocomplete="off"
-                placeholder="дд.мм.рррр"
+                :placeholder="t('дд.мм.рррр')"
                 :required="required"
                 :disabled="disabled"
                 :aria-invalid="shownError ? 'true' : undefined"
@@ -108,7 +109,7 @@ const shownError = computed(() => error ?? ownError.value);
                     ref="picker"
                     type="date"
                     tabindex="-1"
-                    :aria-label="`${label}: календар`"
+                    :aria-label="t('{label}: календар', { label })"
                     :value="model"
                     :min="min"
                     :max="max"

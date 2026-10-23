@@ -4,6 +4,7 @@ import ProfileSwitcherSheet from '@/components/profile/ProfileSwitcherSheet.vue'
 import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { t } from '@/i18n';
 
 /**
  * The header of the top-level screens: the current ФОП's chip, which opens the switcher, and a round action on the
@@ -19,13 +20,13 @@ const switching = ref(false);
         <button
             type="button"
             class="flex min-h-11 min-w-0 items-center gap-2.5 rounded-3xl border border-line bg-surface py-1 pr-3 pl-1 text-left text-ink"
-            :aria-label="profile ? `${profile.short_name}, змінити ФОП` : 'Оберіть ФОП'"
+            :aria-label="profile ? t('{name}, змінити ФОП', { name: profile.short_name }) : t('Оберіть ФОП')"
             @click="switching = true"
         >
             <Avatar :initials="profile?.initials ?? '?'" variant="dark" :size="34" />
             <span class="flex min-w-0 flex-col leading-[1.2]">
-                <span class="truncate text-14 font-semibold">{{ profile?.short_name ?? 'Оберіть ФОП' }}</span>
-                <span class="text-11 text-ink-3">ФОП · {{ profile?.tax_group ?? 3 }} група</span>
+                <span class="truncate text-14 font-semibold">{{ profile?.short_name ?? t('Оберіть ФОП') }}</span>
+                <span class="text-11 text-ink-3">{{ t('ФОП · {group} група', { group: profile?.tax_group ?? 3 }) }}</span>
             </span>
             <Icon name="chevronDown" :size="18" />
         </button>

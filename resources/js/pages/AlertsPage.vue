@@ -11,6 +11,7 @@ import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { t } from '@/i18n';
 import { errorMessage } from '@/utils/errors';
 
 /**
@@ -20,9 +21,9 @@ import { errorMessage } from '@/utils/errors';
 type Shown = 'all' | 'unread' | AlertCategory;
 
 const CATEGORIES: { value: AlertCategory; label: string }[] = [
-    { value: 'funds', label: 'Кошти' },
-    { value: 'invoices', label: 'Інвойси' },
-    { value: 'deadlines', label: 'Терміни' },
+    { value: 'funds', get label() { return t('Кошти'); } },
+    { value: 'invoices', get label() { return t('Інвойси'); } },
+    { value: 'deadlines', get label() { return t('Терміни'); } },
 ];
 
 const route = useRoute();
@@ -129,8 +130,8 @@ const chips = computed(() => {
     const all = counts.value;
 
     return [
-        { value: 'all' as Shown, label: 'Усі', count: all?.all ?? 0 },
-        { value: 'unread' as Shown, label: 'Непрочитані', count: all?.unread ?? 0 },
+        { value: 'all' as Shown, label: t('Усі'), count: all?.all ?? 0 },
+        { value: 'unread' as Shown, label: t('Непрочитані'), count: all?.unread ?? 0 },
         ...CATEGORIES.map((category) => ({
             value: category.value as Shown,
             label: category.label,
@@ -141,11 +142,11 @@ const chips = computed(() => {
 </script>
 
 <template>
-    <SubScreen title="Сповіщення">
+    <SubScreen :title="t('Сповіщення')">
         <template #action>
             <RouterLink
                 :to="{ name: 'settings-taxes' }"
-                aria-label="Налаштування сповіщень"
+                :aria-label="t('Налаштування сповіщень')"
                 class="flex size-11 items-center justify-center text-ink hover:text-ink"
             >
                 <Icon name="sliders" :size="22" />
@@ -158,14 +159,14 @@ const chips = computed(() => {
             </Chip>
         </div>
         <p class="m-0 text-13 leading-[1.45] text-ink-3">
-            Сповіщення стає прочитаним, коли ви натискаєте на нього, на його дію або на ✓.
+            {{ t('Сповіщення стає прочитаним, коли ви натискаєте на нього, на його дію або на ✓.') }}
         </p>
         <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(actionError) }}</p>
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <EmptyState
                 v-if="alerts.length === 0"
-                :text="shown === 'unread' ? 'Непрочитаних сповіщень немає.' : 'Сповіщень немає: усе гаразд.'"
+                :text="shown === 'unread' ? t('Непрочитаних сповіщень немає.') : t('Сповіщень немає: усе гаразд.')"
             />
             <AlertCard v-for="alert in alerts" :key="alert.id" :alert="alert" @read="markRead" />
             <button
@@ -175,7 +176,7 @@ const chips = computed(() => {
                 :disabled="loadingMore"
                 @click="loadMore"
             >
-                {{ loadingMore ? 'Завантаження…' : 'Показати ще' }}
+                {{ loadingMore ? t('Завантаження…') : t('Показати ще') }}
             </button>
         </LoadState>
     </SubScreen>

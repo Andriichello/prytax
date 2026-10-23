@@ -6,6 +6,7 @@ import TextField from '@/components/form/TextField.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
@@ -53,13 +54,13 @@ async function leave(): Promise<void> {
 <template>
     <AuthLayout>
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">Задайте свій пароль</h1>
+            <h1 class="m-0 text-22 font-semibold">{{ t('Задайте свій пароль') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                Пароль для {{ user?.email }} задав не ви, тож перед роботою його треба змінити.
+                {{ t('Пароль для {email} задав не ви, тож перед роботою його треба змінити.', { email: user?.email ?? '' }) }}
             </p>
             <TextField
                 v-model="current"
-                label="Поточний пароль"
+                :label="t('Поточний пароль')"
                 type="password"
                 autocomplete="current-password"
                 required
@@ -67,7 +68,7 @@ async function leave(): Promise<void> {
             />
             <TextField
                 v-model="password"
-                label="Новий пароль"
+                :label="t('Новий пароль')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -75,7 +76,7 @@ async function leave(): Promise<void> {
             />
             <TextField
                 v-model="confirmation"
-                label="Повторіть новий пароль"
+                :label="t('Повторіть новий пароль')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -83,8 +84,8 @@ async function leave(): Promise<void> {
             <p v-if="error && !fieldError(error, 'current_password') && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">Зберегти пароль</PrimaryButton>
-            <button type="button" class="flex min-h-11 items-center self-center text-15 font-medium text-accent" @click="leave">Вийти</button>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Зберегти пароль') }}</PrimaryButton>
+            <button type="button" class="flex min-h-11 items-center self-center text-15 font-medium text-accent" @click="leave">{{ t('Вийти') }}</button>
         </form>
     </AuthLayout>
 </template>

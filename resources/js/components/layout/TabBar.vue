@@ -3,14 +3,15 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
+import { t } from '@/i18n';
 import type { TabName } from '@/router';
 
 const TABS: { name: TabName; label: string; icon: IconName; to: string }[] = [
-    { name: 'home', label: 'Головна', icon: 'home', to: '/' },
-    { name: 'invoices', label: 'Інвойси', icon: 'invoice', to: '/invoices' },
-    { name: 'accounting', label: 'Облік', icon: 'ledger', to: '/accounting' },
-    { name: 'taxes', label: 'Податки', icon: 'bank', to: '/taxes' },
-    { name: 'more', label: 'Ще', icon: 'menu', to: '/more' },
+    { name: 'home', get label() { return t('Головна'); }, icon: 'home', to: '/' },
+    { name: 'invoices', get label() { return t('Інвойси'); }, icon: 'invoice', to: '/invoices' },
+    { name: 'accounting', get label() { return t('Облік'); }, icon: 'ledger', to: '/accounting' },
+    { name: 'taxes', get label() { return t('Податки'); }, icon: 'bank', to: '/taxes' },
+    { name: 'more', get label() { return t('Ще'); }, icon: 'menu', to: '/more' },
 ];
 
 const route = useRoute();
@@ -19,7 +20,7 @@ const active = computed(() => route.meta.tab);
 
 <template>
     <nav
-        aria-label="Основна навігація"
+        :aria-label="t('Основна навігація')"
         class="sticky bottom-0 z-10 flex border-t border-line bg-surface px-1 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+6px)]"
     >
         <RouterLink

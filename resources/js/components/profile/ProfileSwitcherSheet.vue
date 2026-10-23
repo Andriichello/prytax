@@ -7,6 +7,7 @@ import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { formatDate } from '@/utils/dates';
 import { countOf, NOTIFICATIONS } from '@/utils/plural';
 
@@ -41,17 +42,23 @@ const shown = computed(() => {
 
 function caption(profile: Profile): { text: string; alarming: boolean } {
     if (!profile.is_active) {
-        return { text: profile.closed_at ? `Неактивний · закрито ${formatDate(profile.closed_at)}` : 'Неактивний', alarming: false };
+        return {
+            text: profile.closed_at ? t('Неактивний · закрито {date}', { date: formatDate(profile.closed_at) }) : t('Неактивний'),
+            alarming: false,
+        };
     }
 
     if (profile.needs_correction) {
-        return { text: 'Потрібна уточнююча декларація', alarming: true };
+        return { text: t('Потрібна уточнююча декларація'), alarming: true };
     }
 
     const unread = profile.unread_alerts_count ?? 0;
 
     return {
-        text: `РНОКПП ${profile.tax_id_masked} · ${unread ? countOf(unread, NOTIFICATIONS) : 'без сповіщень'}`,
+        text: t('РНОКПП {taxId} · {alerts}', {
+            taxId: profile.tax_id_masked,
+            alerts: unread ? countOf(unread, NOTIFICATIONS) : t('без сповіщень'),
+        }),
         alarming: false,
     };
 }
@@ -70,15 +77,15 @@ async function go(name: string): Promise<void> {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" title="Оберіть ФОП">
+    <BottomSheet v-model:open="open" :title="t('Оберіть ФОП')">
         <div class="relative">
-            <label for="profile-search" class="sr-only">Пошук ФОП</label>
+            <label for="profile-search" class="sr-only">{{ t('Пошук ФОП') }}</label>
             <Icon name="search" :size="20" class="pointer-events-none absolute top-3.5 left-3.5 text-ink-3" />
             <input
                 id="profile-search"
                 v-model="search"
                 type="search"
-                placeholder="Пошук за ПІБ або РНОКПП"
+                :placeholder="t('Пошук за ПІБ або РНОКПП')"
                 class="h-12 w-full rounded-control border border-line-input bg-surface pr-3.5 pl-11 text-16 placeholder:text-ink-3"
             >
         </div>
@@ -113,7 +120,7 @@ async function go(name: string): Promise<void> {
                 </span>
                 <Icon v-if="profile.id === profileId" name="check" :size="22" class="text-accent" />
             </button>
-            <p v-if="shown.length === 0" class="m-0 px-3.5 py-4 text-14 text-ink-3">Нікого не знайдено.</p>
+            <p v-if="shown.length === 0" class="m-0 px-3.5 py-4 text-14 text-ink-3">{{ t('Нікого не знайдено.') }}</p>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
@@ -123,7 +130,7 @@ async function go(name: string): Promise<void> {
                 @click="go('overview')"
             >
                 <Icon name="overview" :size="18" />
-                Огляд усіх
+                {{ t('Огляд усіх') }}
             </button>
             <button
                 v-if="can('create', 'profiles')"
@@ -132,7 +139,7 @@ async function go(name: string): Promise<void> {
                 @click="go('profile-new')"
             >
                 <Icon name="plus" :size="18" />
-                Додати ФОП
+                {{ t('Додати ФОП') }}
             </button>
         </div>
     </BottomSheet>

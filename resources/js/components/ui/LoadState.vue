@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { ApiError } from '@/api/client';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 
 /**
  * What a screen shows instead of its content: a spinner while loading, or the error with "Спробувати ще раз".
@@ -17,15 +18,15 @@ const emit = defineEmits<{ retry: [] }>();
 const message = computed(() => {
     if (error instanceof ApiError) {
         if (error.status === 404) {
-            return 'Не знайдено: запис видалено, або він належить іншому ФОП.';
+            return t('Не знайдено: запис видалено, або він належить іншому ФОП.');
         }
 
         if (error.status === 403) {
-            return 'Недостатньо прав, щоб це переглянути.';
+            return t('Недостатньо прав, щоб це переглянути.');
         }
     }
 
-    return 'Не вдалося завантажити дані. Перевірте з’єднання і спробуйте ще раз.';
+    return t('Не вдалося завантажити дані. Перевірте з’єднання і спробуйте ще раз.');
 });
 </script>
 
@@ -37,10 +38,10 @@ const message = computed(() => {
             class="flex min-h-11 items-center rounded-control border border-line-input bg-surface px-4 text-14 font-medium"
             @click="emit('retry')"
         >
-            Спробувати ще раз
+            {{ t('Спробувати ще раз') }}
         </button>
     </div>
-    <div v-else-if="loading" class="flex justify-center py-10 text-ink-3" role="status" aria-label="Завантаження">
+    <div v-else-if="loading" class="flex justify-center py-10 text-ink-3" role="status" :aria-label="t('Завантаження')">
         <Icon name="spinner" class="animate-spin" />
     </div>
     <slot v-else />

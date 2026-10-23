@@ -5,6 +5,7 @@ import type { Alert } from '@/api/types';
 import Icon from '@/components/ui/Icon.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { t } from '@/i18n';
 import { ALERT_SEVERITIES } from '@/utils/statuses';
 import { splitFigures } from '@/utils/text';
 
@@ -21,13 +22,17 @@ const isRead = computed(() => alert.read_at !== null);
 const context = computed(() => {
     const text = typeof alert.payload?.context === 'string' ? alert.payload.context : '';
 
-    return isRead.value ? [text, 'Прочитано'].filter(Boolean).join(' · ') : text;
+    return isRead.value ? [text, t('Прочитано')].filter(Boolean).join(' · ') : text;
 });
 const percent = computed(() => (['limit', 'cap'].includes(alert.type) && typeof alert.payload?.percent === 'number'
     ? alert.payload.percent
     : null));
-/** Actions that ask to do something are buttons; "Відкрити …" ones are links. */
-const isCallToAction = computed(() => !!alert.action_label && !alert.action_label.startsWith('Відкрити'));
+/**
+ * The beginnings of the actions, which only open a record ("Відкрити …", "Open …"): those are links, and actions that
+ * ask to do something are buttons. Both languages, whichever the API wrote the notification in.
+ */
+const OPENING_ACTIONS = ['Відкрити', 'Open']; // i18n-ignore
+const isCallToAction = computed(() => !!alert.action_label && !OPENING_ACTIONS.some((opening) => alert.action_label?.startsWith(opening)));
 
 function markRead(): void {
     if (!isRead.value) {
@@ -51,7 +56,7 @@ async function act(): Promise<void> {
         @click="markRead"
     >
         <div class="flex items-center gap-2.5">
-            <span v-if="!isRead" role="img" aria-label="Непрочитане" class="size-2 shrink-0 rounded-full bg-accent" />
+            <span v-if="!isRead" role="img" :aria-label="t('Непрочитане')" class="size-2 shrink-0 rounded-full bg-accent" />
             <span v-if="isRead" class="rounded-badge bg-paper px-2 py-[3px] text-12 font-medium text-ink-3">
                 {{ ALERT_SEVERITIES[alert.severity].label }}
             </span>
@@ -59,7 +64,7 @@ async function act(): Promise<void> {
             <span class="min-w-0 flex-1 truncate text-12 text-ink-3">{{ context }}</span>
             <button
                 type="button"
-                :aria-label="isRead ? 'Прочитано' : 'Позначити прочитаним'"
+                :aria-label="isRead ? t('Прочитано') : t('Позначити прочитаним')"
                 :aria-pressed="isRead ? 'true' : 'false'"
                 class="flex size-11 shrink-0 items-center justify-center text-ink-2"
                 @click.stop="markRead"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 
 /**
  * The bottom of an infinite list: asks for more when it nears the screen, and shows the loading line meanwhile, or
@@ -31,11 +32,11 @@ onBeforeUnmount(() => observer?.disconnect());
     <div ref="element" role="status" class="flex min-h-14 items-center justify-center gap-2.5 text-14 text-ink-3">
         <template v-if="loading">
             <Icon name="spinner" :size="20" class="animate-spin text-accent" />
-            <slot>Завантаження…</slot>
+            <slot>{{ t('Завантаження…') }}</slot>
         </template>
         <template v-else-if="failed">
-            <span>Не вдалося завантажити далі.</span>
-            <button type="button" class="min-h-11 px-1 text-14 font-medium text-accent" @click="emit('visible')">Повторити</button>
+            <span>{{ t('Не вдалося завантажити далі.') }}</span>
+            <button type="button" class="min-h-11 px-1 text-14 font-medium text-accent" @click="emit('visible')">{{ t('Повторити') }}</button>
         </template>
     </div>
 </template>

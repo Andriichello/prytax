@@ -5,6 +5,7 @@ import { api, fetchCsrfCookie } from '@/api/client';
 import TextField from '@/components/form/TextField.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
+import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
@@ -45,25 +46,25 @@ async function submit(): Promise<void> {
 <template>
     <AuthLayout>
         <div v-if="done" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">Пароль змінено</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">Увійдіть з новим паролем. Інші сесії цього облікового запису завершено.</p>
-            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">Увійти</RouterLink>
+            <h1 class="m-0 text-22 font-semibold">{{ t('Пароль змінено') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Увійдіть з новим паролем. Інші сесії цього облікового запису завершено.') }}</p>
+            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">{{ t('Увійти') }}</RouterLink>
         </div>
 
         <div v-else-if="!token || !email" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">Посилання неповне</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">Відкрийте посилання з листа повністю або попросіть нове.</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('Посилання неповне') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Відкрийте посилання з листа повністю або попросіть нове.') }}</p>
             <RouterLink :to="{ name: 'forgot-password' }" class="flex min-h-11 items-center text-15 font-medium no-underline">
-                Надіслати нове посилання
+                {{ t('Надіслати нове посилання') }}
             </RouterLink>
         </div>
 
         <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">Новий пароль</h1>
-            <p class="m-0 text-15 text-ink-2">для {{ email }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('Новий пароль') }}</h1>
+            <p class="m-0 text-15 text-ink-2">{{ t('для {email}', { email }) }}</p>
             <TextField
                 v-model="password"
-                label="Новий пароль"
+                :label="t('Новий пароль')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -71,7 +72,7 @@ async function submit(): Promise<void> {
             />
             <TextField
                 v-model="confirmation"
-                label="Повторіть пароль"
+                :label="t('Повторіть пароль')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -79,7 +80,7 @@ async function submit(): Promise<void> {
             <p v-if="error && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ fieldError(error, 'email') ?? errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">Зберегти пароль</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Зберегти пароль') }}</PrimaryButton>
         </form>
     </AuthLayout>
 </template>

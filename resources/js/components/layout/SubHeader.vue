@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter, type RouteLocationRaw } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
+import { t } from '@/i18n';
 
 /**
  * The header of a sub-page: a back arrow, the title (or, with `muted`, a context line above the page's own heading),
@@ -28,7 +29,7 @@ function goBack(): void {
 
 <template>
     <header class="flex items-center gap-1 px-2 pt-2">
-        <button type="button" aria-label="Назад" class="flex size-11 shrink-0 items-center justify-center text-ink" @click="goBack">
+        <button type="button" :aria-label="t('Назад')" class="flex size-11 shrink-0 items-center justify-center text-ink" @click="goBack">
             <Icon name="back" :size="22" />
         </button>
         <span v-if="muted" class="min-w-0 flex-1 truncate text-15 text-ink-3">{{ title }}</span>

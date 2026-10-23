@@ -10,14 +10,17 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PeriodStepper from '@/components/ui/PeriodStepper.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { locale, t } from '@/i18n';
 import { currentQuarter } from '@/utils/dates';
-import { countOf } from '@/utils/plural';
+import { countOf, type PluralForms } from '@/utils/plural';
 
 /**
  * Огляд практики: every ФОП of the organization for one quarter, stepped like a calendar up to the current one.
  * Profiles inactive in the quarter are hidden until asked for.
  */
 const QUARTERS = ['I', 'II', 'III', 'IV'];
+
+const ACTIVE_PROFILES: PluralForms = { uk: ['активний ФОП', 'активні ФОП', 'активних ФОП'], en: ['active FOP', 'active FOPs'] };
 
 const route = useRoute();
 const router = useRouter();
@@ -46,6 +49,12 @@ const isCurrent = computed(() => year.value === now.year && quarter.value === no
 const activeCount = computed(() => profiles.value.filter((profile) => profile.is_active).length);
 const hiddenCount = computed(() => (withInactive.value || !data.value ? 0 : data.value.inactive_count));
 
+/** "III квартал 2026", "Q3 2026": a Roman numeral in Ukrainian, a digit in English. */
+const quarterTitle = computed(() => t('{quarter} квартал {year}', {
+    quarter: locale.value === 'en' ? quarter.value : QUARTERS[quarter.value - 1],
+    year: year.value,
+}));
+
 function step(by: number): void {
     const index = year.value * 4 + (quarter.value - 1) + by;
 
@@ -59,18 +68,18 @@ async function open(id: number, target: 'home' | 'alerts'): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="`Практика · ${countOf(activeCount, ['активний ФОП', 'активні ФОП', 'активних ФОП'])}`" heading="Огляд практики">
+    <SubScreen :title="t('Практика · {count}', { count: countOf(activeCount, ACTIVE_PROFILES) })" :heading="t('Огляд практики')">
         <PeriodStepper
-            :label="`${QUARTERS[quarter - 1]} квартал ${year}`"
+            :label="quarterTitle"
             :can-next="!isCurrent"
-            previous-label="Попередній квартал"
-            next-label="Наступний квартал"
+            :previous-label="t('Попередній квартал')"
+            :next-label="t('Наступний квартал')"
             @previous="step(-1)"
             @next="step(1)"
         />
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
-            <EmptyState v-if="data && data.profiles.length === 0" text="У цьому кварталі немає активних ФОП." />
+            <EmptyState v-if="data && data.profiles.length === 0" :text="t('У цьому кварталі немає активних ФОП.')" />
             <OverviewCard
                 v-for="entry in data?.profiles ?? []"
                 :key="entry.profile.id"
@@ -86,7 +95,7 @@ async function open(id: number, target: 'home' | 'alerts'): Promise<void> {
                 class="flex min-h-11 items-center self-center text-14 font-medium text-accent"
                 @click="router.replace({ query: { ...route.query, inactive: '1' } })"
             >
-                Показати неактивні ({{ hiddenCount }})
+                {{ t('Показати неактивні ({count})', { count: hiddenCount }) }}
             </button>
         </LoadState>
     </SubScreen>

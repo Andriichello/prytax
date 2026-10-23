@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { startupError } from '@/router';
 import { errorMessage } from '@/utils/errors';
 
@@ -23,9 +24,9 @@ const retry = (): void => window.location.reload();
     <div class="mx-auto min-h-dvh w-full max-w-120 bg-paper">
         <AuthLayout v-if="startupError">
             <div class="flex flex-col gap-4">
-                <h1 class="m-0 text-22 font-semibold">Не вдалося відкрити PryTax</h1>
+                <h1 class="m-0 text-22 font-semibold">{{ t('Не вдалося відкрити PryTax') }}</h1>
                 <p class="m-0 text-15 leading-normal text-ink-2" role="alert">{{ errorMessage(startupError) }}</p>
-                <PrimaryButton @click="retry">Спробувати знову</PrimaryButton>
+                <PrimaryButton @click="retry">{{ t('Спробувати знову') }}</PrimaryButton>
             </div>
         </AuthLayout>
         <RouterView v-else v-slot="{ Component }">

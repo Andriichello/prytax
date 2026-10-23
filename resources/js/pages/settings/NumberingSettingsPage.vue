@@ -11,9 +11,11 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { dateParts, formatDayMonth, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 
@@ -22,11 +24,6 @@ import { errorMessage, fieldError } from '@/utils/errors';
  * numbers, the date in them, one counter per ФОП or per client, its yearly reset, the current counters (which move
  * forward only), and the note printed under invoices.
  */
-const PREFIX_OPTIONS: { value: NumberingPrefix; label: string }[] = [
-    { value: 'client_abbreviation', label: 'Абревіатура клієнта' },
-    { value: 'none', label: 'Без префікса' },
-];
-
 const router = useRouter();
 const { can } = useSession();
 const { profileId, path, loadSettings } = useCurrentProfile();
@@ -92,18 +89,39 @@ const { data: preview, reload: reloadPreview } = useLoader(async (signal) => {
 
 const exampleCount = computed(() => preview.value?.number.split('-').pop() ?? '14');
 const examplePrefix = computed(() => (form.prefix === 'client_abbreviation' ? `${sampleClient.value?.abbreviation ?? 'BL'}-` : ''));
-const patternPrefix = computed(() => (form.prefix === 'client_abbreviation' ? 'АБР-' : ''));
+const patternPrefix = computed(() => (form.prefix === 'client_abbreviation' ? t('АБР-') : ''));
 const formatOptions = computed(() => [
-    { value: 'date_sequence' as const, title: 'Дата + номер', example: `${patternPrefix.value}РРРР-ММ-ДД-n → ${examplePrefix.value}${periodEnd.value}-${exampleCount.value}` },
-    { value: 'sequence' as const, title: 'Лише номер', example: `${patternPrefix.value}n → ${examplePrefix.value}${exampleCount.value}` },
+    {
+        value: 'date_sequence' as const,
+        title: t('Дата + номер'),
+        example: t('{prefix}РРРР-ММ-ДД-n → {example}', { prefix: patternPrefix.value, example: `${examplePrefix.value}${periodEnd.value}-${exampleCount.value}` }),
+    },
+    { value: 'sequence' as const, title: t('Лише номер'), example: `${patternPrefix.value}n → ${examplePrefix.value}${exampleCount.value}` },
+]);
+
+const prefixOptions = computed<{ value: NumberingPrefix; label: string }[]>(() => [
+    { value: 'client_abbreviation', label: t('Абревіатура клієнта') },
+    { value: 'none', label: t('Без префікса') },
+]);
+const dateSourceOptions = computed<{ value: NumberingDateSource; label: string }[]>(() => [
+    { value: 'period_end', label: t('Кінець періоду') },
+    { value: 'issued_at', label: t('Дата виставлення') },
+]);
+const scopeOptions = computed<{ value: NumberingScope; label: string }[]>(() => [
+    { value: 'per_client', label: t('Для кожного клієнта') },
+    { value: 'global', label: t('Один на ФОП') },
+]);
+const resetOptions = computed<{ value: NumberingReset; label: string }[]>(() => [
+    { value: 'never', label: t('Ніколи') },
+    { value: 'yearly', label: t('Щороку') },
 ]);
 
 /** What the saved numbering is made of, under the next number. */
 const savedSummary = computed(() => (saved.value
     ? [
-        saved.value.prefix === 'client_abbreviation' ? 'абревіатура клієнта' : null,
-        saved.value.strategy === 'date_sequence' ? (saved.value.date_source === 'period_end' ? 'дата кінця періоду' : 'дата виставлення') : null,
-        saved.value.scope === 'per_client' ? 'лічильник клієнта' : 'лічильник ФОП',
+        saved.value.prefix === 'client_abbreviation' ? t('абревіатура клієнта') : null,
+        saved.value.strategy === 'date_sequence' ? (saved.value.date_source === 'period_end' ? t('дата кінця періоду') : t('дата виставлення')) : null,
+        saved.value.scope === 'per_client' ? t('лічильник клієнта') : t('лічильник ФОП'),
     ].filter(Boolean).join(' · ')
     : ''));
 
@@ -114,7 +132,7 @@ const canConfigure = computed(() => can('configure', 'profiles'));
 /** The name of a counter: its client with the abbreviation, or the ФОП's one. */
 function counterName(counter: InvoiceCounter | null): string {
     if (!counter?.client_id) {
-        return 'Один на ФОП';
+        return t('Один на ФОП');
     }
 
     return [counter.client_abbreviation, counter.client_name].filter(Boolean).join(' · ');
@@ -179,26 +197,26 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen title="Нумерація інвойсів" :back="{ name: 'more' }">
+    <SubScreen :title="t('Нумерація інвойсів')" :back="{ name: 'more' }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-ink p-4 text-white">
                 <span class="text-14 text-on-ink-2">
-                    Наступний номер<template v-if="sampleClient"> · {{ sampleClient.name }}, період до {{ formatDayMonth(periodEnd) }}</template>
+                    {{ t('Наступний номер') }}<template v-if="sampleClient"> · {{ t('{client}, період до {date}', { client: sampleClient.name, date: formatDayMonth(periodEnd) }) }}</template>
                 </span>
                 <span class="num text-30 font-bold">{{ preview.number }}</span>
                 <span v-if="saved" class="text-13 text-on-ink-2">{{ savedSummary }}</span>
-                <span class="text-12 text-on-ink-3">Показано зі збереженими налаштуваннями</span>
+                <span class="text-12 text-on-ink-3">{{ t('Показано зі збереженими налаштуваннями') }}</span>
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Префікс</SectionTitle>
-                <SegmentedControl v-model="form.prefix" label="Префікс" size="lg" :disabled="!canConfigure" :options="PREFIX_OPTIONS" />
-                <p class="m-0 text-13 leading-normal text-ink-3">Абревіатуру задають у картці клієнта, вона своя в кожного клієнта ФОП.</p>
+                <SectionTitle>{{ t('Префікс') }}</SectionTitle>
+                <SegmentedControl v-model="form.prefix" :label="t('Префікс')" size="lg" :disabled="!canConfigure" :options="prefixOptions" />
+                <p class="m-0 text-13 leading-normal text-ink-3">{{ t('Абревіатуру задають у картці клієнта, вона своя в кожного клієнта ФОП.') }}</p>
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Формат</SectionTitle>
-                <div role="radiogroup" aria-label="Формат номера" class="flex flex-col gap-2">
+                <SectionTitle>{{ t('Формат') }}</SectionTitle>
+                <div role="radiogroup" :aria-label="t('Формат номера')" class="flex flex-col gap-2">
                     <button
                         v-for="option in formatOptions"
                         :key="option.value"
@@ -222,25 +240,25 @@ async function save(): Promise<void> {
             </section>
 
             <section v-if="form.strategy === 'date_sequence'" class="flex flex-col gap-2">
-                <SectionTitle>Дата в номері</SectionTitle>
-                <SegmentedControl v-model="form.date_source" label="Дата в номері" size="lg" :disabled="!canConfigure" :options="[{ value: 'period_end', label: 'Кінець періоду' }, { value: 'issued_at', label: 'Дата виставлення' }]" />
+                <SectionTitle>{{ t('Дата в номері') }}</SectionTitle>
+                <SegmentedControl v-model="form.date_source" :label="t('Дата в номері')" size="lg" :disabled="!canConfigure" :options="dateSourceOptions" />
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Лічильник</SectionTitle>
-                <SegmentedControl v-model="form.scope" label="Лічильник" size="lg" :disabled="!canConfigure" :options="[{ value: 'per_client', label: 'Для кожного клієнта' }, { value: 'global', label: 'Один на ФОП' }]" />
+                <SectionTitle>{{ t('Лічильник') }}</SectionTitle>
+                <SegmentedControl v-model="form.scope" :label="t('Лічильник')" size="lg" :disabled="!canConfigure" :options="scopeOptions" />
                 <p v-if="mayCollide" class="m-0 text-13 leading-normal text-warning-text" role="status">
-                    Без префікса лічильники різних клієнтів дадуть однакові номери на ту саму дату — такий інвойс не зафіксується.
+                    {{ t('Без префікса лічильники різних клієнтів дадуть однакові номери на ту саму дату — такий інвойс не зафіксується.') }}
                 </p>
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Скидання лічильника</SectionTitle>
-                <SegmentedControl v-model="form.reset" label="Скидання лічильника" size="lg" :disabled="!canConfigure" :options="[{ value: 'never', label: 'Ніколи' }, { value: 'yearly', label: 'Щороку' }]" />
+                <SectionTitle>{{ t('Скидання лічильника') }}</SectionTitle>
+                <SegmentedControl v-model="form.reset" :label="t('Скидання лічильника')" size="lg" :disabled="!canConfigure" :options="resetOptions" />
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Поточні лічильники</SectionTitle>
+                <SectionTitle>{{ t('Поточні лічильники') }}</SectionTitle>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <button
                         v-for="counter in counters"
@@ -256,36 +274,37 @@ async function save(): Promise<void> {
                         </span>
                         <span class="num text-16 font-semibold">{{ counter.last_number }}</span>
                     </button>
-                    <p v-if="counters.length === 0" class="m-0 py-3.5 text-14 text-ink-3">Лічильників ще немає: перший з'явиться з першим зафіксованим інвойсом.</p>
+                    <p v-if="counters.length === 0" class="m-0 py-3.5 text-14 text-ink-3">{{ t('Лічильників ще немає: перший з\'явиться з першим зафіксованим інвойсом.') }}</p>
                 </div>
                 <p class="m-0 text-13 leading-normal text-ink-3">
-                    Номер присвоюється при фіксації. Якщо після повернення в чернетку змінилась дата чи абревіатура клієнта —
-                    оновлюються лише вони, порядковий номер лишається. Видані номери зберігають свою абревіатуру. Введений
-                    вручну номер не змінюється. Пропуски після скасування — нормально.
+                    {{ t('Номер присвоюється при фіксації. Якщо після повернення в чернетку змінилась дата чи абревіатура клієнта — оновлюються лише вони, порядковий номер лишається. Видані номери зберігають свою абревіатуру. Введений вручну номер не змінюється. Пропуски після скасування — нормально.') }}
                 </p>
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Примітка внизу інвойсу</SectionTitle>
-                <TextAreaField v-model="form.footer_note" label="Примітка" placeholder="Напр., примітка щодо ПДВ / reverse charge" :rows="3" :disabled="!canConfigure" />
+                <SectionTitle>{{ t('Примітка внизу інвойсу') }}</SectionTitle>
+                <TextAreaField v-model="form.footer_note" :label="t('Примітка')" :placeholder="t('Напр., примітка щодо ПДВ / reverse charge')" :rows="3" :disabled="!canConfigure" />
             </section>
 
             <p v-if="saveError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(saveError) }}</p>
         </LoadState>
 
         <template v-if="canConfigure" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading" @click="save">Зберегти</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading" @click="save">{{ t('Зберегти') }}</PrimaryButton>
         </template>
 
-        <BottomSheet v-model:open="counterOpen" title="Лічильник">
+        <BottomSheet v-model:open="counterOpen" :title="t('Лічильник')">
             <p class="m-0 text-15 leading-normal text-ink-2">
-                {{ counterName(editing) }}: останній номер <span class="num font-semibold text-ink">{{ editing?.last_number }}</span>.
-                Наступний можна лише збільшити — наприклад, щоб продовжити нумерацію з попередньої системи.
+                <Translated :text="t('{name}: останній номер {number}.')">
+                    <template #name>{{ counterName(editing) }}</template>
+                    <template #number><span class="num font-semibold text-ink">{{ editing?.last_number }}</span></template>
+                </Translated>
+                {{ t('Наступний можна лише збільшити — наприклад, щоб продовжити нумерацію з попередньої системи.') }}
             </p>
-            <TextField v-model="nextNumber" label="Наступний номер" inputmode="numeric" class="num" :error="fieldError(counterError, 'next_number')" />
+            <TextField v-model="nextNumber" :label="t('Наступний номер')" inputmode="numeric" class="num" :error="fieldError(counterError, 'next_number')" />
             <p v-if="counterError && !fieldError(counterError, 'next_number')" class="m-0 text-14 text-negative">{{ errorMessage(counterError) }}</p>
             <template #footer>
-                <PrimaryButton :busy="movingCounter" :disabled="!/^\d+$/.test(nextNumber)" @click="moveCounter">Зберегти</PrimaryButton>
+                <PrimaryButton :busy="movingCounter" :disabled="!/^\d+$/.test(nextNumber)" @click="moveCounter">{{ t('Зберегти') }}</PrimaryButton>
             </template>
         </BottomSheet>
     </SubScreen>

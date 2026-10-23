@@ -12,9 +12,11 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { describeContract } from '@/utils/contracts';
 import { formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -110,9 +112,15 @@ function insertToken(token: string): void {
     form.description_template = form.description_template.slice(0, start) + token + form.description_template.slice(end);
 }
 
-const typeName = (id: number | null): string => data.value?.chargeTypes.find((type) => type.id === id)?.name ?? 'За замовчуванням';
+const typeName = (id: number | null): string => data.value?.chargeTypes.find((type) => type.id === id)?.name ?? t('За замовчуванням');
 const sortedRates = computed(() => [...form.rates].sort((a, b) => (a.charge_type_id ?? 0) - (b.charge_type_id ?? 0)
     || b.effective_from.localeCompare(a.effective_from)));
+
+/** The work types of a rate: the default one (for all items) first. */
+const rateTypeOptions = computed(() => [
+    { value: 0, label: t('За замовчуванням') },
+    ...(data.value?.chargeTypes ?? []).map((type) => ({ value: type.id, label: type.name })),
+]);
 
 /* A rate, edited in a sheet */
 const rateOpen = ref(false);
@@ -196,19 +204,19 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? 'Новий договір' : 'Договір'" :subtitle="data?.client.name" :back="{ name: 'client', params: { id: clientId } }">
+    <SubScreen :title="isNew ? t('Новий договір') : t('Договір')" :subtitle="data?.client.name" :back="{ name: 'client', params: { id: clientId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <TextField v-model="form.name" label="Назва" placeholder="Service Agreement" :error="fieldError(saveError, 'name')" />
-            <TextField v-model="form.number" label="Номер" placeholder="Необов'язково" :error="fieldError(saveError, 'number')" />
+            <TextField v-model="form.name" :label="t('Назва')" placeholder="Service Agreement" :error="fieldError(saveError, 'name')" />
+            <TextField v-model="form.number" :label="t('Номер')" :placeholder="t('Необов\'язково')" :error="fieldError(saveError, 'number')" />
             <div class="grid grid-cols-2 gap-2.5">
-                <DateField v-model="form.started_at" label="Діє з" :error="fieldError(saveError, 'started_at')" />
-                <DateField v-model="form.ends_at" label="Діє до" hint="Порожньо — безстроковий" :min="form.started_at || undefined" :error="fieldError(saveError, 'ends_at')" />
-                <SelectField v-model="form.currency" label="Валюта" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                <TextField v-model="form.payment_terms_days" label="Оплата, днів" inputmode="numeric" class="num" :error="fieldError(saveError, 'payment_terms_days')" />
+                <DateField v-model="form.started_at" :label="t('Діє з')" :error="fieldError(saveError, 'started_at')" />
+                <DateField v-model="form.ends_at" :label="t('Діє до')" :hint="t('Порожньо — безстроковий')" :min="form.started_at || undefined" :error="fieldError(saveError, 'ends_at')" />
+                <SelectField v-model="form.currency" :label="t('Валюта')" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
+                <TextField v-model="form.payment_terms_days" :label="t('Оплата, днів')" inputmode="numeric" class="num" :error="fieldError(saveError, 'payment_terms_days')" />
             </div>
 
             <div class="flex flex-col gap-1.5">
-                <label for="contract-template" class="text-13 font-medium text-ink-2">Шаблон опису позиції</label>
+                <label for="contract-template" class="text-13 font-medium text-ink-2">{{ t('Шаблон опису позиції') }}</label>
                 <textarea
                     id="contract-template"
                     ref="template"
@@ -228,16 +236,16 @@ const generalError = computed(() => {
                     </button>
                 </div>
                 <div v-if="preview" class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3">
-                    <span class="text-12 text-ink-3">Так виглядатиме в інвойсі</span>
+                    <span class="text-12 text-ink-3">{{ t('Так виглядатиме в інвойсі') }}</span>
                     <span class="text-15 leading-[1.45]">{{ preview }}</span>
                 </div>
             </div>
 
             <section class="flex flex-col gap-2">
                 <SectionTitle>
-                    Погодинні ставки
+                    {{ t('Погодинні ставки') }}
                     <template #aside>
-                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openRate(null)">+ Ставка</button>
+                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openRate(null)">{{ t('+ Ставка') }}</button>
                     </template>
                 </SectionTitle>
                 <div v-if="sortedRates.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -250,16 +258,18 @@ const generalError = computed(() => {
                     >
                         <span class="flex flex-col gap-0.5">
                             <span class="text-15" :class="rate.charge_type_id ? '' : 'text-ink-2'">{{ typeName(rate.charge_type_id) }}</span>
-                            <span class="text-12 text-ink-3">з <span class="num">{{ formatDate(rate.effective_from) }}</span></span>
+                            <span class="text-12 text-ink-3">
+                                <Translated :text="t('з {date}')"><template #date><span class="num">{{ formatDate(rate.effective_from) }}</span></template></Translated>
+                            </span>
                         </span>
                         <span class="num text-16" :class="rate.charge_type_id ? 'font-bold' : 'text-ink-2'">{{ formatAmount(rate.hourly_rate) }}</span>
                     </button>
                 </div>
-                <p class="m-0 text-13 text-ink-3">Ставка підставляється в позицію за датою кінця періоду</p>
+                <p class="m-0 text-13 text-ink-3">{{ t('Ставка підставляється в позицію за датою кінця періоду') }}</p>
             </section>
 
             <label class="flex min-h-13 items-center justify-between rounded-control border border-line bg-surface px-4 text-15">
-                Активний
+                {{ t('Активний') }}
                 <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent">
             </label>
 
@@ -267,27 +277,27 @@ const generalError = computed(() => {
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'contracts')" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !form.started_at" @click="save">Зберегти</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !form.started_at" @click="save">{{ t('Зберегти') }}</PrimaryButton>
         </template>
 
-        <BottomSheet v-model:open="rateOpen" title="Ставка">
+        <BottomSheet v-model:open="rateOpen" :title="t('Ставка')">
             <SelectField
                 :model-value="rateDraft.charge_type_id ?? 0"
-                label="Тип робіт"
-                :options="[{ value: 0, label: 'За замовчуванням' }, ...(data?.chargeTypes ?? []).map((type) => ({ value: type.id, label: type.name }))]"
+                :label="t('Тип робіт')"
+                :options="rateTypeOptions"
                 @update:model-value="rateDraft.charge_type_id = $event || null"
             />
             <div class="grid grid-cols-2 gap-2.5">
                 <DateField
                     v-model="rateDraft.effective_from"
-                    label="Діє з"
-                    :error="rateClash ? 'Ставка цього типу робіт з цієї дати вже є.' : undefined"
+                    :label="t('Діє з')"
+                    :error="rateClash ? t('Ставка цього типу робіт з цієї дати вже є.') : undefined"
                 />
-                <TextField v-model="rateDraft.hourly_rate" :label="`За годину, ${form.currency}`" numeric />
+                <TextField v-model="rateDraft.hourly_rate" :label="t('За годину, {currency}', { currency: form.currency })" numeric />
             </div>
             <div class="grid grid-cols-[1fr_2fr] gap-2.5">
-                <SecondaryButton tone="negative" @click="removeRate">Видалити</SecondaryButton>
-                <PrimaryButton :disabled="!rateDraft.effective_from || parseAmount(rateDraft.hourly_rate) === null || rateClash" @click="saveRate">Готово</PrimaryButton>
+                <SecondaryButton tone="negative" @click="removeRate">{{ t('Видалити') }}</SecondaryButton>
+                <PrimaryButton :disabled="!rateDraft.effective_from || parseAmount(rateDraft.hourly_rate) === null || rateClash" @click="saveRate">{{ t('Готово') }}</PrimaryButton>
             </div>
         </BottomSheet>
     </SubScreen>

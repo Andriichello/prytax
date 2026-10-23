@@ -14,6 +14,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { locale, t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 import type { Tone } from '@/utils/statuses';
 
@@ -30,10 +31,26 @@ interface OrganizationUser {
     password_updated_at: string | null;
 }
 
-const ROLES: { value: RoleName; label: string; text: string; tone: Tone }[] = [
-    { value: 'owner', label: 'Власник', text: 'Усе, включно з ФОП і користувачами', tone: 'neutral' },
-    { value: 'accountant', label: 'Бухгалтер', text: 'Усі фінансові операції в кожному ФОП', tone: 'info' },
-    { value: 'viewer', label: 'Перегляд', text: 'Лише читання', tone: 'neutral' },
+/** The roles, whose names and descriptions are getters, which translate when they are read. */
+const ROLES: { value: RoleName; readonly label: string; readonly text: string; tone: Tone }[] = [
+    {
+        value: 'owner',
+        get label() { return t('Власник'); },
+        get text() { return t('Усе, включно з ФОП і користувачами'); },
+        tone: 'neutral',
+    },
+    {
+        value: 'accountant',
+        get label() { return t('Бухгалтер'); },
+        get text() { return t('Усі фінансові операції в кожному ФОП'); },
+        tone: 'info',
+    },
+    {
+        value: 'viewer',
+        get label() { return t('Перегляд'); },
+        get text() { return t('Лише читання'); },
+        tone: 'neutral',
+    },
 ];
 
 const { user: me, can } = useSession();
@@ -54,7 +71,8 @@ const editing = ref<OrganizationUser | null>(null);
 const draft = reactive({ name: '', email: '', role: 'accountant' as RoleName });
 const busy = ref(false);
 const sheetError = ref<unknown>(null);
-const notice = ref<string | null>(null);
+/** The notice of a done action, translated when it is shown. */
+const notice = ref<(() => string) | null>(null);
 
 function open(user: OrganizationUser | null): void {
     editing.value = user;
@@ -65,7 +83,7 @@ function open(user: OrganizationUser | null): void {
     sheetOpen.value = true;
 }
 
-async function run(action: () => Promise<unknown>, done: string | null = null): Promise<void> {
+async function run(action: () => Promise<unknown>, done: (() => string) | null = null): Promise<void> {
     busy.value = true;
     sheetError.value = null;
 
@@ -88,8 +106,8 @@ async function run(action: () => Promise<unknown>, done: string | null = null): 
 
 const save = () => run(() => (editing.value
     ? api.patch(`users/${editing.value.id}`, { name: draft.name.trim(), roles: [draft.role] })
-    : api.post('users', { name: draft.name.trim(), email: draft.email.trim(), roles: [draft.role] })));
-const resend = () => run(() => api.post(`users/${editing.value?.id}/invitation`), 'Запрошення надіслано знову.');
+    : api.post('users', { name: draft.name.trim(), email: draft.email.trim(), roles: [draft.role], locale: locale.value })));
+const resend = () => run(() => api.post(`users/${editing.value?.id}/invitation`), () => t('Запрошення надіслано знову.'));
 const confirmingRemoval = ref(false);
 
 /**
@@ -112,7 +130,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">Користувачі</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Користувачі') }}</h1>
                 <button
                     v-if="can('create', 'users')"
                     type="button"
@@ -120,10 +138,10 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     @click="open(null)"
                 >
                     <Icon name="plus" :size="20" />
-                    Запросити
+                    {{ t('Запросити') }}
                 </button>
             </div>
-            <p class="m-0 text-14 leading-[1.45] text-ink-3">Кожен користувач бачить усі ФОП організації. Доступ до окремих ФОП — у наступній версії.</p>
+            <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('Кожен користувач бачить усі ФОП організації. Доступ до окремих ФОП — у наступній версії.') }}</p>
         </div>
 
         <LoadState :loading="loading && !users" :error="error" @retry="reload">
@@ -138,14 +156,14 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                 >
                     <Avatar :initials="initials(user.name)" :variant="user.id === me?.id ? 'dark' : 'light'" />
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span class="truncate text-16">{{ user.name }}<span v-if="user.id === me?.id" class="text-13 text-ink-3"> (ви)</span></span>
-                        <span class="truncate text-13 text-ink-3">{{ isPending(user) ? `запрошено · ${user.email}` : user.email }}</span>
+                        <span class="truncate text-16">{{ user.name }}<span v-if="user.id === me?.id" class="text-13 text-ink-3">{{ ' ' + t('(ви)') }}</span></span>
+                        <span class="truncate text-13 text-ink-3">{{ isPending(user) ? t('запрошено · {email}', { email: user.email }) : user.email }}</span>
                     </span>
                     <span
                         v-if="roleOf(user)?.value === 'owner'"
                         class="shrink-0 rounded-badge bg-ink px-2 py-[3px] text-12 font-semibold text-white"
                     >
-                        Власник
+                        {{ t('Власник') }}
                     </span>
                     <StatusBadge v-else-if="roleOf(user)" :label="roleOf(user)!.label" :tone="roleOf(user)!.tone" />
                 </button>
@@ -153,7 +171,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
         </LoadState>
 
         <section class="flex flex-col gap-2">
-            <SectionTitle>Ролі</SectionTitle>
+            <SectionTitle>{{ t('Ролі') }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                 <div v-for="role in ROLES" :key="role.value" class="flex flex-col gap-0.5 py-3">
                     <span class="text-16 font-semibold">{{ role.label }}</span>
@@ -162,13 +180,13 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
             </div>
         </section>
 
-        <BottomSheet v-model:open="sheetOpen" :title="editing ? editing.name : 'Запросити користувача'">
+        <BottomSheet v-model:open="sheetOpen" :title="editing ? editing.name : t('Запросити користувача')">
             <template v-if="!editing">
-                <TextField v-model="draft.name" label="Ім'я" :error="fieldError(sheetError, 'name')" />
+                <TextField v-model="draft.name" :label="t('Ім\'я')" :error="fieldError(sheetError, 'name')" />
                 <TextField v-model="draft.email" label="Email" type="email" :error="fieldError(sheetError, 'email')" />
             </template>
             <div class="flex flex-col gap-1.5">
-                <span id="user-role" class="text-13 font-medium text-ink-2">Роль</span>
+                <span id="user-role" class="text-13 font-medium text-ink-2">{{ t('Роль') }}</span>
                 <div role="radiogroup" aria-labelledby="user-role" class="flex flex-col gap-2">
                     <button
                         v-for="role in ROLES"
@@ -191,20 +209,20 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     </button>
                 </div>
             </div>
-            <p v-if="!editing" class="m-0 text-13 text-ink-3">Людина отримає лист і сама задасть пароль.</p>
-            <p v-if="notice" class="m-0 text-14 text-positive" role="status">{{ notice }}</p>
+            <p v-if="!editing" class="m-0 text-13 text-ink-3">{{ t('Людина отримає лист і сама задасть пароль.') }}</p>
+            <p v-if="notice" class="m-0 text-14 text-positive" role="status">{{ notice() }}</p>
             <p v-if="sheetError && !fieldError(sheetError, 'name') && !fieldError(sheetError, 'email')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(sheetError) }}
             </p>
             <template #footer>
                 <div class="flex flex-col gap-2">
                     <PrimaryButton :busy="busy" :disabled="!draft.name.trim() || (!editing && !draft.email.trim())" @click="save">
-                        {{ editing ? 'Зберегти роль' : 'Надіслати запрошення' }}
+                        {{ editing ? t('Зберегти роль') : t('Надіслати запрошення') }}
                     </PrimaryButton>
                     <div v-if="editing && !isSelf" class="grid grid-cols-2 gap-2">
-                        <SecondaryButton v-if="isPending(editing)" :busy="busy" @click="resend">Запросити знову</SecondaryButton>
+                        <SecondaryButton v-if="isPending(editing)" :busy="busy" @click="resend">{{ t('Запросити знову') }}</SecondaryButton>
                         <SecondaryButton v-if="can('delete', 'users')" tone="negative" :busy="busy" :class="isPending(editing) ? '' : 'col-span-2'" @click="remove">
-                            {{ confirmingRemoval ? 'Так, видалити' : 'Видалити' }}
+                            {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
                         </SecondaryButton>
                     </div>
                 </div>

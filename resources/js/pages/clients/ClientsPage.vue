@@ -9,6 +9,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { clientInitials } from '@/utils/clients';
 import { daysBetween, formatDayMonth, today } from '@/utils/dates';
 import { compareAmounts, formatMoney } from '@/utils/money';
@@ -58,7 +59,7 @@ function details(client: Client): string {
         client.abbreviation,
         client.country,
         client.currency,
-        ends ? `договір до ${formatDayMonth(ends)}` : client.contracts_count ? countOf(client.contracts_count, CONTRACTS) : null,
+        ends ? t('договір до {date}', { date: formatDayMonth(ends) }) : client.contracts_count ? countOf(client.contracts_count, CONTRACTS) : null,
         !ends && client.invoices_count ? countOf(client.invoices_count, INVOICES) : null,
     ].filter(Boolean).join(' · ');
 }
@@ -70,36 +71,36 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
 <template>
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex items-center justify-between gap-3">
-            <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">Клієнти</h1>
+            <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Клієнти') }}</h1>
             <RouterLink
                 v-if="can('create', 'clients')"
                 :to="{ name: 'client-new' }"
                 class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
             >
                 <Icon name="plus" :size="20" />
-                Додати
+                {{ t('Додати') }}
             </RouterLink>
         </div>
 
         <div class="relative">
-            <label for="client-search" class="sr-only">Пошук клієнта</label>
+            <label for="client-search" class="sr-only">{{ t('Пошук клієнта') }}</label>
             <Icon name="search" :size="20" class="pointer-events-none absolute top-3.5 left-3.5 text-ink-3" />
             <input
                 id="client-search"
                 v-model="search"
                 type="search"
-                placeholder="Назва або абревіатура"
+                :placeholder="t('Назва або абревіатура')"
                 class="h-12 w-full rounded-control border border-line-input bg-surface pr-3.5 pl-11 text-16 placeholder:text-ink-3"
             >
         </div>
 
         <LoadState :loading="loading && !clients" :error="error" @retry="reload">
-            <EmptyState v-if="clients && clients.length === 0" text="Клієнтів ще немає.">
+            <EmptyState v-if="clients && clients.length === 0" :text="t('Клієнтів ще немає.')">
                 <RouterLink v-if="can('create', 'clients')" :to="{ name: 'client-new' }" class="flex min-h-11 items-center text-14 font-medium no-underline">
-                    Додати клієнта
+                    {{ t('Додати клієнта') }}
                 </RouterLink>
             </EmptyState>
-            <EmptyState v-else-if="shown.length === 0" text="Нікого не знайдено." />
+            <EmptyState v-else-if="shown.length === 0" :text="t('Нікого не знайдено.')" />
 
             <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                 <RouterLink
@@ -118,7 +119,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span class="truncate text-17">{{ client.name }}</span>
                         <span class="text-13" :class="endingContract(client) ? 'text-warning-text' : 'text-ink-3'">
-                            {{ client.is_active ? details(client) : `Неактивний · ${[client.abbreviation, client.country].filter(Boolean).join(' · ')}` }}
+                            {{ client.is_active ? details(client) : [t('Неактивний'), client.abbreviation, client.country].filter(Boolean).join(' · ') }}
                         </span>
                     </span>
                     <span class="flex shrink-0 flex-col items-end gap-0.5">
@@ -126,7 +127,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
                             <span v-for="entry in owed(client)" :key="entry.currency" class="num text-15 font-semibold">
                                 {{ formatMoney(entry.amount, entry.currency) }}
                             </span>
-                            <span class="text-12" :class="overdue(client) ? 'text-negative' : 'text-ink-3'">{{ overdue(client) ? 'прострочено' : 'до оплати' }}</span>
+                            <span class="text-12" :class="overdue(client) ? 'text-negative' : 'text-ink-3'">{{ overdue(client) ? t('прострочено') : t('до оплати') }}</span>
                         </template>
                         <span v-else class="num text-15 text-ink-3">0.00</span>
                     </span>
@@ -139,7 +140,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
                 class="flex min-h-11 items-center self-center text-15 font-medium text-accent"
                 @click="showInactive = !showInactive"
             >
-                {{ showInactive ? 'Сховати неактивних' : `Показати неактивних (${inactiveCount})` }}
+                {{ showInactive ? t('Сховати неактивних') : t('Показати неактивних ({count})', { count: inactiveCount }) }}
             </button>
         </LoadState>
     </SubScreen>

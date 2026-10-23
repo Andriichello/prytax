@@ -12,9 +12,11 @@ import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { LOCALE_NAMES, t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { today } from '@/utils/dates';
 import { formatAmount, setMoneyFormat } from '@/utils/money';
@@ -34,6 +36,12 @@ const FORMATS: { value: MoneyFormat; label: string }[] = [
     { value: 'dot_comma', label: '2.851,99' },
 ];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
+
+/** The languages of invoices, each named in itself. */
+const DOCUMENT_LOCALES = [
+    { value: 'en', label: LOCALE_NAMES.en },
+    { value: 'uk', label: LOCALE_NAMES.uk },
+];
 
 const route = useRoute();
 const router = useRouter();
@@ -106,9 +114,15 @@ function onActiveChange(): void {
 
 const sample = (format: MoneyFormat, amount: string) => formatAmount(amount, { format });
 
+/** The money formats of the app, the default one marked. */
+const displayFormats = computed(() => FORMATS.map((format) => ({
+    value: format.value,
+    label: format.value === 'space_dot' ? t('{format} — за замовчуванням', { format: format.label }) : format.label,
+})));
+
 /* The PDF signature: a PNG, which replaces the previous one */
 const uploading = ref(false);
-const signatureError = ref<string | null>(null);
+const signatureError = ref<unknown>(null);
 
 async function uploadSignature(event: Event): Promise<void> {
     const file = (event.target as HTMLInputElement).files?.[0];
@@ -134,7 +148,7 @@ async function uploadSignature(event: Event): Promise<void> {
             await api.delete(path(`signatures/${previous.id}`)).catch(() => undefined);
         }
     } catch (caught) {
-        signatureError.value = errorMessage(caught);
+        signatureError.value = caught;
     } finally {
         uploading.value = false;
     }
@@ -215,53 +229,53 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? 'Новий ФОП' : 'Профіль ФОП'" :back="{ name: 'more' }">
+    <SubScreen :title="isNew ? t('Новий ФОП') : t('Профіль ФОП')" :back="{ name: 'more' }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <div class="flex items-start gap-3 rounded-control border border-line bg-surface px-3.5 py-3 text-13 text-ink-2">
-                <span class="text-14 leading-tight font-semibold text-ink">3<br>група</span>
-                <span>· спрощена система · без ПДВ · без працівників</span>
+                <span class="text-14 leading-tight font-semibold text-ink"><Translated :text="t('3{br}група')"><template #br><br></template></Translated></span>
+                <span>{{ t('· спрощена система · без ПДВ · без працівників') }}</span>
             </div>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Податкова особа</SectionTitle>
-                <TextField v-model="form.full_name" label="ПІБ" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name')" />
-                <TextField v-model="form.full_name_en" label="ПІБ латиницею — для інвойсів" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name_en')" />
+                <SectionTitle>{{ t('Податкова особа') }}</SectionTitle>
+                <TextField v-model="form.full_name" :label="t('ПІБ')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name')" />
+                <TextField v-model="form.full_name_en" :label="t('ПІБ латиницею — для інвойсів')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name_en')" />
                 <div class="grid grid-cols-2 gap-2.5">
                     <TextField
                         v-model="form.tax_id"
-                        :label="form.passport ? 'Паспорт' : 'РНОКПП'"
+                        :label="form.passport ? t('Паспорт') : t('РНОКПП')"
                         class="num"
                         :placeholder="existing?.tax_id_masked ?? ''"
                         :disabled="!canEditIdentity"
                         :error="fieldError(saveError, 'tax_id')"
                     />
-                    <DateField v-model="form.registered_at" label="Дата реєстрації" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
+                    <DateField v-model="form.registered_at" :label="t('Дата реєстрації')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
                 </div>
                 <label class="flex min-h-11 items-center gap-3 text-15 text-ink-2">
                     <input v-model="form.passport" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity">
-                    Серія й номер паспорта замість РНОКПП
+                    {{ t('Серія й номер паспорта замість РНОКПП') }}
                 </label>
-                <span class="-mt-2 text-12 text-ink-3">Зберігається зашифрованим, унікальний у межах організації</span>
+                <span class="-mt-2 text-12 text-ink-3">{{ t('Зберігається зашифрованим, унікальний у межах організації') }}</span>
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Адреса й контакти</SectionTitle>
-                <TextAreaField v-model="form.address" label="Адреса" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
-                <TextAreaField v-model="form.address_en" label="Адреса англійською" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
+                <SectionTitle>{{ t('Адреса й контакти') }}</SectionTitle>
+                <TextAreaField v-model="form.address" :label="t('Адреса')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
+                <TextAreaField v-model="form.address_en" :label="t('Адреса англійською')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
                 <TextField v-model="form.email" label="Email" type="email" :disabled="!canEditIdentity" :error="fieldError(saveError, 'email')" />
-                <TextField v-model="form.phone" label="Телефон" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
+                <TextField v-model="form.phone" :label="t('Телефон')" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Інвойси</SectionTitle>
+                <SectionTitle>{{ t('Інвойси') }}</SectionTitle>
                 <div class="grid grid-cols-2 gap-2.5">
-                    <SelectField v-model="form.default_currency" label="Валюта" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                    <SelectField v-model="form.locale" label="Мова документа" :disabled="!canEditIdentity" :options="[{ value: 'en', label: 'English' }, { value: 'uk', label: 'Українська' }]" />
+                    <SelectField v-model="form.default_currency" :label="t('Валюта')" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
+                    <SelectField v-model="form.locale" :label="t('Мова документа')" :disabled="!canEditIdentity" :options="DOCUMENT_LOCALES" />
                 </div>
                 <div v-if="!isNew" class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">Підпис у PDF</span>
+                    <span class="text-13 font-medium text-ink-2">{{ t('Підпис у PDF') }}</span>
                     <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">
-                        <img :src="apiUrl(path(`signatures/${signature.id}/download`))" alt="Підпис" class="h-10 max-w-32 object-contain">
+                        <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('Підпис')" class="h-10 max-w-32 object-contain">
                         <span class="min-w-0 flex-1 truncate text-14 text-ink-2">{{ signature.name }}</span>
                     </div>
                     <label
@@ -269,58 +283,58 @@ const generalError = computed(() => {
                         class="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
                     >
                         <Icon :name="uploading ? 'spinner' : 'upload'" :size="20" :class="uploading ? 'animate-spin' : ''" />
-                        {{ signature ? 'Замінити підпис (PNG)' : 'Завантажити PNG підпису' }}
+                        {{ signature ? t('Замінити підпис (PNG)') : t('Завантажити PNG підпису') }}
                         <input type="file" accept="image/png" class="sr-only" @change="uploadSignature">
                     </label>
-                    <span v-if="signatureError" class="text-12 text-negative">{{ signatureError }}</span>
+                    <span v-if="signatureError" class="text-12 text-negative">{{ errorMessage(signatureError) }}</span>
                 </div>
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Формат сум</SectionTitle>
+                <SectionTitle>{{ t('Формат сум') }}</SectionTitle>
                 <SelectField
                     v-model="form.display_format"
-                    label="У застосунку"
+                    :label="t('У застосунку')"
                     :disabled="!canConfigure"
-                    :options="FORMATS.map((format) => ({ value: format.value, label: format.value === 'space_dot' ? `${format.label} — за замовчуванням` : format.label }))"
+                    :options="displayFormats"
                 />
                 <SelectField
                     v-model="form.invoice_format"
-                    label="В інвойсах (PDF)"
+                    :label="t('В інвойсах (PDF)')"
                     :disabled="!canConfigure"
                     :options="FORMATS.map((format) => ({ value: format.value, label: format.label }))"
                 />
                 <div class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-14 text-ink-2">
-                    <span class="flex justify-between gap-3">Застосунок: <span class="num font-semibold text-ink">{{ sample(form.display_format, '1840135.05') }} ₴</span></span>
-                    <span class="flex justify-between gap-3">Інвойс: <span class="num font-semibold text-ink">{{ sample(form.invoice_format, '3892.50') }} {{ form.default_currency }}</span></span>
+                    <span class="flex justify-between gap-3">{{ t('Застосунок:') }} <span class="num font-semibold text-ink">{{ sample(form.display_format, '1840135.05') }} ₴</span></span>
+                    <span class="flex justify-between gap-3">{{ t('Інвойс:') }} <span class="num font-semibold text-ink">{{ sample(form.invoice_format, '3892.50') }} {{ form.default_currency }}</span></span>
                 </div>
-                <span class="text-12 text-ink-3">Окремо для застосунку та інвойсів. Розділювач копійок — крапка або кома.</span>
+                <span class="text-12 text-ink-3">{{ t('Окремо для застосунку та інвойсів. Розділювач копійок — крапка або кома.') }}</span>
             </section>
 
             <label class="flex min-h-14 items-center justify-between gap-3 rounded-control border border-line bg-surface px-4">
                 <span class="flex flex-col gap-0.5">
-                    <span class="text-15">Активний ФОП</span>
-                    <span class="text-12 text-ink-3">Неактивний зникає з панелей і термінів</span>
+                    <span class="text-15">{{ t('Активний ФОП') }}</span>
+                    <span class="text-12 text-ink-3">{{ t('Неактивний зникає з панелей і термінів') }}</span>
                 </span>
                 <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity" @change="onActiveChange">
             </label>
             <DateField
                 v-if="!form.is_active"
                 v-model="form.closed_at"
-                label="Дата закриття"
-                hint="Податки й ЄСВ відстежуються до цієї дати"
+                :label="t('Дата закриття')"
+                :hint="t('Податки й ЄСВ відстежуються до цієї дати')"
                 :max="today()"
                 :disabled="!canEditIdentity"
                 :error="fieldError(saveError, 'closed_at')"
             />
 
-            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">Дані податкової особи, адресу, контакти й мову документів змінює власник організації.</p>
+            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">{{ t('Дані податкової особи, адресу, контакти й мову документів змінює власник організації.') }}</p>
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
         <template v-if="canEditIdentity || canConfigure" #footer>
             <PrimaryButton :busy="saving" :disabled="loading || !form.full_name.trim() || (isNew && !form.tax_id.trim())" @click="save">
-                {{ isNew ? 'Створити ФОП' : 'Зберегти' }}
+                {{ isNew ? t('Створити ФОП') : t('Зберегти') }}
             </PrimaryButton>
         </template>
     </SubScreen>

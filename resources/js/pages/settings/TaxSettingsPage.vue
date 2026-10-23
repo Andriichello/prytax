@@ -27,6 +27,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { formatDate, quarterLabel, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { formatAmount, parseAmount } from '@/utils/money';
@@ -39,7 +40,14 @@ import { TAX_TYPES } from '@/utils/statuses';
 type Repatriation = 'quarter_end' | 'days' | 'off';
 
 const TAXES: TaxType[] = ['single_tax', 'military_levy', 'social_contribution'];
-const TAX_OPTIONS = TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] }));
+
+/** The individual tax consultation, which counts a fee withheld by a bank or a platform as income. */
+const FEE_CONSULTATION = '462/ІПК/99-00-24-03-03-06'; // i18n-ignore
+
+/** An example of the budget's recipient, named in Ukrainian as the treasury names it. */
+const RECIPIENT_EXAMPLE = 'ГУК у м. Київ/18050400'; // i18n-ignore
+
+const taxOptions = computed(() => TAXES.map((type) => ({ value: type, label: TAX_TYPES[type] })));
 
 const router = useRouter();
 const { can } = useSession();
@@ -90,10 +98,36 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
 }, [profileId]);
 
 /** The day steppers, within the setting's bounds (`Profile::settingDefinitions`). */
-const DAY_STEPPERS = [
-    { key: 'deadline_days', label: 'Попереджати про терміни за', min: 0, max: 60 },
-    { key: 'ready_days', label: 'Нагадувати про ненадіслані інвойси через', min: 1, max: 365 },
-] as const;
+const daySteppers = computed(() => [
+    { key: 'deadline_days', label: t('Попереджати про терміни за'), min: 0, max: 60 },
+    { key: 'ready_days', label: t('Нагадувати про ненадіслані інвойси через'), min: 1, max: 365 },
+] as const);
+
+/** The bases of the tax: the invoiced amount, or the received one at the FOP's own risk. */
+const baseOptions = computed(() => [
+    {
+        value: 'invoiced',
+        title: t('Сума за інвойсом'),
+        text: t('Комісія, утримана банком чи платформою, — теж дохід (ІПК {consultation})', { consultation: FEE_CONSULTATION }),
+        risk: false,
+    },
+    { value: 'received', title: t('Фактично отримана сума'), text: '', risk: true },
+] as const);
+
+const fxGainOptions = computed<{ value: FxGainPolicy; label: string }[]>(() => [
+    { value: 'ignore', label: t('Не враховувати') },
+    { value: 'include', label: t('Враховувати') },
+]);
+const groupingOptions = computed<{ value: TaxGrouping; label: string }[]>(() => [
+    { value: 'payment', label: t('Надходж.') },
+    { value: 'month', label: t('Місяць') },
+    { value: 'quarter', label: t('Квартал') },
+]);
+const repatriationOptions = computed<{ value: Repatriation; label: string }[]>(() => [
+    { value: 'quarter_end', label: t('Кінець кв.') },
+    { value: 'days', label: t('Через N днів') },
+    { value: 'off', label: t('Вимкнено') },
+]);
 
 const canConfigure = computed(() => can('configure', 'profiles'));
 const taxAccounts = computed(() => accounts.value
@@ -157,7 +191,11 @@ const quarterStarts = computed(() => {
 
     return [year, year - 1, year - 2].flatMap((value) => [1, 2, 3, 4].map((quarter) => ({
         value: `${value}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`,
-        label: `${formatDate(`${value}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`)} · перед ${quarterLabel(quarter)} ${value}`,
+        label: t('{date} · перед {quarter} {year}', {
+            date: formatDate(`${value}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`),
+            quarter: quarterLabel(quarter),
+            year: value,
+        }),
     })));
 });
 
@@ -175,10 +213,11 @@ const requisiteDraft = reactive({
 const requisiteError = ref<unknown>(null);
 const requisiteSaving = ref(false);
 
+/** The purposes of tax payments, which the treasury takes in Ukrainian whatever the language of the screens. */
 const PURPOSES: Record<TaxType, string> = {
-    single_tax: '*;101;{tax_id};Єдиний податок, {period};{full_name}',
-    military_levy: '*;101;{tax_id};Військовий збір, {period};{full_name}',
-    social_contribution: '*;101;{tax_id};Єдиний внесок, {period};{full_name}',
+    single_tax: '*;101;{tax_id};Єдиний податок, {period};{full_name}', // i18n-ignore
+    military_levy: '*;101;{tax_id};Військовий збір, {period};{full_name}', // i18n-ignore
+    social_contribution: '*;101;{tax_id};Єдиний внесок, {period};{full_name}', // i18n-ignore
 };
 
 function openRequisite(requisite: TaxPaymentRequisite | null): void {
@@ -250,16 +289,13 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen title="Податки й сповіщення" :back="{ name: 'more' }">
+    <SubScreen :title="t('Податки й сповіщення')" :back="{ name: 'more' }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <section class="flex flex-col gap-2">
-                <SectionTitle>База оподаткування</SectionTitle>
-                <div role="radiogroup" aria-label="База оподаткування" class="flex flex-col gap-2">
+                <SectionTitle>{{ t('База оподаткування') }}</SectionTitle>
+                <div role="radiogroup" :aria-label="t('База оподаткування')" class="flex flex-col gap-2">
                     <button
-                        v-for="option in [
-                            { value: 'invoiced', title: 'Сума за інвойсом', text: 'Комісія, утримана банком чи платформою, — теж дохід (ІПК 462/ІПК/99-00-24-03-03-06)', risk: false },
-                            { value: 'received', title: 'Фактично отримана сума', text: '', risk: true },
-                        ] as const"
+                        v-for="option in baseOptions"
                         :key="option.value"
                         type="button"
                         role="radio"
@@ -275,45 +311,45 @@ async function save(): Promise<void> {
                         <span class="flex flex-col items-start gap-1">
                             <span class="text-16 font-semibold">{{ option.title }}</span>
                             <span v-if="option.text" class="text-14 leading-normal text-ink-2">{{ option.text }}</span>
-                            <span v-if="option.risk" class="rounded-md bg-warning-soft px-1.5 py-0.5 text-12 font-semibold text-warning">на власний ризик</span>
+                            <span v-if="option.risk" class="rounded-md bg-warning-soft px-1.5 py-0.5 text-12 font-semibold text-warning">{{ t('на власний ризик') }}</span>
                         </span>
                     </button>
                 </div>
             </section>
 
             <section class="flex flex-col gap-2">
-                <SectionTitle>Курсовий дохід при продажу валюти</SectionTitle>
-                <SegmentedControl v-model="form.fx_gain" label="Курсовий дохід" size="lg" :disabled="!canConfigure" :options="[{ value: 'ignore', label: 'Не враховувати' }, { value: 'include', label: 'Враховувати' }]" />
+                <SectionTitle>{{ t('Курсовий дохід при продажу валюти') }}</SectionTitle>
+                <SegmentedControl v-model="form.fx_gain" :label="t('Курсовий дохід')" size="lg" :disabled="!canConfigure" :options="fxGainOptions" />
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Сплата податків</SectionTitle>
+                <SectionTitle>{{ t('Сплата податків') }}</SectionTitle>
                 <div class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">Показувати податки за</span>
-                    <SegmentedControl v-model="form.default_grouping" label="Показувати податки за" size="lg" :disabled="!canConfigure" :options="[{ value: 'payment', label: 'Надходж.' }, { value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }]" />
+                    <span class="text-13 font-medium text-ink-2">{{ t('Показувати податки за') }}</span>
+                    <SegmentedControl v-model="form.default_grouping" :label="t('Показувати податки за')" size="lg" :disabled="!canConfigure" :options="groupingOptions" />
                 </div>
                 <SelectField
                     v-model="form.default_account_id"
-                    label="Рахунок для сплати"
-                    placeholder="Оберіть рахунок"
+                    :label="t('Рахунок для сплати')"
+                    :placeholder="t('Оберіть рахунок')"
                     :options="taxAccounts"
-                    hint="Лише активні ФОП-рахунки в UAH"
+                    :hint="t('Лише активні ФОП-рахунки в UAH')"
                     :disabled="!canConfigure"
                 />
                 <label class="flex items-center justify-between gap-3 text-15">
-                    ЄСВ сплачувати до
+                    {{ t('ЄСВ сплачувати до') }}
                     <span class="flex items-center gap-3">
                         <input v-model="form.esv_due_day" inputmode="numeric" placeholder="19" class="num h-12 w-17 rounded-control border border-line-input bg-surface text-center text-16" :disabled="!canConfigure">
-                        <span class="text-ink-2">числа</span>
+                        <span class="text-ink-2">{{ t('числа') }}</span>
                     </span>
                 </label>
             </section>
 
             <section class="flex flex-col gap-2">
                 <SectionTitle>
-                    Вхідні сальдо
+                    {{ t('Вхідні сальдо') }}
                     <template v-if="canConfigure" #aside>
-                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openBalance(null)">+ Додати</button>
+                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openBalance(null)">{{ t('+ Додати') }}</button>
                     </template>
                 </SectionTitle>
                 <div v-if="balances.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -327,21 +363,21 @@ async function save(): Promise<void> {
                     >
                         <span class="flex flex-col gap-0.5">
                             <span class="text-16 font-medium">{{ TAX_TYPES[balance.tax_type] }}</span>
-                            <span class="text-12 text-ink-3">на {{ formatDate(balance.as_of) }}</span>
+                            <span class="text-12 text-ink-3">{{ t('на {date}', { date: formatDate(balance.as_of) }) }}</span>
                         </span>
                         <span class="num text-16 font-semibold" :class="balance.amount.startsWith('-') ? 'text-negative' : Number(balance.amount) > 0 ? 'text-positive' : 'text-ink-3'">
                             {{ formatAmount(balance.amount, { signed: true }) }}
                         </span>
                     </button>
                 </div>
-                <p class="m-0 text-13 leading-normal text-ink-3">Для початку обліку з середини історії. «+» — переплата, «−» — борг.</p>
+                <p class="m-0 text-13 leading-normal text-ink-3">{{ t('Для початку обліку з середини історії. «+» — переплата, «−» — борг.') }}</p>
             </section>
 
             <section class="flex flex-col gap-2">
                 <SectionTitle>
-                    Реквізити для сплати
+                    {{ t('Реквізити для сплати') }}
                     <template v-if="canConfigure" #aside>
-                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openRequisite(null)">+ Додати</button>
+                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openRequisite(null)">{{ t('+ Додати') }}</button>
                     </template>
                 </SectionTitle>
                 <div v-if="requisites.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -354,31 +390,30 @@ async function save(): Promise<void> {
                         @click="openRequisite(requisite)"
                     >
                         <span class="flex min-w-0 flex-col gap-0.5">
-                            <span class="text-16 font-medium">{{ TAX_TYPES[requisite.tax_type] }} <span class="text-13 font-normal text-ink-3">з {{ formatDate(requisite.effective_from) }}</span></span>
+                            <span class="text-16 font-medium">{{ TAX_TYPES[requisite.tax_type] }} <span class="text-13 font-normal text-ink-3">{{ t('з {date}', { date: formatDate(requisite.effective_from) }) }}</span></span>
                             <span class="truncate text-13 text-ink-3">{{ requisite.recipient_name }}</span>
                         </span>
                         <Icon name="chevronRight" :size="18" class="shrink-0 text-ink-2" />
                     </button>
                 </div>
                 <p v-else class="m-0 rounded-card border border-line bg-surface p-4 text-14 text-ink-2">
-                    Додайте реквізити бюджетних рахунків за місцем реєстрації — тоді в сплаті податку з'являться отримувач,
-                    IBAN і призначення платежу.
+                    {{ t('Додайте реквізити бюджетних рахунків за місцем реєстрації — тоді в сплаті податку з\'являться отримувач, IBAN і призначення платежу.') }}
                 </p>
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Сповіщення</SectionTitle>
+                <SectionTitle>{{ t('Сповіщення') }}</SectionTitle>
                 <div class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">Кошти на платформах — нагадати</span>
-                    <SegmentedControl v-model="form.repatriation" label="Кошти на платформах" size="lg" :disabled="!canConfigure" :options="[{ value: 'quarter_end', label: 'Кінець кв.' }, { value: 'days', label: 'Через N днів' }, { value: 'off', label: 'Вимкнено' }]" />
+                    <span class="text-13 font-medium text-ink-2">{{ t('Кошти на платформах — нагадати') }}</span>
+                    <SegmentedControl v-model="form.repatriation" :label="t('Кошти на платформах')" size="lg" :disabled="!canConfigure" :options="repatriationOptions" />
                 </div>
-                <TextField v-if="form.repatriation === 'days'" v-model="form.repatriation_days" label="Через скільки днів після надходження" inputmode="numeric" class="num" :disabled="!canConfigure" />
-                <div v-for="option in DAY_STEPPERS" :key="option.key" class="flex items-center justify-between gap-3">
+                <TextField v-if="form.repatriation === 'days'" v-model="form.repatriation_days" :label="t('Через скільки днів після надходження')" inputmode="numeric" class="num" :disabled="!canConfigure" />
+                <div v-for="option in daySteppers" :key="option.key" class="flex items-center justify-between gap-3">
                     <span class="text-15">{{ option.label }}</span>
                     <span class="flex h-12 shrink-0 items-center rounded-control border border-line-input bg-surface">
-                        <button type="button" aria-label="Менше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] <= option.min" @click="form[option.key] -= 1">−</button>
-                        <span class="num w-14 text-center text-16 font-semibold">{{ form[option.key] }} дн.</span>
-                        <button type="button" aria-label="Більше" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] >= option.max" @click="form[option.key] += 1">+</button>
+                        <button type="button" :aria-label="t('Менше')" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] <= option.min" @click="form[option.key] -= 1">−</button>
+                        <span class="num w-14 text-center text-16 font-semibold">{{ t('{count} дн.', { count: form[option.key] }) }}</span>
+                        <button type="button" :aria-label="t('Більше')" class="flex size-11 items-center justify-center text-18" :disabled="!canConfigure || form[option.key] >= option.max" @click="form[option.key] += 1">+</button>
                     </span>
                 </div>
             </section>
@@ -387,62 +422,62 @@ async function save(): Promise<void> {
         </LoadState>
 
         <template v-if="canConfigure" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading" @click="save">Зберегти</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading" @click="save">{{ t('Зберегти') }}</PrimaryButton>
         </template>
 
-        <BottomSheet v-model:open="balanceOpen" title="Вхідне сальдо">
+        <BottomSheet v-model:open="balanceOpen" :title="t('Вхідне сальдо')">
             <SegmentedControl
                 v-if="!balanceDraft.id"
                 v-model="balanceDraft.tax_type"
-                label="Податок"
+                :label="t('Податок')"
                 size="lg"
-                :options="TAX_OPTIONS"
+                :options="taxOptions"
             />
             <SelectField
                 v-model="balanceDraft.as_of"
-                label="На дату"
+                :label="t('На дату')"
                 :options="quarterStarts"
                 :disabled="!!balanceDraft.id"
                 :error="fieldError(balanceError, 'as_of')"
             />
-            <TextField v-model="balanceDraft.amount" label="Сума, ₴ («+» — переплата, «−» — борг)" numeric placeholder="-765.69" :error="fieldError(balanceError, 'amount')" />
+            <TextField v-model="balanceDraft.amount" :label="t('Сума, ₴ («+» — переплата, «−» — борг)')" numeric placeholder="-765.69" :error="fieldError(balanceError, 'amount')" />
             <p v-if="balanceError && !fieldError(balanceError, 'as_of') && !fieldError(balanceError, 'amount')" class="m-0 text-14 text-negative">{{ errorMessage(balanceError) }}</p>
             <template #footer>
                 <div class="grid gap-2.5" :class="balanceDraft.id ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
                     <SecondaryButton v-if="balanceDraft.id" tone="negative" :busy="balanceSaving" @click="saveBalance(true)">
-                        {{ confirmingBalanceRemoval ? 'Так, видалити' : 'Видалити' }}
+                        {{ confirmingBalanceRemoval ? t('Так, видалити') : t('Видалити') }}
                     </SecondaryButton>
-                    <PrimaryButton :busy="balanceSaving" :disabled="parseAmount(balanceDraft.amount) === null" @click="saveBalance()">Зберегти</PrimaryButton>
+                    <PrimaryButton :busy="balanceSaving" :disabled="parseAmount(balanceDraft.amount) === null" @click="saveBalance()">{{ t('Зберегти') }}</PrimaryButton>
                 </div>
             </template>
         </BottomSheet>
 
-        <BottomSheet v-model:open="requisiteOpen" title="Реквізити для сплати">
+        <BottomSheet v-model:open="requisiteOpen" :title="t('Реквізити для сплати')">
             <SegmentedControl
                 v-model="requisiteDraft.tax_type"
-                label="Податок"
+                :label="t('Податок')"
                 size="lg"
-                :options="TAX_OPTIONS"
+                :options="taxOptions"
                 @update:model-value="!requisiteDraft.id && (requisiteDraft.purpose_template = PURPOSES[$event as TaxType])"
             />
-            <TextField v-model="requisiteDraft.recipient_name" label="Отримувач" placeholder="ГУК у м. Київ/18050400" :error="fieldError(requisiteError, 'recipient_name')" />
+            <TextField v-model="requisiteDraft.recipient_name" :label="t('Отримувач')" :placeholder="RECIPIENT_EXAMPLE" :error="fieldError(requisiteError, 'recipient_name')" />
             <TextField v-model="requisiteDraft.iban" label="IBAN" class="num" placeholder="UA…" :error="fieldError(requisiteError, 'iban')" />
             <div class="grid grid-cols-2 gap-2.5">
-                <TextField v-model="requisiteDraft.recipient_code" label="Код отримувача" class="num" placeholder="ЄДРПОУ" :error="fieldError(requisiteError, 'recipient_code')" />
-                <DateField v-model="requisiteDraft.effective_from" label="Діє з" :error="fieldError(requisiteError, 'effective_from')" />
+                <TextField v-model="requisiteDraft.recipient_code" :label="t('Код отримувача')" class="num" :placeholder="t('ЄДРПОУ')" :error="fieldError(requisiteError, 'recipient_code')" />
+                <DateField v-model="requisiteDraft.effective_from" :label="t('Діє з')" :error="fieldError(requisiteError, 'effective_from')" />
             </div>
             <TextField
                 v-model="requisiteDraft.purpose_template"
-                label="Призначення платежу"
+                :label="t('Призначення платежу')"
                 class="num text-14"
-                hint="{tax_id}, {period}, {full_name} підставляються під час сплати"
+                :hint="t('{tax_id}, {period}, {full_name} підставляються під час сплати')"
                 :error="fieldError(requisiteError, 'purpose_template')"
             />
             <p v-if="requisiteError && !['recipient_name', 'iban', 'recipient_code', 'effective_from', 'purpose_template'].some((field) => fieldError(requisiteError, field))" class="m-0 text-14 text-negative">
                 {{ errorMessage(requisiteError) }}
             </p>
             <template #footer>
-                <PrimaryButton :busy="requisiteSaving" @click="saveRequisite">Зберегти</PrimaryButton>
+                <PrimaryButton :busy="requisiteSaving" @click="saveRequisite">{{ t('Зберегти') }}</PrimaryButton>
             </template>
         </BottomSheet>
     </SubScreen>

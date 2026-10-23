@@ -14,9 +14,9 @@ use Tests\TestCase;
 /**
  * Class LocalizationTest.
  *
- * The API answers in Ukrainian, when the request asks for it (`Accept-Language: uk`, as the SPA does), whatever the
- * user's own locale, and in English otherwise: its own messages, Laravel's validation and sign-in messages alike.
- * Every message of the application has its Ukrainian text in `lang/uk.json`.
+ * The API answers in the signed-in user's own language (`uk` or `en`), whatever the request asks for, and before
+ * signing in in the language of the request (`Accept-Language`), English without one: its own messages, Laravel's
+ * validation and sign-in messages alike. Every message of the application has its Ukrainian text in `lang/uk.json`.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature
@@ -47,33 +47,41 @@ class LocalizationTest extends TestCase
     }
 
     /**
-     * Test that the application's own messages and Laravel's validation messages come in Ukrainian, though the
-     * user's own locale is English.
+     * Test that the application's own messages and Laravel's validation messages come in the user's own language,
+     * whatever the request asks for.
      *
      * @return void
      */
-    public function testAnswersInUkrainianWhateverTheUsersOwnLocale(): void
+    public function testAnswersInTheUsersOwnLanguageOverTheRequests(): void
     {
         Storage::fake('local');
         $profile = $this->createProfile();
-        $this->actAs($profile)->forceFill(['locale' => 'en'])->save();
+        $user = $this->actAs($profile);
         $account = $this->createAccount($profile);
         $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
         $invoice = $this->createFrozenInvoice($profile, $account);
         $this->recordReceipt($profile, $invoice, $account, ['amount' => '3100.00']);
-        $headers = ['Accept-Language' => 'uk'];
+        $pay = $this->profilePath($profile, "invoices/{$invoice->id}/pay");
 
-        $this->postJson($this->profilePath($profile, "invoices/{$invoice->id}/pay"), [], $headers)
+        $user->forceFill(['locale' => 'uk'])->save();
+        $this->postJson($pay, [], ['Accept-Language' => 'en'])
             ->assertUnprocessable()
+            ->assertHeader('Content-Language', 'uk')
             ->assertJsonValidationErrors(['status' => 'Надходження покривають 3100.00 з 3892.50 USD, тож інвойс ще не оплачено.']);
-
-        $this->postJson($this->profilePath($profile, 'accounts'), [], $headers)
+        $this->postJson($this->profilePath($profile, 'accounts'), [], ['Accept-Language' => 'en'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['name' => 'Заповніть це поле.']);
+
+        $user->forceFill(['locale' => 'en'])->save();
+        $this->postJson($pay, [], ['Accept-Language' => 'uk'])
+            ->assertUnprocessable()
+            ->assertHeader('Content-Language', 'en')
+            ->assertJsonValidationErrors(['status' => 'The receipts cover 3100.00 of 3892.50 USD, so the invoice isn\'t paid yet.']);
     }
 
     /**
-     * Test that every message, which the application passes through `__()`, has its Ukrainian text.
+     * Test that every message, which the application passes through `__()` or `trans_choice()`, has its Ukrainian
+     * text.
      *
      * @return void
      */
@@ -99,7 +107,7 @@ class LocalizationTest extends TestCase
     }
 
     /**
-     * Get the messages, which the code passes to `__()` as a literal string.
+     * Get the messages, which the code passes to `__()` or `trans_choice()` as a literal string.
      *
      * @param string $code
      *
@@ -113,7 +121,7 @@ class LocalizationTest extends TestCase
         foreach ($tokens as $index => $token) {
             $literal = $tokens[$index + 2] ?? null;
 
-            if (is_array($token) && $token[0] === T_STRING && $token[1] === '__' && ($tokens[$index + 1] ?? null) === '('
+            if (is_array($token) && $token[0] === T_STRING && in_array($token[1], ['__', 'trans_choice'], true) && ($tokens[$index + 1] ?? null) === '('
                 && is_array($literal) && $literal[0] === T_CONSTANT_ENCAPSED_STRING) {
                 $messages[] = stripcslashes(substr($literal[1], 1, -1));
             }

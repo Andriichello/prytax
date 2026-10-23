@@ -124,7 +124,7 @@ class DemoSeeder extends Seeder
      */
     protected function user(Organization $organization, string $name, string $email, string $role): User
     {
-        $user = new User(['name' => $name, 'email' => $email, 'password' => 'password', 'timezone' => 'Europe/Kyiv']);
+        $user = new User(['name' => $name, 'email' => $email, 'password' => 'password', 'timezone' => 'Europe/Kyiv', 'locale' => 'uk']);
         $user->forceFill([
             'organization_id' => $organization->id,
             'email_verified_at' => now(),

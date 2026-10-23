@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { PaymentFlow } from '@/api/types';
+import Translated from '@/components/ui/Translated.vue';
+import { t } from '@/i18n';
 import { formatDayMonth } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney } from '@/utils/money';
 
@@ -23,11 +25,15 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
             </span>
 
             <span v-if="step.type === 'receipt'" class="flex flex-1 flex-col gap-[3px] pb-4.5">
-                <span class="text-12 text-ink-3">{{ formatDayMonth(step.date) }} · надходження</span>
+                <span class="text-12 text-ink-3">{{ t('{date} · надходження', { date: formatDayMonth(step.date) }) }}</span>
                 <span class="text-15 font-medium">{{ step.account.account_name }}</span>
                 <span class="text-13 text-ink-2">
-                    Отримано <span class="num font-semibold text-ink">{{ formatMoney(step.amount, step.currency) }}</span>
-                    <template v-if="step.fee && compareAmounts(step.fee, '0') !== 0"> · комісія <span class="num">{{ formatAmount(step.fee) }}</span></template>
+                    <Translated :text="t('Отримано {amount}')">
+                        <template #amount><span class="num font-semibold text-ink">{{ formatMoney(step.amount, step.currency) }}</span></template>
+                    </Translated>
+                    <template v-if="step.fee && compareAmounts(step.fee, '0') !== 0">
+                        · <Translated :text="t('комісія {fee}')"><template #fee><span class="num">{{ formatAmount(step.fee) }}</span></template></Translated>
+                    </template>
                 </span>
             </span>
 
@@ -36,20 +42,24 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 :to="{ name: 'transfer', params: { id: step.transfer_id } }"
                 class="flex flex-1 flex-col gap-[3px] pb-4.5 text-ink no-underline hover:text-ink"
             >
-                <span class="text-12 text-ink-3">{{ formatDayMonth(step.date) }} · переказ</span>
+                <span class="text-12 text-ink-3">{{ t('{date} · переказ', { date: formatDayMonth(step.date) }) }}</span>
                 <span class="text-15 font-medium">→ {{ step.to.account_name }}</span>
                 <span class="text-13 text-ink-2">
-                    Розподілено <span class="num font-semibold text-ink">{{ formatMoney(step.allocated, step.currency_sent) }}</span>
-                    → прибуло <span class="num font-semibold text-ink">{{ formatMoney(step.arrived, step.currency_received) }}</span>
+                    <Translated :text="t('Розподілено {allocated} → прибуло {arrived}')">
+                        <template #allocated><span class="num font-semibold text-ink">{{ formatMoney(step.allocated, step.currency_sent) }}</span></template>
+                        <template #arrived><span class="num font-semibold text-ink">{{ formatMoney(step.arrived, step.currency_received) }}</span></template>
+                    </Translated>
                 </span>
                 <span v-if="compareAmounts(step.fee_share, '0') !== 0" class="text-12 text-ink-3">
-                    Частка комісії переказу <span class="num">{{ formatMoney(step.fee_share, step.currency_sent) }}</span>
+                    <Translated :text="t('Частка комісії переказу {amount}')">
+                        <template #amount><span class="num">{{ formatMoney(step.fee_share, step.currency_sent) }}</span></template>
+                    </Translated>
                 </span>
             </RouterLink>
 
             <span v-else class="flex flex-1 flex-col gap-[3px] pb-4.5">
-                <span class="text-12 text-ink-3">{{ formatDayMonth(step.date) }} · повернення клієнту</span>
-                <span class="text-15 font-medium">з {{ step.from.account_name }}</span>
+                <span class="text-12 text-ink-3">{{ t('{date} · повернення клієнту', { date: formatDayMonth(step.date) }) }}</span>
+                <span class="text-15 font-medium">{{ t('з {account}', { account: step.from.account_name }) }}</span>
                 <span class="num text-13 font-semibold text-negative">{{ formatMoney(`-${step.amount}`, step.currency) }}</span>
                 <button
                     v-if="canRemoveRefunds"
@@ -57,7 +67,7 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                     class="flex min-h-11 items-center self-start text-13 font-medium text-negative"
                     @click="emit('removeRefund', step.refund_id)"
                 >
-                    Видалити повернення
+                    {{ t('Видалити повернення') }}
                 </button>
             </span>
         </li>
@@ -68,10 +78,10 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 <span v-if="index < now.length - 1" class="w-0.5 flex-1 bg-rail" />
             </span>
             <span class="flex flex-1 flex-col gap-[3px]" :class="index < now.length - 1 ? 'pb-4.5' : ''">
-                <span class="text-12 text-ink-3">зараз</span>
-                <span class="text-15 font-medium">{{ holding.kind === 'fop_bank' ? 'На' : 'Залишок на' }} {{ holding.account_name }}</span>
+                <span class="text-12 text-ink-3">{{ t('зараз') }}</span>
+                <span class="text-15 font-medium">{{ holding.kind === 'fop_bank' ? t('На {account}', { account: holding.account_name }) : t('Залишок на {account}', { account: holding.account_name }) }}</span>
                 <span class="num text-13 font-semibold" :class="holding.kind === 'fop_bank' ? 'text-positive' : 'text-warning-text'">
-                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'"> не розподілено</template>
+                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'"> {{ t('не розподілено') }}</template>
                 </span>
             </span>
         </li>

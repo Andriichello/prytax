@@ -10,6 +10,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { t } from '@/i18n';
 import { MOVEMENT_CATEGORIES, type MovementDraft } from '@/utils/accounts';
 import { today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -30,10 +31,10 @@ const { accountId, currency, movement = null, editable = true } = defineProps<{
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ saved: [] }>();
 
-const DIRECTIONS: { value: MovementDirection; label: string }[] = [
-    { value: 'out', label: 'Списання' },
-    { value: 'in', label: 'Зарахування' },
-];
+const directions = computed<{ value: MovementDirection; label: string }[]>(() => [
+    { value: 'out', label: t('Списання') },
+    { value: 'in', label: t('Зарахування') },
+]);
 
 const { path } = useCurrentProfile();
 
@@ -121,24 +122,24 @@ const generalError = computed(() => (error.value && !['amount', 'booked_at', 'ca
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="movement ? 'Рух коштів' : 'Новий рух коштів'">
+    <BottomSheet v-model:open="open" :title="movement ? t('Рух коштів') : t('Новий рух коштів')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            Комісії банку, відсотки, витрати чи зняття — лише для балансу рахунку. Доходом ФОП вони не є.
+            {{ t('Комісії банку, відсотки, витрати чи зняття — лише для балансу рахунку. Доходом ФОП вони не є.') }}
         </p>
-        <SegmentedControl v-model="form.direction" label="Напрям" size="lg" :options="DIRECTIONS" :disabled="!editable" />
-        <SelectField v-model="form.category" label="Що це" :options="categoryOptions" :disabled="!editable" :error="fieldError(error, 'category')" />
+        <SegmentedControl v-model="form.direction" :label="t('Напрям')" size="lg" :options="directions" :disabled="!editable" />
+        <SelectField v-model="form.category" :label="t('Що це')" :options="categoryOptions" :disabled="!editable" :error="fieldError(error, 'category')" />
         <div class="grid grid-cols-2 gap-2.5">
-            <TextField v-model="form.amount" :label="`Сума, ${currency}`" numeric :disabled="!editable" :error="fieldError(error, 'amount')" />
-            <DateField v-model="form.booked_at" label="Дата" :max="today()" :disabled="!editable" :error="fieldError(error, 'booked_at')" />
+            <TextField v-model="form.amount" :label="t('Сума, {currency}', { currency })" numeric :disabled="!editable" :error="fieldError(error, 'amount')" />
+            <DateField v-model="form.booked_at" :label="t('Дата')" :max="today()" :disabled="!editable" :error="fieldError(error, 'booked_at')" />
         </div>
-        <TextField v-model="form.note" label="Примітка" placeholder="Напр., обслуговування рахунку" :disabled="!editable" :error="fieldError(error, 'note')" />
+        <TextField v-model="form.note" :label="t('Примітка')" :placeholder="t('Напр., обслуговування рахунку')" :disabled="!editable" :error="fieldError(error, 'note')" />
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         <template v-if="editable" #footer>
             <div class="grid gap-2.5" :class="movement ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
                 <SecondaryButton v-if="movement" tone="negative" :busy="saving" @click="remove">
-                    {{ confirmingRemoval ? 'Так, видалити' : 'Видалити' }}
+                    {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
                 </SecondaryButton>
-                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.booked_at" @click="save">Зберегти</PrimaryButton>
+                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.booked_at" @click="save">{{ t('Зберегти') }}</PrimaryButton>
             </div>
         </template>
     </BottomSheet>

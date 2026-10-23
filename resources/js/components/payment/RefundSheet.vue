@@ -8,7 +8,9 @@ import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { t } from '@/i18n';
 import { today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { compareAmounts, parseAmount, subtractAmounts } from '@/utils/money';
@@ -105,34 +107,36 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" title="Повернення клієнту">
+    <BottomSheet v-model:open="open" :title="t('Повернення клієнту')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            Повернення зменшує дохід періоду, в якому його зроблено. Кошти йдуть з рахунку в {{ payment.currency }}.
+            {{ t('Повернення зменшує дохід періоду, в якому його зроблено. Кошти йдуть з рахунку в {currency}.', { currency: payment.currency }) }}
         </p>
         <div class="grid grid-cols-2 gap-2.5">
-            <TextField v-model="amount" :label="`Сума, ${payment.currency}`" numeric :error="fieldError(error, 'amount')" />
-            <DateField v-model="refundedAt" label="Дата" :min="payment.received_at" :max="today()" :error="fieldError(error, 'refunded_at')" />
+            <TextField v-model="amount" :label="t('Сума, {currency}', { currency: payment.currency })" numeric :error="fieldError(error, 'amount')" />
+            <DateField v-model="refundedAt" :label="t('Дата')" :min="payment.received_at" :max="today()" :error="fieldError(error, 'refunded_at')" />
         </div>
         <SelectField
             v-model="fromAccountId"
-            label="З рахунку"
-            placeholder="Оберіть рахунок"
+            :label="t('З рахунку')"
+            :placeholder="t('Оберіть рахунок')"
             :options="options"
             :error="fieldError(error, 'from_account_id')"
         />
         <TextField
             v-if="needsRate"
             v-model="nbuRate"
-            :label="`Курс, ₴ за 1 ${payment.currency}`"
+            :label="t('Курс, ₴ за 1 {currency}', { currency: payment.currency })"
             numeric
             placeholder="41.8710"
-            hint="Вручну — лише поки НБУ не опублікував курс на цю дату."
+            :hint="t('Вручну — лише поки НБУ не опублікував курс на цю дату.')"
             :error="fieldError(error, 'nbu_rate')"
         />
-        <TextAreaField v-model="reason" label="Причина" :rows="2" placeholder="Напр., переплата" />
-        <TextAreaField v-if="locked" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
+        <TextAreaField v-model="reason" :label="t('Причина')" :rows="2" :placeholder="t('Напр., переплата')" />
+        <TextAreaField v-if="locked" v-model="correctionNote" :label="t('Квартал уже задекларовано — що уточнюєте?')" :rows="2" />
         <p v-if="reopenedStatus" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
-            Інвойс <span class="num">{{ payment.invoice?.number }}</span> більше не буде покрито повністю й повернеться до статусу «{{ reopenedStatus }}».
+            <Translated :text="t('Інвойс {number} більше не буде покрито повністю й повернеться до статусу «{status}».', { status: reopenedStatus })">
+                <template #number><span class="num">{{ payment.invoice?.number }}</span></template>
+            </Translated>
         </p>
         <p v-if="error && !fieldError(error, 'amount') && !fieldError(error, 'refunded_at') && !fieldError(error, 'from_account_id') && !fieldError(error, 'nbu_rate')" class="m-0 text-14 text-negative" role="alert">
             {{ errorMessage(error) }}
@@ -140,7 +144,7 @@ async function save(): Promise<void> {
 
         <template #footer>
             <PrimaryButton :busy="saving" :disabled="parseAmount(amount) === null || fromAccountId === null" @click="save">
-                Записати повернення
+                {{ t('Записати повернення') }}
             </PrimaryButton>
         </template>
     </BottomSheet>

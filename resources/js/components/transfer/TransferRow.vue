@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { AccountTransfer } from '@/api/types';
+import { t } from '@/i18n';
 import { accountLabel } from '@/utils/accounts';
 import { formatDate } from '@/utils/dates';
 import { formatAmount, formatMoney } from '@/utils/money';
@@ -23,7 +24,7 @@ const allocations = computed(() => transfer.allocations?.length ?? 0);
     >
         <span class="flex items-baseline justify-between gap-2 text-13 text-ink-3">
             <span class="num">{{ formatDate(transfer.received_at) }}</span>
-            <span v-if="isSale" class="font-semibold text-accent-hover">продаж валюти</span>
+            <span v-if="isSale" class="font-semibold text-accent-hover">{{ t('продаж валюти') }}</span>
             <span v-else-if="allocations">{{ countOf(allocations, PAYMENTS) }}</span>
         </span>
         <span class="text-16 font-medium">
@@ -34,11 +35,11 @@ const allocations = computed(() => transfer.allocations?.length ?? 0);
                 <template v-if="isSale">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }} → {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</template>
                 <template v-else>{{ formatAmount(transfer.amount_sent) }} → {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</template>
             </span>
-            <span v-if="!isSale && transfer.fee_amount" class="num text-13 text-ink-3">комісія {{ formatAmount(transfer.fee_amount) }}</span>
+            <span v-if="!isSale && transfer.fee_amount" class="num text-13 text-ink-3">{{ t('комісія {fee}', { fee: formatAmount(transfer.fee_amount) }) }}</span>
         </span>
         <span v-if="isSale && transfer.effective_rate" class="flex items-baseline justify-between gap-2 text-13 text-ink-3">
-            <span class="num">{{ formatAmount(transfer.effective_rate) }} vs НБУ {{ formatAmount(transfer.nbu_rate) }}</span>
-            <span v-if="transfer.fx_spread" class="num">спред {{ formatMoney(transfer.fx_spread, 'UAH') }}</span>
+            <span class="num">{{ t('{rate} vs НБУ {nbu}', { rate: formatAmount(transfer.effective_rate), nbu: formatAmount(transfer.nbu_rate) }) }}</span>
+            <span v-if="transfer.fx_spread" class="num">{{ t('спред {amount}', { amount: formatMoney(transfer.fx_spread, 'UAH') }) }}</span>
         </span>
     </RouterLink>
 </template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Payment } from '@/api/types';
-import { formatDate, monthName, quarterLabel } from '@/utils/dates';
+import { t } from '@/i18n';
+import { formatDate, monthNameInText, quarterLabel } from '@/utils/dates';
 import { formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
 
 /**
@@ -14,6 +15,7 @@ const { payment } = defineProps<{ payment: Payment }>();
 const fee = computed(() => (payment.received_currency === payment.currency && payment.received_amount
     ? subtractAmounts(payment.amount, payment.received_amount)
     : null));
+
 </script>
 
 <template>
@@ -28,13 +30,13 @@ const fee = computed(() => (payment.received_currency === payment.currency && pa
             <span class="num text-17 font-bold">{{ formatMoney(payment.uah_amount, 'UAH') }}</span>
         </span>
         <span class="flex items-baseline justify-between gap-2 text-12 text-ink-3">
-            <span>{{ quarterLabel(payment.period_quarter) }} · {{ monthName(payment.period_month).toLowerCase() }}</span>
+            <span>{{ quarterLabel(payment.period_quarter) }} · {{ monthNameInText(payment.period_month) }}</span>
             <span v-if="payment.currency !== 'UAH'" class="num">
                 {{ payment.currency }} {{ formatAmount(payment.amount) }} @ {{ formatAmount(payment.nbu_rate) }}
             </span>
         </span>
         <span v-if="fee !== null" class="mt-2 flex items-baseline justify-between gap-2 border-t border-divider pt-2.5 text-14">
-            <span class="text-ink-2">Комісія при отриманні</span>
+            <span class="text-ink-2">{{ t('Комісія при отриманні') }}</span>
             <span class="num font-semibold">{{ formatMoney(fee, payment.currency) }}</span>
         </span>
     </RouterLink>

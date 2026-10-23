@@ -12,9 +12,11 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { ACCOUNT_KINDS } from '@/utils/accounts';
 import { formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -101,6 +103,23 @@ async function reloadBalances(): Promise<void> {
     balances.value = sortBalances(await api.all<AccountOpeningBalance>(path(`accounts/${accountId.value}/opening-balances`)));
 }
 
+const periodOptions = computed<{ value: LimitPeriod; label: string }[]>(() => [
+    { value: 'month', label: t('Місяць') },
+    { value: 'quarter', label: t('Квартал') },
+    { value: 'year', label: t('Рік') },
+]);
+
+const windowOptions = computed<{ value: LimitWindow; label: string }[]>(() => [
+    { value: 'calendar', label: t('Календарне') },
+    { value: 'rolling', label: t('Ковзне') },
+]);
+
+/** What a limit counts: the clients' receipts only, or everything coming in. */
+const countsOptions = computed<{ value: LimitCounts; title: string; text: string }[]>(() => [
+    { value: 'receipts', title: t('Лише надходження від клієнтів'), text: t('Як річний ліміт Payoneer') },
+    { value: 'all_inbound', title: t('Усі зарахування'), text: t('Разом із вашими переказами — для лімітів банку') },
+]);
+
 const hasLimit = computed(() => form.hasLimit && form.kind !== 'personal');
 const limitMissing = computed(() => hasLimit.value && form.limit_amount.trim() === '');
 
@@ -174,12 +193,12 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
 </script>
 
 <template>
-    <SubScreen :title="isNew ? 'Новий рахунок' : existing?.name ?? 'Рахунок'" :back="isNew ? { name: 'accounts' } : { name: 'account', params: { id: accountId } }">
+    <SubScreen :title="isNew ? t('Новий рахунок') : existing?.name ?? t('Рахунок')" :back="isNew ? { name: 'accounts' } : { name: 'account', params: { id: accountId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <TextField v-model="form.name" label="Назва" placeholder="Напр., Wise USD" :error="fieldError(saveError, 'name')" />
+            <TextField v-model="form.name" :label="t('Назва')" :placeholder="t('Напр., Wise USD')" :error="fieldError(saveError, 'name')" />
 
             <div class="flex flex-col gap-1.5">
-                <span id="account-kind" class="text-13 font-medium text-ink-2">Тип</span>
+                <span id="account-kind" class="text-13 font-medium text-ink-2">{{ t('Тип') }}</span>
                 <div role="radiogroup" aria-labelledby="account-kind" class="grid grid-cols-2 gap-2">
                     <button
                         v-for="kind in KINDS"
@@ -193,11 +212,11 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
                         {{ ACCOUNT_KINDS[kind].label }}
                     </button>
                 </div>
-                <span class="text-12 text-ink-3">Лише ФОП-рахунок вважається «коштами в Україні»</span>
+                <span class="text-12 text-ink-3">{{ t('Лише ФОП-рахунок вважається «коштами в Україні»') }}</span>
             </div>
 
             <div class="flex flex-col gap-1.5">
-                <label for="account-currency" class="text-13 font-medium text-ink-2">Валюта</label>
+                <label for="account-currency" class="text-13 font-medium text-ink-2">{{ t('Валюта') }}</label>
                 <select
                     id="account-currency"
                     v-model="form.currency"
@@ -206,80 +225,67 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
                 >
                     <option v-for="currency in CURRENCIES" :key="currency" :value="currency">{{ currency }}</option>
                 </select>
-                <span class="text-12 text-ink-3">Один рахунок — одна валюта. Для іншої валюти створіть окремий.</span>
+                <span class="text-12 text-ink-3">{{ t('Один рахунок — одна валюта. Для іншої валюти створіть окремий.') }}</span>
             </div>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>Реквізити для інвойсу</SectionTitle>
-                <TextField v-model="form.holder_name" label="Власник" placeholder="Як у банку, латиницею" />
-                <TextField v-model="form.bank_name" label="Банк" />
+                <SectionTitle>{{ t('Реквізити для інвойсу') }}</SectionTitle>
+                <TextField v-model="form.holder_name" :label="t('Власник')" :placeholder="t('Як у банку, латиницею')" />
+                <TextField v-model="form.bank_name" :label="t('Банк')" />
                 <div class="grid grid-cols-2 gap-2.5">
-                    <TextField v-model="form.account_number" label="Номер рахунку" class="num" :error="fieldError(saveError, 'account_number')" />
+                    <TextField v-model="form.account_number" :label="t('Номер рахунку')" class="num" :error="fieldError(saveError, 'account_number')" />
                     <TextField v-model="form.swift" label="SWIFT" class="num" placeholder="—" :error="fieldError(saveError, 'swift')" />
                 </div>
                 <TextField
                     v-model="form.iban"
                     label="IBAN"
                     class="num"
-                    placeholder="Немає"
-                    hint="IBAN і номер рахунку зберігаються зашифрованими"
+                    :placeholder="t('Немає')"
+                    :hint="t('IBAN і номер рахунку зберігаються зашифрованими')"
                     :error="fieldError(saveError, 'iban')"
                 />
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <div v-for="(detail, index) in form.details" :key="index" class="flex items-center gap-2 py-2">
-                        <input v-model="detail.label" aria-label="Назва поля" placeholder="Routing (ABA)" class="h-11 min-w-0 flex-1 rounded-control bg-paper px-3 text-15">
-                        <input v-model="detail.value" aria-label="Значення" class="num h-11 min-w-0 flex-1 rounded-control bg-paper px-3 text-right text-15">
-                        <button type="button" aria-label="Прибрати поле" class="flex size-11 shrink-0 items-center justify-center text-ink-3" @click="form.details.splice(index, 1)">
+                        <input v-model="detail.label" :aria-label="t('Назва поля')" placeholder="Routing (ABA)" class="h-11 min-w-0 flex-1 rounded-control bg-paper px-3 text-15">
+                        <input v-model="detail.value" :aria-label="t('Значення')" class="num h-11 min-w-0 flex-1 rounded-control bg-paper px-3 text-right text-15">
+                        <button type="button" :aria-label="t('Прибрати поле')" class="flex size-11 shrink-0 items-center justify-center text-ink-3" @click="form.details.splice(index, 1)">
                             <Icon name="close" :size="18" />
                         </button>
                     </div>
                     <button type="button" class="flex min-h-12 items-center text-15 font-medium text-accent" @click="form.details.push({ label: '', value: '' })">
-                        + Додати поле
+                        {{ t('+ Додати поле') }}
                     </button>
                 </div>
             </section>
 
             <section v-if="form.kind !== 'personal'" class="flex flex-col gap-3">
                 <div class="flex items-center justify-between">
-                    <SectionTitle>Ліміт</SectionTitle>
+                    <SectionTitle>{{ t('Ліміт') }}</SectionTitle>
                     <label class="flex min-h-11 items-center gap-2.5 text-15">
                         <input v-model="form.hasLimit" type="checkbox" class="size-5 accent-accent">
-                        Увімкнено
+                        {{ t('Увімкнено') }}
                     </label>
                 </div>
                 <template v-if="form.hasLimit">
                     <TextField
                         v-model="form.limit_amount"
-                        :label="`Сума, ${form.currency}`"
+                        :label="t('Сума, {currency}', { currency: form.currency })"
                         numeric
-                        :error="fieldError(saveError, 'limit_amount') ?? (limitMissing ? 'Вкажіть суму ліміту або вимкніть його.' : undefined)"
+                        :error="fieldError(saveError, 'limit_amount') ?? (limitMissing ? t('Вкажіть суму ліміту або вимкніть його.') : undefined)"
                     />
                     <div class="flex flex-col gap-1.5">
-                        <span class="text-13 font-medium text-ink-2">Період</span>
-                        <SegmentedControl
-                            v-model="form.limit_period"
-                            label="Період ліміту"
-                            size="lg"
-                            :options="[{ value: 'month', label: 'Місяць' }, { value: 'quarter', label: 'Квартал' }, { value: 'year', label: 'Рік' }]"
-                        />
+                        <span class="text-13 font-medium text-ink-2">{{ t('Період') }}</span>
+                        <SegmentedControl v-model="form.limit_period" :label="t('Період ліміту')" size="lg" :options="periodOptions" />
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <span class="text-13 font-medium text-ink-2">Вікно</span>
-                        <SegmentedControl
-                            v-model="form.limit_window"
-                            label="Вікно ліміту"
-                            size="lg"
-                            :options="[{ value: 'calendar', label: 'Календарне' }, { value: 'rolling', label: 'Ковзне' }]"
-                        />
+                        <span class="text-13 font-medium text-ink-2">{{ t('Вікно') }}</span>
+                        <SegmentedControl v-model="form.limit_window" :label="t('Вікно ліміту')" size="lg" :options="windowOptions" />
                     </div>
                     <div class="flex flex-col gap-1.5">
-                        <span id="limit-counts" class="text-13 font-medium text-ink-2">Що рахувати</span>
+                        <span id="limit-counts" class="text-13 font-medium text-ink-2">{{ t('Що рахувати') }}</span>
                         <div role="radiogroup" aria-labelledby="limit-counts" class="flex flex-col gap-2">
                             <button
-                                v-for="option in [
-                                    { value: 'receipts', title: 'Лише надходження від клієнтів', text: 'Як річний ліміт Payoneer' },
-                                    { value: 'all_inbound', title: 'Усі зарахування', text: 'Разом із вашими переказами — для лімітів банку' },
-                                ] as const"
+                                v-for="option in countsOptions"
                                 :key="option.value"
                                 type="button"
                                 role="radio"
@@ -306,14 +312,14 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>
-                    Залишок на дату
+                    {{ t('Залишок на дату') }}
                     <template v-if="!isNew && can('create', 'account-opening-balances')" #aside>
-                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openBalance(null)">+ Додати</button>
+                        <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openBalance(null)">{{ t('+ Додати') }}</button>
                     </template>
                 </SectionTitle>
                 <div v-if="isNew" class="grid grid-cols-2 gap-2.5">
-                    <DateField v-model="form.opening_as_of" label="На дату" :max="today()" />
-                    <TextField v-model="form.opening_amount" :label="`Сума, ${form.currency}`" numeric placeholder="Немає" />
+                    <DateField v-model="form.opening_as_of" :label="t('На дату')" :max="today()" />
+                    <TextField v-model="form.opening_amount" :label="t('Сума, {currency}', { currency: form.currency })" numeric :placeholder="t('Немає')" />
                 </div>
                 <div v-else-if="balances.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <button
@@ -324,20 +330,22 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
                         :disabled="!can('update', 'account-opening-balances')"
                         @click="openBalance(item)"
                     >
-                        <span class="text-15">на <span class="num">{{ formatDate(item.as_of) }}</span></span>
+                        <span class="text-15">
+                            <Translated :text="t('на {date}')"><template #date><span class="num">{{ formatDate(item.as_of) }}</span></template></Translated>
+                        </span>
                         <span class="num text-16 font-semibold">{{ formatMoney(item.amount, form.currency) }}</span>
                     </button>
                 </div>
                 <p v-if="openingError" class="m-0 text-14 text-negative" role="alert">
-                    Рахунок створено, але залишок не збережено: {{ errorMessage(openingError) }} Додайте його ще раз.
+                    {{ t('Рахунок створено, але залишок не збережено: {error} Додайте його ще раз.', { error: errorMessage(openingError) }) }}
                 </p>
                 <p class="m-0 text-13 leading-normal text-ink-3">
-                    Якщо рахунок відкрито до початку обліку в PryTax. Баланс рахується від останнього залишку.
+                    {{ t('Якщо рахунок відкрито до початку обліку в PryTax. Баланс рахується від останнього залишку.') }}
                 </p>
             </section>
 
             <label class="flex min-h-13 items-center justify-between rounded-control border border-line bg-surface px-4 text-15">
-                Активний
+                {{ t('Активний') }}
                 <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent">
             </label>
 
@@ -345,7 +353,7 @@ const tile = 'flex min-h-12 items-center justify-center rounded-control px-2 tex
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'accounts')" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || limitMissing" @click="save">Зберегти</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || limitMissing" @click="save">{{ t('Зберегти') }}</PrimaryButton>
         </template>
 
         <OpeningBalanceSheet

@@ -2,21 +2,20 @@
 import type { Invoice } from '@/api/types';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
+import Translated from '@/components/ui/Translated.vue';
+import { t } from '@/i18n';
 import { formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
 
 /**
  * The open invoices to record a receipt for: the number in cobalt, the client on a light second line, and what is
  * still to be received.
  */
-const {
-    invoices,
-    selectedId,
-    title = 'Оберіть інвойс',
-    emptyText = 'Відкритих інвойсів немає. Надходження записують для зафіксованих інвойсів: готових або надісланих.',
-} = defineProps<{
+const { invoices, selectedId, title, emptyText } = defineProps<{
     invoices: Invoice[];
     selectedId: number | null;
+    /** "Оберіть інвойс" when not given. */
     title?: string;
+    /** What the sheet says without invoices; it explains which invoices take receipts when not given. */
     emptyText?: string;
 }>();
 
@@ -30,7 +29,7 @@ function choose(invoice: Invoice): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="title">
+    <BottomSheet v-model:open="open" :title="title ?? t('Оберіть інвойс')">
         <div v-if="invoices.length" class="flex flex-col divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface">
             <button
                 v-for="invoice in invoices"
@@ -44,13 +43,17 @@ function choose(invoice: Invoice): void {
                     <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
                     <span class="truncate text-15 font-light">{{ invoice.client?.name }}</span>
                     <span class="text-12 text-ink-3">
-                        Залишок <span class="num">{{ formatMoney(subtractAmounts(invoice.total, invoice.paid_amount ?? '0'), invoice.currency) }}</span>
-                        з <span class="num">{{ formatAmount(invoice.total) }}</span>
+                        <Translated :text="t('Залишок {remaining} з {total}')">
+                            <template #remaining><span class="num">{{ formatMoney(subtractAmounts(invoice.total, invoice.paid_amount ?? '0'), invoice.currency) }}</span></template>
+                            <template #total><span class="num">{{ formatAmount(invoice.total) }}</span></template>
+                        </Translated>
                     </span>
                 </span>
                 <Icon v-if="invoice.id === selectedId" name="check" :size="22" class="text-accent" />
             </button>
         </div>
-        <p v-else class="m-0 text-15 text-ink-2">{{ emptyText }}</p>
+        <p v-else class="m-0 text-15 text-ink-2">
+            {{ emptyText ?? t('Відкритих інвойсів немає. Надходження записують для зафіксованих інвойсів: готових або надісланих.') }}
+        </p>
     </BottomSheet>
 </template>

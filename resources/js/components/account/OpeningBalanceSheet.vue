@@ -8,6 +8,7 @@ import BottomSheet from '@/components/ui/BottomSheet.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { t } from '@/i18n';
 import { today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { parseAmount } from '@/utils/money';
@@ -83,21 +84,21 @@ const generalError = computed(() => (error.value && !fieldError(error.value, 'as
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" title="Залишок на дату">
+    <BottomSheet v-model:open="open" :title="t('Залишок на дату')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            Скільки було на рахунку того дня. Баланс рахується від останнього такого залишку.
+            {{ t('Скільки було на рахунку того дня. Баланс рахується від останнього такого залишку.') }}
         </p>
         <div class="grid grid-cols-2 gap-2.5">
-            <DateField v-model="form.as_of" label="На дату" :max="today()" :error="fieldError(error, 'as_of')" />
-            <TextField v-model="form.amount" :label="`Сума, ${currency}`" numeric placeholder="0.00" :error="fieldError(error, 'amount')" />
+            <DateField v-model="form.as_of" :label="t('На дату')" :max="today()" :error="fieldError(error, 'as_of')" />
+            <TextField v-model="form.amount" :label="t('Сума, {currency}', { currency })" numeric placeholder="0.00" :error="fieldError(error, 'amount')" />
         </div>
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         <template #footer>
             <div class="grid gap-2.5" :class="balance ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
                 <SecondaryButton v-if="balance" tone="negative" :busy="saving" @click="remove">
-                    {{ confirmingRemoval ? 'Так, видалити' : 'Видалити' }}
+                    {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
                 </SecondaryButton>
-                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.as_of" @click="save">Зберегти</PrimaryButton>
+                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.as_of" @click="save">{{ t('Зберегти') }}</PrimaryButton>
             </div>
         </template>
     </BottomSheet>

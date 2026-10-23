@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { api } from '@/api/client';
-import type { Account, AccountKind } from '@/api/types';
+import type { Account, AccountKind, LimitCounts, LimitPeriod } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -11,6 +11,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { ACCOUNT_KINDS } from '@/utils/accounts';
 import { formatAmount, formatMoney } from '@/utils/money';
 import { countOf } from '@/utils/plural';
@@ -20,10 +21,18 @@ import { countOf } from '@/utils/plural';
  * limit where one is set, and the money a platform or foreign bank still holds past the repatriation rule.
  */
 const KINDS: AccountKind[] = ['platform', 'fop_bank', 'foreign_bank', 'personal'];
-const LIMIT_TEXTS = {
-    receipts: { month: 'Надходження за місяць', quarter: 'Надходження за квартал', year: 'Надходження за рік' },
-    all_inbound: { month: 'Усі зарахування за місяць', quarter: 'Усі зарахування за квартал', year: 'Усі зарахування за рік' },
-} as const;
+
+/**
+ * What a limit counts over its period: "Надходження за місяць", "Усі зарахування за рік".
+ */
+function limitText(counts: LimitCounts, period: LimitPeriod): string {
+    const texts: Record<LimitCounts, Record<LimitPeriod, string>> = {
+        receipts: { month: t('Надходження за місяць'), quarter: t('Надходження за квартал'), year: t('Надходження за рік') },
+        all_inbound: { month: t('Усі зарахування за місяць'), quarter: t('Усі зарахування за квартал'), year: t('Усі зарахування за рік') },
+    };
+
+    return texts[counts][period];
+}
 
 const { profileId, path, settings } = useCurrentProfile();
 const { can } = useSession();
@@ -39,7 +48,11 @@ const lateWhen = computed(() => {
     const rule = settings.value?.compliance.platform_repatriation ?? 'quarter_end';
     const days = /^days:(\d+)$/.exec(rule);
 
-    return days ? `довше ${countOf(Number(days[1]), ['дня', 'днів', 'днів'])}` : 'після кінця кварталу';
+    if (!days) {
+        return t('після кінця кварталу');
+    }
+
+    return t('довше {days}', { days: countOf(Number(days[1]), { uk: ['дня', 'днів', 'днів'], en: ['day', 'days'] }) });
 });
 
 const groups = computed(() => KINDS
@@ -48,18 +61,18 @@ const groups = computed(() => KINDS
 
 function caption(account: Account): string {
     if (!account.is_active) {
-        return 'Неактивний · історія збережена';
+        return t('Неактивний · історія збережена');
     }
 
     if (account.kind === 'personal') {
-        return `${account.currency} · лише для переказів і сплати податків`;
+        return t('{currency} · лише для переказів і сплати податків', { currency: account.currency });
     }
 
     if (account.id === settings.value?.taxes.default_account_id) {
-        return `${account.currency} · рахунок для податків`;
+        return t('{currency} · рахунок для податків', { currency: account.currency });
     }
 
-    return 'Без ліміту';
+    return t('Без ліміту');
 }
 </script>
 
@@ -67,25 +80,25 @@ function caption(account: Account): string {
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">Рахунки</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Рахунки') }}</h1>
                 <RouterLink
                     v-if="can('create', 'accounts')"
                     :to="{ name: 'account-new' }"
                     class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
                 >
                     <Icon name="plus" :size="20" />
-                    Додати
+                    {{ t('Додати') }}
                 </RouterLink>
             </div>
             <p class="m-0 text-14 leading-[1.45] text-ink-3">
-                Баланси — за відстежуваними рухами (надходження, перекази, податки). Витрати не враховуються.
+                {{ t('Баланси — за відстежуваними рухами (надходження, перекази, податки). Витрати не враховуються.') }}
             </p>
         </div>
 
         <LoadState :loading="loading && !accounts" :error="error" @retry="reload">
-            <EmptyState v-if="accounts && accounts.length === 0" text="Рахунків ще немає. Додайте рахунок, на який отримуєте оплату.">
+            <EmptyState v-if="accounts && accounts.length === 0" :text="t('Рахунків ще немає. Додайте рахунок, на який отримуєте оплату.')">
                 <RouterLink v-if="can('create', 'accounts')" :to="{ name: 'account-new' }" class="flex min-h-11 items-center text-14 font-medium no-underline">
-                    Додати рахунок
+                    {{ t('Додати рахунок') }}
                 </RouterLink>
             </EmptyState>
 
@@ -109,7 +122,7 @@ function caption(account: Account): string {
                         <template v-if="account.limit_progress && account.is_active">
                             <ProgressBar :percent="Number(account.limit_progress.percent)" :warn-from="80" />
                             <span class="flex items-baseline justify-between gap-3 text-13 text-ink-2">
-                                <span>{{ LIMIT_TEXTS[account.limit_progress.counts][account.limit_progress.period] }}</span>
+                                <span>{{ limitText(account.limit_progress.counts, account.limit_progress.period) }}</span>
                                 <span class="num" :class="Number(account.limit_progress.percent) >= 80 ? 'font-semibold text-warning-text' : ''">
                                     {{ formatAmount(account.limit_progress.used) }} / {{ formatAmount(account.limit_progress.limit) }} · {{ account.limit_progress.percent }} %
                                 </span>

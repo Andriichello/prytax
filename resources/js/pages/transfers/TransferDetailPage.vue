@@ -14,6 +14,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { t } from '@/i18n';
 import { accountLabel } from '@/utils/accounts';
 import { formatDate } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
@@ -77,21 +78,21 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen title="Переказ" muted :back="{ name: 'transfers' }">
+    <SubScreen :title="t('Переказ')" muted :back="{ name: 'transfers' }">
         <template #action>
             <RouterLink
                 v-if="transfer && can('update', 'account-transfers')"
                 :to="{ name: 'transfer-edit', params: { id } }"
                 class="flex min-h-11 items-center px-3 text-15 font-medium no-underline"
             >
-                Змінити
+                {{ t('Змінити') }}
             </RouterLink>
         </template>
 
         <LoadState :loading="loading && !transfer" :error="error" @retry="reload">
             <template v-if="transfer">
                 <div class="flex flex-col gap-1.5">
-                    <StatusBadge v-if="isSale" label="продаж валюти" tone="info" class="self-start" />
+                    <StatusBadge v-if="isSale" :label="t('продаж валюти')" tone="info" class="self-start" />
                     <span class="num text-30 font-semibold tracking-[-0.02em]">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }}</span>
                     <span class="num text-16 font-light text-ink-2">→ {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span>
                 </div>
@@ -103,22 +104,22 @@ async function remove(): Promise<void> {
                 </p>
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                    <InfoRow v-if="transfer.sent_at" label="Відправлено" figure>{{ formatDate(transfer.sent_at) }}</InfoRow>
-                    <InfoRow label="Зараховано" figure>{{ formatDate(transfer.received_at) }}</InfoRow>
-                    <InfoRow v-if="transfer.fee_amount" :label="isSale ? 'Комісія банку' : 'Комісія'" figure>
+                    <InfoRow v-if="transfer.sent_at" :label="t('Відправлено')" figure>{{ formatDate(transfer.sent_at) }}</InfoRow>
+                    <InfoRow :label="t('Зараховано')" figure>{{ formatDate(transfer.received_at) }}</InfoRow>
+                    <InfoRow v-if="transfer.fee_amount" :label="isSale ? t('Комісія банку') : t('Комісія')" figure>
                         {{ formatMoney(transfer.fee_amount, transfer.fee_currency ?? transfer.currency_sent) }}
                     </InfoRow>
                     <template v-if="isSale">
-                        <InfoRow v-if="transfer.effective_rate" label="Курс переказу" figure>{{ formatAmount(transfer.effective_rate) }}</InfoRow>
-                        <InfoRow v-if="transfer.nbu_rate" :label="transfer.rate_is_manual ? 'Курс (вручну)' : 'Курс НБУ'" figure>{{ formatAmount(transfer.nbu_rate) }}</InfoRow>
-                        <InfoRow v-if="transfer.fx_spread" label="Курсовий спред" figure>{{ formatMoney(transfer.fx_spread, 'UAH') }}</InfoRow>
+                        <InfoRow v-if="transfer.effective_rate" :label="t('Курс переказу')" figure>{{ formatAmount(transfer.effective_rate) }}</InfoRow>
+                        <InfoRow v-if="transfer.nbu_rate" :label="transfer.rate_is_manual ? t('Курс (вручну)') : t('Курс НБУ')" figure>{{ formatAmount(transfer.nbu_rate) }}</InfoRow>
+                        <InfoRow v-if="transfer.fx_spread" :label="t('Курсовий спред')" figure>{{ formatMoney(transfer.fx_spread, 'UAH') }}</InfoRow>
                     </template>
-                    <InfoRow v-if="transfer.reference" label="Референс">{{ transfer.reference }}</InfoRow>
+                    <InfoRow v-if="transfer.reference" :label="t('Референс')">{{ transfer.reference }}</InfoRow>
                 </section>
 
                 <section v-if="transfer.allocations?.length" class="flex flex-col gap-2">
                     <SectionTitle>
-                        Перенесені надходження
+                        {{ t('Перенесені надходження') }}
                         <template #aside><span class="num">{{ formatAmount(allocated) }} / {{ formatAmount(transfer.amount_sent) }}</span></template>
                     </SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -129,8 +130,8 @@ async function remove(): Promise<void> {
                             class="flex items-center justify-between gap-3 py-3 text-ink no-underline hover:text-ink"
                         >
                             <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="num text-15 font-semibold text-accent">{{ allocation.payment?.invoice?.number ?? `Надходження ${allocation.payment_id}` }}</span>
-                                <span class="text-12 text-ink-3">від {{ formatDate(allocation.payment?.received_at) }}</span>
+                                <span class="num text-15 font-semibold text-accent">{{ allocation.payment?.invoice?.number ?? t('Надходження {id}', { id: allocation.payment_id }) }}</span>
+                                <span class="text-12 text-ink-3">{{ t('від {date}', { date: formatDate(allocation.payment?.received_at) }) }}</span>
                             </span>
                             <span class="num text-15 font-semibold">{{ formatMoney(allocation.amount, transfer.currency_sent) }}</span>
                         </RouterLink>
@@ -140,22 +141,22 @@ async function remove(): Promise<void> {
                 <p v-if="transfer.note" class="m-0 text-14 text-ink-2">{{ transfer.note }}</p>
 
                 <SecondaryButton v-if="can('delete', 'account-transfers')" tone="negative" @click="openDelete">
-                    Видалити переказ
+                    {{ t('Видалити переказ') }}
                 </SecondaryButton>
             </template>
         </LoadState>
 
         <ConfirmSheet
             v-model:open="deleteOpen"
-            title="Видалити переказ?"
-            confirm-label="Видалити"
+            :title="t('Видалити переказ?')"
+            :confirm-label="t('Видалити')"
             destructive
             :busy="deleting"
             :error="deleteError"
             @confirm="remove"
         >
-            <p class="m-0">Кошти знову рахуватимуться на рахунку «{{ transfer?.fromAccount?.name }}». Якщо їх уже переказано далі, видалити не вийде.</p>
-            <TextAreaField v-if="needsNote" v-model="correctionNote" label="Квартал уже задекларовано — що уточнюєте?" :rows="2" />
+            <p class="m-0">{{ t('Кошти знову рахуватимуться на рахунку «{account}». Якщо їх уже переказано далі, видалити не вийде.', { account: transfer?.fromAccount?.name ?? '' }) }}</p>
+            <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('Квартал уже задекларовано — що уточнюєте?')" :rows="2" />
         </ConfirmSheet>
     </SubScreen>
 </template>

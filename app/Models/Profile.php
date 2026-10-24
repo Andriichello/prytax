@@ -33,6 +33,7 @@ use PryTax\Enums\TaxableBase;
 use PryTax\Enums\TaxGrouping;
 use PryTax\Enums\TaxIdKind;
 use PryTax\Queries\ProfileQuery;
+use PryTax\Services\Invoices\InvoiceSettingsResolver;
 use PryTax\Services\Invoices\PaymentPurposeRenderer;
 
 /**
@@ -380,6 +381,17 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
     public function addressIn(string $locale): ?string
     {
         return $locale === 'uk' ? $this->address : ($this->address_en ?: $this->address);
+    }
+
+    /**
+     * The invoice settings, which the profile's clients take (design.md §4.1), each with the level it comes from:
+     * `{locale: {value: 'en', source: 'profile', inherited: {…}}, …}`.
+     *
+     * @return Attribute
+     */
+    protected function effectiveInvoiceSettings(): Attribute
+    {
+        return Attribute::get(fn () => app(InvoiceSettingsResolver::class)->forProfile($this));
     }
 
     /**

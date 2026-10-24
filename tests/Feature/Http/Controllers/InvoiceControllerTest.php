@@ -453,8 +453,10 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.description', $contract->describe())
             ->assertJsonPath('data.hourly_rate', '45.00')
             ->assertJsonPath('data.number_preview', 'BL-2026-10-14-1')
-            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile'])
-            ->assertJsonPath('data.effective_settings.show_contract', ['value' => true, 'source' => 'default']);
+            ->assertJsonPath('data.effective_settings.locale.value', 'en')
+            ->assertJsonPath('data.effective_settings.locale.source', 'profile')
+            ->assertJsonPath('data.effective_settings.show_contract.value', true)
+            ->assertJsonPath('data.effective_settings.show_contract.source', 'default');
     }
 
     /**
@@ -512,7 +514,8 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.snapshot.presentation.show_contract', true);
         $this->getJson($this->profilePath($profile, "invoices/$open?append=effective_settings"))
             ->assertOk()
-            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => true, 'source' => 'client']);
+            ->assertJsonPath('data.effective_settings.act_note_enabled.value', true)
+            ->assertJsonPath('data.effective_settings.act_note_enabled.source', 'client');
     }
 
     /**
@@ -589,7 +592,8 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.warnings', ['payment_purpose_charset', 'currency_differs_from_contract']);
         $cleared->assertOk()
             ->assertJsonPath('data.locale', null)
-            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile']);
+            ->assertJsonPath('data.effective_settings.locale.value', 'en')
+            ->assertJsonPath('data.effective_settings.locale.source', 'profile');
         $this->assertDatabaseHas('invoices', ['id' => $draft['id'], 'locale' => null]);
     }
 

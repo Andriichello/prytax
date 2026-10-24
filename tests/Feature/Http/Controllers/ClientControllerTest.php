@@ -163,12 +163,17 @@ class ClientControllerTest extends TestCase
         $cleared = $this->patchJson($path, ['invoice_locale' => null, 'act_note_enabled' => null]);
 
         $saved->assertOk()
-            ->assertJsonPath('data.effective_settings.locale', ['value' => 'uk', 'source' => 'client'])
-            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => false, 'source' => 'client']);
+            ->assertJsonPath('data.effective_settings.locale.value', 'uk')
+            ->assertJsonPath('data.effective_settings.locale.source', 'client')
+            ->assertJsonPath('data.effective_settings.act_note_enabled.value', false)
+            ->assertJsonPath('data.effective_settings.act_note_enabled.source', 'client');
         $cleared->assertOk()
-            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile'])
-            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => true, 'source' => 'default'])
-            ->assertJsonPath('data.effective_settings.payment_purpose_template', ['value' => 'Invoice {invoice.number}', 'source' => 'client']);
+            ->assertJsonPath('data.effective_settings.locale.value', 'en')
+            ->assertJsonPath('data.effective_settings.locale.source', 'profile')
+            ->assertJsonPath('data.effective_settings.act_note_enabled.value', true)
+            ->assertJsonPath('data.effective_settings.act_note_enabled.source', 'default')
+            ->assertJsonPath('data.effective_settings.payment_purpose_template.value', 'Invoice {invoice.number}')
+            ->assertJsonPath('data.effective_settings.payment_purpose_template.source', 'client');
         $this->assertDatabaseHas('clients', [
             'id' => $client->id, 'invoice_locale' => null, 'act_note_enabled' => null, 'payment_purpose_template' => 'Invoice {invoice.number}',
         ]);

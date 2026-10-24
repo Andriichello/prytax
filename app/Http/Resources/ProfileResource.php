@@ -36,6 +36,7 @@ class ProfileResource extends BaseResource
     protected array $allowedAppends = [
         'unread_alerts_count',
         'needs_correction',
+        'effective_invoice_settings',
     ];
 
     /**

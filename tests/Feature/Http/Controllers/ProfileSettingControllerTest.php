@@ -65,8 +65,8 @@ class ProfileSettingControllerTest extends TestCase
     }
 
     /**
-     * Test that the ФОП's invoice settings are saved, and a payment purpose with a placeholder outside of the
-     * whitelist is refused with 422.
+     * Test that the ФОП's invoice settings are saved and shown on the profile with the built-in ones they replace,
+     * and a payment purpose with a placeholder outside of the whitelist is refused with 422.
      *
      * @return void
      */
@@ -78,6 +78,7 @@ class ProfileSettingControllerTest extends TestCase
 
         $saved = $this->patchJson($path, ['invoice' => ['act_note_enabled' => false, 'show_contract' => false, 'payment_purpose_template' => 'For {services}']]);
         $refused = $this->patchJson($path, ['invoice' => ['payment_purpose_template' => 'For {services} {invoice.total}']]);
+        $profileShown = $this->getJson("/api/profiles/{$profile->id}?append=effective_invoice_settings");
 
         $saved->assertOk()
             ->assertJsonPath('data.invoice.act_note_enabled', false)
@@ -86,6 +87,9 @@ class ProfileSettingControllerTest extends TestCase
         $refused->assertUnprocessable()->assertJsonValidationErrors([
             'invoice.payment_purpose_template' => 'The payment purpose has unknown placeholders: {invoice.total}.',
         ]);
+        $profileShown->assertOk()
+            ->assertJsonPath('data.effective_invoice_settings.act_note_enabled.source', 'profile')
+            ->assertJsonPath('data.effective_invoice_settings.act_note_enabled.inherited', ['value' => true, 'source' => 'default']);
     }
 
     /**

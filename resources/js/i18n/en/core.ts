@@ -180,4 +180,11 @@ export default {
         somethingWentWrong: 'Something went wrong. Try again.',
         offline: 'Couldn’t reach the server. Check your connection and try again.',
     },
+
+    apiMessages: {
+        accountSuspended: 'This account is suspended. Contact the organization’s owner.',
+        passwordUpdateRequired: 'Change your password to continue.',
+        invitationInvalid: 'The invitation link is invalid, has expired or has been used. Ask to be invited again.',
+        severalOrganizations: 'This email is used in several organizations. Contact the organization’s owner.',
+    },
 } satisfies Translation<typeof uk>;

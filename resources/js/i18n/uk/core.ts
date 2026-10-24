@@ -196,4 +196,13 @@ export default {
         somethingWentWrong: 'Щось пішло не так. Спробуйте ще раз.',
         offline: 'Не вдалося зв’язатися із сервером. Перевірте з’єднання і спробуйте ще раз.',
     },
+
+    /** Messages, which the API sends in English only (see `utils/errors.ts`) */
+    apiMessages: {
+        accountSuspended: 'Обліковий запис призупинено. Зверніться до власника організації.',
+        passwordUpdateRequired: 'Змініть пароль, щоб продовжити роботу.',
+        invitationInvalid:
+            'Посилання із запрошення недійсне, застаріле або вже використане. Попросіть запросити вас знову.',
+        severalOrganizations: 'Ця пошта є в кількох організаціях. Зверніться до власника організації.',
+    },
 } satisfies Messages;

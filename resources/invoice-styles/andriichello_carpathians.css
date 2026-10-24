@@ -1,0 +1,44 @@
+/* andriichello_carpathians: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-carp { position:relative; }
+.s-carp .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
+.s-carp .content { position:relative; z-index:1; }
+.s-carp table.items td { border-bottom:0; }
+.s-carp table.items .no { padding-left:8pt; }
+.s-carp table.items .col-last { padding-right:8pt; }
+.s-carp .doc-title,
+.s-carp .party-name-lg,
+.s-carp .party-name,
+.s-carp .label,
+.s-carp .lbl,
+.s-carp table.items th,
+.s-carp table.total td:first-child { font-family:'Unbounded',sans-serif; }
+.s-carp .band { margin:-30pt -30pt 0; padding:26pt 30pt 0; height:78pt; color:#FFFFFF; }
+.s-carp .band .doc-title { font-size:26pt; line-height:30pt; font-weight:700; color:#FFFFFF; text-transform:none; letter-spacing:-0.02em; }
+.s-carp .band .doc-number,
+.s-carp .band .party-name-lg { color:#FFFFFF; }
+.s-carp .band .doc-number-label,
+.s-carp .band .label.role { color:#A8C9B8; }
+.s-carp .band .party-details { color:#DCE9E2; }
+.s-carp .band .party-details.contacts .sp { color:#6E9783; }
+.s-carp .party-name-lg { font-weight:600; font-size:12pt; }
+.s-carp .party-name { font-weight:600; font-size:9pt; color:#1F3B30; }
+.s-carp .label,
+.s-carp .lbl { font-weight:600; font-size:5.6pt; letter-spacing:0.1em; color:#2F6A52; }
+.s-carp .box .party-name-lg { color:#1F3B30; }
+.s-carp.boxed .box { margin-top:22pt; border:0.75pt solid #B9CCC1; border-radius:4pt; }
+.s-carp.boxed table.layout.strip td.col-next,
+.s-carp.boxed table.layout.strip tr.row-contract td { border-color:#D3E0D8; }
+.s-carp table.items thead tr,
+.s-carp table.items th { background:#E3EDE7; }
+.s-carp table.items th { color:#1F3B30; border-bottom:0; padding-top:7pt; padding-bottom:7pt; font-weight:600; font-size:5.6pt; }
+.s-carp table.items tr.even,
+.s-carp table.items tr.even td { background:#F3F7F5; }
+.s-carp table.items tr.last td { border-bottom:0.75pt solid #B9CCC1; }
+.s-carp table.total { border-top:0; background:#1F3B30; border-radius:4pt; margin-top:14pt; }
+.s-carp table.total td { color:#FFFFFF; padding:9pt 12pt 8pt; }
+.s-carp table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-carp .card { border:0; border-radius:4pt; background:#F3F7F5; padding:10pt 12pt 9pt; }
+.s-carp table.card-cols td.purpose { border-left-color:#C9D9CF; }
+.s-carp .card-section { border-top-color:#C9D9CF; }
+.s-carp table.kv td.k { color:#5B7A6B; }
+.s-carp .pager { color:#1F3B30; }

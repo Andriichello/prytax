@@ -42,6 +42,10 @@ return [
         'currency' => 'Валюта',
         'payment_purpose' => 'Призначення платежу',
         'act_of_acceptance' => 'Акт приймання-передачі',
+        'purpose_short' => 'Призначення',
+        'payment_note' => 'Примітка до оплати',
+        'other_notes' => 'Інші примітки',
+        'page_of' => 'Сторінка :page з :total',
     ],
 
     'defaults' => [

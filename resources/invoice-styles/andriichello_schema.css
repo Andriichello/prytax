@@ -1,0 +1,43 @@
+/* andriichello_schema: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-schema { position:relative; }
+.s-schema .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
+.s-schema .content { position:relative; z-index:1; }
+.s-schema table.items td { border-bottom:0; }
+.s-schema table.items .no { padding-left:8pt; }
+.s-schema table.items .col-last { padding-right:8pt; }
+.s-schema .doc-title,
+.s-schema .label,
+.s-schema .lbl,
+.s-schema table.items th,
+.s-schema table.total td:first-child,
+.s-schema .party-name-lg,
+.s-schema .party-name { font-family:'Plex Mono',monospace; }
+.s-schema .band { margin:-30pt -30pt 0; padding:28pt 30pt 0; height:72pt; color:#FFFFFF; }
+.s-schema .band .doc-title { font-size:24pt; line-height:28pt; font-weight:600; color:#FFFFFF; text-transform:none; }
+.s-schema .band .doc-number,
+.s-schema .band .party-name-lg { color:#FFFFFF; }
+.s-schema .band .doc-number-label,
+.s-schema .band .label.role { color:#A9C1E8; }
+.s-schema .band .party-details { color:#D6E2F5; }
+.s-schema .band .party-details.contacts .sp { color:#5E7DB0; }
+.s-schema .band .party-name-lg { font-weight:600; }
+.s-schema .label,
+.s-schema .lbl { font-weight:600; font-size:6pt; letter-spacing:0.06em; color:#1B3A6B; }
+.s-schema .party-name-lg,
+.s-schema .party-name { font-weight:600; color:#1B3A6B; }
+.s-schema.boxed .box { margin-top:22pt; border:1pt dashed #1B3A6B; border-radius:0; }
+.s-schema.boxed table.layout.strip td.col-next { border-left:0.75pt dashed #B8C7E0; }
+.s-schema.boxed table.layout.strip tr.row-contract td { border-top:0.75pt dashed #B8C7E0; }
+.s-schema table.items thead tr,
+.s-schema table.items th { background:#1B3A6B; }
+.s-schema table.items th { color:#FFFFFF; border-bottom:0; padding-top:7pt; padding-bottom:7pt; }
+.s-schema table.items tr.even,
+.s-schema table.items tr.even td { background:#F2F6FC; }
+.s-schema table.items tr.last td { border-bottom:1pt dashed #1B3A6B; }
+.s-schema table.total { border:1pt dashed #1B3A6B; background:#F2F6FC; margin-top:14pt; }
+.s-schema table.total td { color:#1B3A6B; padding:9pt 10pt 8pt; }
+.s-schema .card { border:1pt dashed #1B3A6B; border-radius:0; padding:10pt 12pt 9pt; }
+.s-schema table.card-cols td.purpose { border-left:0.75pt dashed #B8C7E0; }
+.s-schema .card-section { border-top:0.75pt dashed #B8C7E0; }
+.s-schema table.kv td.k { color:#4F6489; }
+.s-schema .pager { color:#1B3A6B; font-family:'Plex Mono',monospace; }

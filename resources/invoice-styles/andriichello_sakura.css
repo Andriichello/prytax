@@ -1,0 +1,32 @@
+/* andriichello_sakura: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-sakura { position:relative; }
+.s-sakura .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
+.s-sakura .content { position:relative; z-index:1; }
+.s-sakura table.items td { border-bottom:0; }
+.s-sakura table.items .no { padding-left:8pt; }
+.s-sakura table.items .col-last { padding-right:8pt; }
+.s-sakura .doc-title,
+.s-sakura .party-name-lg,
+.s-sakura .party-name,
+.s-sakura table.total td:first-child { font-family:'DejaVu Serif',serif; }
+.s-sakura .doc-title { font-size:32pt; line-height:34pt; font-weight:normal; color:#2B2B2B; text-transform:none; letter-spacing:-0.01em; }
+.s-sakura .doc-number { color:#9E3D5A; }
+.s-sakura .label,
+.s-sakura .lbl { color:#9E3D5A; letter-spacing:0.12em; }
+.s-sakura .party-details.contacts .sp { color:#F6C9D4; }
+.s-sakura .rule-under-head { border-top:0.75pt solid #EBC5CF; margin:16pt 0 0; }
+.s-sakura.boxed .box { margin-top:14pt; border:0; border-radius:8pt; background:#FFF5F7; }
+.s-sakura.boxed table.layout.strip td.col-next,
+.s-sakura.boxed table.layout.strip tr.row-contract td { border-color:#F0D3DA; }
+.s-sakura table.items th { color:#9E3D5A; border-bottom:1.5pt solid #9E3D5A; padding-bottom:6pt; }
+.s-sakura table.items tr.even,
+.s-sakura table.items tr.even td { background:#FFF5F7; }
+.s-sakura table.items tr.last td { border-bottom:0.75pt solid #EBC5CF; }
+.s-sakura table.total { border-top:0; background:#9E3D5A; border-radius:8pt; margin-top:14pt; }
+.s-sakura table.total td { color:#FFFFFF; padding:9pt 12pt 8pt; }
+.s-sakura table.total td:first-child { font-size:12pt; }
+.s-sakura .card { border:0.75pt solid #F0D3DA; border-radius:8pt; background:#FFFFFF; padding:10pt 12pt 9pt; }
+.s-sakura table.card-cols td.purpose { border-left-color:#F0D3DA; }
+.s-sakura .card-section { border-top-color:#F0D3DA; }
+.s-sakura table.kv td.k { color:#8A6A73; }
+.s-sakura .pager { color:#9E3D5A; }

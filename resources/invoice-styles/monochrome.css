@@ -1,0 +1,33 @@
+/* monochrome: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-mono { position:relative; }
+.s-mono .doc-title { font-size:40pt; line-height:40pt; letter-spacing:-0.03em; text-transform:uppercase; }
+.s-mono .doc-number-line { margin-top:8pt; }
+.s-mono .doc-number-label { color:#6B6B6B; }
+.s-mono .party-name-lg { font-size:13pt; line-height:16pt; }
+.s-mono .label { color:#000000; letter-spacing:0.14em; }
+.s-mono .label.role { color:#6B6B6B; }
+.s-mono .party-details { color:#555555; }
+.s-mono .meta { color:#555555; }
+.s-mono .party-details.contacts .sp { color:#B0B0B0; }
+.s-mono .rule-under-head { border-top:4pt solid #000000; margin:16pt 0 0; }
+.s-mono.boxed .box { margin-top:3pt; border:0; border-radius:0; background:#F2F2F2; }
+.s-mono.boxed table.layout.strip td.col-next { border-left:3pt solid #FFFFFF; }
+.s-mono.boxed table.layout.strip tr.row-contract td { border-top:3pt solid #FFFFFF; }
+.s-mono .strip-value,
+.s-mono .period-dates { color:#000000; }
+.s-mono table.items th { color:#000000; border-bottom:2pt solid #000000; padding-bottom:6pt; letter-spacing:0.1em; }
+.s-mono table.items td { border-bottom:0; }
+.s-mono table.items tr.even,
+.s-mono table.items tr.even td { background:#F2F2F2; }
+.s-mono table.items .no { padding-left:8pt; }
+.s-mono table.items .col-last { padding-right:8pt; }
+.s-mono table.items tr.last td { border-bottom:2pt solid #000000; }
+.s-mono table.items .sec { color:#6B6B6B; }
+.s-mono table.total { border-top:0; background:#000000; margin-top:12pt; }
+.s-mono table.total td { color:#FFFFFF; padding:9pt 10pt 8pt; }
+.s-mono .card { border:1.5pt solid #000000; border-radius:0; padding:10pt 12pt 9pt; }
+.s-mono .card .lbl { color:#000000; letter-spacing:0.14em; }
+.s-mono table.kv td.k { color:#6B6B6B; }
+.s-mono table.card-cols td.purpose { border-left:0.75pt solid #000000; }
+.s-mono .card-section { border-top-color:#D4D4D4; }
+.s-mono .pager { color:#000000; }

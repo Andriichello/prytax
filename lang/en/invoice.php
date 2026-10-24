@@ -42,6 +42,10 @@ return [
         'currency' => 'Currency',
         'payment_purpose' => 'Payment purpose',
         'act_of_acceptance' => 'Act of acceptance',
+        'purpose_short' => 'Purpose',
+        'payment_note' => 'Payment note',
+        'other_notes' => 'Other notes',
+        'page_of' => 'Page :page of :total',
     ],
 
     'defaults' => [

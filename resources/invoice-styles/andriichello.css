@@ -1,0 +1,50 @@
+/* andriichello: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-andrii { position:relative; color:#1F2328; }
+.s-andrii .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
+.s-andrii .content { position:relative; z-index:1; }
+.s-andrii .doc-title,
+.s-andrii .label,
+.s-andrii .lbl,
+.s-andrii table.items th,
+.s-andrii table.total td:first-child,
+.s-andrii .party-name-lg,
+.s-andrii .party-name { font-family:'Plex Mono',monospace; }
+.s-andrii .band { margin:-30pt -30pt 0; padding:26pt 30pt 22pt; background:#1E2327; color:#FFFFFF; }
+.s-andrii .band .doc-title { font-size:24pt; line-height:28pt; font-weight:600; color:#FFFFFF; text-transform:none; letter-spacing:-0.02em; }
+.s-andrii .band .mark { display:inline-block; width:26pt; height:26pt; line-height:21pt; margin-right:9pt; text-align:center; vertical-align:bottom; border-radius:5pt; background:#D92B1E; color:#FFFFFF; font-size:11pt; font-weight:600; letter-spacing:0; }
+.s-andrii .band .cursor { color:#FF2D20; margin-left:1pt; }
+.s-andrii .band .doc-number-line { margin-top:8pt; }
+.s-andrii .band .doc-number { color:#FFFFFF; }
+.s-andrii .band .doc-number-label { color:#9AA4AE; }
+.s-andrii .band .party-name-lg { color:#FFFFFF; font-weight:600; font-size:12.5pt; line-height:16pt; }
+.s-andrii .band .label.role { color:#FF8A80; }
+.s-andrii .band .party-details { color:#C9D1D9; }
+.s-andrii .band .party-details.contacts .sp { color:#59636E; }
+.s-andrii .label,
+.s-andrii .lbl { font-weight:600; font-size:6pt; letter-spacing:0.08em; color:#57606A; }
+.s-andrii .party-name-lg { font-weight:600; color:#1F2328; }
+.s-andrii .party-name { font-weight:600; font-size:9pt; color:#1F2328; }
+.s-andrii.boxed .box { margin-top:20pt; border:0.75pt solid #D0D7DE; border-radius:6pt; background:#FFFFFF; }
+.s-andrii.boxed table.layout.strip td.col-next,
+.s-andrii.boxed table.layout.strip tr.row-contract td { border-color:#D0D7DE; }
+.s-andrii table.items thead tr { background:#EAEEF2; }
+.s-andrii table.items th { background:#EAEEF2; color:#1F2328; border-bottom:0.75pt solid #D0D7DE; border-top:0.75pt solid #D0D7DE; padding-top:6pt; padding-bottom:6pt; font-size:6pt; letter-spacing:0.06em; }
+.s-andrii table.items td { border-bottom:0; }
+.s-andrii table.items .no { padding-left:8pt; }
+.s-andrii table.items .col-last { padding-right:8pt; }
+.s-andrii table.items tr.even,
+.s-andrii table.items tr.even td { background:#F6F8FA; }
+.s-andrii table.items tr.last td { border-bottom:0.75pt solid #D0D7DE; }
+.s-andrii table.items .sec { color:#57606A; }
+.s-andrii table.total { border-top:0; background:#1E2327; border-left:4pt solid #FF2D20; margin-top:14pt; }
+.s-andrii table.total td { color:#FFFFFF; padding:9pt 10pt 8pt; }
+.s-andrii table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-andrii .card { background:#F6F8FA; border:0.75pt solid #D0D7DE; border-radius:6pt; padding:10pt 12pt 9pt; }
+.s-andrii table.card-cols td.purpose { border-left-color:#D0D7DE; }
+.s-andrii .card-section { border-top-color:#D0D7DE; }
+.s-andrii table.kv td.k { color:#57606A; }
+.s-andrii .pager { color:#57606A; font-family:'Plex Mono',monospace; }
+/* dompdf: it can't raise the monogram by 2pt as browsers do, which makes the title's line 1.5pt higher there, so the
+   monogram sits at the line's bottom, its letters centred by their line height, and the title and band keep that space */
+.s-andrii .band .doc-title { padding-bottom:1.5pt; }
+.s-andrii .band { padding-bottom:24pt; }

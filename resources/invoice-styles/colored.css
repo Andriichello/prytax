@@ -1,0 +1,36 @@
+/* colored: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-colored .band .party-details.contacts .sp { color:#7F93DA; }
+.s-colored { position:relative; }
+.s-colored .band { margin:-30pt -30pt 0; padding:26pt 30pt 22pt; background:#2B45B8; color:#FFFFFF; }
+.s-colored .band .party-name-lg { color:#FFFFFF; font-size:13pt; line-height:16pt; }
+.s-colored .band .label.role { color:#B5C3F3; }
+.s-colored .band .party-details { color:#DCE2FA; }
+.s-colored .band .doc-title { font-size:24pt; line-height:26pt; letter-spacing:0.12em; color:#FFFFFF; }
+.s-colored .band .doc-number-line { margin-top:6pt; }
+.s-colored .band .doc-number { color:#FFFFFF; font-size:12pt; }
+.s-colored .band .doc-number-label { color:#B5C3F3; }
+.s-colored .band .meta { color:#DCE2FA; }
+.s-colored table.layout.strip { margin-top:20pt; }
+.s-colored .label { color:#2B45B8; }
+.s-colored table.items thead tr { background:#E9EDFB; }
+.s-colored table.items th { background:#E9EDFB; color:#1F338C; border-bottom:0; padding-top:6pt; padding-bottom:6pt; }
+.s-colored table.items td { border-bottom:0.75pt solid #E9EDFB; }
+.s-colored table.items .no { padding-left:8pt; }
+.s-colored table.items .col-last { padding-right:8pt; }
+.s-colored table.total { border-top:0; background:#2B45B8; margin-top:14pt; }
+.s-colored table.total td { color:#FFFFFF; padding:8pt 10pt 8pt; }
+.s-colored .card { background:#F4F6FD; border:0; border-left:3pt solid #2B45B8; border-radius:0 4pt 4pt 0; padding:10pt 12pt 9pt; }
+.s-colored .card .lbl { color:#2B45B8; }
+.s-colored table.card-cols td.purpose { border-left-color:#D9E0F7; }
+.s-colored .card-section { border-top-color:#D9E0F7; }
+.s-colored table.kv td.k { color:#5A6488; }
+.s-colored .foot-band { position:absolute; left:0; right:0; bottom:0; height:6pt; background:#2B45B8; }
+.s-colored table.items td { border-bottom:0; }
+.s-colored table.items tr.even,
+.s-colored table.items tr.even td { background:#F4F6FD; }
+.s-colored table.items tr.last td { border-bottom:0.75pt solid #E9EDFB; }
+.s-colored.boxed .box { margin-top:20pt; border-color:#C3CEF2; background:#F4F6FD; }
+.s-colored.boxed table.layout.strip { margin-top:0; }
+.s-colored.boxed table.layout.strip td.col-next,
+.s-colored.boxed table.layout.strip tr.row-contract td { border-color:#D9E0F7; }
+.s-colored .pager { bottom:14pt; }

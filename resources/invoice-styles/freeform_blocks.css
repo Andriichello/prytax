@@ -1,0 +1,38 @@
+/* freeform_blocks: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-ffblocks { position:relative; }
+.s-ffblocks .shape { position:absolute; z-index:0; }
+.s-ffblocks .content { z-index:1; }
+.s-ffblocks .doc-title,
+.s-ffblocks .party-name-lg,
+.s-ffblocks .party-name,
+.s-ffblocks .label,
+.s-ffblocks .lbl,
+.s-ffblocks table.total td:first-child,
+.s-ffblocks table.items th { font-family:'Unbounded',sans-serif; }
+.s-ffblocks .doc-title { font-size:30pt; line-height:34pt; font-weight:700; color:#17402F; text-transform:none; letter-spacing:-0.02em; }
+.s-ffblocks .doc-number-line { margin-top:6pt; }
+.s-ffblocks .party-name-lg { font-weight:600; font-size:12pt; line-height:16pt; color:#17402F; }
+.s-ffblocks .party-name { font-weight:600; font-size:9pt; color:#17402F; }
+.s-ffblocks .label,
+.s-ffblocks .lbl { font-weight:600; font-size:5.6pt; letter-spacing:0.1em; color:#2D6A4F; }
+.s-ffblocks .party-details.contacts .sp { color:#7FA893; }
+.s-ffblocks.boxed .box { margin-top:22pt; border:0.75pt solid #C7DCCF; border-radius:0; background:#FFFFFF; }
+.s-ffblocks.boxed table.layout.strip td.col-next { border-left:0.75pt solid #C7DCCF; }
+.s-ffblocks.boxed table.layout.strip tr.row-contract td { border-top:0.75pt solid #C7DCCF; }
+.s-ffblocks table.items thead tr { background:#E3EFE8; }
+.s-ffblocks table.items th { background:#E3EFE8; color:#17402F; border-bottom:0; padding-top:7pt; padding-bottom:7pt; font-weight:600; font-size:5.6pt; }
+.s-ffblocks table.items td { border-bottom:0; }
+.s-ffblocks table.items .no { padding-left:9pt; }
+.s-ffblocks table.items .col-last { padding-right:9pt; }
+.s-ffblocks table.items tr.even,
+.s-ffblocks table.items tr.even td { background:#F4F9F6; }
+.s-ffblocks table.items tr.last td { border-bottom:0.75pt solid #C7DCCF; }
+.s-ffblocks table.total { border-top:0; background:#1F5C4A; border-radius:0; margin-top:14pt; }
+.s-ffblocks table.total td { color:#FFFFFF; padding:9pt 14pt 8pt; }
+.s-ffblocks table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-ffblocks .card { border:0; border-radius:0; background:#F1F7F3; padding:12pt 14pt 11pt; }
+.s-ffblocks table.card-cols td.purpose { border-left:0.75pt solid #C7DCCF; }
+.s-ffblocks .card-section { border-top:0.75pt solid #C7DCCF; }
+.s-ffblocks table.kv td.k { color:#5B7A6B; }
+.s-ffblocks .pager { color:#17402F; z-index:1; }
+.s-ffblocks .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }

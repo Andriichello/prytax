@@ -1,0 +1,44 @@
+/* freeform_mono: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-ffmono { position:relative; }
+.s-ffmono .shape { position:absolute; z-index:0; }
+.s-ffmono .content { z-index:1; }
+.s-ffmono .doc-title,
+.s-ffmono .party-name-lg,
+.s-ffmono .party-name,
+.s-ffmono .label,
+.s-ffmono .lbl,
+.s-ffmono table.total td:first-child,
+.s-ffmono table.items th { font-family:'Unbounded',sans-serif; }
+.s-ffmono .doc-title { font-size:30pt; line-height:34pt; font-weight:700; color:#111111; text-transform:none; letter-spacing:-0.02em; }
+.s-ffmono .doc-number-line { margin-top:6pt; }
+.s-ffmono .party-name-lg { font-weight:600; font-size:12pt; line-height:16pt; color:#111111; }
+.s-ffmono .party-name { font-weight:600; font-size:9pt; color:#111111; }
+.s-ffmono .label,
+.s-ffmono .lbl { font-weight:600; font-size:5.6pt; letter-spacing:0.1em; color:#4A4A4A; }
+.s-ffmono .party-details.contacts .sp { color:#9A9A9A; }
+.s-ffmono.boxed .box { margin-top:22pt; border:0.75pt solid #CFCFCF; border-radius:12pt; background:#FFFFFF; }
+.s-ffmono.boxed table.layout.strip td.col-next { border-left:0.75pt dashed #CFCFCF; }
+.s-ffmono.boxed table.layout.strip tr.row-contract td { border-top:0.75pt dashed #CFCFCF; }
+.s-ffmono table.items thead tr { background:#EFEFEF; }
+.s-ffmono table.items th { background:#EFEFEF; color:#111111; border-bottom:0; padding-top:7pt; padding-bottom:7pt; font-weight:600; font-size:5.6pt; }
+.s-ffmono table.items td { border-bottom:0; }
+.s-ffmono table.items .no { padding-left:9pt; }
+.s-ffmono table.items .col-last { padding-right:9pt; }
+.s-ffmono table.items tr.even,
+.s-ffmono table.items tr.even td { background:#F7F7F7; }
+.s-ffmono table.items tr.last td { border-bottom:0.75pt dashed #CFCFCF; }
+.s-ffmono table.total { border-top:0; background:#111111; border-radius:14pt; margin-top:14pt; }
+.s-ffmono table.total td { color:#FFFFFF; padding:9pt 14pt 8pt; }
+.s-ffmono table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-ffmono .card { border:0; border-radius:12pt; background:#F4F4F4; padding:12pt 14pt 11pt; }
+.s-ffmono table.card-cols td.purpose { border-left:0.75pt dashed #CFCFCF; }
+.s-ffmono .card-section { border-top:0.75pt dashed #CFCFCF; }
+.s-ffmono table.kv td.k { color:#5E5E5E; }
+.s-ffmono .pager { color:#111111; z-index:1; }
+.s-ffmono .c1 { width:270pt; height:270pt; border-radius:135pt; background:#ECECEC; right:-110pt; bottom:-120pt; }
+.s-ffmono .c2 { width:120pt; height:120pt; border-radius:60pt; background:#DCDCDC; right:-78pt; top:-82pt; }
+.s-ffmono .c3 { width:150pt; height:150pt; border-radius:75pt; background:#F2F2F2; left:-95pt; bottom:120pt; }
+.s-ffmono .ring { width:46pt; height:46pt; border-radius:23pt; border:5pt solid #111111; right:-26pt; top:330pt; box-sizing:border-box; }
+.s-ffmono .sq { width:22pt; height:22pt; border-radius:5pt; background:#111111; left:-11pt; top:150pt; }
+.s-ffmono .dot { width:9pt; height:9pt; border-radius:4.5pt; background:#8C8C8C; left:30pt; top:12pt; }
+.s-ffmono .bar { width:64pt; height:10pt; border-radius:5pt; background:#D6D6D6; right:30pt; bottom:150pt; }

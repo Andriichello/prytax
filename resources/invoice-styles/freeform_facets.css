@@ -1,0 +1,38 @@
+/* freeform_facets: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-fffacets { position:relative; }
+.s-fffacets .shape { position:absolute; z-index:0; }
+.s-fffacets .content { z-index:1; }
+.s-fffacets .doc-title,
+.s-fffacets .party-name-lg,
+.s-fffacets .party-name,
+.s-fffacets .label,
+.s-fffacets .lbl,
+.s-fffacets table.total td:first-child,
+.s-fffacets table.items th { font-family:'Unbounded',sans-serif; }
+.s-fffacets .doc-title { font-size:30pt; line-height:34pt; font-weight:700; color:#243B53; text-transform:none; letter-spacing:-0.02em; }
+.s-fffacets .doc-number-line { margin-top:6pt; }
+.s-fffacets .party-name-lg { font-weight:600; font-size:12pt; line-height:16pt; color:#243B53; }
+.s-fffacets .party-name { font-weight:600; font-size:9pt; color:#243B53; }
+.s-fffacets .label,
+.s-fffacets .lbl { font-weight:600; font-size:5.6pt; letter-spacing:0.1em; color:#486581; }
+.s-fffacets .party-details.contacts .sp { color:#D9A21B; }
+.s-fffacets.boxed .box { margin-top:22pt; border:0.75pt solid #BCCCDC; border-radius:2pt; background:#FFFFFF; }
+.s-fffacets.boxed table.layout.strip td.col-next { border-left:0.75pt solid #BCCCDC; }
+.s-fffacets.boxed table.layout.strip tr.row-contract td { border-top:0.75pt solid #BCCCDC; }
+.s-fffacets table.items thead tr { background:#E6ECF2; }
+.s-fffacets table.items th { background:#E6ECF2; color:#243B53; border-bottom:0; padding-top:7pt; padding-bottom:7pt; font-weight:600; font-size:5.6pt; }
+.s-fffacets table.items td { border-bottom:0; }
+.s-fffacets table.items .no { padding-left:9pt; }
+.s-fffacets table.items .col-last { padding-right:9pt; }
+.s-fffacets table.items tr.even,
+.s-fffacets table.items tr.even td { background:#F5F7FA; }
+.s-fffacets table.items tr.last td { border-bottom:0.75pt solid #BCCCDC; }
+.s-fffacets table.total { border-top:0; background:#243B53; border-radius:2pt; margin-top:14pt; }
+.s-fffacets table.total td { color:#FFFFFF; padding:9pt 14pt 8pt; }
+.s-fffacets table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-fffacets .card { border:0; border-radius:2pt; background:#F0F4F8; padding:12pt 14pt 11pt; }
+.s-fffacets table.card-cols td.purpose { border-left:0.75pt solid #C9D6E2; }
+.s-fffacets .card-section { border-top:0.75pt solid #C9D6E2; }
+.s-fffacets table.kv td.k { color:#627D98; }
+.s-fffacets .pager { color:#243B53; z-index:1; }
+.s-fffacets .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }

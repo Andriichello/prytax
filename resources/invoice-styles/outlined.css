@@ -1,0 +1,31 @@
+/* outlined: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-outlined .party-details.contacts .sp { color:#C4B49F; }
+.s-outlined { position:relative; }
+.s-outlined .rule-double { border-top:3pt solid #17191F; border-bottom:0.75pt solid #17191F; height:1.5pt; margin:0 0 18pt; }
+.s-outlined .doc-title { font-family:'DejaVu Serif',serif; font-weight:normal; text-transform:none; letter-spacing:-0.01em; font-size:34pt; line-height:36pt; margin-top:-2pt; }
+.s-outlined .doc-number-line { margin-top:6pt; }
+.s-outlined .party-name-lg { font-family:'DejaVu Serif',serif; }
+.s-outlined .party-name { font-family:'DejaVu Serif',serif; }
+.s-outlined .label { color:#8A5A2B; letter-spacing:0.14em; }
+.s-outlined .rule-thin { border-top:0.75pt solid #17191F; margin:16pt 0 14pt; }
+.s-outlined table.items thead tr { background:#17191F; }
+.s-outlined table.items th { background:#17191F; color:#FFFFFF; border-bottom:0; padding-top:6pt; padding-bottom:6pt; }
+.s-outlined table.items td { border-bottom:0; }
+.s-outlined table.items tr.even,
+.s-outlined table.items tr.even td { background:#F7F6F2; }
+.s-outlined table.items tr.last td { border-bottom:0.75pt solid #17191F; }
+.s-outlined table.items .no { padding-left:8pt; }
+.s-outlined table.items .col-last { padding-right:8pt; }
+.s-outlined table.total { border-top:0; border-bottom:3pt double #17191F; }
+.s-outlined table.total td { padding:9pt 8pt 7pt; }
+.s-outlined table.total td:first-child { font-family:'DejaVu Serif',serif; font-size:12pt; }
+.s-outlined .card { background:#F4F3EE; border:0; border-top:2pt solid #17191F; border-radius:0; padding:10pt 12pt 9pt; }
+.s-outlined .card .lbl { color:#8A5A2B; letter-spacing:0.14em; }
+.s-outlined table.card-cols td.purpose { border-left-color:#DDD9CE; }
+.s-outlined .card-section { border-top-color:#DDD9CE; }
+.s-outlined .rule-foot { position:absolute; left:30pt; right:30pt; bottom:22pt; border-top:0.75pt solid #17191F; }
+.s-outlined.boxed table.layout.head { margin-bottom:18pt; }
+.s-outlined.boxed .box { border-color:#17191F; border-radius:0; }
+.s-outlined.boxed table.layout.strip td.col-next,
+.s-outlined.boxed table.layout.strip tr.row-contract td { border-color:#DDD9CE; }
+.s-outlined .pager { bottom:10pt; }

@@ -1,0 +1,24 @@
+/* simplified: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-simplified { position:relative; }
+.s-simplified .doc-title { font-size:22pt; line-height:24pt; letter-spacing:0.08em; }
+.s-simplified .doc-number-line { margin-top:5pt; }
+.s-simplified .rule-head { border-top:1.5pt solid #17191F; margin:16pt 0 12pt; }
+.s-simplified .box { border:0.75pt solid #D5D3CB; border-radius:4pt; padding:0; }
+.s-simplified table.layout.strip td { padding:10pt 12pt 11pt; }
+.s-simplified table.layout.strip td.col-next { border-left:0.75pt solid #E3E1DA; }
+.s-simplified table.layout.strip td.right { padding-right:12pt; }
+.s-simplified table.layout.strip tr.row-contract td { padding:10pt 12pt 11pt; border-top:0.75pt solid #E3E1DA; }
+.s-simplified .items-wrap { margin-top:16pt; }
+.s-simplified table.items thead tr { background:#EEEDE8; }
+.s-simplified table.items th { background:#EEEDE8; color:#4F5461; border-bottom:0.75pt solid #17191F; border-top:0.75pt solid #17191F; padding-top:6pt; padding-bottom:6pt; }
+.s-simplified table.items .no { padding-left:8pt; }
+.s-simplified table.items .col-last { padding-right:8pt; }
+.s-simplified table.items tr.last td { border-bottom:0.75pt solid #17191F; }
+.s-simplified table.total { border-top:1.5pt solid #17191F; border-bottom:0.75pt solid #17191F; }
+.s-simplified table.total td { padding:8pt 8pt 7pt; }
+.s-simplified .card { border-color:#D5D3CB; padding:10pt 12pt 9pt; }
+.s-simplified .card .lbl { color:#4F5461; }
+.s-simplified table.items td { border-bottom:0; }
+.s-simplified table.items tr.even,
+.s-simplified table.items tr.even td { background:#F6F6F3; }
+.s-simplified table.items tr.last td { border-bottom:0.75pt solid #17191F; }

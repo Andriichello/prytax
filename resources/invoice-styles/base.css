@@ -1,0 +1,81 @@
+/* base: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.inv { position:relative; margin-top:-30pt; padding:30pt 30pt 0; height:781.89pt; background:#FFFFFF; color:#17191F; font-family:'DejaVu Sans',sans-serif; font-size:7.5pt; line-height:11.5pt; }
+.inv table { border-collapse:collapse; }
+.mono { font-family:'DejaVu Sans Mono',monospace; }
+.sec { color:#4F5461; }
+.lbl { font-size:6pt; line-height:8pt; color:#5A5F6B; text-transform:uppercase; letter-spacing:0.06em; }
+table.items { width:100%; table-layout:auto; }
+table.items th { font-size:6pt; line-height:8pt; font-weight:bold; color:#5A5F6B; text-transform:uppercase; letter-spacing:0.04em; text-align:left; padding:0 3pt 6pt; border-bottom:0.75pt solid #D5D3CB; }
+table.items td { padding:5.25pt 3pt 5.3pt; vertical-align:top; border-bottom:0.75pt solid #EEEDE8; }
+table.items .r { text-align:right; white-space:nowrap; }
+table.total { width:240.9pt; margin:17.2pt 0 0 auto; border-top:0.75pt solid #17191F; }
+table.total td { padding:8.5pt 3pt 0; font-size:9.8pt; line-height:12pt; font-weight:bold; }
+.card { margin-top:17pt; border:0.75pt solid #E3E1DA; border-radius:4pt; padding:8.6pt 9.4pt 7pt; }
+.card .lbl { margin-bottom:2pt; }
+table.layout { width:100%; table-layout:auto; }
+table.layout td { padding:0; vertical-align:top; }
+table.layout td.right { text-align:right; }
+table.layout tr.row-parties td { padding-top:16pt; }
+table.layout tr.row-contract td { padding-top:12pt; }
+.doc-title { font-size:16.5pt; line-height:20pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.04em; margin-top:-0.4pt; }
+.doc-number-line { margin-top:2pt; line-height:15pt; }
+.doc-number-line,
+.meta { white-space:nowrap; }
+.doc-number-label { font-family:'DejaVu Sans Mono',monospace; font-size:7.5pt; color:#4F5461; }
+.doc-number { font-family:'PlexMonoSemi',monospace; font-size:11.5pt; color:#17191F; }
+.meta { color:#4F5461; }
+.label { font-size:6pt; line-height:8pt; font-weight:bold; color:#5A5F6B; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4.3pt; }
+.card .lbl { font-weight:bold; }
+.label.role { margin:1pt 0 3pt; }
+table.kv { width:100%; table-layout:auto; }
+table.kv td { padding:0 0 1.5pt; vertical-align:top; }
+table.kv td.k { white-space:nowrap; color:#5A5F6B; padding-right:12pt; }
+table.kv td.v { color:#17191F; word-wrap:break-word; }
+.party-name { font-size:9.5pt; line-height:13pt; font-weight:bold; color:#17191F; }
+.party-name.party-name-lg { font-size:12pt; line-height:15pt; margin-bottom:1pt; }
+.party-details { font-size:7.5pt; line-height:11.5pt; color:#5A5F6B; }
+.period-dates { font-size:8.5pt; line-height:13pt; color:#17191F; white-space:nowrap; }
+.items-wrap { margin-top:22.5pt; }
+table.items .r { padding-left:32pt; }
+table.items td.no,
+table.items th.no { padding-left:3pt; padding-right:14pt; }
+table.items td.desc,
+table.items th.desc { padding-left:0; }
+table.card-cols { width:100%; table-layout:auto; }
+table.card-cols td { padding:0; vertical-align:top; }
+table.card-cols td.purpose { padding-left:12pt; border-left:0.75pt solid #EEEDE8; }
+table.card-cols td.details { padding-right:12pt; }
+.purpose-text { color:#17191F; word-wrap:break-word; }
+.card-section { margin-top:9pt; padding-top:9pt; border-top:0.75pt solid #EEEDE8; }
+table.card-cols { table-layout:auto; }
+table.layout.strip td { padding:0 12pt 0 0; vertical-align:top; }
+table.layout.strip td.right { padding-right:0; }
+table.layout.strip tr.row-contract td { padding-top:14pt; }
+.label.gap { margin-top:7pt; }
+.strip-value { font-size:8.5pt; line-height:13pt; color:#17191F; white-space:nowrap; }
+.strip .period-dates { white-space:normal; }
+.rule-thin { border-top:0.75pt solid #D5D3CB; margin:16pt 0 14pt; }
+.party-details.contacts .ci { white-space:nowrap; }
+.period-dates .nw { white-space:nowrap; }
+.party-details.contacts .sp { color:#C9C6BC; padding:0 2pt; }
+.boxed .box { border:0.75pt solid #D5D3CB; border-radius:4pt; }
+.boxed table.layout.strip td { padding:10pt 12pt 11pt; }
+.boxed table.layout.strip td.col-next { border-left:0.75pt solid #E3E1DA; }
+.boxed table.layout.strip td.right { padding-right:12pt; }
+.boxed table.layout.strip tr.row-contract td { padding:10pt 12pt 11pt; border-top:0.75pt solid #E3E1DA; }
+.boxed .items-wrap { margin-top:16pt; }
+.content { position:relative; }
+.rule-under-head { height:0; }
+.pager { position:absolute; right:30pt; bottom:12pt; font-size:7pt; line-height:9pt; color:#5A5F6B; white-space:nowrap; }
+/* v3 in dompdf: the page-sized frame of the decoration, which the root box's top padding would push down otherwise;
+   header cells, which wrap at their space; the subtotals above the total; a payment card without its right side;
+   the signature under the card. The page number is drawn by the renderer from the .pager rules. */
+.frame { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; }
+table.items th { vertical-align:top; }
+table.items th.r { white-space:normal; }
+table.subtotals { width:240.9pt; margin:14pt 0 0 auto; }
+table.subtotals td { padding:0 3pt 2pt; font-size:7.5pt; line-height:11.5pt; color:#4F5461; }
+table.subtotals td.mono { color:#17191F; text-align:right; white-space:nowrap; }
+table.card-cols td.details.full { padding-right:0; }
+.signature { margin-top:14pt; }
+.signature img { height:36pt; }

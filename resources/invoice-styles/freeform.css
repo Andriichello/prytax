@@ -1,0 +1,42 @@
+/* freeform: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-free { position:relative; }
+.s-free .shape { position:absolute; z-index:0; }
+.s-free .c1 { width:270pt; height:270pt; border-radius:135pt; background:#FFD9C2; right:-110pt; bottom:-120pt; }
+.s-free .c2 { width:120pt; height:120pt; border-radius:60pt; background:#D5E3FF; right:-78pt; top:-82pt; }
+.s-free .c3 { width:150pt; height:150pt; border-radius:75pt; background:#D5E3FF; left:-95pt; bottom:120pt; }
+.s-free .ring { width:46pt; height:46pt; border-radius:23pt; border:5pt solid #F07A3C; right:-26pt; top:330pt; box-sizing:border-box; }
+.s-free .sq { width:22pt; height:22pt; border-radius:5pt; background:#2E2A86; left:-11pt; top:150pt; }
+.s-free .dot { width:9pt; height:9pt; border-radius:4.5pt; background:#F07A3C; left:30pt; top:12pt; }
+.s-free .content { z-index:1; }
+.s-free .doc-title,
+.s-free .party-name-lg,
+.s-free .party-name,
+.s-free .label,
+.s-free .lbl,
+.s-free table.total td:first-child { font-family:'Unbounded',sans-serif; }
+.s-free .doc-title { font-size:30pt; line-height:34pt; font-weight:700; color:#2E2A86; text-transform:none; letter-spacing:-0.02em; }
+.s-free .doc-number-line { margin-top:6pt; }
+.s-free .party-name-lg { font-weight:600; font-size:12pt; line-height:16pt; color:#2E2A86; }
+.s-free .party-name { font-weight:600; font-size:9pt; color:#2E2A86; }
+.s-free .label,
+.s-free .lbl { font-weight:600; font-size:5.6pt; letter-spacing:0.1em; color:#5B57B8; }
+.s-free .party-details.contacts .sp { color:#F07A3C; }
+.s-free.boxed .box { margin-top:22pt; border:0.75pt solid #CFCBF2; border-radius:12pt; background:#FFFFFF; }
+.s-free.boxed table.layout.strip td.col-next { border-left:0.75pt dashed #CFCBF2; }
+.s-free.boxed table.layout.strip tr.row-contract td { border-top:0.75pt dashed #CFCBF2; }
+.s-free table.items thead tr { background:#ECEAFF; }
+.s-free table.items th { background:#ECEAFF; color:#2E2A86; border-bottom:0; padding-top:7pt; padding-bottom:7pt; font-family:'Unbounded',sans-serif; font-weight:600; font-size:5.6pt; }
+.s-free table.items td { border-bottom:0; }
+.s-free table.items .no { padding-left:9pt; }
+.s-free table.items .col-last { padding-right:9pt; }
+.s-free table.items tr.even,
+.s-free table.items tr.even td { background:#F8F7FF; }
+.s-free table.items tr.last td { border-bottom:0.75pt dashed #CFCBF2; }
+.s-free table.total { border-top:0; background:#2E2A86; border-radius:14pt; margin-top:14pt; }
+.s-free table.total td { color:#FFFFFF; padding:9pt 14pt 8pt; }
+.s-free table.total td:first-child { font-weight:600; font-size:10pt; }
+.s-free .card { border:0; border-radius:12pt; background:#FFF5EE; padding:12pt 14pt 11pt; }
+.s-free table.card-cols td.purpose { border-left:0.75pt dashed #F2CDB5; }
+.s-free .card-section { border-top:0.75pt dashed #F2CDB5; }
+.s-free table.kv td.k { color:#6B6790; }
+.s-free .pager { color:#2E2A86; z-index:1; }

@@ -1,0 +1,27 @@
+/* vivid: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+.s-vivid { position:relative; }
+.s-vivid .topbar { position:absolute; left:0; right:0; top:0; height:7pt; background:#0F766E; }
+.s-vivid .content { padding-top:6pt; }
+.s-vivid .doc-title { font-size:30pt; line-height:32pt; color:#0F766E; text-transform:none; letter-spacing:-0.01em; }
+.s-vivid .doc-number-line { margin-top:9pt; }
+.s-vivid .doc-number { background:#E3F2EF; color:#115E59; padding:2pt 6pt; border-radius:4pt; }
+.s-vivid .label { color:#0F766E; }
+.s-vivid .party-details.contacts .sp { color:#8CC9C0; }
+.s-vivid.boxed .box { margin-top:22pt; border:0; border-top:3pt solid #0F766E; border-radius:0 0 6pt 6pt; background:#F2F9F8; }
+.s-vivid.boxed table.layout.strip td.col-next,
+.s-vivid.boxed table.layout.strip tr.row-contract td { border-color:#BFE0DA; }
+.s-vivid table.items th { color:#115E59; border-bottom:1.5pt solid #0F766E; padding-bottom:6pt; }
+.s-vivid table.items td { border-bottom:0; }
+.s-vivid table.items .no { padding-left:8pt; }
+.s-vivid table.items .col-last { padding-right:8pt; }
+.s-vivid table.items tr.even,
+.s-vivid table.items tr.even td { background:#F2F9F8; }
+.s-vivid table.items tr.last td { border-bottom:0.75pt solid #BFE0DA; }
+.s-vivid table.total { border-top:0; background:#0F766E; border-radius:6pt; margin-top:14pt; }
+.s-vivid table.total td { color:#FFFFFF; padding:9pt 10pt 8pt; }
+.s-vivid .card { border:0.75pt solid #BFE0DA; border-radius:6pt; padding:10pt 12pt 9pt; background:#FFFFFF; }
+.s-vivid .card .lbl { color:#0F766E; }
+.s-vivid table.card-cols td.purpose { border-left-color:#BFE0DA; }
+.s-vivid .card-section { border-top-color:#BFE0DA; }
+.s-vivid table.kv td.k { color:#4E6B67; }
+.s-vivid .pager { color:#115E59; }

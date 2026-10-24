@@ -1,8 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-21 (late): backend, frontend and the QA pass are merged into `main` (= `dev` = `dev-qa-fixes`);
-the follow-ups of the QA pass (the user's decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене») are
-on `dev-followups`, not merged. Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is
+Status as of 2026-10-24: backend, frontend and the QA pass are in `main`; `dev` has them too, plus the follow-ups of
+the QA pass (the user's decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the
+SPA's translation keys (merged on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is
 the phase-1 UI scope) and `storage/handoff/prytax-simplified-design-handoff.md` (the design handoff; the screens are
 in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.gitignore`), on disk only.
 
@@ -13,12 +13,13 @@ in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.
 | 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
 | 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged) |
 | 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
-| 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done** on `dev-followups` (15 commits, not merged); see "Follow-ups" |
+| 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
+| 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 
-- **Branches:** `main` = `dev` = `dev-qa-fixes` = backend + frontend + QA pass (fast-forwarded on 2026-10-21, the
-  user asked). `dev-followups` = `main` + the follow-ups and English, **not merged** (merge only when the user asks).
-  `feat/i18n-keys` = `dev-followups` + the SPA's translation keys (2026-10-24, see "English"), checked out, **not
-  merged**. `backend-phase-1` and `dev-qa-fixes` are merged and can go. No git remote exists, so nothing is pushed.
+- **Branches:** `dev` = `dev-followups` = `feat/i18n-keys` = backend + frontend + QA pass + follow-ups + English +
+  translation keys (fast-forwarded on 2026-10-24, the user asked), `dev` checked out. `main` = `dev-qa-fixes` = the
+  QA pass, behind `dev` (fast-forward it only when the user asks). `backend-phase-1`, `dev-qa-fixes`,
+  `dev-followups` and `feat/i18n-keys` are merged and can go. No git remote exists, so nothing is pushed.
 - **api-core is on branch `feat/remember-login`** in `/var/www/api-core` (2 commits on its `dev`: `remember` on
   `auth/login`, the `remember_token` migration, docs, tests; all 658 api-core tests pass), **not merged, not pushed**.
   PryTax runs api-core's working tree (path repository, symlinked), so that branch must stay checked out until it is
@@ -35,8 +36,8 @@ in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.
 
 ### First steps of the next session
 
-1. **Ask the user** about merging `dev-followups` into `dev`/`main`, and api-core's `feat/remember-login` into its
-   `dev` (and pushing it). Then what is left: XLSX exports and the yearly PDF summary (need a package, so approval),
+1. **Ask the user** about fast-forwarding `main` to `dev`, and merging api-core's `feat/remember-login` into its `dev`
+   (and pushing it): PryTax's `dev` needs that branch («Запам’ятати мене»). Then what is left: XLSX exports and the yearly PDF summary (need a package, so approval),
    pixel polish against the mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
 2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
    end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
@@ -76,7 +77,7 @@ Decisions taken in the pass (tell the user if they disagree):
 
 Everything left open by the pass was settled in "Follow-ups" below.
 
-## Follow-ups (2026-10-21, branch `dev-followups`)
+## Follow-ups (2026-10-21, merged into `dev` on 2026-10-24)
 
 The user decided: (b) a paid invoice returns to unpaid; Податки keeps the specs' default view (`payment`); add a fee
 statistics screen; and go on with the rest. Done, each verified in tests and in headless Chrome:
@@ -119,7 +120,7 @@ statistics screen; and go on with the rest. Done, each verified in tests and in 
   `2026_10_21_010000_add_remember_token_to_users_table` adds `users.remember_token`. Verified: with it, a dropped
   session signs in again from the cookie; without it, back to Вхід.
 
-## English (2026-10-24, branch `dev-followups`)
+## English (2026-10-24, merged into `dev`)
 
 The user asked for English, switchable with Ukrainian. On 2026-10-24 (later, branch `feat/i18n-keys`, the user's
 request "so that we can have more languages added later") the SPA moved from Ukrainian texts as keys to translation

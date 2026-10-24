@@ -65,6 +65,30 @@ class ProfileSettingControllerTest extends TestCase
     }
 
     /**
+     * Test that the ФОП's invoice settings are saved, and a payment purpose with a placeholder outside of the
+     * whitelist is refused with 422.
+     *
+     * @return void
+     */
+    public function testSavesTheInvoiceSettingsButNotAnUnknownPlaceholder(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $path = $this->profilePath($profile, 'settings');
+
+        $saved = $this->patchJson($path, ['invoice' => ['act_note_enabled' => false, 'show_contract' => false, 'payment_purpose_template' => 'For {services}']]);
+        $refused = $this->patchJson($path, ['invoice' => ['payment_purpose_template' => 'For {services} {invoice.total}']]);
+
+        $saved->assertOk()
+            ->assertJsonPath('data.invoice.act_note_enabled', false)
+            ->assertJsonPath('data.invoice.show_contract', false)
+            ->assertJsonPath('data.invoice.payment_purpose_template', 'For {services}');
+        $refused->assertUnprocessable()->assertJsonValidationErrors([
+            'invoice.payment_purpose_template' => 'The payment purpose has unknown placeholders: {invoice.total}.',
+        ]);
+    }
+
+    /**
      * Test that accountants change the settings, while viewers can't (403).
      *
      * @return void

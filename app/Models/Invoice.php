@@ -21,12 +21,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use PryTax\Enums\InvoiceLocale;
 use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\InvoiceQuery;
 use PryTax\Services\Invoices\InvoiceNumberGenerator;
+use PryTax\Services\Invoices\InvoiceSettingsResolver;
+use PryTax\Services\Invoices\PaymentPurposeRenderer;
 
 /**
  * Class Invoice.
@@ -35,7 +38,9 @@ use PryTax\Services\Invoices\InvoiceNumberGenerator;
  * (draft → ready) allocates the number, takes a snapshot of the profile, client, contract, account and items, and
  * renders the PDF from it; past the draft the invoice is locked, except for its status, its dates of sending, payment
  * and cancellation, its notes and its primary file. A ready invoice without receipts may go back to its draft.
- * External invoices (`source = external`) are uploaded PDFs, whose total is entered by hand.
+ * External invoices (`source = external`) are uploaded PDFs, whose total is entered by hand. Its document settings
+ * (language, payment purpose, act note, contract section) are null to take the client's (design.md §4.1); they lock
+ * with the invoice, and the freeze writes the resolved ones into the snapshot.
  *
  * @property int $id
  * @property int $profile_id
@@ -52,6 +57,11 @@ use PryTax\Services\Invoices\InvoiceNumberGenerator;
  * @property Carbon $issued_at
  * @property Carbon|null $due_at
  * @property string $currency
+ * @property InvoiceLocale|null $locale
+ * @property string|null $payment_purpose_template
+ * @property bool|null $act_note_enabled
+ * @property string|null $act_note
+ * @property bool|null $show_contract
  * @property string $subtotal
  * @property string $adjustment_amount
  * @property string|null $adjustment_label
@@ -69,6 +79,7 @@ use PryTax\Services\Invoices\InvoiceNumberGenerator;
  * @property Carbon|null $deleted_at
  *
  * @property-read string $paid_amount
+ * @property-read string $payment_purpose_preview
  *
  * @property Client $client
  * @property Contract|null $contract
@@ -132,6 +143,11 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'issued_at',
         'due_at',
         'currency',
+        'locale',
+        'payment_purpose_template',
+        'act_note_enabled',
+        'act_note',
+        'show_contract',
         'subtotal',
         'adjustment_amount',
         'adjustment_label',
@@ -192,6 +208,9 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'period_end' => 'date:Y-m-d',
         'issued_at' => 'date:Y-m-d',
         'due_at' => 'date:Y-m-d',
+        'locale' => InvoiceLocale::class,
+        'act_note_enabled' => 'boolean',
+        'show_contract' => 'boolean',
         'subtotal' => 'decimal:2',
         'adjustment_amount' => 'decimal:2',
         'total' => 'decimal:2',
@@ -365,6 +384,56 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         return Attribute::get(fn () => $this->status === InvoiceStatus::Draft
             ? app(InvoiceNumberGenerator::class)->preview($this->profile, $this)
             : null);
+    }
+
+    /**
+     * The document settings of the invoice (design.md §4.1), each with the level it comes from: `{locale: {value: 'en',
+     * source: 'client'}, …}`.
+     *
+     * @return Attribute
+     */
+    protected function effectiveSettings(): Attribute
+    {
+        return Attribute::get(fn () => app(InvoiceSettingsResolver::class)->forInvoice($this));
+    }
+
+    /**
+     * The payment purpose of the invoice: the frozen one, or else the one its settings render now.
+     *
+     * @return Attribute
+     */
+    protected function paymentPurposePreview(): Attribute
+    {
+        return Attribute::get(function () {
+            $frozen = data_get($this->snapshot, 'presentation.payment_purpose');
+
+            if ($frozen !== null) {
+                return $frozen;
+            }
+
+            $settings = InvoiceSettingsResolver::values(app(InvoiceSettingsResolver::class)->forInvoice($this));
+
+            return app(PaymentPurposeRenderer::class)->forInvoice($this, $settings);
+        });
+    }
+
+    /**
+     * Warnings of the invoice, which never stop it: a payment purpose in a foreign currency longer than a SWIFT
+     * reference or with characters outside of its set, and a currency other than the contract's.
+     *
+     * @return Attribute
+     */
+    protected function warnings(): Attribute
+    {
+        return Attribute::get(function () {
+            $warnings = app(PaymentPurposeRenderer::class)->warnings($this->payment_purpose_preview, $this->currency);
+
+            if ($this->contract !== null && $this->contract->currency !== $this->currency) {
+                $warnings[] = 'currency_differs_from_contract';
+            }
+
+            return $warnings;
+        });
     }
 
     /**

@@ -33,6 +33,7 @@ use PryTax\Enums\TaxableBase;
 use PryTax\Enums\TaxGrouping;
 use PryTax\Enums\TaxIdKind;
 use PryTax\Queries\ProfileQuery;
+use PryTax\Services\Invoices\PaymentPurposeRenderer;
 
 /**
  * Class Profile.
@@ -220,6 +221,26 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'default' => null,
                 'rules' => ['nullable', 'string', 'max:1000'],
             ],
+            // The ФОП's level of the invoice settings (design.md §4.1): null takes the built-in one; the language is
+            // the document language of the profile itself (`locale`)
+            'invoice.payment_purpose_template' => [
+                'default' => null,
+                'rules' => ['nullable', 'string', 'max:255', app(PaymentPurposeRenderer::class)->templateRule()],
+            ],
+            'invoice.act_note_enabled' => [
+                'default' => null,
+                'rules' => 'nullable|boolean',
+                'cast' => 'bool',
+            ],
+            'invoice.act_note' => [
+                'default' => null,
+                'rules' => 'nullable|string|max:500',
+            ],
+            'invoice.show_contract' => [
+                'default' => null,
+                'rules' => 'nullable|boolean',
+                'cast' => 'bool',
+            ],
             'invoice.money_format' => [
                 'default' => MoneyFormat::PlainDot->value,
                 'rules' => [Rule::in(MoneyFormat::values())],
@@ -335,6 +356,30 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
     public function alerts(): HasMany
     {
         return $this->hasMany(Alert::class);
+    }
+
+    /**
+     * Get the ФОП's name in the language of a document: the English one in English, when it is filled in.
+     *
+     * @param string $locale
+     *
+     * @return string
+     */
+    public function nameIn(string $locale): string
+    {
+        return $locale === 'uk' ? $this->full_name : ($this->full_name_en ?: $this->full_name);
+    }
+
+    /**
+     * Get the ФОП's address in the language of a document: the English one in English, when it is filled in.
+     *
+     * @param string $locale
+     *
+     * @return string|null
+     */
+    public function addressIn(string $locale): ?string
+    {
+        return $locale === 'uk' ? $this->address : ($this->address_en ?: $this->address);
     }
 
     /**

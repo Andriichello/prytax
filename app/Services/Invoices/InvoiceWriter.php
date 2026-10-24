@@ -23,9 +23,10 @@ use PryTax\Services\Alerts\AlertSync;
 /**
  * Class InvoiceWriter.
  *
- * Creates and edits draft invoices with their items (design.md §4, accounting.md). The client's contract gives the
- * currency, the payment terms and the items' description and rate; the receiving account defaults to the one of the
- * client's last invoice; `issued_at` defaults to the end of the period. A generated invoice's total is the sum of its
+ * Creates and edits draft invoices with their items (design.md §4, accounting.md). The currency is the contract's,
+ * else the client's, else the profile's default one (design.md §4.1); the contract gives the payment terms and the
+ * items' description and rate; the receiving account defaults to the one of the client's last invoice; `issued_at`
+ * defaults to the end of the period. The invoice's document settings are null to take the client's. A generated invoice's total is the sum of its
  * items, `ROUND_HALF_UP(quantity × unit_price, 2)` each, and its adjustment; an external one's is entered, and its
  * optional items describe it without changing it. The contract's rate prices an hour of an invoice in the contract's
  * currency only.
@@ -42,16 +43,19 @@ class InvoiceWriter
      */
     public const array FIELDS = [
         'client_id', 'contract_id', 'receiving_account_id', 'number', 'source', 'period_start', 'period_end',
-        'issued_at', 'due_at', 'currency', 'adjustment_amount', 'adjustment_label', 'notes',
+        'issued_at', 'due_at', 'currency', 'adjustment_amount', 'adjustment_label', 'notes', 'locale',
+        'payment_purpose_template', 'act_note_enabled', 'act_note', 'show_contract',
     ];
 
     /**
      * InvoiceWriter constructor.
      *
      * @param AlertSync $alerts
+     * @param InvoiceSettingsResolver $settings
      */
     public function __construct(
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected InvoiceSettingsResolver $settings
     ) {}
 
     /**
@@ -68,7 +72,7 @@ class InvoiceWriter
         $invoice = new Invoice;
         $invoice->profile_id = $profile->getKey();
 
-        return $this->save($profile, $invoice, $this->withDefaults($data));
+        return $this->save($profile, $invoice, $this->withDefaults($profile, $data));
     }
 
     /**
@@ -117,17 +121,18 @@ class InvoiceWriter
     /**
      * Fill the defaults of a new invoice from its client, contract and the client's last invoice.
      *
+     * @param Profile $profile
      * @param array $data
      *
      * @return array
      */
-    public function withDefaults(array $data): array
+    public function withDefaults(Profile $profile, array $data): array
     {
         $client = Client::query()->find($data['client_id'] ?? null);
         $contract = Contract::query()->find($data['contract_id'] ?? null);
 
         $data['source'] ??= InvoiceSource::Generated->value;
-        $data['currency'] = strtoupper((string) ($data['currency'] ?? $contract?->currency ?? $client?->currency ?? 'USD'));
+        $data['currency'] = strtoupper((string) ($data['currency'] ?? $this->settings->currencyFor($profile, $client, $contract)));
         $data['issued_at'] ??= $data['period_end'] ?? null;
 
         if (!array_key_exists('due_at', $data)) {
@@ -141,16 +146,18 @@ class InvoiceWriter
 
     /**
      * Get what the form of a new invoice starts with, before it is saved: the defaults of its client and contract
-     * (currency, dates, receiving account), the items' description expanded from the contract's template, and the
-     * contract's hourly rates by the end of the period, the default one and one per charge type of the client.
+     * (currency, dates, receiving account), the items' description expanded from the contract's template, the
+     * contract's hourly rates by the end of the period, the default one and one per charge type of the client, and
+     * the document settings, which the invoice takes from the client, with their levels (design.md §4.1).
      *
+     * @param Profile $profile
      * @param array{client_id: int, contract_id?: int|null, period_start?: string|null, period_end?: string|null, issued_at?: string|null, currency?: string|null} $data
      *
      * @return array<string, mixed>
      */
-    public function formDefaults(array $data): array
+    public function formDefaults(Profile $profile, array $data): array
     {
-        $defaults = $this->withDefaults(array_filter($data, fn ($value) => $value !== null));
+        $defaults = $this->withDefaults($profile, array_filter($data, fn ($value) => $value !== null));
         $contract = Contract::query()->find($data['contract_id'] ?? null);
         $periodEnd = empty($data['period_end']) ? null : CarbonImmutable::parse($data['period_end']);
         $rated = $contract !== null && $periodEnd !== null && $contract->currency === $defaults['currency'];
@@ -170,6 +177,7 @@ class InvoiceWriter
                 'name' => $chargeType->name,
                 'hourly_rate' => $rated ? $contract->rateFor($periodEnd, $chargeType->getKey()) : null,
             ])->values()->all(),
+            'effective_settings' => $this->settings->forClient(Client::query()->findOrFail($data['client_id'])),
         ];
     }
 

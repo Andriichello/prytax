@@ -36,5 +36,6 @@ class ClientResource extends BaseResource
      */
     protected array $allowedAppends = [
         'outstanding',
+        'effective_settings',
     ];
 }

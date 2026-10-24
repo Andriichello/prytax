@@ -187,5 +187,11 @@
     "You are invited to join :place.": "Вас запрошено приєднатися до :place.",
     "You are receiving this email because we received a password reset request for your account.": "Ви отримали цей лист, бо для вашого облікового запису попросили змінити пароль.",
     "РНОКПП is 10 digits.": "РНОКПП має 10 цифр.",
-    "ЄСВ is allocated to a month or a quarter, not to a receipt.": "ЄСВ сплачують за місяць або квартал, а не за надходження."
+    "ЄСВ is allocated to a month or a quarter, not to a receipt.": "ЄСВ сплачують за місяць або квартал, а не за надходження.",
+    "The payment purpose has unknown placeholders: :placeholders.": "У призначенні платежу є невідомі підстановки: :placeholders.",
+    "The payment purpose uses :placeholder, but the invoice has no contract.": "Призначення платежу містить :placeholder, але в інвойсу немає договору.",
+    "The payment purpose uses :placeholder, but the invoice's contract has no number.": "Призначення платежу містить :placeholder, але договір інвойсу не має номера.",
+    "The template is the invoice's own.": "Шаблон задано в самому інвойсі.",
+    "The template is the client's.": "Шаблон задано в клієнта.",
+    "The template is the ФОП's.": "Шаблон задано в налаштуваннях ФОП."
 }

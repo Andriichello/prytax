@@ -11,16 +11,19 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use PryTax\Enums\InvoiceLocale;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
+use PryTax\Services\Invoices\InvoiceSettingsResolver;
 
 /**
  * Class Client.
  *
  * A counterparty of invoices (an accountant's ФОПs are always profiles, never clients). Clients are deactivated,
  * never deleted, so their invoice history stays. Its abbreviation, unique within the profile, prefixes its invoice
- * numbers (design.md §5). Under a client live its contracts, projects and charge types.
+ * numbers (design.md §5). Under a client live its contracts, projects and charge types. Its invoice settings (language,
+ * payment purpose, act note, contract section) are null to take the profile's (design.md §4.1).
  *
  * @property int $id
  * @property int $profile_id
@@ -37,6 +40,11 @@ use PryTax\Queries\TenantQuery;
  * @property string|null $tax_id
  * @property string|null $email
  * @property string|null $invoice_footer_note
+ * @property InvoiceLocale|null $invoice_locale
+ * @property string|null $payment_purpose_template
+ * @property bool|null $act_note_enabled
+ * @property string|null $act_note
+ * @property bool|null $show_contract
  * @property string|null $notes
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -76,6 +84,11 @@ class Client extends BaseModel
         'tax_id',
         'email',
         'invoice_footer_note',
+        'invoice_locale',
+        'payment_purpose_template',
+        'act_note_enabled',
+        'act_note',
+        'show_contract',
         'notes',
         'is_active',
     ];
@@ -96,6 +109,9 @@ class Client extends BaseModel
      */
     protected $casts = [
         'address' => 'array',
+        'invoice_locale' => InvoiceLocale::class,
+        'act_note_enabled' => 'boolean',
+        'show_contract' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -137,6 +153,32 @@ class Client extends BaseModel
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Get the client's legal name in the language of a document: the Ukrainian one in Ukrainian, when it is filled
+     * in, and the name, when the legal name isn't.
+     *
+     * @param string $locale
+     *
+     * @return string
+     */
+    public function legalNameIn(string $locale): string
+    {
+        $ukrainian = $locale === 'uk' ? ($this->legal_name_uk ?: $this->name_uk) : null;
+
+        return $ukrainian ?: ($this->legal_name ?: $this->name);
+    }
+
+    /**
+     * The document settings, which the client's new invoices take (design.md §4.1), each with the level it comes
+     * from: `{locale: {value: 'en', source: 'profile'}, …}`.
+     *
+     * @return Attribute
+     */
+    protected function effectiveSettings(): Attribute
+    {
+        return Attribute::get(fn () => app(InvoiceSettingsResolver::class)->forClient($this));
     }
 
     /**

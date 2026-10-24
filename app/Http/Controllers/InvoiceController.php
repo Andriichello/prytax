@@ -296,7 +296,7 @@ class InvoiceController extends TenantController
     protected function handleDefaults(InvoiceDefaultsRequest $request): ApiResponse
     {
         $data = $request->validated();
-        $defaults = $this->writer->formDefaults($data);
+        $defaults = $this->writer->formDefaults($this->profileOf($request), $data);
 
         $draft = new Invoice;
         $draft->forceFill([

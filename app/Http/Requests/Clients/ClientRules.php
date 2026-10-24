@@ -2,6 +2,7 @@
 
 namespace PryTax\Http\Requests\Clients;
 
+use PryTax\Http\Requests\Traits\InvoiceSettingRules;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
 
 /**
@@ -14,6 +15,7 @@ use PryTax\Http\Requests\Traits\ScopesToProfile;
  */
 trait ClientRules
 {
+    use InvoiceSettingRules;
     use ScopesToProfile;
 
     /**
@@ -50,6 +52,7 @@ trait ClientRules
             'tax_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'invoice_footer_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            ...$this->invoiceSettingRules('invoice_locale'),
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'is_active' => ['sometimes', 'boolean'],
         ];

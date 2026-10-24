@@ -20,7 +20,8 @@ use PryTax\Queries\TenantQuery;
  *
  * A service agreement with a client: its currency, payment terms, hourly rates by date and charge type, and the
  * template of the line items' description, such as "IT services in accordance to the Service Agreement {name} dated
- * {started_at:F j, Y}", which is expanded when an item is created (the item keeps the expanded text).
+ * {started_at:F j, Y}", which is expanded when an item is created (the item keeps the expanded text). Its subject,
+ * such as "IT services", is the {services} of the invoices' payment purpose (design.md §4.1).
  *
  * @property int $id
  * @property int $profile_id
@@ -28,6 +29,7 @@ use PryTax\Queries\TenantQuery;
  * @property int|null $created_by_user_id
  * @property string $name
  * @property string|null $number
+ * @property string|null $subject
  * @property Carbon $started_at
  * @property Carbon|null $ends_at
  * @property string $currency
@@ -63,6 +65,7 @@ class Contract extends BaseModel
     protected $fillable = [
         'name',
         'number',
+        'subject',
         'started_at',
         'ends_at',
         'currency',

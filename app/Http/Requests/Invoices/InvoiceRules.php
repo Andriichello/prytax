@@ -5,6 +5,7 @@ namespace PryTax\Http\Requests\Invoices;
 use Illuminate\Validation\Rule;
 use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\ItemUnit;
+use PryTax\Http\Requests\Traits\InvoiceSettingRules;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
 
 /**
@@ -18,6 +19,7 @@ use PryTax\Http\Requests\Traits\ScopesToProfile;
  */
 trait InvoiceRules
 {
+    use InvoiceSettingRules;
     use ScopesToProfile;
 
     /**
@@ -44,6 +46,7 @@ trait InvoiceRules
             'adjustment_label' => ['sometimes', 'nullable', 'string', 'max:255'],
             'total' => ['sometimes', 'required_if:source,external', ...$this->moneyRules(false)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            ...$this->invoiceSettingRules('locale'),
             'items' => ['sometimes', 'array', 'max:100'],
             'items.*.project_id' => ['nullable', 'integer'],
             'items.*.charge_type_id' => ['nullable', 'integer'],

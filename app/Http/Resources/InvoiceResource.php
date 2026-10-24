@@ -44,5 +44,8 @@ class InvoiceResource extends BaseResource
         'number_preview',
         'can_unfreeze',
         'snapshot',
+        'effective_settings',
+        'payment_purpose_preview',
+        'warnings',
     ];
 }

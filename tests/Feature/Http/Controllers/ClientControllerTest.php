@@ -147,6 +147,52 @@ class ClientControllerTest extends TestCase
     }
 
     /**
+     * Test that a client's invoice settings are saved, shown with the levels they come from, and cleared with null to
+     * take the profile's again.
+     *
+     * @return void
+     */
+    public function testSavesAndClearsTheInvoiceSettingsOfAClient(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $client = $this->createClient($profile, 'BL');
+        $path = $this->profilePath($profile, "clients/{$client->id}?append=effective_settings");
+
+        $saved = $this->patchJson($path, ['invoice_locale' => 'uk', 'act_note_enabled' => false, 'payment_purpose_template' => 'Invoice {invoice.number}']);
+        $cleared = $this->patchJson($path, ['invoice_locale' => null, 'act_note_enabled' => null]);
+
+        $saved->assertOk()
+            ->assertJsonPath('data.effective_settings.locale', ['value' => 'uk', 'source' => 'client'])
+            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => false, 'source' => 'client']);
+        $cleared->assertOk()
+            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile'])
+            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => true, 'source' => 'default'])
+            ->assertJsonPath('data.effective_settings.payment_purpose_template', ['value' => 'Invoice {invoice.number}', 'source' => 'client']);
+        $this->assertDatabaseHas('clients', [
+            'id' => $client->id, 'invoice_locale' => null, 'act_note_enabled' => null, 'payment_purpose_template' => 'Invoice {invoice.number}',
+        ]);
+    }
+
+    /**
+     * Test that a client's payment purpose with a placeholder outside of the whitelist is refused with 422.
+     *
+     * @return void
+     */
+    public function testReturns422ForAPaymentPurposeWithAnUnknownPlaceholder(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $client = $this->createClient($profile, 'BL');
+
+        $response = $this->patchJson($this->profilePath($profile, "clients/{$client->id}"), ['payment_purpose_template' => 'For {iban}']);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['payment_purpose_template' => 'The payment purpose has unknown placeholders: {iban}.']);
+        $this->assertDatabaseHas('clients', ['id' => $client->id, 'payment_purpose_template' => null]);
+    }
+
+    /**
      * Create a client of the profile with the abbreviation.
      *
      * @param Profile $profile

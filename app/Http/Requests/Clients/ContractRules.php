@@ -31,6 +31,7 @@ trait ContractRules
         return [
             'name' => [$presence, 'string', 'max:255'],
             'number' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'subject' => ['sometimes', 'nullable', 'string', 'max:100'],
             'started_at' => [$presence, 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:started_at'],
             'currency' => [$presence, 'string', 'size:3', 'alpha'],

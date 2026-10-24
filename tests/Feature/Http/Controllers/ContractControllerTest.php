@@ -49,4 +49,23 @@ class ContractControllerTest extends TestCase
             ['charge_type_id' => $overhead->id, 'effective_from' => '2026-01-01', 'hourly_rate' => '30.00'],
         ]])->assertCreated();
     }
+
+    /**
+     * Test that a contract keeps its subject, the {services} of its invoices' payment purpose.
+     *
+     * @return void
+     */
+    public function testCreatesAContractWithItsSubject(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        [$client] = $this->createClientWithContract($profile);
+
+        $response = $this->postJson($this->profilePath($profile, "clients/{$client->id}/contracts"), [
+            'name' => 'Service Agreement', 'started_at' => '2026-01-01', 'currency' => 'USD', 'subject' => 'IT services',
+        ]);
+
+        $response->assertCreated()->assertJsonPath('data.subject', 'IT services');
+        $this->assertDatabaseHas('contracts', ['id' => $response->json('data.id'), 'subject' => 'IT services']);
+    }
 }

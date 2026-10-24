@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use PryTax\Enums\InvoiceLocale;
+use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Helpers\Decimal;
@@ -39,8 +40,8 @@ use PryTax\Services\Invoices\PaymentPurposeRenderer;
  * renders the PDF from it; past the draft the invoice is locked, except for its status, its dates of sending, payment
  * and cancellation, its notes and its primary file. A ready invoice without receipts may go back to its draft.
  * External invoices (`source = external`) are uploaded PDFs, whose total is entered by hand. Its document settings
- * (language, payment purpose, act note, contract section) are null to take the client's (design.md §4.1); they lock
- * with the invoice, and the freeze writes the resolved ones into the snapshot.
+ * (language, payment purpose, act note, contract section, style, note) are null to take the client's (design.md
+ * §4.1); they lock with the invoice, and the freeze writes the resolved ones into the snapshot.
  *
  * @property int $id
  * @property int $profile_id
@@ -62,6 +63,10 @@ use PryTax\Services\Invoices\PaymentPurposeRenderer;
  * @property bool|null $act_note_enabled
  * @property string|null $act_note
  * @property bool|null $show_contract
+ * @property string|null $style A key of InvoiceStyle; a removed style's key stays as stored.
+ * @property bool|null $note_enabled Whether the invoice has a note of its own (true) or none (false).
+ * @property string|null $note
+ * @property InvoiceNoteKind|null $note_kind
  * @property string $subtotal
  * @property string $adjustment_amount
  * @property string|null $adjustment_label
@@ -122,11 +127,12 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
 
     /**
      * Version of the snapshot's structure, which the PDF template reads: 2 adds the language, the parties' names in
-     * it and the resolved document settings (`presentation`, design.md §4.1).
+     * it and the resolved document settings (`presentation`, design.md §4.1); 3 adds the style and the note to them
+     * and drops the footer note, which the note replaces.
      *
      * @var int
      */
-    public const int SNAPSHOT_SCHEMA_VERSION = 2;
+    public const int SNAPSHOT_SCHEMA_VERSION = 3;
 
     /**
      * The attributes that are mass-assignable.
@@ -149,6 +155,10 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'act_note_enabled',
         'act_note',
         'show_contract',
+        'style',
+        'note_enabled',
+        'note',
+        'note_kind',
         'subtotal',
         'adjustment_amount',
         'adjustment_label',
@@ -212,6 +222,8 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
         'locale' => InvoiceLocale::class,
         'act_note_enabled' => 'boolean',
         'show_contract' => 'boolean',
+        'note_enabled' => 'boolean',
+        'note_kind' => InvoiceNoteKind::class,
         'subtotal' => 'decimal:2',
         'adjustment_amount' => 'decimal:2',
         'total' => 'decimal:2',

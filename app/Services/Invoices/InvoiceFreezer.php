@@ -7,6 +7,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PryTax\Enums\InvoiceStatus;
+use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\SettingSource;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
@@ -262,9 +263,13 @@ class InvoiceFreezer
                 'payment_terms_days' => $contract->payment_terms_days,
             ] : null,
             'presentation' => [
+                // A removed style's key, which a level may still hold, prints as the built-in one
+                'style' => (InvoiceStyle::tryFrom((string) $settings['style']) ?? InvoiceStyle::Outlined)->value,
                 'payment_purpose' => $this->purposes->forInvoice($invoice, $settings),
                 'act_note' => $settings['act_note_enabled'] ? $settings['act_note'] : null,
                 'show_contract' => (bool) $settings['show_contract'],
+                'note' => $settings['note_enabled'] && filled($settings['note']) ? $settings['note'] : null,
+                'note_kind' => $settings['note_kind'],
             ],
             'account' => [
                 'name' => $account->name,
@@ -302,7 +307,6 @@ class InvoiceFreezer
                 'adjustment_label' => $invoice->adjustment_label,
                 'total' => $invoice->total,
             ],
-            'footer_note' => $client->invoice_footer_note ?? $profile->setting('invoice.footer_note'),
         ];
     }
 

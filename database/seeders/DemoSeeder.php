@@ -206,7 +206,7 @@ class DemoSeeder extends Seeder
             [$brightline, $brightlineContract] = $this->brightline($profile);
             [$nordwave, $nordwaveContract] = $this->client($profile, [
                 'name' => 'Nordwave GmbH', 'abbreviation' => 'NW', 'legal_name' => 'Nordwave GmbH', 'country' => 'DE', 'currency' => 'EUR', 'vat_number' => 'DE123456789',
-                'invoice_footer_note' => 'Reverse charge: the services are not subject to Ukrainian VAT.',
+                'invoice_note_enabled' => true, 'invoice_note' => 'Reverse charge: the services are not subject to Ukrainian VAT.', 'invoice_note_kind' => 'other',
             ], ['name' => 'Framework Agreement', 'number' => 'NW-FA-2024', 'started_at' => '2024-02-01', 'currency' => 'EUR', 'payment_terms_days' => 30]);
             [$kestrel, $kestrelContract] = $this->client($profile, [
                 'name' => 'Kestrel Studio', 'abbreviation' => 'KS', 'legal_name' => 'Kestrel Studio Ltd', 'country' => 'GB', 'currency' => 'USD',

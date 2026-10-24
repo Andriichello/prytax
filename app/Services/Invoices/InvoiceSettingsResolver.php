@@ -3,6 +3,8 @@
 namespace PryTax\Services\Invoices;
 
 use PryTax\Enums\InvoiceLocale;
+use PryTax\Enums\InvoiceNoteKind;
+use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\SettingSource;
 use PryTax\Models\Client;
 use PryTax\Models\Contract;
@@ -13,9 +15,11 @@ use PryTax\Models\Profile;
  * Class InvoiceSettingsResolver.
  *
  * Resolves the settings of an invoice's document (design.md §4.1): its language, payment purpose template, act note
- * (on or off, and its text) and contract section. Each is the invoice's own, else the client's, else the profile's,
- * else the built-in one; null at a level takes the next. Each tells the level it comes from, and the value the levels
- * below give it, which a form shows beside its own one. The profile's language is its document language
+ * (on or off, and its text), contract section, style and note. Each is the invoice's own, else the client's, else the
+ * profile's, else the built-in one; null at a level takes the next. The note is one setting of three fields: the level,
+ * which switches it on or off, owns its text and kind too, so a note never mixes the text of one level with the kind
+ * of another. Each tells the level it comes from, and the value the levels below give it, which a form shows beside
+ * its own one. The profile's language is its document language
  * (`profiles.locale`); the others are its `invoice.*` settings. The built-in texts are in the resolved language. A
  * draft reads them live; the freeze writes them into the snapshot, so a later change never alters an issued document.
  * The currency is resolved once, when an invoice is created, and stored on it.
@@ -164,7 +168,54 @@ class InvoiceSettingsResolver
                 $profile->setting('invoice.show_contract'),
                 true,
             ]),
+            'style' => $this->pick($own, [
+                $invoice?->style,
+                $client?->invoice_style,
+                $profile->setting('invoice.style'),
+                InvoiceStyle::Outlined->value,
+            ]),
+            ...$this->note($own, [
+                $invoice ? [$invoice->note_enabled, $invoice->note, $invoice->note_kind?->value] : null,
+                $client ? [$client->invoice_note_enabled, $client->invoice_note, $client->invoice_note_kind?->value] : null,
+                [$profile->setting('invoice.note_enabled'), $profile->setting('invoice.note'), $profile->setting('invoice.note_kind')],
+                [false, null, InvoiceNoteKind::Other->value],
+            ]),
         ];
+    }
+
+    /**
+     * Resolve the note: the first level, which switches it on or off, gives its switch, text and kind (a kind it
+     * doesn't set is `other`), each with that level; the inherited one is the owner below the given level.
+     *
+     * @param SettingSource $own
+     * @param array<int, array{0: bool|null, 1: string|null, 2: string|null}|null> $levels The invoice's, client's,
+     *                                                                                     profile's and built-in switch, text and kind.
+     *
+     * @return array{note_enabled: array, note: array, note_kind: array}
+     */
+    protected function note(SettingSource $own, array $levels): array
+    {
+        $owners = array_map(
+            fn (?array $level) => $level !== null && $level[0] !== null
+                ? [(bool) $level[0], $level[1], $level[2] ?? InvoiceNoteKind::Other->value]
+                : null,
+            $levels,
+        );
+
+        $resolved = [];
+
+        foreach (['note_enabled', 'note', 'note_kind'] as $index => $field) {
+            $resolved[$field] = $this->pick($own, array_map(
+                fn (?array $owner) => $owner === null ? null : ['value' => $owner[$index]],
+                $owners,
+            ));
+        }
+
+        return array_map(fn (array $setting) => [
+            'value' => $setting['value']['value'],
+            'source' => $setting['source'],
+            'inherited' => ['value' => $setting['inherited']['value']['value'], 'source' => $setting['inherited']['source']],
+        ], $resolved);
     }
 
     /**

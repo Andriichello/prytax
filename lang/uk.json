@@ -193,5 +193,6 @@
     "The payment purpose uses :placeholder, but the invoice's contract has no number.": "Призначення платежу містить :placeholder, але договір інвойсу не має номера.",
     "The template is the invoice's own.": "Шаблон задано в самому інвойсі.",
     "The template is the client's.": "Шаблон задано в клієнта.",
-    "The template is the ФОП's.": "Шаблон задано в налаштуваннях ФОП."
+    "The template is the ФОП's.": "Шаблон задано в налаштуваннях ФОП.",
+    "Enter the note text.": "Введіть текст примітки."
 }

@@ -13,7 +13,7 @@ use Tests\TestCase;
  *
  * The document settings of an invoice cascade (design.md §4.1): each is the invoice's own, else the client's, else
  * the profile's, else the built-in one, which is in the resolved language; each tells the level it comes from, and the
- * value the levels below give it.
+ * value the levels below give it. The note is read whole from the level, which switches it on or off.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Invoices
@@ -47,6 +47,10 @@ class InvoiceSettingsResolverTest extends TestCase
                 'source' => 'default',
             ],
             'show_contract' => ['value' => true, 'source' => 'default'],
+            'style' => ['value' => 'outlined', 'source' => 'default'],
+            'note_enabled' => ['value' => false, 'source' => 'default'],
+            'note' => ['value' => null, 'source' => 'default'],
+            'note_kind' => ['value' => 'other', 'source' => 'default'],
         ], $settings);
     }
 
@@ -64,6 +68,10 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note_enabled' => false,
             'act_note' => 'Paid means accepted.',
             'show_contract' => false,
+            'style' => 'colored',
+            'note_enabled' => true,
+            'note' => 'Quote the number.',
+            'note_kind' => 'payment',
         ]]));
 
         $settings = $this->inProfile($profile, fn () => $this->levels(app(InvoiceSettingsResolver::class)->forClient($client->refresh())));
@@ -74,6 +82,10 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note_enabled' => ['value' => false, 'source' => 'profile'],
             'act_note' => ['value' => 'Paid means accepted.', 'source' => 'profile'],
             'show_contract' => ['value' => false, 'source' => 'profile'],
+            'style' => ['value' => 'colored', 'source' => 'profile'],
+            'note_enabled' => ['value' => true, 'source' => 'profile'],
+            'note' => ['value' => 'Quote the number.', 'source' => 'profile'],
+            'note_kind' => ['value' => 'payment', 'source' => 'profile'],
         ], $settings);
     }
 
@@ -117,6 +129,9 @@ class InvoiceSettingsResolverTest extends TestCase
             'payment_purpose_template' => 'Client {invoice.number}',
             'act_note' => 'Client note.',
             'show_contract' => true,
+            'invoice_style' => 'vivid',
+            'invoice_note_enabled' => true,
+            'invoice_note' => 'Client note.',
         ]);
         $invoice = new Invoice;
         $invoice->forceFill([
@@ -126,6 +141,8 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note_enabled' => false,
             'act_note' => 'Invoice note.',
             'show_contract' => false,
+            'style' => 'andriichello',
+            'note_enabled' => false,
         ]);
 
         $settings = $this->inProfile($profile, fn () => $this->levels(app(InvoiceSettingsResolver::class)->forInvoice($invoice)));
@@ -136,7 +153,40 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note_enabled' => ['value' => false, 'source' => 'invoice'],
             'act_note' => ['value' => 'Invoice note.', 'source' => 'invoice'],
             'show_contract' => ['value' => false, 'source' => 'invoice'],
+            'style' => ['value' => 'andriichello', 'source' => 'invoice'],
+            'note_enabled' => ['value' => false, 'source' => 'invoice'],
+            'note' => ['value' => null, 'source' => 'invoice'],
+            'note_kind' => ['value' => 'other', 'source' => 'invoice'],
         ], $settings);
+    }
+
+    /**
+     * Test that the level, which switches the note on or off, gives its text and kind too: a client's note without a
+     * kind is `other`, never the profile's kind, and the client's style is its own over the profile's.
+     *
+     * @return void
+     */
+    public function testReadsTheNoteWholeFromTheLevelWhichSwitchesIt(): void
+    {
+        $profile = $this->createProfile();
+        [$client] = $this->createClientWithContract($profile, [
+            'invoice_style' => 'sakura_removed_later',
+            'invoice_note_enabled' => true,
+            'invoice_note' => 'Reverse charge.',
+        ]);
+        $this->inProfile($profile, fn () => $profile->updateSettings(['invoice' => [
+            'style' => 'colored',
+            'note_enabled' => true,
+            'note' => 'Quote the number.',
+            'note_kind' => 'payment',
+        ]]));
+
+        $settings = $this->inProfile($profile, fn () => app(InvoiceSettingsResolver::class)->forClient($client->refresh()));
+
+        $this->assertSame(['value' => true, 'source' => 'client', 'inherited' => ['value' => true, 'source' => 'profile']], $settings['note_enabled']);
+        $this->assertSame(['value' => 'Reverse charge.', 'source' => 'client', 'inherited' => ['value' => 'Quote the number.', 'source' => 'profile']], $settings['note']);
+        $this->assertSame(['value' => 'other', 'source' => 'client', 'inherited' => ['value' => 'payment', 'source' => 'profile']], $settings['note_kind']);
+        $this->assertSame(['value' => 'sakura_removed_later', 'source' => 'client', 'inherited' => ['value' => 'colored', 'source' => 'profile']], $settings['style']);
     }
 
     /**

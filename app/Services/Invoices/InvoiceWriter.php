@@ -44,7 +44,8 @@ class InvoiceWriter
     public const array FIELDS = [
         'client_id', 'contract_id', 'receiving_account_id', 'number', 'source', 'period_start', 'period_end',
         'issued_at', 'due_at', 'currency', 'adjustment_amount', 'adjustment_label', 'notes', 'locale',
-        'payment_purpose_template', 'act_note_enabled', 'act_note', 'show_contract',
+        'payment_purpose_template', 'act_note_enabled', 'act_note', 'show_contract', 'style', 'note_enabled', 'note',
+        'note_kind',
     ];
 
     /**

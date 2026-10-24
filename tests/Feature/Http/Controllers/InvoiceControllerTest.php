@@ -141,7 +141,7 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('message', 'Frozen')
             ->assertJsonPath('data.number', 'BL-2026-10-14-1')
             ->assertJsonPath('data.status', 'ready')
-            ->assertJsonPath('data.snapshot.schema_version', 2)
+            ->assertJsonPath('data.snapshot.schema_version', 3)
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
             ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Payment for services by the invoice No. BL-2026-10-14-1 from Oct 14, 2026')
             ->assertJsonPath('data.snapshot.account.name', $account->name)
@@ -482,9 +482,10 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
-     * Test that the freeze writes the document settings, as the client resolves them, into the snapshot: the
-     * parties' names in the client's language, the payment purpose with the final number, and no act note, when it
-     * is off; a later change of the client reaches its drafts, but not the frozen invoice.
+     * Test that the freeze writes the document settings, as the client resolves them, into a snapshot of version 3:
+     * the parties' names in the client's language, the payment purpose with the final number, no act note, when it is
+     * off, the style and the note with its kind, and no footer note; a later change of the client reaches its drafts,
+     * but not the frozen invoice.
      *
      * @return void
      */
@@ -494,7 +495,10 @@ class InvoiceControllerTest extends TestCase
         $profile = $this->createProfile(null, ['full_name' => 'Мирчук Микола', 'full_name_en' => 'Myrchuk Mykola']);
         $this->actAs($profile);
         $this->createAccount($profile);
-        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL', 'invoice_locale' => 'uk', 'act_note_enabled' => false]);
+        [$client, $contract] = $this->createClientWithContract($profile, [
+            'abbreviation' => 'BL', 'invoice_locale' => 'uk', 'act_note_enabled' => false, 'invoice_style' => 'vivid',
+            'invoice_note_enabled' => true, 'invoice_note' => 'Вкажіть номер інвойсу.', 'invoice_note_kind' => 'payment',
+        ]);
         $draft = fn () => $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'contract_id' => $contract->id,
             'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
@@ -503,19 +507,28 @@ class InvoiceControllerTest extends TestCase
         $this->postJson($this->profilePath($profile, "invoices/$frozen/freeze"))->assertOk();
         $open = $draft();
 
-        $this->patchJson($this->profilePath($profile, "clients/{$client->id}"), ['act_note_enabled' => true])->assertOk();
+        $this->patchJson($this->profilePath($profile, "clients/{$client->id}"), ['act_note_enabled' => true, 'invoice_style' => 'colored'])->assertOk();
 
-        $this->getJson($this->profilePath($profile, "invoices/$frozen?append=snapshot"))
+        $snapshot = $this->getJson($this->profilePath($profile, "invoices/$frozen?append=snapshot"))
             ->assertOk()
+            ->assertJsonPath('data.snapshot.schema_version', 3)
             ->assertJsonPath('data.snapshot.locale', 'uk')
             ->assertJsonPath('data.snapshot.profile.name', 'Мирчук Микола')
-            ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14 жовтня 2026')
-            ->assertJsonPath('data.snapshot.presentation.act_note', null)
-            ->assertJsonPath('data.snapshot.presentation.show_contract', true);
+            ->assertJsonPath('data.snapshot.presentation', [
+                'style' => 'vivid',
+                'payment_purpose' => 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14 жовтня 2026',
+                'act_note' => null,
+                'show_contract' => true,
+                'note' => 'Вкажіть номер інвойсу.',
+                'note_kind' => 'payment',
+            ])
+            ->json('data.snapshot');
+        $this->assertArrayNotHasKey('footer_note', $snapshot);
         $this->getJson($this->profilePath($profile, "invoices/$open?append=effective_settings"))
             ->assertOk()
             ->assertJsonPath('data.effective_settings.act_note_enabled.value', true)
-            ->assertJsonPath('data.effective_settings.act_note_enabled.source', 'client');
+            ->assertJsonPath('data.effective_settings.act_note_enabled.source', 'client')
+            ->assertJsonPath('data.effective_settings.style.value', 'colored');
     }
 
     /**
@@ -541,6 +554,29 @@ class InvoiceControllerTest extends TestCase
             'payment_purpose_template' => "The payment purpose uses {contract.number}, but the invoice's contract has no number. The template is the client's.",
         ]);
         $this->assertDatabaseHas('invoices', ['id' => $id, 'status' => 'draft', 'number' => null]);
+    }
+
+    /**
+     * Test that a draft's unknown style, or its note switched on without a text, is refused with 422.
+     *
+     * @return void
+     */
+    public function testReturns422ForAnUnknownStyleOrANoteWithoutItsText(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        [$client] = $this->createClientWithContract($profile);
+
+        $response = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'style' => 'glitter', 'note_enabled' => true, 'note' => '  ',
+        ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors([
+            'style' => 'The selected style is invalid.',
+            'note' => 'Enter the note text.',
+        ]);
+        $this->assertDatabaseCount('invoices', 0);
     }
 
     /**

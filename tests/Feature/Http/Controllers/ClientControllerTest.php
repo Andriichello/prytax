@@ -39,6 +39,25 @@ class ClientControllerTest extends TestCase
     }
 
     /**
+     * Invalid styles and notes of a client's invoices, with the field and the message of each.
+     *
+     * @return array<string, array{0: array<string, mixed>, 1: string, 2: string}>
+     */
+    public static function invalidStylesAndNotes(): array
+    {
+        return [
+            'an unknown style' => [['invoice_style' => 'glitter'], 'invoice_style', 'The selected invoice style is invalid.'],
+            'a note on without its text' => [['invoice_note_enabled' => true, 'invoice_note' => ''], 'invoice_note', 'Enter the note text.'],
+            'an unknown kind of note' => [['invoice_note_kind' => 'footer'], 'invoice_note_kind', 'The selected invoice note kind is invalid.'],
+            'a note over 500 characters' => [
+                ['invoice_note_enabled' => true, 'invoice_note' => str_repeat('a', 501)],
+                'invoice_note',
+                'The invoice note field must not be greater than 500 characters.',
+            ],
+        ];
+    }
+
+    /**
      * Test that a new client keeps its abbreviation in upper case, however it was typed.
      *
      * @return void
@@ -195,6 +214,54 @@ class ClientControllerTest extends TestCase
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['payment_purpose_template' => 'The payment purpose has unknown placeholders: {iban}.']);
         $this->assertDatabaseHas('clients', ['id' => $client->id, 'payment_purpose_template' => null]);
+    }
+
+    /**
+     * Test that a client's style and note are saved with its Ukrainian name, and shown with the levels they come from.
+     *
+     * @return void
+     */
+    public function testSavesTheStyleNoteAndUkrainianNameOfAClient(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $client = $this->createClient($profile, 'BL');
+
+        $response = $this->patchJson($this->profilePath($profile, "clients/{$client->id}?append=effective_settings"), [
+            'legal_name_uk' => 'ТОВ «Брайтлайн»',
+            'invoice_style' => 'colored',
+            'invoice_note_enabled' => true,
+            'invoice_note' => 'Quote the invoice number.',
+            'invoice_note_kind' => 'payment',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.legal_name_uk', 'ТОВ «Брайтлайн»')
+            ->assertJsonPath('data.effective_settings.style', ['value' => 'colored', 'source' => 'client', 'inherited' => ['value' => 'outlined', 'source' => 'default']])
+            ->assertJsonPath('data.effective_settings.note.value', 'Quote the invoice number.')
+            ->assertJsonPath('data.effective_settings.note_kind.value', 'payment');
+    }
+
+    /**
+     * Test that an unknown style, a note switched on without its text, an unknown kind of note and a note over 500
+     * characters are refused with 422.
+     *
+     * @param array<string, mixed> $data
+     * @param string $field
+     * @param string $error
+     *
+     * @return void
+     */
+    #[DataProvider('invalidStylesAndNotes')]
+    public function testReturns422ForAnInvalidStyleOrNote(array $data, string $field, string $error): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $client = $this->createClient($profile, 'BL');
+
+        $this->patchJson($this->profilePath($profile, "clients/{$client->id}"), $data)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([$field => $error]);
     }
 
     /**

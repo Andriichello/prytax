@@ -46,7 +46,7 @@ trait InvoiceRules
             'adjustment_label' => ['sometimes', 'nullable', 'string', 'max:255'],
             'total' => ['sometimes', 'required_if:source,external', ...$this->moneyRules(false)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
-            ...$this->invoiceSettingRules('locale'),
+            ...$this->invoiceSettingRules(),
             'items' => ['sometimes', 'array', 'max:100'],
             'items.*.project_id' => ['nullable', 'integer'],
             'items.*.charge_type_id' => ['nullable', 'integer'],

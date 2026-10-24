@@ -23,6 +23,8 @@ use Illuminate\Validation\Rule;
 use PryTax\Enums\AccountKind;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\FxGainPolicy;
+use PryTax\Enums\InvoiceNoteKind;
+use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\MoneyFormat;
 use PryTax\Enums\NumberingDateSource;
 use PryTax\Enums\NumberingPrefix;
@@ -33,6 +35,7 @@ use PryTax\Enums\TaxableBase;
 use PryTax\Enums\TaxGrouping;
 use PryTax\Enums\TaxIdKind;
 use PryTax\Queries\ProfileQuery;
+use PryTax\Rules\NoteTextRequired;
 use PryTax\Services\Invoices\InvoiceSettingsResolver;
 use PryTax\Services\Invoices\PaymentPurposeRenderer;
 
@@ -218,10 +221,6 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'default' => NumberingDateSource::PeriodEnd->value,
                 'rules' => [Rule::in(NumberingDateSource::values())],
             ],
-            'invoice.footer_note' => [
-                'default' => null,
-                'rules' => ['nullable', 'string', 'max:1000'],
-            ],
             // The ФОП's level of the invoice settings (design.md §4.1): null takes the built-in one; the language is
             // the document language of the profile itself (`locale`)
             'invoice.payment_purpose_template' => [
@@ -241,6 +240,25 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'default' => null,
                 'rules' => 'nullable|boolean',
                 'cast' => 'bool',
+            ],
+            // The style (null takes the built-in one) and the note: its text and kind are read from the level, which
+            // switches it on or off, so the ФОП's note is whole here
+            'invoice.style' => [
+                'default' => null,
+                'rules' => ['nullable', Rule::enum(InvoiceStyle::class)],
+            ],
+            'invoice.note_enabled' => [
+                'default' => null,
+                'rules' => 'nullable|boolean',
+                'cast' => 'bool',
+            ],
+            'invoice.note' => [
+                'default' => null,
+                'rules' => ['nullable', 'string', 'max:500', new NoteTextRequired('invoice.note_enabled')],
+            ],
+            'invoice.note_kind' => [
+                'default' => null,
+                'rules' => ['nullable', Rule::enum(InvoiceNoteKind::class)],
             ],
             'invoice.money_format' => [
                 'default' => MoneyFormat::PlainDot->value,

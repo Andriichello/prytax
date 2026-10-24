@@ -51,8 +51,7 @@ trait ClientRules
             'address.zip' => ['sometimes', 'nullable', 'string', 'max:32'],
             'tax_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
-            'invoice_footer_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            ...$this->invoiceSettingRules('invoice_locale'),
+            ...$this->invoiceSettingRules('invoice_'),
             'notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'is_active' => ['sometimes', 'boolean'],
         ];

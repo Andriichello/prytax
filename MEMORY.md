@@ -2,8 +2,9 @@
 
 Status as of 2026-10-24: `main` = `dev` has everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys
-(merged on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`,
-`docs/specs/design.md` (§16 is the phase-1 UI scope) and `storage/handoff/prytax-simplified-design-handoff.md` (the
+(merged on 2026-10-24, the user asked), and the invoice settings cascade with the 13 invoice styles (`feat/invoice-v2`,
+fast-forwarded and pushed on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`,
+`docs/specs/design.md` (§16 is the phase-1 UI scope; `docs/specs/invoice.md` is the invoice PDF as built) and `storage/handoff/prytax-simplified-design-handoff.md` (the
 design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git
 (`.gitignore`), on disk only.
 
@@ -16,11 +17,13 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 | 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
-| 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done on branch `feat/invoice-v2`** (2026-10-24, not merged); see "Invoice document" |
-| 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done on branch `feat/invoice-v2`** (2026-10-24, not merged); see "Invoice styles" |
+| 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done, merged and pushed** (2026-10-24); see "Invoice document" |
+| 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
 
-- **Branches:** only `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
-  (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. The remote
+- **Branches:** `main` and `dev` = backend + frontend + QA pass + follow-ups + English + translation keys + the
+  invoice settings and styles (fast-forwarded and pushed on 2026-10-24, the user asked; the merged branches were
+  deleted, except the local `feat/invoice-v2`), `dev` checked out. The `docs/specs` commits that followed are on
+  `dev` only, not pushed. The remote
   `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
   only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
@@ -163,10 +166,10 @@ keys; the API keeps Laravel's English-keyed `__()` (the user agreed: `lang/xx.js
 - **Stays Ukrainian on purpose:** tax payments' purposes (the treasury's), an FX gain's stored description, the
   treasury recipient example and the ІПК consultation number on the tax settings.
 
-## Invoice document (2026-10-24, branch `feat/invoice-v2`, not merged)
+## Invoice document (2026-10-24, branch `feat/invoice-v2`, merged)
 
-The user updated `docs/specs` (design.md v3.3 §4.1, accounting.md, new `invoice.md`; left uncommitted, they're the
-user's) and handed off the PDF layout in `storage/handoff/prytax-invoice-v3-handoff.md` (+ `invoice-v3-handoff/refs/`,
+The user updated `docs/specs` (design.md v3.3 §4.1, accounting.md, new `invoice.md`; committed on 2026-10-24 when
+the user asked, with `invoice.md` rewritten to describe template v3 as built) and handed off the PDF layout in `storage/handoff/prytax-invoice-v3-handoff.md` (+ `invoice-v3-handoff/refs/`,
 the target renders at 110 dpi). "v3" is the design iteration; in code it is template **v2**.
 
 - **Cascade** (`Services/Invoices/InvoiceSettingsResolver`): language, payment purpose template, act note on/off and
@@ -198,12 +201,12 @@ the target renders at 110 dpi). "v3" is the design iteration; in code it is temp
 - Verified: 345 PHP tests, 414 Vitest tests, typecheck, build, a 42-screen sweep in uk and en, a client save in the
   browser (restored after).
 
-## Invoice styles (2026-10-24, branch `feat/invoice-v2`, not merged)
+## Invoice styles (2026-10-24, branch `feat/invoice-v2`, merged)
 
 From Claude Design's `storage/handoff/prytax-invoice-styles-handoff.md` (+ `invoice-styles-handoff/`: screens, the
 styles' reference HTML/CSS, decor SVGs, 110 dpi refs, thumbnails). The user decided: **template v2 dropped** (it never
 left this branch) — v1 + v3 only; **`pdfjs-dist` 6.4.299 approved** (pinned, lazy chunk, only the style preview);
-design.md §4.1 edited and left uncommitted with the user's spec edits.
+design.md §4.1 (and §3's columns) edited, committed with the user's spec edits.
 
 - **Cascade:** `style` (`InvoiceStyle`, 13 cases in catalogue order, `label()`/`group()`/`cssClass()`; string columns,
   an unknown stored key renders as `outlined`) and the **note** (`note_enabled`/`note`/`note_kind` `payment|other`):

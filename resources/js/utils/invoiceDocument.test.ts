@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { documentDate, purposeValues, purposeWarnings, renderPurpose, unknownPlaceholders } from '@/utils/invoiceDocument';
+import { documentDate, insertAtCaret, purposeValues, purposeWarnings, renderPurpose, unknownPlaceholders } from '@/utils/invoiceDocument';
 
 describe('documentDate', () => {
     it('writes a date as the invoice of the language does', () => {
@@ -7,6 +7,17 @@ describe('documentDate', () => {
         expect(documentDate('2026-10-01', 'uk')).toBe('1 жовтня 2026');
         expect(documentDate('2026-02-28', 'uk')).toBe('28 лютого 2026');
         expect(documentDate(null, 'en')).toBe('');
+    });
+});
+
+describe('insertAtCaret', () => {
+    it('inserts at the caret and moves the caret after the insertion', () => {
+        expect(insertAtCaret('Payment for  by', 12, '{services}')).toEqual({ text: 'Payment for {services} by', caret: 22 });
+    });
+
+    it('appends without a caret, or past the end', () => {
+        expect(insertAtCaret('No.', null, ' {invoice.number}')).toEqual({ text: 'No. {invoice.number}', caret: 20 });
+        expect(insertAtCaret('No.', 99, '!')).toEqual({ text: 'No.!', caret: 4 });
     });
 });
 

@@ -23,6 +23,7 @@ export default {
         addressEnglish: 'Address in English',
         phone: 'Phone',
         documentLanguage: 'Document language',
+        documentLanguageHint: 'The invoices’ language. The same as in “Invoice document”.',
         signaturePdfs: 'Signature on PDFs',
         signature: 'Signature',
         replaceSignaturePng: 'Replace signature (PNG)',
@@ -71,8 +72,7 @@ export default {
         noCountersYet: 'No counters yet: the first one appears with the first frozen invoice.',
         explained:
             'The number is assigned when the invoice is frozen. If the date or the client’s abbreviation changed after it went back to draft, only they are updated; the sequence number stays. Issued numbers keep their abbreviation. A number typed by hand doesn’t change. Gaps after cancellations are normal.',
-        invoiceNote: 'Note at the bottom of invoices',
-        notePlaceholder: 'E.g., a note on VAT / reverse charge',
+        noteMoved: 'Now in “Invoice document”',
         lastNumber: '{name}: the last number is {number}.',
         nextNumberHint:
             'The next one can only be increased — for example, to continue the numbering of a previous system.',
@@ -81,8 +81,8 @@ export default {
     document: {
         title: 'Invoice document',
         explained:
-            'The language, payment purpose, act of acceptance note and contract of the FOP’s invoices. A client or a single invoice may have its own; an empty field takes the default.',
-        languageByOwner: 'The organization’s owner changes the document language.',
+            'Style, language, payment purpose, notes and contract on the FOP’s invoices. A client or a single invoice can have their own; an empty field takes the default.',
+        languageHint: 'This is the “Document language” of the FOP’s profile. The organization’s owner changes it.',
     },
 
     taxes: {

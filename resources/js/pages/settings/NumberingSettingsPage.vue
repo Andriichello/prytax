@@ -3,10 +3,10 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, Client, InvoiceCounter, NumberingDateSource, NumberingPrefix, NumberingReset, NumberingScope, NumberingStrategy, NumberPreview, Paginated, ProfileSettings } from '@/api/types';
-import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
+import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -22,7 +22,7 @@ import { errorMessage, fieldError } from '@/utils/errors';
 /**
  * Нумерація інвойсів (S-NumberingSettings): the client's abbreviation in front of numbers or none, the format of
  * numbers, the date in them, one counter per ФОП or per client, its yearly reset, the current counters (which move
- * forward only), and the note printed under invoices.
+ * forward only), and a link to the invoices' note, which moved to Документ інвойсу.
  */
 const router = useRouter();
 const { can } = useSession();
@@ -34,7 +34,6 @@ const form = reactive({
     date_source: 'period_end' as NumberingDateSource,
     scope: 'per_client' as NumberingScope,
     reset: 'never' as NumberingReset,
-    footer_note: '',
 });
 
 const counters = ref<InvoiceCounter[]>([]);
@@ -50,7 +49,7 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
         api.get<Paginated<Client>>(path('clients'), { page: { size: 1 } }, signal),
     ]);
 
-    Object.assign(form, { ...settings.data.invoice.numbering, footer_note: settings.data.invoice.footer_note ?? '' });
+    Object.assign(form, settings.data.invoice.numbering);
     saved.value = settings.data.invoice.numbering;
     counters.value = list.data;
     sampleClient.value = clients.data[0] ?? null;
@@ -183,7 +182,6 @@ async function save(): Promise<void> {
         await api.patch(path('settings'), {
             invoice: {
                 numbering: { prefix: form.prefix, strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
-                footer_note: form.footer_note.trim() || null,
             },
         });
         await loadSettings();
@@ -281,10 +279,16 @@ async function save(): Promise<void> {
                 </p>
             </section>
 
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.invoiceNote') }}</SectionTitle>
-                <TextAreaField v-model="form.footer_note" :label="t('core.common.note')" :placeholder="t('settings.numbering.notePlaceholder')" :rows="3" :disabled="!canConfigure" />
-            </section>
+            <RouterLink
+                :to="{ name: 'settings-invoice-document' }"
+                class="flex min-h-15 items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 text-ink no-underline hover:text-ink"
+            >
+                <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span class="text-16">{{ t('invoices.document.note') }}</span>
+                    <span class="text-13 text-ink-3">{{ t('settings.numbering.noteMoved') }}</span>
+                </span>
+                <Icon name="chevronRight" :size="18" class="text-ink-2" />
+            </RouterLink>
 
             <p v-if="saveError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(saveError) }}</p>
         </LoadState>

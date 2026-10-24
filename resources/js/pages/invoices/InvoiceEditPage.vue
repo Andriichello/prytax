@@ -45,6 +45,7 @@ import { LOCALE_NAMES, t } from '@/i18n';
 import { dateParts, formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { type PurposeSample, purposeValues, purposeWarnings, renderPurpose } from '@/utils/invoiceDocument';
+import { DEFAULT_INVOICE_STYLE, styleName, styleThumbnail } from '@/utils/invoiceStyles';
 import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } from '@/utils/money';
 
 /**
@@ -89,7 +90,17 @@ const form = reactive({
     total: '',
     notes: '',
     items: [] as ItemDraft[],
-    document: { locale: null, payment_purpose_template: null, act_note_enabled: null, act_note: null, show_contract: null } as InvoiceDocumentSettings,
+    document: {
+        locale: null,
+        payment_purpose_template: null,
+        act_note_enabled: null,
+        act_note: null,
+        show_contract: null,
+        style: null,
+        note_enabled: null,
+        note: null,
+        note_kind: null,
+    } as InvoiceDocumentSettings,
 });
 
 /** Fields the person set; defaults no longer overwrite them. */
@@ -137,6 +148,10 @@ function fill(invoice: Invoice): void {
             act_note_enabled: invoice.act_note_enabled,
             act_note: invoice.act_note,
             show_contract: invoice.show_contract,
+            style: invoice.style,
+            note_enabled: invoice.note_enabled,
+            note: invoice.note,
+            note_kind: invoice.note_kind,
         },
         items: (invoice.items ?? []).map((item) => ({
             key: nextKey++,
@@ -345,15 +360,19 @@ const purposeSample = computed<PurposeSample>(() => ({
     profile: profile.value,
 }));
 
-/** What the invoice prints, in short: "English · з приміткою «акт» · з договором". */
+/** The style and language the invoice prints in. */
+const documentStyle = computed(() => form.document.style ?? defaults.value?.effective_settings.style.value ?? DEFAULT_INVOICE_STYLE);
+const documentLocale = computed(() => form.document.locale ?? defaults.value?.effective_settings.locale.value ?? 'en');
+
+/** What the invoice prints, in short, the style first: "Colored · English · з приміткою «акт» · з договором". */
 const documentSummary = computed(() => {
     const inherited = defaults.value?.effective_settings;
-    const locale = form.document.locale ?? inherited?.locale.value ?? 'en';
     const act = form.document.act_note_enabled ?? inherited?.act_note_enabled.value ?? true;
     const shown = form.document.show_contract ?? inherited?.show_contract.value ?? true;
 
     return [
-        LOCALE_NAMES[locale],
+        styleName(documentStyle.value),
+        LOCALE_NAMES[documentLocale.value],
         act ? t('invoices.document.withActNote') : t('invoices.document.withoutActNote'),
         shown ? t('invoices.document.withContract') : t('invoices.document.withoutContract'),
     ].join(' · ');
@@ -405,7 +424,12 @@ const numberHint = computed(() => {
         numbering.value?.scope === 'global' ? t('invoices.numberParts.fopCounter') : t('invoices.numberParts.clientCounter'),
     ];
 
-    return t('invoices.editor.numberOnFreeze', { parts: parts.filter(Boolean).join(' + ') });
+    const named = parts.filter((part): part is string => part !== null);
+    const listed = named.length > 1
+        ? `${named.slice(0, -1).join(', ')} ${t('invoices.numberParts.and')} ${named[named.length - 1]}`
+        : named.join('');
+
+    return t('invoices.editor.numberOnFreeze', { parts: listed });
 });
 
 const accountOptions = computed(() => accounts.value
@@ -606,6 +630,10 @@ function payload(): Record<string, unknown> {
         act_note_enabled: form.document.act_note_enabled,
         act_note: form.document.act_note?.trim() || null,
         show_contract: form.document.show_contract,
+        style: form.document.style,
+        note_enabled: form.document.note_enabled,
+        note: form.document.note?.trim() || null,
+        note_kind: form.document.note_kind,
         ...(external || form.customNumber
             ? { number: form.number.trim() || null }
             // Back to the generator: clear a number typed before
@@ -966,7 +994,12 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         :aria-expanded="documentOpen ? 'true' : 'false'"
                         @click="documentOpen = !documentOpen"
                     >
-                        <span class="flex min-w-0 flex-col gap-0.5">
+                        <img
+                            :src="styleThumbnail(documentStyle, documentLocale)"
+                            alt=""
+                            class="h-12.75 w-9 shrink-0 rounded-[3px] border border-line bg-white object-cover"
+                        >
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span class="text-16 font-semibold">{{ t('invoices.document.title') }}</span>
                             <span class="text-13 text-ink-3">{{ documentSummary }}</span>
                             <span v-if="purposeWarned" class="flex items-center gap-1 text-13 text-warning-text">
@@ -984,10 +1017,14 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         :texts="texts"
                         :sample="purposeSample"
                         :currency="form.currency"
+                        :subtitle="t('invoices.document.invoiceNumbered', { number: purposeSample.number ?? '' })"
+                        :target="{ invoice_id: existing?.id ?? null, client_id: form.client_id }"
                         :errors="{
                             locale: fieldError(saveError, 'locale'),
                             payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
                             act_note: fieldError(saveError, 'act_note'),
+                            style: fieldError(saveError, 'style'),
+                            note: fieldError(saveError, 'note'),
                         }"
                     />
                 </section>

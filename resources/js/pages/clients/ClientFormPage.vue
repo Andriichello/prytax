@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, Client, Contract, InvoiceDocumentSettings, Profile } from '@/api/types';
@@ -22,9 +22,11 @@ import type { PurposeSample } from '@/utils/invoiceDocument';
 
 /**
  * Клієнт — новий або редагування: the name on invoices and the abbreviation, which prefixes its invoice numbers
- * (suggested from the name until it is typed), the legal name and country, the address (up to four lines) and tax
- * numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner note. Its invoice
- * defaults (design.md §4.1) are the currency and the document settings, each empty to take the ФОП's.
+ * (suggested from the name until it is typed), the legal name (and the Ukrainian one of Ukrainian invoices) and
+ * country, the address (up to four lines) and tax numbers printed on invoices, the e-mail for invoices and an inner
+ * note. Its invoice defaults (design.md §4.1, `#invoice-defaults`, which the client's page links to) are the currency
+ * and the document settings — the style, language, payment purpose, act note, contract and note —, each empty to take
+ * the ФОП's.
  */
 const MAX_LINES = 4;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
@@ -41,6 +43,7 @@ const form = reactive({
     name: '',
     abbreviation: '',
     legal_name: '',
+    legal_name_uk: '',
     country: 'US',
     currency: null as string | null,
     lines: ['', ''],
@@ -50,9 +53,18 @@ const form = reactive({
     tax_id: '',
     vat_number: '',
     email: '',
-    invoice_footer_note: '',
     notes: '',
-    document: { locale: null, payment_purpose_template: null, act_note_enabled: null, act_note: null, show_contract: null } as InvoiceDocumentSettings,
+    document: {
+        locale: null,
+        payment_purpose_template: null,
+        act_note_enabled: null,
+        act_note: null,
+        show_contract: null,
+        style: null,
+        note_enabled: null,
+        note: null,
+        note_kind: null,
+    } as InvoiceDocumentSettings,
 });
 
 /** Whether the abbreviation was typed (or is the saved one), so the name no longer suggests it. */
@@ -82,6 +94,7 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         name: data.name,
         abbreviation: data.abbreviation,
         legal_name: data.legal_name ?? '',
+        legal_name_uk: data.legal_name_uk ?? '',
         country: data.country ?? '',
         currency: data.currency,
         lines: [...data.address?.lines ?? [], '', ''].slice(0, Math.max(2, data.address?.lines?.length ?? 0)).map((line) => line ?? ''),
@@ -91,7 +104,6 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         tax_id: data.tax_id ?? '',
         vat_number: data.vat_number ?? '',
         email: data.email ?? '',
-        invoice_footer_note: data.invoice_footer_note ?? '',
         notes: data.notes ?? '',
         document: {
             locale: data.invoice_locale,
@@ -99,11 +111,23 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
             act_note_enabled: data.act_note_enabled,
             act_note: data.act_note,
             show_contract: data.show_contract,
+            style: data.invoice_style,
+            note_enabled: data.invoice_note_enabled,
+            note: data.invoice_note,
+            note_kind: data.invoice_note_kind,
         },
     });
 
     return data;
 }, [profileId, clientId]);
+
+/** Opened from the client's page at its invoice defaults: show them once the form is filled. */
+watch(loading, async (isLoading) => {
+    if (!isLoading && route.hash === '#invoice-defaults') {
+        await nextTick();
+        document.getElementById('invoice-defaults')?.scrollIntoView({ block: 'start' });
+    }
+});
 
 /** The ФОП's settings, which the client's take where it has none of its own. */
 const inherited = computed(() => profile.value?.effective_invoice_settings ?? null);
@@ -125,7 +149,7 @@ const sample = computed<PurposeSample>(() => {
         periodStart: `${end.slice(0, 8)}01`,
         periodEnd: end,
         contract,
-        client: { name: form.name, legal_name: form.legal_name || null, name_uk: existing.value?.name_uk ?? null, legal_name_uk: existing.value?.legal_name_uk ?? null },
+        client: { name: form.name, legal_name: form.legal_name || null, name_uk: existing.value?.name_uk ?? null, legal_name_uk: form.legal_name_uk || null },
         profile: profile.value,
     };
 });
@@ -170,19 +194,23 @@ async function save(): Promise<void> {
         name: form.name.trim(),
         abbreviation: form.abbreviation.trim(),
         legal_name: form.legal_name.trim() || null,
+        legal_name_uk: form.legal_name_uk.trim() || null,
         country: form.country || null,
         currency: form.currency || null,
         address: lines.length || address.city || address.state || address.zip ? address : null,
         tax_id: form.tax_id.trim() || null,
         vat_number: form.vat_number.trim() || null,
         email: form.email.trim() || null,
-        invoice_footer_note: form.invoice_footer_note.trim() || null,
         notes: form.notes.trim() || null,
         invoice_locale: form.document.locale,
         payment_purpose_template: form.document.payment_purpose_template?.trim() || null,
         act_note_enabled: form.document.act_note_enabled,
         act_note: form.document.act_note?.trim() || null,
         show_contract: form.document.show_contract,
+        invoice_style: form.document.style,
+        invoice_note_enabled: form.document.note_enabled,
+        invoice_note: form.document.note?.trim() || null,
+        invoice_note_kind: form.document.note_kind,
     };
 
     try {
@@ -199,7 +227,10 @@ async function save(): Promise<void> {
 }
 
 const generalError = computed(() => {
-    const fields = ['name', 'abbreviation', 'legal_name', 'country', 'currency', 'email', 'tax_id', 'vat_number', 'invoice_locale', 'payment_purpose_template', 'act_note'];
+    const fields = [
+        'name', 'abbreviation', 'legal_name', 'legal_name_uk', 'country', 'currency', 'email', 'tax_id', 'vat_number', 'invoice_locale',
+        'payment_purpose_template', 'act_note', 'invoice_style', 'invoice_note', 'invoice_note_kind',
+    ];
 
     return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
 });
@@ -222,6 +253,13 @@ const generalError = computed(() => {
                 :error="abbreviationError"
             />
             <TextField v-model="form.legal_name" :label="t('clients.form.legalName')" placeholder="Brightline Labs, LLC" :error="fieldError(saveError, 'legal_name')" />
+            <TextField
+                v-model="form.legal_name_uk"
+                :label="t('clients.form.legalNameUk')"
+                :placeholder="t('core.common.optional')"
+                :hint="t('clients.form.legalNameUkHint')"
+                :error="fieldError(saveError, 'legal_name_uk')"
+            />
             <SelectField v-model="form.country" :label="t('clients.form.country')" :options="countries" :error="fieldError(saveError, 'country')" />
 
             <section class="flex flex-col gap-3">
@@ -257,7 +295,7 @@ const generalError = computed(() => {
                 <TextField v-model="form.email" :label="t('clients.detail.invoiceEmail')" type="email" :error="fieldError(saveError, 'email')" />
             </section>
 
-            <section class="flex flex-col gap-3">
+            <section id="invoice-defaults" class="flex scroll-mt-4 flex-col gap-3">
                 <SectionTitle>{{ t('clients.form.invoiceDefaults') }}</SectionTitle>
                 <SelectField
                     v-model="form.currency"
@@ -275,15 +313,18 @@ const generalError = computed(() => {
                     :texts="profile?.invoice_texts ?? null"
                     :sample="sample"
                     :currency="form.currency ?? profile?.default_currency ?? null"
+                    :subtitle="form.name || existing?.name || ''"
+                    :target="{ client_id: clientId }"
                     :errors="{
                         locale: fieldError(saveError, 'invoice_locale'),
                         payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
                         act_note: fieldError(saveError, 'act_note'),
+                        style: fieldError(saveError, 'invoice_style'),
+                        note: fieldError(saveError, 'invoice_note'),
                     }"
                 />
             </section>
 
-            <TextAreaField v-model="form.invoice_footer_note" :label="t('clients.detail.invoiceNote')" :rows="2" :placeholder="t('clients.form.invoiceNoteHint')" />
             <TextAreaField v-model="form.notes" :label="t('invoices.editor.internalNote')" :rows="2" :placeholder="t('clients.form.notPrinted')" />
 
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>

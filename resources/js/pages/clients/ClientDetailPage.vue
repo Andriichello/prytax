@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, ChargeType, Client, ClientStats, Contract, Project } from '@/api/types';
 import ClientItemSheet from '@/components/client/ClientItemSheet.vue';
@@ -13,27 +13,34 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { t } from '@/i18n';
+import { LOCALE_NAMES, t } from '@/i18n';
 import { countryName } from '@/utils/clients';
 import { rateOn } from '@/utils/contracts';
 import { formatDate, today } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
+import { styleName, styleThumbnail } from '@/utils/invoiceStyles';
 import { compareAmounts, formatAmount, formatMoney } from '@/utils/money';
 
 /**
  * Клієнт (S-ClientDetail): the abbreviation beside the legal name, what the client paid (all time, this year, last
- * year) and still owes, per currency, then its contracts, projects, work types and requisites. Clients are
+ * year) and still owes, per currency, then its contracts, projects, work types, its invoices' document (the style,
+ * language and what differs from the ФОП's, which "Змінити" edits on the form) and requisites. Clients are
  * deactivated, never deleted.
  */
 const route = useRoute();
-const { profileId, path } = useCurrentProfile();
+const router = useRouter();
+const { profile, profileId, path } = useCurrentProfile();
 const { can } = useSession();
 
 const id = computed(() => Number(route.params.id));
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
     const [client, stats] = await Promise.all([
-        api.get<ApiResponse<Client>>(path(`clients/${id.value}`), { include: ['contracts.rates', 'projects', 'chargeTypes'] }, signal),
+        api.get<ApiResponse<Client>>(
+            path(`clients/${id.value}`),
+            { include: ['contracts.rates', 'projects', 'chargeTypes'], append: ['effective_settings'] },
+            signal,
+        ),
         api.get<ApiResponse<ClientStats>>(path(`clients/${id.value}/stats`), undefined, signal),
     ]);
 
@@ -43,6 +50,40 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 const client = computed(() => data.value?.client ?? null);
 const stats = computed(() => data.value?.stats ?? null);
 const chargeTypes = computed(() => client.value?.chargeTypes ?? []);
+
+/** The client's invoices' document in short: the style and language, what they print, and the client's own texts. */
+const documentSummary = computed(() => {
+    const settings = client.value?.effective_settings;
+
+    if (!client.value || !settings) {
+        return null;
+    }
+
+    const own = [
+        client.value.payment_purpose_template !== null ? t('invoices.document.ownPurpose') : null,
+        client.value.invoice_note_enabled
+            ? (client.value.invoice_note_kind === 'payment' ? t('invoices.document.paymentNote') : t('invoices.document.otherNote'))
+            : null,
+    ].filter(Boolean);
+    const currency = client.value.currency
+        ?? (profile.value ? t('invoices.document.currencyAsProfile', { currency: profile.value.default_currency }) : null);
+
+    return {
+        style: settings.style.value,
+        locale: settings.locale.value,
+        title: `${styleName(settings.style.value)} · ${LOCALE_NAMES[settings.locale.value]}`,
+        prints: [
+            settings.act_note_enabled.value ? t('invoices.document.withActNote') : t('invoices.document.withoutActNote'),
+            settings.show_contract.value ? t('invoices.document.withContract') : t('invoices.document.withoutContract'),
+            currency,
+        ].filter(Boolean).join(' · '),
+        own: own.join(' · '),
+    };
+});
+
+function editDocument(): void {
+    void router.push({ name: 'client-edit', params: { id: id.value }, hash: '#invoice-defaults' });
+}
 
 function contractState(contract: Contract): { label: string; tone: 'positive' | 'neutral' | 'warning' } {
     if (!contract.is_active) {
@@ -257,6 +298,29 @@ const addressLines = computed(() => {
                     <p v-else class="m-0 rounded-card border border-line bg-surface p-4 text-14 text-ink-3">{{ t('clients.detail.noWorkTypes') }}</p>
                 </section>
 
+                <section v-if="documentSummary" class="flex flex-col gap-2">
+                    <SectionTitle>
+                        {{ t('settings.document.title') }}
+                        <template v-if="can('update', 'clients')" #aside>
+                            <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="editDocument">{{ t('core.common.edit') }}</button>
+                        </template>
+                    </SectionTitle>
+                    <component
+                        :is="can('update', 'clients') ? 'button' : 'div'"
+                        :type="can('update', 'clients') ? 'button' : undefined"
+                        class="flex items-center gap-3.5 rounded-card border border-line bg-surface p-3.5 text-left"
+                        @click="can('update', 'clients') && editDocument()"
+                    >
+                        <img :src="styleThumbnail(documentSummary.style, documentSummary.locale)" alt="" class="h-15.5 w-11 shrink-0 rounded-[3px] border border-line bg-white object-cover">
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span class="text-16 font-medium text-ink">{{ documentSummary.title }}</span>
+                            <span class="text-13 text-ink-2">{{ documentSummary.prints }}</span>
+                            <span v-if="documentSummary.own" class="text-13 text-ink-2">{{ documentSummary.own }}</span>
+                        </span>
+                        <Icon v-if="can('update', 'clients')" name="chevronRight" :size="20" class="shrink-0 text-ink-2" />
+                    </component>
+                </section>
+
                 <section class="flex flex-col gap-2">
                     <SectionTitle>{{ t('clients.detail.clientDetails') }}</SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4 text-15">
@@ -272,10 +336,6 @@ const addressLines = computed(() => {
                         <div class="flex justify-between gap-3 py-3">
                             <span class="shrink-0 text-ink-2">{{ t('clients.detail.invoiceEmail') }}</span>
                             <span class="truncate">{{ client.email || '—' }}</span>
-                        </div>
-                        <div class="flex justify-between gap-3 py-3">
-                            <span class="shrink-0 text-ink-2">{{ t('clients.detail.invoiceNote') }}</span>
-                            <span class="text-right">{{ client.invoice_footer_note || '—' }}</span>
                         </div>
                     </div>
                 </section>

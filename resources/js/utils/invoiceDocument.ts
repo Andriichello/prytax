@@ -71,6 +71,16 @@ export function documentDate(date: string | null | undefined, locale: InvoiceLoc
 }
 
 /**
+ * Insert the text at the caret of a text (its end, when there is none), and give the new text with the caret after
+ * the inserted one.
+ */
+export function insertAtCaret(text: string, caret: number | null, inserted: string): { text: string; caret: number } {
+    const at = Math.min(caret ?? text.length, text.length);
+
+    return { text: text.slice(0, at) + inserted + text.slice(at), caret: at + inserted.length };
+}
+
+/**
  * Fill the template's placeholders with the values; one without a value stays as it is.
  */
 export function renderPurpose(template: string, values: PurposeValues): string {

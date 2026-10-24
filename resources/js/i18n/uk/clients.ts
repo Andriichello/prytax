@@ -43,7 +43,6 @@ export default {
         clientDetails: 'Реквізити клієнта',
         taxNumber: 'Податковий номер',
         invoiceEmail: 'Email для інвойсів',
-        invoiceNote: 'Примітка в інвойсі',
         deactivateClient: 'Деактивувати клієнта',
         activateClient: 'Активувати клієнта',
         notDeletedNote: 'Клієнтів не видаляють — історія інвойсів зберігається',
@@ -66,6 +65,8 @@ export default {
         abbreviationHint:
             'Префікс номерів інвойсів: {abbreviation}-РРРР-ММ-ДД-n. Латинські літери й цифри, своя в кожного клієнта ФОП.',
         legalName: 'Юридична назва',
+        legalNameUk: 'Назва українською',
+        legalNameUkHint: 'Друкується в українських інвойсах. Порожньо — юридична назва.',
         country: 'Країна',
         invoiceAddress: 'Адреса для інвойсу',
         addressLine: 'Адреса, рядок {line}',
@@ -74,7 +75,6 @@ export default {
         stateRegion: 'Штат / регіон',
         postalCode: 'Поштовий індекс',
         taxDetails: 'Податкові дані',
-        invoiceNoteHint: 'Друкується під інвойсом цього клієнта',
         invoiceDefaults: 'Інвойси за замовчуванням',
         currencyHint: 'Валюта нових договорів та інвойсів клієнта',
         notPrinted: 'Не друкується',
@@ -97,6 +97,6 @@ export default {
         duplicateRate: 'Ставка цього типу робіт з цієї дати вже є.',
         perHour: 'За годину, {currency}',
         subject: 'Предмет (послуги)',
-        subjectHint: 'Підставляється в призначення платежу замість {placeholder}',
+        subjectHint: 'Підставляється в призначення платежу замість {placeholder}. До 100 символів.',
     },
 } satisfies Messages;

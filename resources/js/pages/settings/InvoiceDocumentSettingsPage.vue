@@ -17,14 +17,25 @@ import type { PurposeSample } from '@/utils/invoiceDocument';
 
 /**
  * Документ інвойсу: the ФОП's invoice defaults (design.md §4.1), which its clients and invoices take unless they have
- * their own — the language (the ФОП's document language, which the owner changes), the payment purpose, the act note
- * and the contract section. Each empty one takes the built-in default. The currency is the ФОП's default currency.
+ * their own — the style, the language (the ФОП's document language, which the owner changes), the payment purpose,
+ * the act note, the contract section and the note. Each empty one takes the built-in default. The currency is the
+ * ФОП's default currency.
  */
 const router = useRouter();
 const { can } = useSession();
 const { profileId, path, loadProfiles, loadSettings } = useCurrentProfile();
 
-const form = ref<InvoiceDocumentSettings>({ locale: 'en', payment_purpose_template: null, act_note_enabled: null, act_note: null, show_contract: null });
+const form = ref<InvoiceDocumentSettings>({
+    locale: 'en',
+    payment_purpose_template: null,
+    act_note_enabled: null,
+    act_note: null,
+    show_contract: null,
+    style: null,
+    note_enabled: null,
+    note: null,
+    note_kind: null,
+});
 const profile = ref<Profile | null>(null);
 const sampleClient = ref<Client | null>(null);
 
@@ -34,11 +45,21 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
         api.get<ApiResponse<ProfileSettings>>(path('settings'), undefined, signal),
         api.get<Paginated<Client>>(path('clients'), { page: { size: 1 } }, signal),
     ]);
-    const { payment_purpose_template, act_note_enabled, act_note, show_contract } = settings.data.invoice;
+    const { payment_purpose_template, act_note_enabled, act_note, show_contract, style, note_enabled, note, note_kind } = settings.data.invoice;
 
     profile.value = owner.data;
     sampleClient.value = clients.data[0] ?? null;
-    form.value = { locale: owner.data.locale, payment_purpose_template, act_note_enabled, act_note, show_contract };
+    form.value = {
+        locale: owner.data.locale,
+        payment_purpose_template,
+        act_note_enabled,
+        act_note,
+        show_contract,
+        style,
+        note_enabled,
+        note,
+        note_kind,
+    };
 
     return true;
 }, [profileId]);
@@ -57,6 +78,10 @@ const inherited = computed(() => {
             act_note_enabled: settings.act_note_enabled.inherited,
             act_note: settings.act_note.inherited,
             show_contract: settings.show_contract.inherited,
+            style: settings.style.inherited,
+            note_enabled: settings.note_enabled.inherited,
+            note: settings.note.inherited,
+            note_kind: settings.note_kind.inherited,
         }
         : null;
 });
@@ -96,6 +121,10 @@ async function save(): Promise<void> {
                 act_note_enabled: form.value.act_note_enabled,
                 act_note: form.value.act_note?.trim() || null,
                 show_contract: form.value.show_contract,
+                style: form.value.style,
+                note_enabled: form.value.note_enabled,
+                note: form.value.note?.trim() || null,
+                note_kind: form.value.note_kind,
             },
         });
         await loadSettings();
@@ -111,6 +140,7 @@ const fieldErrors = computed(() => ({
     locale: fieldError(saveError.value, 'locale'),
     payment_purpose_template: fieldError(saveError.value, 'invoice.payment_purpose_template'),
     act_note: fieldError(saveError.value, 'invoice.act_note'),
+    note: fieldError(saveError.value, 'invoice.note'),
 }));
 const generalError = computed(() => (saveError.value && !Object.values(fieldErrors.value).some(Boolean) ? errorMessage(saveError.value) : null));
 </script>
@@ -127,9 +157,10 @@ const generalError = computed(() => (saveError.value && !Object.values(fieldErro
                 :texts="profile?.invoice_texts ?? null"
                 :sample="sample"
                 :currency="profile?.default_currency ?? null"
+                :subtitle="profile?.full_name ?? ''"
                 locale-required
                 :locale-disabled="!canEditLanguage"
-                :locale-hint="canEditLanguage ? undefined : t('settings.document.languageByOwner')"
+                :locale-hint="t('settings.document.languageHint')"
                 :disabled="!canConfigure"
                 :errors="fieldErrors"
             />

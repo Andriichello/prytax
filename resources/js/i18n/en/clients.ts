@@ -42,7 +42,6 @@ export default {
         clientDetails: 'Client details',
         taxNumber: 'Tax number',
         invoiceEmail: 'Email for invoices',
-        invoiceNote: 'Note on invoices',
         deactivateClient: 'Deactivate client',
         activateClient: 'Activate client',
         notDeletedNote: 'Clients aren’t deleted — their invoice history is kept',
@@ -63,6 +62,8 @@ export default {
         abbreviationHint:
             'Prefix of invoice numbers: {abbreviation}-YYYY-MM-DD-n. Latin letters and digits, unique among the FOP’s clients.',
         legalName: 'Legal name',
+        legalNameUk: 'Name in Ukrainian',
+        legalNameUkHint: 'Printed on Ukrainian invoices. Empty: the legal name.',
         country: 'Country',
         invoiceAddress: 'Address on invoices',
         addressLine: 'Address, line {line}',
@@ -71,7 +72,6 @@ export default {
         stateRegion: 'State / region',
         postalCode: 'Postal code',
         taxDetails: 'Tax details',
-        invoiceNoteHint: 'Printed at the bottom of this client’s invoices',
         invoiceDefaults: 'Invoice defaults',
         currencyHint: 'The currency of the client’s new contracts and invoices',
         notPrinted: 'Not printed',
@@ -93,6 +93,6 @@ export default {
         duplicateRate: 'This work type already has a rate from this date.',
         perHour: 'Per hour, {currency}',
         subject: 'Subject (services)',
-        subjectHint: 'Fills {placeholder} in the payment purpose',
+        subjectHint: 'Fills {placeholder} in the payment purpose. Up to 100 characters.',
     },
 } satisfies Translation<typeof uk>;

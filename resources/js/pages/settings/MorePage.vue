@@ -12,6 +12,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
+import { styleName } from '@/utils/invoiceStyles';
 
 /**
  * Ще (S-More): money and counterparties, the ФОП's settings, the organization with signing out, and the language.
@@ -35,7 +36,7 @@ function roleName(role: string): string {
 
 const router = useRouter();
 const { user, can, signOut } = useSession();
-const { profileId, path, reset } = useCurrentProfile();
+const { profileId, path, reset, settings } = useCurrentProfile();
 
 const { data: counts } = useLoader(async (signal) => {
     const [accounts, clients] = await Promise.all([
@@ -46,7 +47,7 @@ const { data: counts } = useLoader(async (signal) => {
     return { accounts: accounts.meta.total, clients: clients.meta.total };
 }, [profileId]);
 
-const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; visible?: boolean }[] }[]>(() => [
+const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; value?: string; visible?: boolean }[] }[]>(() => [
     {
         key: 'money',
         title: t('shell.more.moneyCounterparties'),
@@ -63,7 +64,7 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         items: [
             { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
             { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
-            { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document' },
+            { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', value: styleName(settings.value?.invoice.style) },
             { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
         ],
     },
@@ -106,6 +107,7 @@ async function leave(): Promise<void> {
                         <Icon :name="item.icon" :size="22" />
                         <span class="flex-1 text-16">{{ item.label }}</span>
                         <span v-if="item.count" class="num text-14 text-ink-3">{{ item.count }}</span>
+                        <span v-else-if="item.value" class="text-14 text-ink-3">{{ item.value }}</span>
                         <Icon name="chevronRight" :size="18" class="text-ink-2" />
                     </RouterLink>
                 </template>

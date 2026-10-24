@@ -270,7 +270,13 @@ const generalError = computed(() => {
                 <SectionTitle>{{ t('shell.nav.invoices') }}</SectionTitle>
                 <div class="grid grid-cols-2 gap-2.5">
                     <SelectField v-model="form.default_currency" :label="t('core.common.currency')" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                    <SelectField v-model="form.locale" :label="t('settings.profile.documentLanguage')" :disabled="!canEditIdentity" :options="DOCUMENT_LOCALES" />
+                    <SelectField
+                        v-model="form.locale"
+                        :label="t('settings.profile.documentLanguage')"
+                        :hint="t('settings.profile.documentLanguageHint')"
+                        :disabled="!canEditIdentity"
+                        :options="DOCUMENT_LOCALES"
+                    />
                 </div>
                 <div v-if="!isNew" class="flex flex-col gap-1.5">
                     <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>

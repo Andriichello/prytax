@@ -104,6 +104,25 @@ export type InvoiceLocale = 'en' | 'uk';
 /** Level an invoice setting comes from (design.md §4.1). */
 export type SettingSource = 'invoice' | 'client' | 'profile' | 'default';
 
+/** Look of an invoice's PDF (template v3), in the order of the catalogue; `outlined` is the built-in one. */
+export type InvoiceStyle =
+    | 'outlined'
+    | 'simplified'
+    | 'colored'
+    | 'vivid'
+    | 'monochrome'
+    | 'freeform'
+    | 'freeform_mono'
+    | 'freeform_facets'
+    | 'freeform_blocks'
+    | 'andriichello'
+    | 'andriichello_schema'
+    | 'andriichello_sakura'
+    | 'andriichello_carpathians';
+
+/** Where an invoice's note prints: under the payment details, or on the right under the act. */
+export type InvoiceNoteKind = 'payment' | 'other';
+
 export type InvoiceStatus = 'draft' | 'ready' | 'sent' | 'paid' | 'cancelled';
 
 export type ItemUnit = 'hour' | 'fixed' | 'item';
@@ -331,6 +350,11 @@ export interface InvoiceDocumentSettings {
     act_note_enabled: boolean | null;
     act_note: string | null;
     show_contract: boolean | null;
+    style: InvoiceStyle | null;
+    /** The note's switch: a level, which sets it, owns the note's text and kind too. */
+    note_enabled: boolean | null;
+    note: string | null;
+    note_kind: InvoiceNoteKind | null;
 }
 
 /** A resolved invoice setting: its value, the level it comes from, and the value the levels below give it. */
@@ -347,6 +371,10 @@ export interface EffectiveInvoiceSettings {
     act_note_enabled: ResolvedSetting<boolean>;
     act_note: ResolvedSetting<string>;
     show_contract: ResolvedSetting<boolean>;
+    style: ResolvedSetting<InvoiceStyle>;
+    note_enabled: ResolvedSetting<boolean>;
+    note: ResolvedSetting<string | null>;
+    note_kind: ResolvedSetting<InvoiceNoteKind>;
 }
 
 /** The built-in texts of invoices in one language. */
@@ -374,13 +402,15 @@ export interface ProfileSettings {
             reset: NumberingReset;
             date_source: NumberingDateSource;
         };
-        /** Printed under the invoice, unless the client has its own note. */
-        footer_note: string | null;
         /** The ФОП's level of the document settings; null takes the built-in one. */
         payment_purpose_template: string | null;
         act_note_enabled: boolean | null;
         act_note: string | null;
         show_contract: boolean | null;
+        style: InvoiceStyle | null;
+        note_enabled: boolean | null;
+        note: string | null;
+        note_kind: InvoiceNoteKind | null;
         /** Money format of the PDFs. */
         money_format: MoneyFormat;
     };
@@ -748,13 +778,16 @@ export interface Client {
     address: ClientAddress | null;
     tax_id: string | null;
     email: string | null;
-    invoice_footer_note: string | null;
     /** The client's level of the document settings, each null to take the ФОП's. */
     invoice_locale: InvoiceLocale | null;
     payment_purpose_template: string | null;
     act_note_enabled: boolean | null;
     act_note: string | null;
     show_contract: boolean | null;
+    invoice_style: InvoiceStyle | null;
+    invoice_note_enabled: boolean | null;
+    invoice_note: string | null;
+    invoice_note_kind: InvoiceNoteKind | null;
     notes: string | null;
     is_active: boolean;
     created_at: DateTimeString;
@@ -953,7 +986,8 @@ export interface InvoiceSnapshot {
         adjustment_label: string | null;
         total: Amount;
     };
-    footer_note: string | null;
+    /** Under the invoice, in snapshots of version 1 and 2; version 3 has `presentation.note`. */
+    footer_note?: string | null;
 }
 
 /**
@@ -984,6 +1018,10 @@ export interface Invoice {
     act_note_enabled: boolean | null;
     act_note: string | null;
     show_contract: boolean | null;
+    style: InvoiceStyle | null;
+    note_enabled: boolean | null;
+    note: string | null;
+    note_kind: InvoiceNoteKind | null;
     subtotal: Amount;
     /** Added to the subtotal; negative for a discount. */
     adjustment_amount: Amount;

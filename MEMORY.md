@@ -11,18 +11,19 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 
 | Phase | State |
 |---|---|
-| 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` (not pushed; there is no remote) |
+| 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` |
 | 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged) |
 | 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 
 - **Branches:** only `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
-  (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. No git remote
-  exists, so nothing is pushed.
+  (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. The remote
+  `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
+  only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
   658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
-  which is checked out in `/var/www/api-core` and pushed to `origin/dev`. api-core's `main` is behind it. PryTax runs
+  which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
 - `php artisan test --compact`: **300 tests**, all passing on 2026-10-21 (about 90 s, on MySQL `prytax_test`). Run it
@@ -32,7 +33,7 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 - The dev database `prytax` was rebuilt with the demo data at the end of 2026-10-21 (after the QA flows). NBU rates
   get cached by previews (writes on read). `migrate:fresh` leaves old seeds' files in `storage/app/private/files`
   (orphans; harmless).
-- The user asked for commits in logical parts, with the `Co-Authored-By` trailer from the system reminder.
+- The user asked for commits in logical parts, and (2026-10-24) for no `Co-Authored-By` Claude trailer in them.
 
 ### First steps of the next session
 

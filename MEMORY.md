@@ -17,6 +17,7 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 | 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done on branch `feat/invoice-v2`** (2026-10-24, not merged); see "Invoice document" |
+| 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done on branch `feat/invoice-v2`** (2026-10-24, not merged); see "Invoice styles" |
 
 - **Branches:** only `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
   (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. The remote
@@ -196,6 +197,45 @@ the target renders at 110 dpi). "v3" is the design iteration; in code it is temp
   currency), the draft invoice (collapsed "Документ") and Більше → Документ інвойсу; Договір got its subject.
 - Verified: 345 PHP tests, 414 Vitest tests, typecheck, build, a 42-screen sweep in uk and en, a client save in the
   browser (restored after).
+
+## Invoice styles (2026-10-24, branch `feat/invoice-v2`, not merged)
+
+From Claude Design's `storage/handoff/prytax-invoice-styles-handoff.md` (+ `invoice-styles-handoff/`: screens, the
+styles' reference HTML/CSS, decor SVGs, 110 dpi refs, thumbnails). The user decided: **template v2 dropped** (it never
+left this branch) — v1 + v3 only; **`pdfjs-dist` 6.4.299 approved** (pinned, lazy chunk, only the style preview);
+design.md §4.1 edited and left uncommitted with the user's spec edits.
+
+- **Cascade:** `style` (`InvoiceStyle`, 13 cases in catalogue order, `label()`/`group()`/`cssClass()`; string columns,
+  an unknown stored key renders as `outlined`) and the **note** (`note_enabled`/`note`/`note_kind` `payment|other`):
+  the first level whose `note_enabled` is non-null owns the note whole (`InvoiceSettingsResolver::note()`); the
+  `NoteTextRequired` rule (data-aware, implicit) wants its text when on. Columns `clients.invoice_style`,
+  `invoice_note_enabled`, `invoice_note`, `invoice_note_kind`; `invoices.style`, `note_enabled`, `note`, `note_kind`;
+  settings `invoice.style`, `invoice.note*`. The migration moved `clients.invoice_footer_note` and the
+  `invoice.footer_note` setting into each level's note (on, `other`) and dropped them; today only one of them printed
+  (client's ?? ФОП's), so no merging was needed. `clients.legal_name_uk` existed; the form edits it now.
+- **Snapshot v3:** `presentation.style`, `note` (null when off), `note_kind`; no `footer_note`. Ukrainian document dates
+  are month words (`31 жовтня 2026`, `DocumentDate` `j F Y`; the SPA's `documentDate()` the same via `Intl`).
+- **Preview:** `GET profiles/{p}/invoices/style-preview?style=&locale=&client_id=&invoice_id=` (`InvoiceStylePreview`,
+  viewAny of invoices): the given generated invoice, else the client's or the ФОП's latest non-cancelled one, snapshot
+  built in memory with the asked style/locale, rendered with v3, nothing saved; no invoice → `PreviewInvoiceFactory`.
+  The catalogue is a frontend constant (`utils/invoiceStyles.ts`), kept equal to the enum by `InvoiceStyleCatalogueTest`.
+- **Template v3** (`pdf/invoice/v3.blade.php` + `v3/{decor,head,strip,items,card}`; CSS `resources/invoice-styles/`,
+  decor SVGs `resources/invoice-decor/`; `InvoiceDocument` view model): matches the 26 refs within 1–3 px. dompdf
+  findings: fonts beyond DejaVu (Plex Mono Regular/SemiBold, Unbounded SemiBold/Bold, static TTFs, OFL) are installed
+  into dompdf's font dir by `InvoicePdfRenderer::installedMetrics()` (once, again when the TTF is newer), with a
+  `FontHeightOffset` so their lines are as high as DejaVu's; weight 600 is its own weight in dompdf 3.1 (registered
+  separately); page numbers via `page_script()` (the `.pager` rule gives colour/font/bottom); pages have 30 pt top and
+  bottom margins and the root is pulled up so bands reach the edge, with all decoration in a page-sized frame drawn
+  first (so it stays on page 1); decor SVGs need unitless sizes (php-svg-lib read pt as px). Thumbnails:
+  `php artisan invoice:style-thumbnails` (needs `pdftoppm`, dev only) → `public/images/invoice-styles/` (committed).
+  `storage/fonts/` must be writable on deploy.
+- **SPA:** `InvoiceDocumentFields` (style row → `InvoiceStylePicker` → `InvoiceStylePreview`, both on
+  `FullScreenSheet`; `PurposePlaceholderSheet` replaces the chips; note block), `TextAreaField` `autogrow` (2–8 rows,
+  the placeholder counts), `useOverlay` (the page lock and Escape stack, shared by BottomSheet and FullScreenSheet),
+  `api.blob()`. Client page "Документ інвойсу" card → form `#invoice-defaults`; Нумерація's note became a link row;
+  Ще shows the ФОП's style; Профіль's language hint.
+- Verified: 383 PHP tests, 439 Vitest tests, typecheck, build; a 42-screen sweep in uk and en; the picker, the
+  pdf.js preview (arrows, language), the placeholder sheet and the note in headless Chrome (nothing saved).
 
 ## The audit (2026-10-20)
 

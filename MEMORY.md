@@ -1,10 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-24: backend, frontend and the QA pass are in `main`; `dev` has them too, plus the follow-ups of
-the QA pass (the user's decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the
-SPA's translation keys (merged on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`, `docs/specs/design.md` (§16 is
-the phase-1 UI scope) and `storage/handoff/prytax-simplified-design-handoff.md` (the design handoff; the screens are
-in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.gitignore`), on disk only.
+Status as of 2026-10-24: `main` = `dev` has everything: backend, frontend, the QA pass, its follow-ups (the user's
+decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys
+(merged on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`,
+`docs/specs/design.md` (§16 is the phase-1 UI scope) and `storage/handoff/prytax-simplified-design-handoff.md` (the
+design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git
+(`.gitignore`), on disk only.
 
 ## Where things stand
 
@@ -16,15 +17,14 @@ in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 
-- **Branches:** `dev` = `dev-followups` = `feat/i18n-keys` = backend + frontend + QA pass + follow-ups + English +
-  translation keys (fast-forwarded on 2026-10-24, the user asked), `dev` checked out. `main` = `dev-qa-fixes` = the
-  QA pass, behind `dev` (fast-forward it only when the user asks). `backend-phase-1`, `dev-qa-fixes`,
+- **Branches:** `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
+  (fast-forwarded on 2026-10-24, the user asked), `dev` checked out. `backend-phase-1`, `dev-qa-fixes`,
   `dev-followups` and `feat/i18n-keys` are merged and can go. No git remote exists, so nothing is pushed.
-- **api-core is on branch `feat/remember-login`** in `/var/www/api-core` (2 commits on its `dev`: `remember` on
-  `auth/login`, the `remember_token` migration, docs, tests; all 658 api-core tests pass), **not merged, not pushed**.
-  PryTax runs api-core's working tree (path repository, symlinked), so that branch must stay checked out until it is
-  merged into api-core's `dev`. api-core's commits run GrumPHP (phpcs line length 120, phpmd: no boolean flag
-  arguments, phpstan).
+- **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
+  658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked), which is checked out in
+  `/var/www/api-core`, **2 commits ahead of `origin/dev`, not pushed** (push only when the user asks). PryTax runs
+  api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
+  (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
 - `php artisan test --compact`: **300 tests**, all passing on 2026-10-21 (about 90 s, on MySQL `prytax_test`). Run it
   in the foreground with a generous timeout; two runs at once deadlock each other (so parallel agents must not run
   it). The frontend: `npm test` (Vitest, 28 tests of `resources/js/utils/*.test.ts`), `npm run typecheck`,
@@ -36,9 +36,9 @@ in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.
 
 ### First steps of the next session
 
-1. **Ask the user** about fast-forwarding `main` to `dev`, and merging api-core's `feat/remember-login` into its `dev`
-   (and pushing it): PryTax's `dev` needs that branch («Запам’ятати мене»). Then what is left: XLSX exports and the yearly PDF summary (need a package, so approval),
-   pixel polish against the mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
+1. **Ask the user** about pushing api-core's `dev` (2 commits ahead of `origin/dev`). Then what is left: XLSX
+   exports and the yearly PDF summary (need a package, so approval), pixel polish against the mocks, design.md's
+   "pending" items (Appendix A, B2, B5), `SheetImporter`.
 2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
    end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
    dev`), sign in as `olena@example.com` / `password`; start Chrome only to check the UI (under "Checking the UI").

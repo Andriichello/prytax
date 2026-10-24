@@ -1,21 +1,7 @@
-<script lang="ts">
-/** The open sheets, the topmost last: one page lock for all of them, and Escape closes only the topmost. */
-const openSheets: symbol[] = [];
-
-/**
- * Lock the page behind the sheets (no scrolling, no focus or taps reaching it) while any sheet is open.
- */
-function lockPage(): void {
-    const locked = openSheets.length > 0;
-
-    document.body.style.overflow = locked ? 'hidden' : '';
-    document.getElementById('app')?.toggleAttribute('inert', locked);
-}
-</script>
-
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
+import { ref, useId } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { useOverlay } from '@/composables/useOverlay';
 import { t } from '@/i18n';
 
 /**
@@ -28,45 +14,12 @@ const open = defineModel<boolean>('open', { required: true });
 
 const titleId = useId();
 const sheet = ref<HTMLElement | null>(null);
-const token = Symbol('sheet');
-let returnFocus: HTMLElement | null = null;
 
 function close(): void {
     open.value = false;
 }
 
-function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && openSheets[openSheets.length - 1] === token) {
-        close();
-    }
-}
-
-function release(): void {
-    const index = openSheets.indexOf(token);
-
-    if (index !== -1) {
-        openSheets.splice(index, 1);
-        lockPage();
-    }
-
-    document.removeEventListener('keydown', onKeydown);
-}
-
-watch(open, async (isOpen) => {
-    if (isOpen) {
-        returnFocus = document.activeElement as HTMLElement | null;
-        openSheets.push(token);
-        lockPage();
-        document.addEventListener('keydown', onKeydown);
-        await nextTick();
-        sheet.value?.focus();
-    } else if (openSheets.includes(token)) {
-        release();
-        returnFocus?.focus();
-    }
-}, { immediate: true });
-
-onBeforeUnmount(release);
+useOverlay(open, close, sheet);
 </script>
 
 <template>

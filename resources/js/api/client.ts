@@ -175,6 +175,26 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 /**
+ * Send a GET request for a file (a PDF) and return its body as a blob; an error answer throws an ApiError, as
+ * `request()` does.
+ */
+async function blob(path: string, query?: Query, signal?: AbortSignal): Promise<Blob> {
+    const response = await send(path, { query, signal });
+
+    if (!response.ok) {
+        const { message } = ((await response.json().catch(() => null)) ?? {}) as { message?: string };
+
+        if (response.status === 401 && unauthenticatedHandler) {
+            unauthenticatedHandler();
+        }
+
+        throw new ApiError(response.status, message ?? response.statusText, {});
+    }
+
+    return response.blob();
+}
+
+/**
  * Every row of a list, page after page (the API serves 50 at most per page): for selects and short lists, which
  * must not stop silently at the first page.
  */
@@ -197,6 +217,7 @@ async function all<T>(path: string, query: Query = {}, signal?: AbortSignal): Pr
 
 export const api = {
     get: <T>(path: string, query?: Query, signal?: AbortSignal) => request<T>(path, { query, signal }),
+    blob,
     all,
     post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, { method: 'POST', body, headers }),

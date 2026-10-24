@@ -509,7 +509,7 @@ class InvoiceControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.snapshot.locale', 'uk')
             ->assertJsonPath('data.snapshot.profile.name', 'Мирчук Микола')
-            ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14.10.2026')
+            ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14 жовтня 2026')
             ->assertJsonPath('data.snapshot.presentation.act_note', null)
             ->assertJsonPath('data.snapshot.presentation.show_contract', true);
         $this->getJson($this->profilePath($profile, "invoices/$open?append=effective_settings"))
@@ -588,7 +588,7 @@ class InvoiceControllerTest extends TestCase
             ->patchJson($this->profilePath($profile, "invoices/{$draft['id']}?append=effective_settings"), ['locale' => null]);
 
         $shown->assertOk()
-            ->assertJsonPath('data.payment_purpose_preview', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14.10.2026')
+            ->assertJsonPath('data.payment_purpose_preview', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14 жовтня 2026')
             ->assertJsonPath('data.warnings', ['payment_purpose_charset', 'currency_differs_from_contract']);
         $cleared->assertOk()
             ->assertJsonPath('data.locale', null)

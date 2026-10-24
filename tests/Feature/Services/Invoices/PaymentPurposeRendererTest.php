@@ -15,8 +15,8 @@ use Tests\TestCase;
  * Class PaymentPurposeRendererTest.
  *
  * The payment purpose fills the placeholders of its template in the invoice's language (design.md §4.1): dates as
- * `Oct 31, 2026` or `31.10.2026`, the contract's subject as {services}, and warns of a reference, which SWIFT or SEPA
- * can't carry, in a foreign currency only.
+ * `Oct 31, 2026` or `31 жовтня 2026`, the contract's subject as {services}, and warns of a reference, which SWIFT or
+ * SEPA can't carry, in a foreign currency only.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Invoices
@@ -61,7 +61,7 @@ class PaymentPurposeRendererTest extends TestCase
         $ukrainian = app(PaymentPurposeRenderer::class)->render($template, $this->inProfile($profile, fn () => app(PaymentPurposeRenderer::class)->values($invoice, 'uk')));
 
         $this->assertSame('IT services BRIT-2026-10-31-2 Oct 31, 2026 Oct 1, 2026–Oct 31, 2026 Service Agreement 109-23 Apr 13, 2023 Myrchuk Mykola', $english);
-        $this->assertSame('IT services BRIT-2026-10-31-2 31.10.2026 01.10.2026–31.10.2026 Service Agreement 109-23 13.04.2023 Мирчук Микола', $ukrainian);
+        $this->assertSame('IT services BRIT-2026-10-31-2 31 жовтня 2026 1 жовтня 2026–31 жовтня 2026 Service Agreement 109-23 13 квітня 2023 Мирчук Микола', $ukrainian);
     }
 
     /**

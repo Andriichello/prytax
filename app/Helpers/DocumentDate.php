@@ -8,9 +8,10 @@ use Carbon\CarbonInterface;
 /**
  * Class DocumentDate.
  *
- * Formats the dates of an invoice's document in its language (design.md §4.1): `Oct 31, 2026` in English, `31.10.2026`
- * in Ukrainian. The PDF and the payment purpose share it, so the two never write a date two ways. The language is
- * passed, never taken from the application's, which a request sets to its user's.
+ * Formats the dates of an invoice's document in its language (design.md §4.1): `Oct 31, 2026` in English, `31 жовтня
+ * 2026` in Ukrainian (the month in the genitive, as Carbon's Ukrainian `F` gives it after a day). The PDF and the
+ * payment purpose share it, so the two never write a date two ways. The language is passed, never taken from the
+ * application's, which a request sets to its user's.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Helpers
@@ -24,7 +25,7 @@ class DocumentDate
      */
     public const array FORMATS = [
         'en' => 'M j, Y',
-        'uk' => 'd.m.Y',
+        'uk' => 'j F Y',
     ];
 
     /**

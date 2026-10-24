@@ -46,8 +46,12 @@ const PLACEHOLDER = /\{([a-z_]+(?:\.[a-z_]+)?)\}/g;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** The Ukrainian month of a day ("жовтня"), whatever the language of the screens. */
+const UKRAINIAN_MONTH = new Intl.DateTimeFormat('uk', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+
 /**
- * A date of an invoice's document in its language: `Oct 31, 2026` in English, `31.10.2026` in Ukrainian.
+ * A date of an invoice's document in its language, as the API's DocumentDate writes it: `Oct 31, 2026` in English,
+ * `31 жовтня 2026` in Ukrainian.
  */
 export function documentDate(date: string | null | undefined, locale: InvoiceLocale): string {
     if (!date) {
@@ -56,7 +60,14 @@ export function documentDate(date: string | null | undefined, locale: InvoiceLoc
 
     const [year = '', month = '', day = ''] = date.slice(0, 10).split('-');
 
-    return locale === 'uk' ? `${day}.${month}.${year}` : `${MONTHS[Number(month) - 1]} ${Number(day)}, ${year}`;
+    if (locale === 'uk') {
+        const genitive = UKRAINIAN_MONTH.formatToParts(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))))
+            .find((part) => part.type === 'month')?.value;
+
+        return `${Number(day)} ${genitive ?? month} ${year}`;
+    }
+
+    return `${MONTHS[Number(month) - 1]} ${Number(day)}, ${year}`;
 }
 
 /**

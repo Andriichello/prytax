@@ -4,7 +4,8 @@ import { documentDate, purposeValues, purposeWarnings, renderPurpose, unknownPla
 describe('documentDate', () => {
     it('writes a date as the invoice of the language does', () => {
         expect(documentDate('2026-10-01', 'en')).toBe('Oct 1, 2026');
-        expect(documentDate('2026-10-01', 'uk')).toBe('01.10.2026');
+        expect(documentDate('2026-10-01', 'uk')).toBe('1 жовтня 2026');
+        expect(documentDate('2026-02-28', 'uk')).toBe('28 лютого 2026');
         expect(documentDate(null, 'en')).toBe('');
     });
 });
@@ -54,12 +55,12 @@ describe('purposeValues', () => {
         expect(purposeValues(sample, 'uk', texts)).toEqual({
             services: 'services',
             'invoice.number': 'BL-2026-10-31-1',
-            'invoice.date': '31.10.2026',
-            'period.start': '01.10.2026',
-            'period.end': '31.10.2026',
+            'invoice.date': '31 жовтня 2026',
+            'period.start': '1 жовтня 2026',
+            'period.end': '31 жовтня 2026',
             'contract.name': 'Service Agreement',
             'contract.number': null,
-            'contract.date': '01.09.2026',
+            'contract.date': '1 вересня 2026',
             'client.name': 'TOV Brightline',
             'profile.name': 'Myrchuk Mykola (uk)',
         });

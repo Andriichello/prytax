@@ -18,6 +18,9 @@ phase-1 ("Simplified") UI scope; the full redesign brief is `claude/prytax-desig
   `act_note`, `show_contract` (§4.1). Version-1 snapshots keep rendering unchanged.
 - `InvoiceSettingsResolver`, `PaymentPurposeRenderer` (§11); migration `2026_10_24_000000_add_invoice_settings_cascade`
   (§4.1); PDF layout changes are in `invoice.md`.
+- The invoice style (13 styles, `InvoiceStyle`) and the invoice note (on/off, text, kind `payment | other`) join the
+  cascade; the note replaces the footer note. Snapshot `schema_version = 3` adds `presentation.style`, `note` and
+  `note_kind`; PDF template `v3` prints them (`invoice.md`), and template v2 was dropped before it shipped.
 
 ### Changes from v3.1 (v3.2 — client abbreviations in invoice numbers)
 
@@ -243,11 +246,14 @@ profile_settings    [P] key VARCHAR(64), value JSON     UNIQUE(profile_id, key)
                     invoice.numbering.scope           = per_client | global                   (per_client)
                     invoice.numbering.reset           = never | yearly                        (never)
                     invoice.numbering.date_source     = period_end | issued_at                (period_end)
-                    invoice.footer_note               = text                                  (null)   -- VAT / reverse-charge note
                     invoice.locale                    = en | uk                               (en)     -- cascade root, §4.1
                     invoice.payment_purpose_template  = template ≤ 255, placeholders §4.1      (null → built-in for the locale)
                     invoice.act_note_enabled          = bool                                  (true)
                     invoice.act_note                  = text ≤ 500                            (null → built-in for the locale)
+                    invoice.style                     = InvoiceStyle key                      (null → outlined)
+                    invoice.note_enabled              = bool                                  (null → off)   -- replaces invoice.footer_note
+                    invoice.note                      = text ≤ 500                            (null)
+                    invoice.note_kind                 = payment | other                       (null → other)
                     invoice.show_contract             = bool                                  (true)
                     -- currency root of the cascade is the column profiles.default_currency (no setting key)
                     invoice.money_format              = money format enum (§10)               (plain_dot  → 2851.99)
@@ -278,14 +284,17 @@ account_movements   [P] account_id (RESTRICT), direction(enum in|out), amount DE
                     INDEX(account_id, booked_at)
 
 clients             [P] name, abbreviation VARCHAR(10), legal_name, name_uk NULL, legal_name_uk NULL, country CHAR(2),
-                    vat_number NULL, address JSON (lines, city, zip), tax_id NULL, email, invoice_footer_note NULL,
+                    vat_number NULL, address JSON (lines, city, zip), tax_id NULL, email,
                     notes, is_active,
                     -- invoice defaults (§4.1); NULL = inherit from the profile
                     currency CHAR(3) NULL,                      -- prefill for new contracts and invoices
                     invoice_locale VARCHAR(5) NULL,             -- InvoiceLocale enum: en | uk
                     payment_purpose_template VARCHAR(255) NULL,
                     act_note_enabled BOOL NULL, act_note VARCHAR(500) NULL,
-                    show_contract BOOL NULL
+                    show_contract BOOL NULL,
+                    invoice_style VARCHAR(32) NULL,             -- InvoiceStyle key
+                    invoice_note_enabled BOOL NULL, invoice_note TEXT NULL, invoice_note_kind VARCHAR(16) NULL
+                                                                -- the note replaced invoice_footer_note
                     UNIQUE(profile_id, abbreviation)   -- [A-Z0-9]{1,10}, typed in any case, stored upper case;
                                                        -- inactive clients keep theirs: two clients never share a prefix (§5)
 contracts           [P] client_id, name, number NULL, subject VARCHAR(100) NULL,   -- subject → {services} (§4.1)
@@ -305,11 +314,13 @@ invoices            [P] client_id, contract_id NULL, receiving_account_id → ac
                     -- overrides (§4.1); NULL = inherit from the client; locked with the invoice after freeze
                     locale VARCHAR(5) NULL, payment_purpose_template VARCHAR(255) NULL,
                     act_note_enabled BOOL NULL, act_note VARCHAR(500) NULL, show_contract BOOL NULL,
+                    style VARCHAR(32) NULL, note_enabled BOOL NULL, note TEXT NULL, note_kind VARCHAR(16) NULL,
                     subtotal DECIMAL(15,2), adjustment_amount DECIMAL(15,2) NOT NULL DEFAULT 0, adjustment_label NULL,
                     total DECIMAL(15,2),                        -- = subtotal + adjustment_amount
                     status(enum draft|ready|sent|paid|cancelled), locked_at, sent_at, paid_at, cancelled_at,
                     snapshot JSON NULL,                         -- v1: {schema_version, money_format, profile, client, contract, account, items, totals, footer_note}
                                                                 -- v2: + locale, presentation{payment_purpose, act_note, show_contract} (§4.1)
+                                                                -- v3: + presentation{style, note, note_kind}, − footer_note (invoice.md)
                     notes, timestamps, soft deletes
                     UNIQUE(profile_id, number), INDEX(profile_id, client_id, status), INDEX(profile_id, issued_at)
 invoice_items       [child] invoice_id, position, project_id NULL, project_code VARCHAR, charge_type_id NULL,
@@ -687,7 +698,7 @@ Snapshot v2 (`InvoiceFreezer`; party fields are resolved for the locale so the t
 (the PDF shows the section iff `show_contract && contract !== null`). Version-1 snapshots have no `locale` /
 `presentation` and keep rendering with the v1 template (`invoice_files.template_version`); PDF layout: `invoice.md`.
 
-Snapshot v3 (the current one; PDF template `v3`, the styled layout of `INVOICE_STYLES.md`) adds to `presentation`
+Snapshot v3 (the current one; PDF template `v3`, the styled layout of `invoice.md`) adds to `presentation`
 `"style": "colored"` (always a valid key at freeze time), `"note": "Please quote the invoice number in the transfer
 reference."` (`null` when the note resolves to off) and `"note_kind": "payment"`, and no longer writes `footer_note`.
 `client.name` is `legal_name_uk` on `uk` invoices when it is set. Snapshots of version 2 (never in production) render
@@ -1055,7 +1066,7 @@ idempotent replays.
 2. Accounts (+ opening balances, movements, limits with calendar/rolling windows), clients (+ invoice defaults, §4.1),
    contracts (+ rates, `subject`), projects, charge types.
 3. Invoices + items + adjustment, numbering (allocate/preview/rebuild), `InvoiceSettingsResolver` +
-   `PaymentPurposeRenderer`, freeze/unfreeze/snapshot v2/PDF (layout: `invoice.md`), files with functional unique,
+   `PaymentPurposeRenderer`, freeze/unfreeze/snapshot v3/PDF (layout: `invoice.md`), files with functional unique,
    state machine, optimistic locking.
 4. Payments (record, receipt groups, advances), refunds, transfers + allocations, `HoldingCalculator`,
    `AllocationProposer`, fee/spread/net metrics, fx-gain, balances, idempotency; `ClientStats`.

@@ -1,10 +1,23 @@
-# PryTax — ФОП Finance App — Design Spec (v3.2, multi-profile on api-core)
+# PryTax — ФОП Finance App — Design Spec (v3.3, multi-profile on api-core)
 
 Target: accounting + invoicing app for Ukrainian ФОПs (3 група, спрощена система, no employees), built on the `api-core`
 package (organizations, users, Sanctum tokens, spatie roles/permissions, HTTP filtering/resources/pagination). Stack:
 Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first, Ukrainian UI) consuming the API (Blade only for PDF/email
 templates). Functional rules live in `ACCOUNTING.md`; this document is the implementation of them. §16 fixes the
 phase-1 ("Simplified") UI scope; the full redesign brief is `claude/prytax-design-review.md`.
+
+### Changes from v3.2 (v3.3 — cascading invoice settings)
+
+- Five invoice settings cascade **invoice → client → profile → built-in default** (§4.1): currency, language,
+  payment purpose template, act-of-acceptance note (on/off + text), contract-section toggle. Override columns are
+  nullable on `clients` and `invoices` (`NULL` = inherit); ФОП-wide defaults are new `profile_settings` keys (§3).
+- Currency is the exception: resolved once at creation (`contract → client → profile`) and stored concretely on
+  `invoices.currency`, as before; `clients.currency` is new.
+- `contracts.subject` (nullable) feeds the `{services}` placeholder of the payment purpose.
+- Snapshot `schema_version = 2`: `locale`, party fields resolved for the locale, rendered `payment_purpose`,
+  `act_note`, `show_contract` (§4.1). Version-1 snapshots keep rendering unchanged.
+- `InvoiceSettingsResolver`, `PaymentPurposeRenderer` (§11); migration `2026_10_24_000000_add_invoice_settings_cascade`
+  (§4.1); PDF layout changes are in `invoice.md`.
 
 ### Changes from v3.1 (v3.2 — client abbreviations in invoice numbers)
 
@@ -110,6 +123,7 @@ organization (api-core)  1 ──── N  profiles (= one ФОП each; tax iden
            Route::apiResource('tax-periods', TaxPeriodController::class)->only(['index', 'show', 'update']);
            Route::apiResource('tax-payments', TaxPaymentController::class);
            Route::get('clients/{client}/stats', ClientStatsController::class);
+           Route::get('clients/{client}/invoice-defaults', ClientInvoiceDefaultsController::class);
            Route::get('accounting/{year}/{quarter}', AccountingViewController::class);
            Route::get('overview/{year}/{quarter}', PracticeOverviewController::class);
            Route::get('declaration/{year}/{quarter}', DeclarationFiguresController::class);
@@ -201,6 +215,10 @@ All numbers live in `tax_rules`; `profiles.tax_group` supports `3` only in v1.
 17. **Formatting is presentation.** The API carries canonical decimal strings; how `1234.99` is displayed is a
     profile setting, separately for the app and for invoice PDFs (§10).
 16. **Tenant key is `profile_id`** (§0).
+18. **Invoice presentation settings cascade, and freeze materialises them.** Language, payment purpose, act note and
+    contract toggle are `NULL`-means-inherit columns on `invoices` and `clients` over `profile_settings` keys and
+    built-in defaults; drafts read them live, the freeze writes the resolved values into the snapshot, so editing a
+    client never alters an issued document. Currency is prefilled from the same chain but stored concretely (§4.1).
 
 ---
 
@@ -226,6 +244,12 @@ profile_settings    [P] key VARCHAR(64), value JSON     UNIQUE(profile_id, key)
                     invoice.numbering.reset           = never | yearly                        (never)
                     invoice.numbering.date_source     = period_end | issued_at                (period_end)
                     invoice.footer_note               = text                                  (null)   -- VAT / reverse-charge note
+                    invoice.locale                    = en | uk                               (en)     -- cascade root, §4.1
+                    invoice.payment_purpose_template  = template ≤ 255, placeholders §4.1      (null → built-in for the locale)
+                    invoice.act_note_enabled          = bool                                  (true)
+                    invoice.act_note                  = text ≤ 500                            (null → built-in for the locale)
+                    invoice.show_contract             = bool                                  (true)
+                    -- currency root of the cascade is the column profiles.default_currency (no setting key)
                     invoice.money_format              = money format enum (§10)               (plain_dot  → 2851.99)
                     display.money_format              = money format enum (§10)               (space_dot  → 1 234.99)
                     income.taxable_base               = invoiced | received                   (invoiced)
@@ -255,10 +279,17 @@ account_movements   [P] account_id (RESTRICT), direction(enum in|out), amount DE
 
 clients             [P] name, abbreviation VARCHAR(10), legal_name, name_uk NULL, legal_name_uk NULL, country CHAR(2),
                     vat_number NULL, address JSON (lines, city, zip), tax_id NULL, email, invoice_footer_note NULL,
-                    notes, is_active
+                    notes, is_active,
+                    -- invoice defaults (§4.1); NULL = inherit from the profile
+                    currency CHAR(3) NULL,                      -- prefill for new contracts and invoices
+                    invoice_locale VARCHAR(5) NULL,             -- InvoiceLocale enum: en | uk
+                    payment_purpose_template VARCHAR(255) NULL,
+                    act_note_enabled BOOL NULL, act_note VARCHAR(500) NULL,
+                    show_contract BOOL NULL
                     UNIQUE(profile_id, abbreviation)   -- [A-Z0-9]{1,10}, typed in any case, stored upper case;
                                                        -- inactive clients keep theirs: two clients never share a prefix (§5)
-contracts           [P] client_id, name, number NULL, started_at DATE NOT NULL, ends_at DATE NULL, currency,
+contracts           [P] client_id, name, number NULL, subject VARCHAR(100) NULL,   -- subject → {services} (§4.1)
+                    started_at DATE NOT NULL, ends_at DATE NULL, currency,
                     payment_terms_days SMALLINT NULL, description_template, is_active
                     -- template: "IT services in accordance to the Service Agreement {name} dated {started_at:F j, Y}"
 contract_rates      [child] contract_id, charge_type_id NULL, effective_from DATE, hourly_rate DECIMAL(15,2)
@@ -269,11 +300,16 @@ charge_types        [child of clients] client_id, name ("Billable","Overhead"), 
 invoices            [P] client_id, contract_id NULL, receiving_account_id → accounts (RESTRICT), number VARCHAR(64),
                     sequence_scope_key VARCHAR(64) NULL, sequence_number INT UNSIGNED NULL,   -- NULL pair = user-supplied number
                     source(enum generated|external) DEFAULT generated,
-                    period_start DATE, period_end DATE, issued_at DATE, due_at DATE NULL, currency,
+                    period_start DATE, period_end DATE, issued_at DATE, due_at DATE NULL,
+                    currency CHAR(3) NOT NULL,                  -- resolved at creation: contract → client → profile (§4.1)
+                    -- overrides (§4.1); NULL = inherit from the client; locked with the invoice after freeze
+                    locale VARCHAR(5) NULL, payment_purpose_template VARCHAR(255) NULL,
+                    act_note_enabled BOOL NULL, act_note VARCHAR(500) NULL, show_contract BOOL NULL,
                     subtotal DECIMAL(15,2), adjustment_amount DECIMAL(15,2) NOT NULL DEFAULT 0, adjustment_label NULL,
                     total DECIMAL(15,2),                        -- = subtotal + adjustment_amount
                     status(enum draft|ready|sent|paid|cancelled), locked_at, sent_at, paid_at, cancelled_at,
-                    snapshot JSON NULL,                         -- {schema_version, money_format, profile, client, contract, account, items, totals, footer_note}
+                    snapshot JSON NULL,                         -- v1: {schema_version, money_format, profile, client, contract, account, items, totals, footer_note}
+                                                                -- v2: + locale, presentation{payment_purpose, act_note, show_contract} (§4.1)
                     notes, timestamps, soft deletes
                     UNIQUE(profile_id, number), INDEX(profile_id, client_id, status), INDEX(profile_id, issued_at)
 invoice_items       [child] invoice_id, position, project_id NULL, project_code VARCHAR, charge_type_id NULL,
@@ -374,7 +410,7 @@ notification_reads  notification_id → notifications (CASCADE), user_id → use
 
 idempotency_keys    user_id, key VARCHAR(64), request_hash CHAR(64), response_status, response_body JSON, created_at
                     UNIQUE(user_id, key); purged after 24 h
-activity_log        spatie/laravel-activitylog on invoices, invoice_items, payments, refunds, account_transfers,
+activity_log        spatie/laravel-activitylog on clients, invoices, invoice_items, payments, refunds, account_transfers,
                     transfer_allocations, tax_payments, tax_periods, profile_settings
 ```
 
@@ -390,7 +426,7 @@ draft ──(freeze)──▶ ready ──▶ sent ──▶ paid
 
 | Transition | Preconditions | Effects |
 |---|---|---|
-| freeze `draft → ready` (`InvoiceFreezer`) | `generated`: items ≥ 1; `external`: an uploaded `is_primary` file. `receiving_account.is_active` | Number: allocate if blank, **rebuild** if generator-allocated (§5); build `snapshot` (profile, client, contract, account incl. details, items, `subtotal`, `adjustment_*`, `total`, footer note, `money_format` = current `invoice.money_format`, `schema_version`); set `locked_at`; `DB::afterCommit` → render PDF to `invoice_files(generated, is_primary)` unless an uploaded primary exists |
+| freeze `draft → ready` (`InvoiceFreezer`) | `generated`: items ≥ 1; `external`: an uploaded `is_primary` file. `receiving_account.is_active`; `receiving_account.currency = invoice.currency`; payment purpose renders without missing placeholders (§4.1) | Number: allocate if blank, **rebuild** if generator-allocated (§5); resolve presentation settings (§4.1) and render the payment purpose with the final number; build `snapshot` (`schema_version = 2`: `locale`, profile/client fields resolved for the locale, contract, account incl. details, items, `subtotal`, `adjustment_*`, `total`, footer note, `money_format` = current `invoice.money_format`, `presentation`); set `locked_at`; `DB::afterCommit` → render PDF to `invoice_files(generated, is_primary)` unless an uploaded primary exists |
 | unfreeze `ready → draft` | No payments, no refunds | Delete **generated** files only; null `snapshot`, `locked_at`; keep `number`, `sequence_*` |
 | `ready → sent` | — | `sent_at` (editable) |
 | `sent → paid` | Suggested when `Σ payments.amount − Σ refunds.amount ≥ total`; confirmed manually | `paid_at` defaults to the last receipt's `received_at` |
@@ -403,6 +439,330 @@ draft ──(freeze)──▶ ready ──▶ sent ──▶ paid
   mirrors it. Updates carry `If-Unmodified-Since: updated_at` → 409 on a stale write.
 - PDF is rendered only from `snapshot`; `invoice_files.template_version` + `snapshot.schema_version` keep old invoices
   renderable after template changes.
+- The override columns of §4.1 are outside the allowed dirty set, so they lock with the invoice; unfreeze makes them
+  editable again and the next freeze resolves the cascade afresh.
+
+### 4.1 Invoice settings cascade (`InvoiceSettingsResolver`)
+
+Rationale:
+- **`NULL` = inherit, resolved live on drafts, materialised on freeze.** One nullable column per setting and level
+  keeps validation typed and the precedence trivially auditable; the snapshot (§2.5) already guarantees immutability,
+  so live inheritance on drafts costs nothing and spares a "re-apply client defaults" action.
+- **Columns, not a JSON blob**, on `clients` / `invoices`: five fixed settings, typed casts, Form Request rules per
+  field, no schema-less drift. `profile_settings` (already key → JSON) carries the ФОП-wide level.
+- **Booleans are nullable tri-state** (`NULL` inherit · `true` · `false`); "act note off" is `act_note_enabled = false`,
+  never an empty `act_note` — `ConvertEmptyStringsToNull` would turn `''` into "inherit".
+- **Currency is not live.** Items, totals, the receiving account, list filters and later receipts depend on it, so it is
+  resolved once at creation into the existing `invoices.currency NOT NULL` and edited explicitly on a draft.
+
+Resolution (first non-`NULL` wins; `source` is reported to the UI):
+
+| Setting | invoice | client | profile | built-in |
+|---|---|---|---|---|
+| currency (at creation only) | — (stored result) | `contracts.currency` if a contract is picked, then `clients.currency` | `profiles.default_currency` | — |
+| language | `invoices.locale` | `clients.invoice_locale` | `invoice.locale` | `en` |
+| payment purpose template | `invoices.payment_purpose_template` | `clients.payment_purpose_template` | `invoice.payment_purpose_template` | `lang/{locale}/invoice.php` → `defaults.payment_purpose` |
+| act note on/off | `invoices.act_note_enabled` | `clients.act_note_enabled` | `invoice.act_note_enabled` | `true` |
+| act note text | `invoices.act_note` | `clients.act_note` | `invoice.act_note` | `lang/{locale}/invoice.php` → `defaults.act_note` |
+| contract section | `invoices.show_contract` | `clients.show_contract` | `invoice.show_contract` | `true` |
+| style | `invoices.style` | `clients.invoice_style` | `invoice.style` | `outlined` |
+| note on/off | `invoices.note_enabled` | `clients.invoice_note_enabled` | `invoice.note_enabled` | `false` |
+| note text | `invoices.note` | `clients.invoice_note` | `invoice.note` | — |
+| note kind (`payment` \| `other`) | `invoices.note_kind` | `clients.invoice_note_kind` | `invoice.note_kind` | `other` |
+
+The style is a key of `InvoiceStyle` (13 styles, catalogue order; `VARCHAR(32)`, no MySQL `ENUM`, since styles will be
+added): saving an unknown key is a 422, and a stored key of a removed style renders as `outlined` with a logged
+warning. The note is one setting of three fields: the first level whose `note_enabled` is non-`NULL` owns it, and its
+text and kind are read from that level only (a kind it leaves `NULL` is `other`), never mixed across levels; `note` is
+required when that level switches it on (`Enter the note text.`, at most 500 characters). The note replaces the
+footer note (`clients.invoice_footer_note`, `invoice.footer_note`), which the migration moved to each level's note,
+switched on, kind `other`. External invoices have no style and no note.
+
+The built-in texts are taken in the **resolved** locale; a custom text at any level is used verbatim whatever the
+locale (one string, not per-language variants).
+
+Currency rules (`InvoiceSettingsResolver::currencyFor(Client, ?Contract): string`):
+- Prefill on create; while the user has not touched the field, picking or changing the contract re-prefills it.
+- Changing a draft's currency clears `receiving_account_id` when `account.currency ≠ currency`; prices are never
+  converted; `contract_rates` prefill only when `invoice.currency = contract.currency`; a mismatch with the contract's
+  currency returns a `warnings[]` entry (`currency_differs_from_contract`), not a 422.
+- Default receiving account: the client's last invoice's account if `currency` matches and `is_active`, else the first
+  active account in that currency by `sort_order`, else `NULL` (the freeze precondition catches it).
+- `contracts.currency` is prefilled from the client's effective currency on contract creation.
+
+Built-in texts (`lang/en/invoice.php`, `lang/uk/invoice.php`):
+
+| Key | en | uk |
+|---|---|---|
+| `defaults.payment_purpose` | `Payment for {services} by the invoice No. {invoice.number} from {invoice.date}` | `Оплата за {services} згідно з інвойсом № {invoice.number} від {invoice.date}` |
+| `defaults.services` | `services` | `послуги` |
+| `defaults.act_note` | `Payment of this invoice confirms the successful delivery of services and serves as the Act of Acceptance. No additional signatures are required.` | `Оплата цього інвойсу підтверджує належне надання послуг і є актом приймання-передачі наданих послуг. Додаткові підписи не потрібні.` |
+
+The English default uses `No.`, not `№`: `№` is outside the SWIFT X character set (MT103 field 70) and the SEPA
+Latin set, and is dropped, transliterated to `?` or rejected by the payer's bank.
+
+Payment purpose placeholders (`PaymentPurposeRenderer`, pattern `/\{([a-z_]+(?:\.[a-z_]+)?)\}/`):
+
+| Placeholder | Value | Missing → |
+|---|---|---|
+| `{services}` | `contract.subject` | `defaults.services` of the locale |
+| `{invoice.number}` | final number (preview number on drafts) | — |
+| `{invoice.date}` | `issued_at` | — |
+| `{period.start}` / `{period.end}` | `period_start` / `period_end` | — |
+| `{contract.name}` / `{contract.number}` / `{contract.date}` | contract name / number / `started_at` | freeze 422 |
+| `{client.name}` | client legal name for the locale | — |
+| `{profile.name}` | ФОП name for the locale | — |
+
+Dates format per locale: `en` → `M j, Y` (`Oct 31, 2026`), `uk` → `j F Y` with the genitive month (`31 жовтня
+2026`), via
+`Carbon::translatedFormat()` with the locale passed explicitly (never `App::setLocale()` — Octane, queued renders).
+
+Validation and warnings:
+- Save (Form Requests for client, invoice, profile settings): `payment_purpose_template` `nullable|string|max:255` +
+  `PurposeTemplate` rule — every placeholder in the whitelist, else 422 naming the unknown ones; `act_note`
+  `nullable|string|max:500`; `act_note_enabled`, `show_contract` `nullable|boolean`; `invoice_locale` / `locale`
+  `nullable` + `Rule::enum(InvoiceLocale::class)`; `clients.currency` `nullable|size:3` + ISO 4217 check through
+  `Brick\Money\Currency::of()`.
+- Freeze: a `{contract.*}` placeholder without a contract, or with a `NULL` contract field → 422 on
+  `payment_purpose_template` (`The payment purpose uses {contract.number}, but the invoice's contract has no
+  number.`), message noting the level the template came from.
+- Non-blocking `warnings[]` on the draft resource and the freeze response, only when `currency ≠ UAH`:
+  `payment_purpose_too_long` (rendered length > 140) and `payment_purpose_charset` (outside
+  `/^[A-Za-z0-9\/\-?:().,'+ ]*$/`, the SWIFT X set).
+
+Resolver (`ProfileSettings::raw(string $key): mixed` returns `NULL` for an absent row, so "unset" is distinguishable
+from a stored value):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Invoicing\Settings;
+
+use App\Domain\Invoicing\Enums\InvoiceLocale;
+use App\Domain\Profiles\CurrentProfile;
+use App\Domain\Profiles\ProfileSettings;
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\Invoice;
+use Illuminate\Contracts\Translation\Translator;
+
+enum SettingSource: string
+{
+    case Invoice = 'invoice';
+    case Client = 'client';
+    case Profile = 'profile';
+    case Default = 'default';
+}
+
+/** @template T */
+final readonly class Resolved
+{
+    /** @param T $value */
+    public function __construct(public mixed $value, public SettingSource $source) {}
+}
+
+final readonly class InvoicePresentation
+{
+    /**
+     * @param Resolved<InvoiceLocale> $locale
+     * @param Resolved<string>        $paymentPurposeTemplate
+     * @param Resolved<bool>          $actNoteEnabled
+     * @param Resolved<string>        $actNote
+     * @param Resolved<bool>          $showContract
+     */
+    public function __construct(
+        public Resolved $locale,
+        public Resolved $paymentPurposeTemplate,
+        public Resolved $actNoteEnabled,
+        public Resolved $actNote,
+        public Resolved $showContract,
+    ) {}
+}
+
+final readonly class InvoiceSettingsResolver
+{
+    public function __construct(
+        private CurrentProfile $currentProfile,
+        private ProfileSettings $settings,
+        private Translator $translator,
+    ) {}
+
+    public function forInvoice(Invoice $invoice): InvoicePresentation
+    {
+        return $this->resolve($invoice, $invoice->client);   // client eager-loaded by the caller
+    }
+
+    public function forClient(Client $client): InvoicePresentation
+    {
+        return $this->resolve(null, $client);
+    }
+
+    public function currencyFor(Client $client, ?Contract $contract): string
+    {
+        return $contract?->currency ?? $client->currency ?? $this->currentProfile->get()->default_currency;
+    }
+
+    private function resolve(?Invoice $invoice, Client $client): InvoicePresentation
+    {
+        $profileLocale = $this->settings->raw('invoice.locale');
+
+        /** @var Resolved<InvoiceLocale> $locale */
+        $locale = $this->pick(
+            $invoice?->locale,
+            $client->invoice_locale,
+            $profileLocale !== null ? InvoiceLocale::from($profileLocale) : null,
+            InvoiceLocale::En,
+        );
+        $lang = $locale->value->value;
+
+        return new InvoicePresentation(
+            locale: $locale,
+            paymentPurposeTemplate: $this->pick(
+                $invoice?->payment_purpose_template,
+                $client->payment_purpose_template,
+                $this->settings->raw('invoice.payment_purpose_template'),
+                $this->translator->get('invoice.defaults.payment_purpose', [], $lang),
+            ),
+            actNoteEnabled: $this->pick(
+                $invoice?->act_note_enabled,
+                $client->act_note_enabled,
+                $this->settings->raw('invoice.act_note_enabled'),
+                true,
+            ),
+            actNote: $this->pick(
+                $invoice?->act_note,
+                $client->act_note,
+                $this->settings->raw('invoice.act_note'),
+                $this->translator->get('invoice.defaults.act_note', [], $lang),
+            ),
+            showContract: $this->pick(
+                $invoice?->show_contract,
+                $client->show_contract,
+                $this->settings->raw('invoice.show_contract'),
+                true,
+            ),
+        );
+    }
+
+    private function pick(mixed $invoice, mixed $client, mixed $profile, mixed $default): Resolved
+    {
+        return match (true) {
+            $invoice !== null => new Resolved($invoice, SettingSource::Invoice),
+            $client !== null  => new Resolved($client, SettingSource::Client),
+            $profile !== null => new Resolved($profile, SettingSource::Profile),
+            default           => new Resolved($default, SettingSource::Default),
+        };
+    }
+}
+```
+
+Casts: `Client` and `Invoice` cast the locale column to `InvoiceLocale` and the two flags to `'boolean'` (Laravel keeps
+`NULL` for primitive casts, so tri-state survives). `InvoiceLocale` is a PHP backed enum over `VARCHAR(5)` (no MySQL
+`ENUM`/`CHECK`), so `en_uk` (bilingual, §15) needs no `ALTER`.
+
+Snapshot v2 (`InvoiceFreezer`; party fields are resolved for the locale so the template never branches on data):
+
+```json
+{
+  "schema_version": 2,
+  "locale": "en",
+  "money_format": "plain_dot",
+  "profile":  { "name": "Myrchuk Mykola", "address": "Kapushans'ka St, 42, 15, Uzhhorod, Ukraine",
+                "tax_id": "1234500592", "email": "mykola@example.com", "phone": "+3801237654" },
+  "client":   { "name": "Bring IT LLC", "address": { "lines": ["500 Market St, Suite 200"], "city": "New Jersey",
+                "zip": "25902", "country": "US" }, "vat_number": null },
+  "contract": { "name": "Service Agreement", "number": "109-23", "started_at": "2026-09-01", "subject": "IT services" },
+  "presentation": {
+    "show_contract": true,
+    "act_note": "Payment of this invoice confirms the successful delivery of services and serves as the Act of Acceptance. No additional signatures are required.",
+    "payment_purpose": "Payment for IT services by the invoice No. BRIT-2026-10-31-2 from Oct 31, 2026"
+  },
+  "account": { "…": "unchanged from v1" }, "items": [], "totals": {}, "footer_note": "Some small note for Bring IT LLC."
+}
+```
+
+`presentation.act_note` is `null` when the note is off. The contract block is kept even when `show_contract = false`
+(the PDF shows the section iff `show_contract && contract !== null`). Version-1 snapshots have no `locale` /
+`presentation` and keep rendering with the v1 template (`invoice_files.template_version`); PDF layout: `invoice.md`.
+
+Snapshot v3 (the current one; PDF template `v3`, the styled layout of `INVOICE_STYLES.md`) adds to `presentation`
+`"style": "colored"` (always a valid key at freeze time), `"note": "Please quote the invoice number in the transfer
+reference."` (`null` when the note resolves to off) and `"note_kind": "payment"`, and no longer writes `footer_note`.
+`client.name` is `legal_name_uk` on `uk` invoices when it is set. Snapshots of version 2 (never in production) render
+with template v3 as `outlined`, their `footer_note` as a note of kind `other`; template v2 was dropped.
+
+API (§10 conventions apply):
+- Client and invoice resources expose the override columns raw (`null` = inherit). `PATCH` with a field present and
+  `null` (or `''`) clears the override; an absent field is unchanged.
+- `InvoiceResource` on `show` (not on the list) adds `effective_settings` — `{ "locale": { "value": "en", "source":
+  "client" }, … }` — plus `payment_purpose_preview` and `warnings[]`; `ClientResource` on `show` adds the same block
+  with sources `client | profile | default`.
+- `GET clients/{client}/invoice-defaults?contract_id=` → effective settings plus `currency` and
+  `receiving_account_id` for the new-invoice form.
+
+Migration — additive, every column nullable, no backfill (`NULL` = inherit reproduces today's behaviour except that
+new invoices now print the payment purpose and the act note by default). On MySQL ≥ 8.0.29 each `ADD COLUMN`, `AFTER`
+included, is `ALGORITHM=INSTANT` — no table rebuild.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+// database/migrations/2026_10_24_000000_add_invoice_settings_cascade.php
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('clients', function (Blueprint $table): void {
+            $table->char('currency', 3)->nullable()->after('country');
+            $table->string('invoice_locale', 5)->nullable()->after('currency');
+            $table->string('payment_purpose_template', 255)->nullable()->after('invoice_locale');
+            $table->boolean('act_note_enabled')->nullable()->after('payment_purpose_template');
+            $table->string('act_note', 500)->nullable()->after('act_note_enabled');
+            $table->boolean('show_contract')->nullable()->after('act_note');
+        });
+
+        Schema::table('contracts', function (Blueprint $table): void {
+            $table->string('subject', 100)->nullable()->after('number');
+        });
+
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->string('locale', 5)->nullable()->after('currency');
+            $table->string('payment_purpose_template', 255)->nullable()->after('locale');
+            $table->boolean('act_note_enabled')->nullable()->after('payment_purpose_template');
+            $table->string('act_note', 500)->nullable()->after('act_note_enabled');
+            $table->boolean('show_contract')->nullable()->after('act_note');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('invoices', function (Blueprint $table): void {
+            $table->dropColumn(['locale', 'payment_purpose_template', 'act_note_enabled', 'act_note', 'show_contract']);
+        });
+
+        Schema::table('contracts', function (Blueprint $table): void {
+            $table->dropColumn('subject');
+        });
+
+        Schema::table('clients', function (Blueprint $table): void {
+            $table->dropColumn([
+                'currency', 'invoice_locale', 'payment_purpose_template', 'act_note_enabled', 'act_note', 'show_contract',
+            ]);
+        });
+    }
+};
+```
+
+`profile_settings` needs no migration (new keys, defaults in the DTO). `activity_log` now covers `clients` (§3) so a
+changed default is traceable.
 
 ## 5. Numbering
 
@@ -634,6 +994,8 @@ unread count on Огляд практики; balances, inbound and outbound rows
   free-text search in phase 1. Filters are mirrored in the URL query so a filtered list is linkable.
 - `POST` payments/refunds/transfers/tax-payments accept `Idempotency-Key`; replay returns the stored response.
 - `PATCH` on invoices requires `If-Unmodified-Since` = `updated_at`; mismatch → 409.
+- Cascading overrides on clients and invoices (§4.1): an explicit `null` clears the override, an absent key leaves it;
+  effective values with their `source` only on `show` resources and `clients/{client}/invoice-defaults`, never on lists.
 - Deletes: hard delete only when nothing references the row (FKs `RESTRICT`) and the period is open; otherwise a
   reversing row. Soft deletes only on `profiles` and `invoices`.
 - Encrypted casts: `profiles.tax_id`, `accounts.iban`, `accounts.account_number`; lookup/uniqueness via `tax_id_hash`.
@@ -651,7 +1013,9 @@ unread count on Огляд практики; balances, inbound and outbound rows
 `AllocationProposer` · `HoldingCalculator` · `AccountBalanceCalculator` · `AccountLimitCalculator` · `TaxRuleResolver`
 (`forDate()`) · `TaxLiabilityCalculator` (`QuarterLiability`) · `TaxReconciler` · `TaxPaymentRecorder` · `PeriodLock` ·
 `DeadlineScheduler` + `BusinessDayCalendar` · `EsvObligationScheduler` · `DeclarationFigures` · `InvoiceFreezer` ·
-`InvoiceNumberGenerator` (`allocate`, `preview`, `rebuild`) · `InvoicePdfRenderer` · `MoneyFormatter` ·
+`InvoiceNumberGenerator` (`allocate`, `preview`, `rebuild`) · `InvoiceSettingsResolver` (`forInvoice`, `forClient`,
+`currencyFor`; §4.1) · `PaymentPurposeRenderer` (`render`, `unknownPlaceholders`, `warnings`; §4.1) ·
+`InvoicePdfRenderer` · `MoneyFormatter` ·
 `AlertCollector` + `NotificationSync` · `PracticeOverview` (§16: cap, quarter invoiced/received, quarter taxes,
 unread count) · `ClientStats` (§16) · `AccountingExporter` · `SheetImporter`.
 
@@ -672,7 +1036,13 @@ a cross-currency hop; allocation bounds; FIFO and exact-match proposals · fee/s
 `fx_gain` synthetic row lifecycle · one wire → several invoices (`receipt_group_id`, pro-rata fee) · refunds reduce
 income and `paid_amount` · period lock with and without `correction_note`; cascade of `corrected` · deadline calendar
 (10 May 2026 → 11 May; ЄП stays 20 May; ЄСВ 19th) · ЄСВ exempt months · NBU provider with HTTP fakes (number parsing,
-failure path) · PDF golden files per `schema_version` and per `money_format` · `MoneyFormatter` for all six formats
+failure path) · invoice settings cascade: each setting resolved at all four levels with the right `source`, `null`
+clears an override, client change reaches inheriting drafts but not frozen invoices, override columns rejected on a
+frozen invoice, re-freeze re-resolves; currency prefill chain, account cleared on currency change, rate prefill skipped
+on a currency mismatch; purpose template: unknown placeholder 422 on save, missing contract value 422 on freeze,
+`too_long` / `charset` warnings only for non-UAH; built-in texts follow the resolved locale, custom ones verbatim ·
+PDF golden files per `schema_version`, per `money_format`, per locale (`en`, `uk`), with the contract section on/off and
+the act note on/off; v1 goldens unchanged · `MoneyFormatter` for all six formats
 and both separators on input · notifications: listing never writes `notification_reads`, `read` endpoint does; unread
 count per user; dedupe/resolve cycle · invoice list filters and cursor paging · `ClientStats` and `PracticeOverview`
 figures against fixtures · **profile isolation** (cross-profile id → 404; fail-closed scope; console context) ·
@@ -682,10 +1052,11 @@ idempotent replays.
 
 1. api-core install; `profiles`, `profile_settings` + DTO; `CurrentProfile` / `ResolveProfile` / `BelongsToProfile`;
    roles; `tax_rules`, `holidays` seed; `exchange_rates` + `NbuRateProvider` + `FetchNbuRates`.
-2. Accounts (+ opening balances, movements, limits with calendar/rolling windows), clients, contracts (+ rates),
-   projects, charge types.
-3. Invoices + items + adjustment, numbering (allocate/preview/rebuild), freeze/unfreeze/snapshot/PDF, files with
-   functional unique, state machine, optimistic locking.
+2. Accounts (+ opening balances, movements, limits with calendar/rolling windows), clients (+ invoice defaults, §4.1),
+   contracts (+ rates, `subject`), projects, charge types.
+3. Invoices + items + adjustment, numbering (allocate/preview/rebuild), `InvoiceSettingsResolver` +
+   `PaymentPurposeRenderer`, freeze/unfreeze/snapshot v2/PDF (layout: `invoice.md`), files with functional unique,
+   state machine, optimistic locking.
 4. Payments (record, receipt groups, advances), refunds, transfers + allocations, `HoldingCalculator`,
    `AllocationProposer`, fee/spread/net metrics, fx-gain, balances, idempotency; `ClientStats`.
 5. `tax_periods` + deadlines + business-day calendar, `esv_obligations`, accounting view (§16 layout), exports.
@@ -704,7 +1075,9 @@ with step 1, Інвойси list/detail with step 3, receipt create/detail and a
 `profile_user` per-profile ACL · bank/platform statement imports and auto-matching (Monobank, PrivatBank, Payoneer,
 Wise) · recurring invoices / "Повторити інвойс" and time-tracking import · invoice e-mailing (`invoice_emails`),
 share sheet and overdue reminders · push / e-mail / Telegram delivery of notifications · client portal / share links ·
-`tax_balance_checks` against the ІКП · ДПС XML declaration export · Acts of acceptance; bilingual PDF template ·
+`tax_balance_checks` against the ІКП · ДПС XML declaration export · separate signed Acts of acceptance (the
+invoice-as-act note of §4.1 covers the common case) · bilingual PDF template (`InvoiceLocale::EnUk`, no schema
+change) and per-language custom texts ·
 expenses as a feature (beyond `account_movements`) · other tax schemes (`tax_scheme`: 3 % + ПДВ, 2 група) ·
 multi-organization users (api-core `organization_user` pivot) · free-text search on lists · passkeys / 2FA /
 self-signup · organization board and desktop layout · the redesign brief's Гроші tab, four-bucket balances and hero
@@ -740,8 +1113,9 @@ Ukrainian UI, bottom tab bar, bottom sheets for secondary flows; the invoice scr
 | Рахунок (detail) | Two full-width rows, no background fill: **Надходження** — inbound (client receipts + transfers in) in success green; **Перекази** — outbound (transfers out, and tax payments when paid from this account) in danger red. Balance and limit progress above them. |
 | Облік (quarter) | Each income row: a dashed divider above the tax block; line 1 `ЄП · ВЗ`, line 2 `комісії · чистий дохід`, each line two equal flex columns (`flex: 1 1 0`). The summary card may grow: YTD income on its own row; quarter income on its own row; "Перевірки" (cross-checks, §8.1) as a header with each value right-aligned on the following line; the four closing sections each as a full-width row — nothing squeezed onto one line. |
 | Клієнт (detail) | Stats block (`GET clients/{client}/stats`), per currency: **paid all-time** · **paid this year** · **paid previous year** · **outstanding** = `Σ (total − paid_amount)` over the client's `ready` / `sent` invoices, shown as **"Усе оплачено"** in success green with a check icon when it is 0. Paid = Σ `payments.amount` − Σ `refunds.amount` on the client's invoices, bucketed by `received_at` / `refunded_at` year. Below: contracts, projects/charge types, recent invoices. |
-| Клієнт (form) | Required **Абревіатура** (`BL`, the prefix of the client's invoice numbers, §5) under the name: suggested from the name while it is untouched, upper case, Latin letters and digits, up to 10; a duplicate within the ФОП is an error of the field. The list and the client page show it beside the name. |
-| Налаштування | Profile data · invoice numbering (prefix, format, date, counter, reset, current counters) · **money format for the app and for invoices** (§10) · default tax account · repatriation rule · deadline days. No income-recognition option. |
+| Клієнт (form) | Required **Абревіатура** (`BL`, the prefix of the client's invoice numbers, §5) under the name: suggested from the name while it is untouched, upper case, Latin letters and digits, up to 10; a duplicate within the ФОП is an error of the field. The list and the client page show it beside the name. Section **"Інвойси за замовчуванням"** (§4.1): Валюта · Мова інвойсу · Призначення платежу (placeholder chips + live preview on a sample invoice, length counter against 140) · Примітка «акт» (switch + text) · Показувати договір (switch). Each field shows its inherited value muted ("як у ФОП: English") and a "Скинути" action when overridden; hint: "Змінює нові інвойси й чернетки; сформовані не змінюються". |
+| Інвойс (edit) | Kept as in the mock, plus a collapsed **"Документ"** block under the receiving account: Мова · Призначення платежу (rendered preview) · Примітка «акт» · Показувати договір — each with its source ("з клієнта", "з ФОП", "типово") and "Скинути до клієнта" when overridden; `warnings[]` shown inline. Currency stays in the main block; changing it shows the account-cleared / no-conversion notice (§4.1). Read-only once frozen. |
+| Налаштування | Profile data · invoice numbering (prefix, format, date, counter, reset, current counters) · **invoice defaults for the ФОП** (language, payment purpose, act note, contract section; currency = the profile's default currency) · **money format for the app and for invoices** (§10) · default tax account · repatriation rule · deadline days. No income-recognition option. |
 
 Display rules that apply everywhere in phase 1: amounts use `display.money_format` (default `1 234.99`) with
 `tabular-nums` and `nowrap`; the invoice currency is shown as an ISO code before the amount (`USD 3 892.50`), UAH as

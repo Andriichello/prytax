@@ -6,7 +6,7 @@ the books of several such ФОПs under one login. The stack is Laravel 12/13 on
 Tailwind) consuming a JSON API; Blade is used only for PDF and e-mail templates. It is built on my own `api-core`
 package, which already provides organizations, users, Sanctum auth, spatie roles/permissions and the HTTP filtering,
 resources and pagination layer, so none of that is designed here. Money is handled with `brick/money` and `brick/math`
-and there are no floats anywhere in the domain. The companion `fop-finance-app-design.md` (v2.1) holds the schema,
+and there are no floats anywhere in the domain. The companion `fop-finance-app-design.md` (v3.3) holds the schema,
 services and build order for everything described below, and `SUGGESTIONS.md` holds the open decisions.
 
 An organization from api-core is whoever runs the app: me, or an accountant's practice. Inside it there are one or
@@ -82,7 +82,10 @@ only: the API always carries `1234.99`, inputs accept either separator, and a fr
 was rendered with); `income.taxable_base` (`invoiced` by default, or `received` labelled as the user's own risk);
 `taxes.default_grouping` (`payment`, `month` or `quarter`); `taxes.default_account_id` (the UAH ФОП account taxes are
 usually paid from — must be `fop_bank`, UAH and active); `compliance.platform_repatriation` (`quarter_end`, `days:N`
-or `off`); and `alerts.deadline_days` (7). There is deliberately no income-recognition option in this phase (see the
+or `off`); `alerts.deadline_days` (7); and the ФОП-wide invoice defaults that clients and invoices can override
+(described with the clients below) — `invoice.locale` (`en` or `uk`, `en` by default), `invoice.payment_purpose_template`,
+`invoice.act_note_enabled` (on), `invoice.act_note` and `invoice.show_contract` (on), with the profile's
+`default_currency` as the ФОП-wide currency. There is deliberately no income-recognition option in this phase (see the
 payments section below).
 
 Then I create the places money can land — Payoneer, Wise, Mercury, my Ukrainian ФОП accounts, a European bank
@@ -106,16 +109,77 @@ upper-case Latin letters and digits, such as `BL` for Brightline Labs — which 
 required, unique among the clients of the profile (inactive ones included, so two clients never share a prefix) and
 suggested from the initials of the name when I create the client; I can change it later, and the numbers already given
 keep the prefix they were given with. Under a client I keep its service agreements as contracts:
-a name, an optional number, a required start date, an optional end date, the contract currency, an optional default
+a name, an optional number, an optional `subject` (what the agreement is for, such as "IT services", used in the
+payment purpose below), a required start date, an optional end date, the contract currency, an optional default
 hourly rate and a `description_template` such as "IT services in accordance to the Service Agreement {name} dated
 {started_at:F j, Y}", which is expanded into the line-item description when an item is created (the item keeps the
 expanded text). Also under a client live two small lookups the client uses for its own bookkeeping: projects with an
 inner code like "PROTO" and charge types like "Billable" or "Overhead". Invoice items reference both by id and copy
 `project_code` and `charge_type` as text, so a locked invoice is unaffected by later renames.
 
+Each client also carries the defaults for the invoices I issue to it, and every invoice can override them, so the
+usual case costs nothing and the exception is one change on the invoice. Five settings work this way, and each is
+resolved from the most specific level that has a value: the invoice, then the client, then the ФОП-wide default in
+the profile settings, then the built-in default. An empty value means "inherit from the level above", so clearing an
+override on an invoice or a client returns it to inheriting. The invoice form shows each setting with where its
+value comes from ("як у клієнта", "як у ФОП"), and the client form shows the same for its own level. Changing a
+client's defaults affects new invoices and the drafts that inherit them; it never changes a frozen invoice, because
+the freeze writes the resolved values into the snapshot, and an unfrozen invoice resolves them again on its next
+freeze.
+
+The currency is the client's `currency` (`USD` for a US client), the currency its contracts and invoices start with.
+A contract keeps its own currency, which is more specific than the client's, so a new invoice takes the contract's
+currency when a contract is picked, otherwise the client's, otherwise the profile's `default_currency`. Unlike the
+other four settings, the currency is not inherited live: the invoice stores a concrete currency when it is created,
+because its prices, totals, receiving account and later receipts all depend on it. It can still be changed while the
+invoice is a draft; the receiving account is then cleared if it is in another currency, the prices are not converted
+(they stay the numbers I typed), and hourly rates are suggested from the contract only when the invoice and the
+contract are in the same currency, because the rates are in the contract's currency. An invoice in a currency other
+than its contract's gets a warning, not a block. The default receiving account is the one from the client's last
+invoice only if it is in the invoice's currency and active; otherwise the first active account in that currency.
+
+The language of the invoice is `en` or `uk` (English by default). It decides the labels, the date format and which of
+the bilingual fields are printed — my Latin name and English address or the Ukrainian ones, the client's legal name
+or its Ukrainian legal name when one is filled in — and the language in which a contract's description template is
+expanded when a line item is created (month names in `{started_at:F j, Y}`). Text I typed myself — item descriptions,
+the contract name, notes, a custom payment purpose or act note — is printed as I typed it and never translated, and changing the
+language of a draft does not rewrite its existing items. A bilingual invoice is a later phase.
+
+The payment purpose is the reference the client types into the transfer so the money can be matched to the invoice,
+printed in the payment details. It is a template whose placeholders are filled when the invoice is frozen (the draft
+shows a preview with the previewed number): `{services}`, `{invoice.number}`, `{invoice.date}`, `{period.start}`,
+`{period.end}`, `{contract.name}`, `{contract.number}`, `{contract.date}`, `{client.name}` and `{profile.name}`, dates in
+the invoice's language. `{services}` is the contract's `subject`, or the word "services" ("послуги") when there is no
+contract or no subject. The built-in default follows "Payment for ____ (the service) by the invoice/contract № ___ from
+___ (its date)" in its invoice form: "Payment for {services} by the invoice No. {invoice.number} from {invoice.date}",
+and in Ukrainian "Оплата за {services} згідно з інвойсом № {invoice.number} від {invoice.date}"; a client paid against
+the contract instead gets "Payment for {services} by the contract No. {contract.number} from {contract.date}". An
+unknown placeholder is rejected when the template is saved; a template that uses a contract placeholder cannot be
+frozen on an invoice without a contract or whose contract lacks that value — the freeze names the missing placeholder.
+International transfers carry at most 140 characters of reference in a restricted Latin character set (SWIFT field 70,
+SEPA remittance information), so for an invoice in a currency other than UAH the form warns, without blocking, when
+the rendered purpose is longer or uses other characters — which is why the English default writes "No." and not "№",
+which those systems drop or reject.
+
+The act-of-acceptance note is printed on the invoice under the payment details. It is on by default with "Payment of
+this invoice confirms the successful delivery of services and serves as the Act of Acceptance. No additional
+signatures are required." (in Ukrainian: "Оплата цього інвойсу підтверджує належне надання послуг і є актом
+приймання-передачі наданих послуг. Додаткові підписи не потрібні."). Its text can be replaced and it can be switched
+off per client or per invoice — switched off for clients who sign separate acts, which the note would contradict. A
+custom text is printed as written, in whatever language it was written. The note works only if the contract itself
+says that payment of an invoice confirms acceptance of the services; it restates that clause, it does not create it,
+and the invoice must still carry what a primary document needs (the parties, the date, the content and volume of the
+services and the amount) — to be confirmed with an accountant.
+
+The contract section ("Contract: Service Agreement No. 109-23 dated Sep 1, 2026") is shown by default and can be
+switched off per client or per invoice; an invoice without a contract never shows it. Hiding it only hides the section:
+the contract stays linked to the invoice and in its snapshot, and line-item descriptions and a payment purpose that
+mention the contract still do.
+
 Invoice creation starts by picking a client — its contracts, projects and charge types become selectable, the currency
-defaults from the contract, the receiving account from the client's last invoice and the description from the
-contract's template — then a service period `period_start … period_end` with `issued_at` defaulting to `period_end`,
+defaults from the contract or else the client, the receiving account from the client's last invoice in that currency,
+the language, payment purpose, act note and contract section from the client's defaults, and the description from
+the contract's template — then a service period `period_start … period_end` with `issued_at` defaulting to `period_end`,
 then the receiving account (filtered by currency and `is_active`), then the line items. The unique number follows
 `{CLIENT_ABBREVIATION}-{LAST_DATE_OF_THE_RANGE}-{INVOICE_NUMBER_OF_THE_CLIENT}` by default (BL-2026-10-14-13: the
 invoice is to Brightline Labs, for the period ending on 14 October 2026, and it is that client's invoice #13), and the
@@ -145,7 +209,8 @@ duplicate detection, on a private disk served through signed short-lived URLs; i
 invoice and mark it primary, nothing is rendered. Once an invoice exists I can download it as PDF and move it through
 the statuses `draft`, `ready`, `sent`, `paid`, plus `cancelled`. The move `draft → ready` is the freeze: the number is
 allocated if blank, a JSON `snapshot` is built with the profile block, client, contract, receiving account with all its
-details, items, totals and a `schema_version`, the PDF is rendered only from that snapshot (never from live relations,
+details, items, totals, the resolved language, payment purpose (rendered), act-of-acceptance note and contract-section
+flag, and a `schema_version`, the PDF is rendered only from that snapshot (never from live relations,
 so later edits to the profile, client or account do not alter issued documents) and `locked_at` is set. From `ready`
 an invoice can go back to `draft` as long as it has no receipts: generated files are deleted, uploads are untouched,
 snapshot and `locked_at` are cleared, and the number is kept (gaps are acceptable). Because the draft can then change
@@ -323,7 +388,8 @@ upgrade path if flex/grid layouts are ever needed. Financial rows carry `created
 (invoices, payments, transfers, tax payments); `tax_id`, IBAN and account numbers use encrypted casts; no PII goes to
 logs. Pest tests cover rounding and the kopeck deltas, numbering under concurrency, lock enforcement, quarter
 assignment of cross-quarter receipts, allocation bounds and the FIFO proposal, fee and spread math, deadline
-roll-over, the NBU provider against HTTP fakes, PDF golden files per snapshot version, and above all profile isolation
+roll-over, the NBU provider against HTTP fakes, the invoice-settings cascade at every level, PDF golden files per
+snapshot version and per language, and above all profile isolation
 — a cross-profile id is a 404 and a query without a profile context returns nothing.
 
 Finally, a one-off artisan command with `--profile=` and `--dry-run` imports my 2025 Google Sheet ("2025 - payments"
@@ -334,4 +400,4 @@ expenses, VAT and other tax groups, employees, bank and platform API integration
 invoices, sending invoices from the app, e-mail or Telegram delivery of notifications, free-text search, ДПС XML
 export, per-profile access and the "recognise income on ФОП-account arrival" mode — are listed with the remaining
 open decisions in `SUGGESTIONS.md`; refunds, one wire for several invoices, the `personal` account kind with opening
-balances, period locking, FX gain and ДПС payment requisites are already in the design spec (v3.2).
+balances, period locking, FX gain and ДПС payment requisites are already in the design spec (v3.3).

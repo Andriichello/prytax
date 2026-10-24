@@ -16,8 +16,9 @@ in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git (`.
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done** on `dev-followups` (15 commits, not merged); see "Follow-ups" |
 
 - **Branches:** `main` = `dev` = `dev-qa-fixes` = backend + frontend + QA pass (fast-forwarded on 2026-10-21, the
-  user asked). `dev-followups` = `main` + this session's 15 commits, checked out, **not merged** (merge only when the
-  user asks). `backend-phase-1` and `dev-qa-fixes` are merged and can go. No git remote exists, so nothing is pushed.
+  user asked). `dev-followups` = `main` + the follow-ups and English, **not merged** (merge only when the user asks).
+  `feat/i18n-keys` = `dev-followups` + the SPA's translation keys (2026-10-24, see "English"), checked out, **not
+  merged**. `backend-phase-1` and `dev-qa-fixes` are merged and can go. No git remote exists, so nothing is pushed.
 - **api-core is on branch `feat/remember-login`** in `/var/www/api-core` (2 commits on its `dev`: `remember` on
   `auth/login`, the `remember_token` migration, docs, tests; all 658 api-core tests pass), **not merged, not pushed**.
   PryTax runs api-core's working tree (path repository, symlinked), so that branch must stay checked out until it is
@@ -120,18 +121,32 @@ statistics screen; and go on with the rest. Done, each verified in tests and in 
 
 ## English (2026-10-24, branch `dev-followups`)
 
-The user asked for English, switchable with Ukrainian. Ukrainian stays the source language of both sides:
+The user asked for English, switchable with Ukrainian. On 2026-10-24 (later, branch `feat/i18n-keys`, the user's
+request "so that we can have more languages added later") the SPA moved from Ukrainian texts as keys to translation
+keys; the API keeps Laravel's English-keyed `__()` (the user agreed: `lang/xx.json` already adds a language there).
 
-- **SPA:** `resources/js/i18n/index.ts` — `t('Український текст', { name })` looks the Ukrainian text up in the English
-  dictionaries `i18n/en/{core,invoices,money,accounting,clients,shell}.ts` while English is on (`locale` ref; missing
-  English falls back to Ukrainian). No package: a 70-line module (vue-i18n would need approval). `t()` must run at
-  render (computed, getters, templates), never in a frozen constant, since Інвойси and Перекази stay alive.
+- **SPA:** `resources/js/i18n/index.ts` — `t('invoices.editor.issueDate', { name })` looks the key up in the
+  dictionary of the current language: `i18n/uk/*.ts` (the default language and the source of the keys) and
+  `i18n/en/*.ts`, one file per area (`core`, `shell`, `invoices`, `money`, `accounting`, `clients`, `settings`), keys
+  `area.screen.name` (shared words in `core.common`). Keys are typed (`MessageKey`, so vue-tsc rejects an unknown
+  one), and each English file `satisfies Translation<typeof uk>` (vue-tsc rejects a missing or extra key). A key
+  missing in a language falls back to Ukrainian. No package (vue-i18n would need approval). `t()` must run at render
+  (computed, getters, templates), never in a frozen constant, since Інвойси and Перекази stay alive.
   `components/ui/Translated.vue` fills a translated sentence's `{name}` with slots (markup inside a sentence).
-  Plurals are `{ uk: [one, few, many], en: [one, other] }`; month names, `quarterLabel` (`Q4`), statuses, kinds of
+  Plurals are entries by the categories of `Intl.PluralRules` (`{ one, few, many }` in Ukrainian, `{ one, other }` in
+  English), picked by `t(key, { count })` (`core.counts.*`). Month names come from `Intl` (`utils/dates.ts`), quarters
+  (`core.quarters`, `core.quarterNames`), weekdays and short months from the dictionaries; statuses, kinds of
   accounts, `TAX_TYPES` (Single tax, Military levy, SSC) and country names follow the language; dates stay
-  дд.мм.рррр. The guard `i18n/i18n.test.ts` fails on Ukrainian outside `t()` (comments skipped; mark Ukrainian data
-  `// i18n-ignore`, or a block with `i18n-ignore-start`/`-end`), on a text without English, a non-literal key, an
-  unused entry, one text with two Englishes, or a lost placeholder.
+  дд.мм.рррр. `utils/errors.ts` shows an API message when it is in the screens' language (`LETTERS`: a language with
+  letters of its own, Ukrainian's Cyrillic, proves it), and translates api-core's English-only ones by key. The guard
+  `i18n/i18n.test.ts` fails on Ukrainian outside the dictionaries (comments skipped; mark Ukrainian data
+  `// i18n-ignore`, or a block with `i18n-ignore-start`/`-end`), on a key the dictionary lacks, a non-literal key, an
+  unused key, a language missing a key or having an extra one, a lost placeholder, or a plural without exactly its
+  language's forms.
+- **Adding a language:** copy `i18n/en/` to `i18n/xx/` and translate it, add `xx` to `LANGUAGES` in `i18n/index.ts`
+  (and to `LETTERS` in `utils/errors.ts`, when it has letters of its own), then the API side: `lang/xx.json`,
+  `lang/xx/{validation,auth,passwords}.php`, `api-core.locales`, and `AlertCard`'s `OPENING_ACTIONS` (the API's
+  "Open" in that language).
 - **The language is the user's:** `users.locale` (`PATCH auth/me`, which `useSession().switchLocale()` sends), shown on
   Ще and on the sign-in screens (`LanguageSwitch`); before signing in, the device's last choice (localStorage
   `prytax.locale`), which the client sends as `Accept-Language`; a language chosen on the sign-in screen becomes the
@@ -431,7 +446,7 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 - An Eloquent collection's `except()` takes model ids, not keys: use `->toBase()` before keying by another column.
 - Work on a feature branch and commit in logical parts; don't push or merge without the user asking.
 - Frontend: match the screens' HTML exports (`storage/handoff/prytax-design-handoff/screens/html`) for sizes; UI
-  texts in Ukrainian through `t()`, with their English in `i18n/en/*.ts` (see "English"); `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
+  texts through `t('area.screen.name')`, with the Ukrainian in `i18n/uk/*.ts` and the English in `i18n/en/*.ts` (see "English"); `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
   selects/segments in the script (inline `list.map(… ({ value, label: MAP[x] }))` in a template trips vue-tsc with
   "Property 'value' does not exist on type Record<…>").
 - Tool gotcha: `\u…` escapes typed into tool inputs arrive as the characters themselves, so invisible U+00A0/U+202F

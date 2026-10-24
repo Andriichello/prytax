@@ -67,6 +67,27 @@ class InvoiceSettingsResolver
     }
 
     /**
+     * Get the built-in texts in each language: the payment purpose template, the act note and the word for services,
+     * which a form shows for a setting, that inherits the built-in one, in the language it chose.
+     *
+     * @return array<string, array{payment_purpose: string, act_note: string, services: string}>
+     */
+    public function builtInTexts(): array
+    {
+        $texts = [];
+
+        foreach (InvoiceLocale::values() as $locale) {
+            $texts[$locale] = [
+                'payment_purpose' => trans('invoice.defaults.payment_purpose', [], $locale),
+                'act_note' => trans('invoice.defaults.act_note', [], $locale),
+                'services' => trans('invoice.defaults.services', [], $locale),
+            ];
+        }
+
+        return $texts;
+    }
+
+    /**
      * Get the values of the resolved settings, without their levels.
      *
      * @param array<string, array{value: mixed, source: string}> $settings

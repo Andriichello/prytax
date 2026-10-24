@@ -66,7 +66,8 @@ class ProfileSettingControllerTest extends TestCase
 
     /**
      * Test that the ФОП's invoice settings are saved and shown on the profile with the built-in ones they replace,
-     * and a payment purpose with a placeholder outside of the whitelist is refused with 422.
+     * whose texts it gives in each language, and a payment purpose with a placeholder outside of the whitelist is
+     * refused with 422.
      *
      * @return void
      */
@@ -78,7 +79,7 @@ class ProfileSettingControllerTest extends TestCase
 
         $saved = $this->patchJson($path, ['invoice' => ['act_note_enabled' => false, 'show_contract' => false, 'payment_purpose_template' => 'For {services}']]);
         $refused = $this->patchJson($path, ['invoice' => ['payment_purpose_template' => 'For {services} {invoice.total}']]);
-        $profileShown = $this->getJson("/api/profiles/{$profile->id}?append=effective_invoice_settings");
+        $profileShown = $this->getJson("/api/profiles/{$profile->id}?append=effective_invoice_settings,invoice_texts");
 
         $saved->assertOk()
             ->assertJsonPath('data.invoice.act_note_enabled', false)
@@ -89,7 +90,9 @@ class ProfileSettingControllerTest extends TestCase
         ]);
         $profileShown->assertOk()
             ->assertJsonPath('data.effective_invoice_settings.act_note_enabled.source', 'profile')
-            ->assertJsonPath('data.effective_invoice_settings.act_note_enabled.inherited', ['value' => true, 'source' => 'default']);
+            ->assertJsonPath('data.effective_invoice_settings.act_note_enabled.inherited', ['value' => true, 'source' => 'default'])
+            ->assertJsonPath('data.invoice_texts.uk.services', 'послуги')
+            ->assertJsonPath('data.invoice_texts.en.payment_purpose', 'Payment for {services} by the invoice No. {invoice.number} from {invoice.date}');
     }
 
     /**

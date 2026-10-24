@@ -395,6 +395,17 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
     }
 
     /**
+     * The built-in texts of invoices in each language (the payment purpose template, the act note, the word for
+     * services), which the forms of the invoice settings show for a setting, that inherits them.
+     *
+     * @return Attribute
+     */
+    protected function invoiceTexts(): Attribute
+    {
+        return Attribute::get(fn () => app(InvoiceSettingsResolver::class)->builtInTexts());
+    }
+
+    /**
      * Tax id, of which only the last four characters are shown, such as `••••4821`.
      *
      * @return Attribute

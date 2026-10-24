@@ -37,6 +37,7 @@ class ProfileResource extends BaseResource
         'unread_alerts_count',
         'needs_correction',
         'effective_invoice_settings',
+        'invoice_texts',
     ];
 
     /**

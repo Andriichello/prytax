@@ -17,12 +17,12 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 
-- **Branches:** `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
-  (fast-forwarded on 2026-10-24, the user asked), `dev` checked out. `backend-phase-1`, `dev-qa-fixes`,
-  `dev-followups` and `feat/i18n-keys` are merged and can go. No git remote exists, so nothing is pushed.
+- **Branches:** only `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
+  (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. No git remote
+  exists, so nothing is pushed.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
-  658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked), which is checked out in
-  `/var/www/api-core`, **2 commits ahead of `origin/dev`, not pushed** (push only when the user asks). PryTax runs
+  658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
+  which is checked out in `/var/www/api-core` and pushed to `origin/dev`. api-core's `main` is behind it. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
 - `php artisan test --compact`: **300 tests**, all passing on 2026-10-21 (about 90 s, on MySQL `prytax_test`). Run it
@@ -36,9 +36,8 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 
 ### First steps of the next session
 
-1. **Ask the user** about pushing api-core's `dev` (2 commits ahead of `origin/dev`). Then what is left: XLSX
-   exports and the yearly PDF summary (need a package, so approval), pixel polish against the mocks, design.md's
-   "pending" items (Appendix A, B2, B5), `SheetImporter`.
+1. What is left: XLSX exports and the yearly PDF summary (need a package, so approval), pixel polish against the
+   mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
 2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
    end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
    dev`), sign in as `olena@example.com` / `password`; start Chrome only to check the UI (under "Checking the UI").

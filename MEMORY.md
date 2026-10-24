@@ -16,6 +16,7 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 | 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
+| 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done on branch `feat/invoice-v2`** (2026-10-24, not merged); see "Invoice document" |
 
 - **Branches:** only `main` = `dev` = backend + frontend + QA pass + follow-ups + English + translation keys
   (fast-forwarded on 2026-10-24, the user asked; the merged branches were deleted), `dev` checked out. The remote
@@ -160,6 +161,41 @@ keys; the API keeps Laravel's English-keyed `__()` (the user agreed: `lang/xx.js
   request's language.
 - **Stays Ukrainian on purpose:** tax payments' purposes (the treasury's), an FX gain's stored description, the
   treasury recipient example and the ІПК consultation number on the tax settings.
+
+## Invoice document (2026-10-24, branch `feat/invoice-v2`, not merged)
+
+The user updated `docs/specs` (design.md v3.3 §4.1, accounting.md, new `invoice.md`; left uncommitted, they're the
+user's) and handed off the PDF layout in `storage/handoff/prytax-invoice-v3-handoff.md` (+ `invoice-v3-handoff/refs/`,
+the target renders at 110 dpi). "v3" is the design iteration; in code it is template **v2**.
+
+- **Cascade** (`Services/Invoices/InvoiceSettingsResolver`): language, payment purpose template, act note on/off and
+  text, contract section — invoice → client → ФОП → built-in, null = inherit; each resolved setting is `{value,
+  source, inherited}` (`effective_settings` appends on invoices and clients, `effective_invoice_settings` and
+  `invoice_texts` — the built-in texts per language — on profiles). Departures from the spec: the ФОП's language is the
+  existing `profiles.locale` (no `invoice.locale` setting; the owner changes it); `clients.currency` existed (the
+  migration doesn't add it); the new-invoice form uses the existing `invoices/defaults` (it returns
+  `effective_settings`) instead of `clients/{client}/invoice-defaults`; the footer note keeps its own client → ФОП
+  fallback. A new invoice's currency falls back to `profiles.default_currency` (was `USD`).
+- **Payment purpose** (`PaymentPurposeRenderer`): whitelisted placeholders (422 on save for others), `{contract.*}`
+  without a value → 422 on freeze naming the template's level; `warnings` outside UAH (`payment_purpose_too_long` >
+  140, `payment_purpose_charset` outside SWIFT X) plus `currency_differs_from_contract`. Dates: `Helpers/DocumentDate`
+  (`M j, Y` / `d.m.Y`), shared with the PDF. The SPA mirrors it in `utils/invoiceDocument.ts` for live previews.
+- **Snapshot v2** (`InvoiceFreezer`): `locale`, profile `name`/`address` and client `name` in it, contract `subject`,
+  `presentation{payment_purpose, act_note (null when off), show_contract}`. Version-1 snapshots render with
+  `pdf/invoice/v1.blade.php` (moved unchanged); `InvoicePdfRenderer::templateFor()` picks the template, files record
+  `template_version` (`'v2'`; old ones have `1`).
+- **Template v2** (`pdf/invoice/v2.blade.php` + `InvoiceDocument` view model): matches the four refs within a few px.
+  dompdf quirks found: it ignores `<col>` widths and drops a cell's pt width in `table-layout: fixed`, so widths sit
+  on the first row's cells (auto layout); it multiplies line heights by the font's height × `font_height_ratio`, so v2
+  renders with `fontHeightRatio = 1000/1164` (lines as high as their CSS `line-height`, as in browsers; v1 keeps the
+  default). Column widths are measured with dompdf's font metrics. The number is IBM Plex Mono SemiBold
+  (`resources/fonts/IBMPlexMono-SemiBold.ttf`, OFL licence beside it), registered via `@font-face`; dompdf caches it in
+  `storage/fonts/` (create it on deploy). No PDF golden files: tests assert the HTML, the template choice, the widths
+  and the embedded font (`IBMPlexMono-SmBld`).
+- **Screens:** `components/invoice/InvoiceDocumentFields.vue` on Клієнт ("Інвойси за замовчуванням", with the
+  currency), the draft invoice (collapsed "Документ") and Більше → Документ інвойсу; Договір got its subject.
+- Verified: 345 PHP tests, 414 Vitest tests, typecheck, build, a 42-screen sweep in uk and en, a client save in the
+  browser (restored after).
 
 ## The audit (2026-10-20)
 

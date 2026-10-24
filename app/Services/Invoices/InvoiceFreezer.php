@@ -7,6 +7,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PryTax\Enums\InvoiceStatus;
+use PryTax\Enums\SettingSource;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
@@ -18,9 +19,12 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  *
  * Freezes a draft into a ready invoice and back (design.md §4). The freeze allocates or rebuilds the number, takes
  * the snapshot of the profile, client, contract, account (with its requisites), items and totals, in the invoice
- * money format in force, and locks the invoice; once that is committed, it renders the PDF from the snapshot, unless
- * an uploaded PDF is the primary document. Unfreezing, allowed while there are no receipts, deletes the generated
- * files and the snapshot, and keeps the number.
+ * money format in force, with the document settings resolved (design.md §4.1): the language, in which the parties'
+ * names are taken, the payment purpose rendered with the final number, the act note and the contract section. It
+ * locks the invoice; once that is committed, it renders the PDF from the snapshot, unless an uploaded PDF is the
+ * primary document. A payment purpose, which needs a value of the contract the invoice lacks, stops the freeze.
+ * Unfreezing, allowed while there are no receipts, deletes the generated files and the snapshot, and keeps the
+ * number.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Invoices
@@ -33,11 +37,15 @@ class InvoiceFreezer
      * @param InvoiceNumberGenerator $numbers
      * @param InvoicePdfRenderer $renderer
      * @param AlertSync $alerts
+     * @param InvoiceSettingsResolver $settings
+     * @param PaymentPurposeRenderer $purposes
      */
     public function __construct(
         protected InvoiceNumberGenerator $numbers,
         protected InvoicePdfRenderer $renderer,
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected InvoiceSettingsResolver $settings,
+        protected PaymentPurposeRenderer $purposes
     ) {}
 
     /**
@@ -76,6 +84,8 @@ class InvoiceFreezer
         if (!$invoice->issued_at) {
             throw ValidationException::withMessages(['issued_at' => [__('The issue date is required.')]]);
         }
+
+        $this->assertPurposeComplete($invoice);
 
         try {
             DB::transaction(function () use ($profile, $invoice) {
@@ -168,8 +178,42 @@ class InvoiceFreezer
     }
 
     /**
+     * Make sure the invoice's payment purpose has the values of the contract, which its template uses: a template
+     * with `{contract.number}` needs a contract with a number.
+     *
+     * @param Invoice $invoice
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function assertPurposeComplete(Invoice $invoice): void
+    {
+        $settings = $this->settings->forInvoice($invoice);
+        $template = $settings['payment_purpose_template'];
+        $missing = $this->purposes->missing($template['value'], $this->purposes->values($invoice, $settings['locale']['value']));
+
+        if (empty($missing)) {
+            return;
+        }
+
+        $placeholder = '{' . $missing[0] . '}';
+        $message = $invoice->contract === null
+            ? __('The payment purpose uses :placeholder, but the invoice has no contract.', ['placeholder' => $placeholder])
+            : __('The payment purpose uses :placeholder, but the invoice\'s contract has no number.', ['placeholder' => $placeholder]);
+
+        $level = match (SettingSource::from($template['source'])) {
+            SettingSource::Invoice => __('The template is the invoice\'s own.'),
+            SettingSource::Client => __('The template is the client\'s.'),
+            default => __('The template is the ФОП\'s.'),
+        };
+
+        throw ValidationException::withMessages(['payment_purpose_template' => [$message . ' ' . $level]]);
+    }
+
+    /**
      * Build the snapshot of the invoice, from which its PDF is rendered, so later edits of the profile, client,
-     * contract or account never change an issued document.
+     * contract or account never change an issued document. The parties' names and addresses are taken in the
+     * invoice's language, and its document settings are resolved, so the template never decides on its own.
      *
      * @param Profile $profile
      * @param Invoice $invoice
@@ -183,27 +227,26 @@ class InvoiceFreezer
         $contract = $invoice->contract;
         $account = $invoice->receivingAccount;
         $signature = $profile->filesIn($profile::SIGNATURE_COLLECTION)->latest('id')->first();
+        $settings = InvoiceSettingsResolver::values($this->settings->forInvoice($invoice));
+        $locale = $settings['locale'];
 
         return [
             'schema_version' => Invoice::SNAPSHOT_SCHEMA_VERSION,
             'money_format' => $profile->setting('invoice.money_format'),
-            'locale' => $profile->locale,
+            'locale' => $locale,
             'frozen_at' => now()->toIso8601String(),
             'profile' => [
-                'full_name' => $profile->full_name,
-                'full_name_en' => $profile->full_name_en,
+                'name' => $profile->nameIn($locale),
+                'address' => $profile->addressIn($locale),
                 'tax_id' => $profile->tax_id,
                 'tax_id_kind' => $profile->tax_id_kind->value,
                 'registered_at' => $profile->registered_at?->toDateString(),
-                'address' => $profile->address,
-                'address_en' => $profile->address_en,
                 'email' => $profile->email,
                 'phone' => $profile->phone,
                 'signature_file_id' => $signature?->getKey(),
             ],
             'client' => [
-                'name' => $client->name,
-                'legal_name' => $client->legal_name,
+                'name' => $client->legalNameIn($locale),
                 'country' => $client->country,
                 'vat_number' => $client->vat_number,
                 'tax_id' => $client->tax_id,
@@ -213,10 +256,16 @@ class InvoiceFreezer
             'contract' => $contract ? [
                 'name' => $contract->name,
                 'number' => $contract->number,
+                'subject' => $contract->subject,
                 'started_at' => $contract->started_at->toDateString(),
                 'ends_at' => $contract->ends_at?->toDateString(),
                 'payment_terms_days' => $contract->payment_terms_days,
             ] : null,
+            'presentation' => [
+                'payment_purpose' => $this->purposes->forInvoice($invoice, $settings),
+                'act_note' => $settings['act_note_enabled'] ? $settings['act_note'] : null,
+                'show_contract' => (bool) $settings['show_contract'],
+            ],
             'account' => [
                 'name' => $account->name,
                 'kind' => $account->kind->value,

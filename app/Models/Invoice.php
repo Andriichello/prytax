@@ -121,11 +121,12 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     public const string UPLOADED_COLLECTION = 'uploaded';
 
     /**
-     * Version of the snapshot's structure, which the PDF template reads.
+     * Version of the snapshot's structure, which the PDF template reads: 2 adds the language, the parties' names in
+     * it and the resolved document settings (`presentation`, design.md §4.1).
      *
      * @var int
      */
-    public const int SNAPSHOT_SCHEMA_VERSION = 1;
+    public const int SNAPSHOT_SCHEMA_VERSION = 2;
 
     /**
      * The attributes that are mass-assignable.

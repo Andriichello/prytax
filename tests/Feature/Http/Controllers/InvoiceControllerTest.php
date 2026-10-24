@@ -141,8 +141,9 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('message', 'Frozen')
             ->assertJsonPath('data.number', 'BL-2026-10-14-1')
             ->assertJsonPath('data.status', 'ready')
-            ->assertJsonPath('data.snapshot.schema_version', 1)
+            ->assertJsonPath('data.snapshot.schema_version', 2)
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
+            ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Payment for services by the invoice No. BL-2026-10-14-1 from Oct 14, 2026')
             ->assertJsonPath('data.snapshot.account.name', $account->name)
             ->assertJsonPath('data.snapshot.totals.total', '3892.50');
         $invoice = $this->inProfile($profile, fn () => Invoice::query()->findOrFail($id));
@@ -451,7 +452,145 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.receiving_account_id', $account->id)
             ->assertJsonPath('data.description', $contract->describe())
             ->assertJsonPath('data.hourly_rate', '45.00')
-            ->assertJsonPath('data.number_preview', 'BL-2026-10-14-1');
+            ->assertJsonPath('data.number_preview', 'BL-2026-10-14-1')
+            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile'])
+            ->assertJsonPath('data.effective_settings.show_contract', ['value' => true, 'source' => 'default']);
+    }
+
+    /**
+     * Test that a draft without a contract, of a client without a currency, takes the profile's default currency.
+     *
+     * @return void
+     */
+    public function testTakesTheProfilesCurrencyForADraftWithoutAContractOrAClientCurrency(): void
+    {
+        $profile = $this->createProfile(null, ['default_currency' => 'EUR']);
+        $this->actAs($profile);
+        $account = $this->createAccount($profile, ['currency' => 'EUR']);
+        [$client] = $this->createClientWithContract($profile, ['currency' => null]);
+
+        $response = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']],
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.currency', 'EUR')
+            ->assertJsonPath('data.receiving_account_id', $account->id);
+    }
+
+    /**
+     * Test that the freeze writes the document settings, as the client resolves them, into the snapshot: the
+     * parties' names in the client's language, the payment purpose with the final number, and no act note, when it
+     * is off; a later change of the client reaches its drafts, but not the frozen invoice.
+     *
+     * @return void
+     */
+    public function testFreezesTheDocumentSettingsOfTheClientIntoTheSnapshot(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile(null, ['full_name' => 'Мирчук Микола', 'full_name_en' => 'Myrchuk Mykola']);
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL', 'invoice_locale' => 'uk', 'act_note_enabled' => false]);
+        $draft = fn () => $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
+        ])->json('data.id');
+        $frozen = $draft();
+        $this->postJson($this->profilePath($profile, "invoices/$frozen/freeze"))->assertOk();
+        $open = $draft();
+
+        $this->patchJson($this->profilePath($profile, "clients/{$client->id}"), ['act_note_enabled' => true])->assertOk();
+
+        $this->getJson($this->profilePath($profile, "invoices/$frozen?append=snapshot"))
+            ->assertOk()
+            ->assertJsonPath('data.snapshot.locale', 'uk')
+            ->assertJsonPath('data.snapshot.profile.name', 'Мирчук Микола')
+            ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14.10.2026')
+            ->assertJsonPath('data.snapshot.presentation.act_note', null)
+            ->assertJsonPath('data.snapshot.presentation.show_contract', true);
+        $this->getJson($this->profilePath($profile, "invoices/$open?append=effective_settings"))
+            ->assertOk()
+            ->assertJsonPath('data.effective_settings.act_note_enabled', ['value' => true, 'source' => 'client']);
+    }
+
+    /**
+     * Test that a payment purpose, which needs the number of a contract without one, stops the freeze with 422,
+     * naming the level of its template, and leaves the draft without a number.
+     *
+     * @return void
+     */
+    public function testReturns422WhenThePaymentPurposeNeedsANumberTheContractLacks(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['payment_purpose_template' => 'Under contract No. {contract.number}']);
+        $id = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
+        ])->json('data.id');
+
+        $response = $this->postJson($this->profilePath($profile, "invoices/$id/freeze"));
+
+        $response->assertUnprocessable()->assertJsonValidationErrors([
+            'payment_purpose_template' => "The payment purpose uses {contract.number}, but the invoice's contract has no number. The template is the client's.",
+        ]);
+        $this->assertDatabaseHas('invoices', ['id' => $id, 'status' => 'draft', 'number' => null]);
+    }
+
+    /**
+     * Test that a draft's payment purpose with a placeholder outside of the whitelist is refused with 422.
+     *
+     * @return void
+     */
+    public function testReturns422ForAPaymentPurposeWithAnUnknownPlaceholder(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        [$client] = $this->createClientWithContract($profile);
+
+        $response = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'payment_purpose_template' => 'Invoice {invoice.number} of {invoice.total}',
+        ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors([
+            'payment_purpose_template' => 'The payment purpose has unknown placeholders: {invoice.total}.',
+        ]);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    /**
+     * Test that a draft shows its payment purpose as it would be frozen, with the warnings of a reference in euros,
+     * which SWIFT can't carry, and of a currency other than the contract's; and that null clears its own setting.
+     *
+     * @return void
+     */
+    public function testShowsTheDraftsPaymentPurposeWithItsWarnings(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile, ['currency' => 'EUR']);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $draft = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id, 'currency' => 'EUR', 'locale' => 'uk',
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
+            'items' => [['quantity' => '1', 'unit_price' => '100.00']],
+        ])->json('data');
+
+        $shown = $this->getJson($this->profilePath($profile, "invoices/{$draft['id']}?append=payment_purpose_preview,warnings"));
+        $cleared = $this->withHeader('If-Unmodified-Since', $draft['updated_at'])
+            ->patchJson($this->profilePath($profile, "invoices/{$draft['id']}?append=effective_settings"), ['locale' => null]);
+
+        $shown->assertOk()
+            ->assertJsonPath('data.payment_purpose_preview', 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14.10.2026')
+            ->assertJsonPath('data.warnings', ['payment_purpose_charset', 'currency_differs_from_contract']);
+        $cleared->assertOk()
+            ->assertJsonPath('data.locale', null)
+            ->assertJsonPath('data.effective_settings.locale', ['value' => 'en', 'source' => 'profile']);
+        $this->assertDatabaseHas('invoices', ['id' => $draft['id'], 'locale' => null]);
     }
 
     /**

@@ -25,14 +25,14 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
             </span>
 
             <span v-if="step.type === 'receipt'" class="flex flex-1 flex-col gap-[3px] pb-4.5">
-                <span class="text-12 text-ink-3">{{ t('{date} · надходження', { date: formatDayMonth(step.date) }) }}</span>
+                <span class="text-12 text-ink-3">{{ t('money.flow.receiptOn', { date: formatDayMonth(step.date) }) }}</span>
                 <span class="text-15 font-medium">{{ step.account.account_name }}</span>
                 <span class="text-13 text-ink-2">
-                    <Translated :text="t('Отримано {amount}')">
+                    <Translated :text="t('money.flow.receivedAmount')">
                         <template #amount><span class="num font-semibold text-ink">{{ formatMoney(step.amount, step.currency) }}</span></template>
                     </Translated>
                     <template v-if="step.fee && compareAmounts(step.fee, '0') !== 0">
-                        · <Translated :text="t('комісія {fee}')"><template #fee><span class="num">{{ formatAmount(step.fee) }}</span></template></Translated>
+                        · <Translated :text="t('money.flow.feeAmount')"><template #fee><span class="num">{{ formatAmount(step.fee) }}</span></template></Translated>
                     </template>
                 </span>
             </span>
@@ -42,24 +42,24 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 :to="{ name: 'transfer', params: { id: step.transfer_id } }"
                 class="flex flex-1 flex-col gap-[3px] pb-4.5 text-ink no-underline hover:text-ink"
             >
-                <span class="text-12 text-ink-3">{{ t('{date} · переказ', { date: formatDayMonth(step.date) }) }}</span>
+                <span class="text-12 text-ink-3">{{ t('money.flow.transferOn', { date: formatDayMonth(step.date) }) }}</span>
                 <span class="text-15 font-medium">→ {{ step.to.account_name }}</span>
                 <span class="text-13 text-ink-2">
-                    <Translated :text="t('Розподілено {allocated} → прибуло {arrived}')">
+                    <Translated :text="t('money.flow.allocatedArrived')">
                         <template #allocated><span class="num font-semibold text-ink">{{ formatMoney(step.allocated, step.currency_sent) }}</span></template>
                         <template #arrived><span class="num font-semibold text-ink">{{ formatMoney(step.arrived, step.currency_received) }}</span></template>
                     </Translated>
                 </span>
                 <span v-if="compareAmounts(step.fee_share, '0') !== 0" class="text-12 text-ink-3">
-                    <Translated :text="t('Частка комісії переказу {amount}')">
+                    <Translated :text="t('money.flow.shareTransferFee')">
                         <template #amount><span class="num">{{ formatMoney(step.fee_share, step.currency_sent) }}</span></template>
                     </Translated>
                 </span>
             </RouterLink>
 
             <span v-else class="flex flex-1 flex-col gap-[3px] pb-4.5">
-                <span class="text-12 text-ink-3">{{ t('{date} · повернення клієнту', { date: formatDayMonth(step.date) }) }}</span>
-                <span class="text-15 font-medium">{{ t('з {account}', { account: step.from.account_name }) }}</span>
+                <span class="text-12 text-ink-3">{{ t('money.flow.refundOn', { date: formatDayMonth(step.date) }) }}</span>
+                <span class="text-15 font-medium">{{ t('money.flow.fromAccount', { account: step.from.account_name }) }}</span>
                 <span class="num text-13 font-semibold text-negative">{{ formatMoney(`-${step.amount}`, step.currency) }}</span>
                 <button
                     v-if="canRemoveRefunds"
@@ -67,7 +67,7 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                     class="flex min-h-11 items-center self-start text-13 font-medium text-negative"
                     @click="emit('removeRefund', step.refund_id)"
                 >
-                    {{ t('Видалити повернення') }}
+                    {{ t('money.flow.deleteRefund') }}
                 </button>
             </span>
         </li>
@@ -78,10 +78,10 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 <span v-if="index < now.length - 1" class="w-0.5 flex-1 bg-rail" />
             </span>
             <span class="flex flex-1 flex-col gap-[3px]" :class="index < now.length - 1 ? 'pb-4.5' : ''">
-                <span class="text-12 text-ink-3">{{ t('зараз') }}</span>
-                <span class="text-15 font-medium">{{ holding.kind === 'fop_bank' ? t('На {account}', { account: holding.account_name }) : t('Залишок на {account}', { account: holding.account_name }) }}</span>
+                <span class="text-12 text-ink-3">{{ t('money.flow.now') }}</span>
+                <span class="text-15 font-medium">{{ holding.kind === 'fop_bank' ? t('money.flow.onAccount', { account: holding.account_name }) : t('money.flow.leftOn', { account: holding.account_name }) }}</span>
                 <span class="num text-13 font-semibold" :class="holding.kind === 'fop_bank' ? 'text-positive' : 'text-warning-text'">
-                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'"> {{ t('не розподілено') }}</template>
+                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'"> {{ t('money.flow.notAllocated') }}</template>
                 </span>
             </span>
         </li>

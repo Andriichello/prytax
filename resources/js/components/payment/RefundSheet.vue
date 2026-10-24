@@ -107,34 +107,34 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('Повернення клієнту')">
+    <BottomSheet v-model:open="open" :title="t('money.refund.refundClient')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            {{ t('Повернення зменшує дохід періоду, в якому його зроблено. Кошти йдуть з рахунку в {currency}.', { currency: payment.currency }) }}
+            {{ t('money.refund.explained', { currency: payment.currency }) }}
         </p>
         <div class="grid grid-cols-2 gap-2.5">
-            <TextField v-model="amount" :label="t('Сума, {currency}', { currency: payment.currency })" numeric :error="fieldError(error, 'amount')" />
-            <DateField v-model="refundedAt" :label="t('Дата')" :min="payment.received_at" :max="today()" :error="fieldError(error, 'refunded_at')" />
+            <TextField v-model="amount" :label="t('core.common.amountInCurrency', { currency: payment.currency })" numeric :error="fieldError(error, 'amount')" />
+            <DateField v-model="refundedAt" :label="t('core.common.date')" :min="payment.received_at" :max="today()" :error="fieldError(error, 'refunded_at')" />
         </div>
         <SelectField
             v-model="fromAccountId"
-            :label="t('З рахунку')"
-            :placeholder="t('Оберіть рахунок')"
+            :label="t('money.refund.fromAccount')"
+            :placeholder="t('core.common.chooseAccount')"
             :options="options"
             :error="fieldError(error, 'from_account_id')"
         />
         <TextField
             v-if="needsRate"
             v-model="nbuRate"
-            :label="t('Курс, ₴ за 1 {currency}', { currency: payment.currency })"
+            :label="t('money.paymentForm.rateUahPer', { currency: payment.currency })"
             numeric
             placeholder="41.8710"
-            :hint="t('Вручну — лише поки НБУ не опублікував курс на цю дату.')"
+            :hint="t('money.refund.manualRateHint')"
             :error="fieldError(error, 'nbu_rate')"
         />
-        <TextAreaField v-model="reason" :label="t('Причина')" :rows="2" :placeholder="t('Напр., переплата')" />
-        <TextAreaField v-if="locked" v-model="correctionNote" :label="t('Квартал уже задекларовано — що уточнюєте?')" :rows="2" />
+        <TextAreaField v-model="reason" :label="t('money.refund.reason')" :rows="2" :placeholder="t('money.refund.reasonPlaceholder')" />
+        <TextAreaField v-if="locked" v-model="correctionNote" :label="t('money.payment.correctionQuestion')" :rows="2" />
         <p v-if="reopenedStatus" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
-            <Translated :text="t('Інвойс {number} більше не буде покрито повністю й повернеться до статусу «{status}».', { status: reopenedStatus })">
+            <Translated :text="t('money.refund.invoiceWillReopen', { status: reopenedStatus })">
                 <template #number><span class="num">{{ payment.invoice?.number }}</span></template>
             </Translated>
         </p>
@@ -144,7 +144,7 @@ async function save(): Promise<void> {
 
         <template #footer>
             <PrimaryButton :busy="saving" :disabled="parseAmount(amount) === null || fromAccountId === null" @click="save">
-                {{ t('Записати повернення') }}
+                {{ t('money.refund.recordRefund') }}
             </PrimaryButton>
         </template>
     </BottomSheet>

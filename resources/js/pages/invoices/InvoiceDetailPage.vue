@@ -79,7 +79,7 @@ const sortedPayments = computed(() => [...(invoice.value?.payments ?? [])].sort(
 const fileSize = computed(() => {
     const size = invoice.value?.primaryFile?.size;
 
-    return size ? t('{size} КБ', { size: Math.max(1, Math.round(size / 1024)) }) : '';
+    return size ? t('invoices.detail.kb', { size: Math.max(1, Math.round(size / 1024)) }) : '';
 });
 const pdfUrl = computed(() => apiUrl(path(`invoices/${id.value}/pdf`)));
 
@@ -128,19 +128,19 @@ const DATE_FIELDS: Partial<Record<Action, { field: string; label: string }>> = {
     send: {
         field: 'sent_at',
         get label() {
-            return t('Дата надсилання');
+            return t('invoices.detail.dateSent');
         },
     },
     pay: {
         field: 'paid_at',
         get label() {
-            return t('Дата оплати');
+            return t('invoices.detail.datePaid');
         },
     },
     cancel: {
         field: 'cancelled_at',
         get label() {
-            return t('Дата скасування');
+            return t('invoices.detail.dateCancelled');
         },
     },
 };
@@ -171,30 +171,30 @@ async function act(): Promise<void> {
 }
 
 const confirms = computed<Record<Action, { title: string; label: string; text: string; destructive?: boolean }>>(() => ({
-    send: { title: t('Позначити надісланим?'), label: t('Надіслано||кнопка'), text: t('Інвойс надіслано клієнту. Він залишиться відкритим до оплати.') },
-    pay: { title: t('Позначити оплаченим?'), label: t('Оплачено||кнопка'), text: t('Надходження покривають суму інвойсу. Інвойс закриється.') },
+    send: { title: t('invoices.detail.markSentQuestion'), label: t('invoices.detail.markSentButton'), text: t('invoices.detail.markSentExplained') },
+    pay: { title: t('invoices.detail.markPaidQuestion'), label: t('invoices.detail.markPaidButton'), text: t('invoices.detail.markPaidExplained') },
     unfreeze: {
-        title: t('Повернути в чернетку?'),
-        label: t('Повернути'),
-        text: t('Номер збережеться (дата в ньому оновиться, якщо зміните період), знімок і згенерований PDF буде видалено. Інвойс можна буде змінити й зафіксувати знову.'),
+        title: t('invoices.detail.returnToDraftQuestion'),
+        label: t('invoices.detail.return'),
+        text: t('invoices.detail.unfreezeExplained'),
     },
     cancel: {
-        title: t('Скасувати інвойс?'),
-        label: t('Скасувати інвойс'),
-        text: t('Скасований інвойс лишається в списку з закресленим номером. Надходження, якщо є, спершу перенесіть на інвойс, що його замінює, або поверніть.'),
+        title: t('invoices.detail.cancelQuestion'),
+        label: t('invoices.detail.cancelInvoice'),
+        text: t('invoices.detail.cancelExplained'),
         destructive: true,
     },
 }));
 </script>
 
 <template>
-    <SubScreen :title="t('Інвойс')" muted :back="{ name: 'invoices' }">
+    <SubScreen :title="t('core.common.invoice')" muted :back="{ name: 'invoices' }">
         <template #action>
             <a
                 v-if="invoice?.primary_file_id"
                 :href="pdfUrl"
                 download
-                :aria-label="t('Завантажити PDF')"
+                :aria-label="t('invoices.detail.downloadPdf')"
                 class="flex size-11 items-center justify-center text-ink hover:text-ink"
             >
                 <Icon name="download" :size="22" />
@@ -202,7 +202,7 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
             <button
                 v-if="invoice && can('update', 'invoices')"
                 type="button"
-                :aria-label="t('Інші дії')"
+                :aria-label="t('core.common.moreActions')"
                 class="flex size-11 items-center justify-center text-ink"
                 @click="menuOpen = true"
             >
@@ -217,14 +217,14 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
                         <StatusBadge :label="INVOICE_STATUSES[invoice.status].label + statusDate" :tone="INVOICE_STATUSES[invoice.status].tone" />
                         <span v-if="invoice.locked_at" class="flex items-center gap-1 text-12 text-ink-3">
                             <Icon name="lock" :size="14" />
-                            {{ t('Зафіксовано {date}', { date: formatDate(kyivDate(invoice.locked_at)) }) }}
+                            {{ t('invoices.detail.frozenOn', { date: formatDate(kyivDate(invoice.locked_at)) }) }}
                         </span>
                         <span v-if="invoice.source === 'external'" class="rounded-md border border-line-input px-1.5 py-0.5 text-11 font-semibold text-ink-2">
-                            {{ t('зовнішній') }}
+                            {{ t('invoices.list.external') }}
                         </span>
                     </div>
                     <h1 class="num m-0 text-30 font-bold tracking-[-0.02em]" :class="invoice.status === 'cancelled' ? 'line-through' : ''">
-                        {{ invoice.number ?? t('Без номера') }}
+                        {{ invoice.number ?? t('invoices.detail.noNumber') }}
                     </h1>
                     <RouterLink
                         :to="{ name: 'client', params: { id: invoice.client_id } }"
@@ -236,9 +236,9 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
 
                 <InvoiceStepper v-if="invoice.status !== 'cancelled'" :status="invoice.status" />
 
-                <section v-if="invoice.status !== 'cancelled'" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('Отримано')">
+                <section v-if="invoice.status !== 'cancelled'" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('invoices.detail.received')">
                     <div class="flex items-baseline justify-between text-15 text-ink-2">
-                        <span>{{ t('Отримано') }}</span>
+                        <span>{{ t('invoices.detail.received') }}</span>
                         <span class="num text-14">{{ percent }} %</span>
                     </div>
                     <div class="flex items-baseline gap-1.5">
@@ -247,7 +247,7 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
                     </div>
                     <ProgressBar :percent="percent" :height="8" />
                     <div v-if="compareAmounts(remaining, '0') > 0" class="flex items-baseline justify-between text-14">
-                        <span class="text-ink-2">{{ t('Залишок') }}</span>
+                        <span class="text-ink-2">{{ t('invoices.detail.balance') }}</span>
                         <span class="num font-semibold">{{ formatMoney(remaining, invoice.currency) }}</span>
                     </div>
                     <RouterLink
@@ -256,52 +256,52 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
                         class="flex h-13 items-center justify-center gap-2 rounded-button bg-accent text-16 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
                     >
                         <Icon name="plus" :size="20" />
-                        {{ t('Додати надходження') }}
+                        {{ t('invoices.detail.addReceipt') }}
                     </RouterLink>
                 </section>
 
                 <section v-if="sortedPayments.length" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('Надходження') }}</SectionTitle>
+                    <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
                     <ReceiptCard v-for="payment in sortedPayments" :key="payment.id" :payment="payment" />
                 </section>
 
-                <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4" :aria-label="t('Деталі')">
-                    <InfoRow :label="t('Період послуг')" figure>{{ formatPeriod(invoice.period_start, invoice.period_end) }}</InfoRow>
-                    <InfoRow :label="t('Виставлено')" figure>{{ formatDate(invoice.issued_at) }}</InfoRow>
-                    <InfoRow v-if="invoice.due_at" :label="t('Сплатити до')" figure>
+                <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4" :aria-label="t('invoices.detail.details')">
+                    <InfoRow :label="t('invoices.detail.servicePeriod')" figure>{{ formatPeriod(invoice.period_start, invoice.period_end) }}</InfoRow>
+                    <InfoRow :label="t('invoices.detail.issued')" figure>{{ formatDate(invoice.issued_at) }}</InfoRow>
+                    <InfoRow v-if="invoice.due_at" :label="t('invoices.detail.dueDate')" figure>
                         <span :class="overdue ? 'text-negative' : ''">{{ formatDate(invoice.due_at) }}</span>
                     </InfoRow>
-                    <InfoRow v-if="invoice.contract" :label="t('Договір')">
+                    <InfoRow v-if="invoice.contract" :label="t('core.common.contract')">
                         {{ invoice.contract.name }} · <span class="num">{{ formatDate(invoice.contract.started_at) }}</span>
                     </InfoRow>
-                    <InfoRow v-if="invoice.receivingAccount" :label="t('Рахунок отримання')">{{ invoice.receivingAccount.name }}</InfoRow>
+                    <InfoRow v-if="invoice.receivingAccount" :label="t('invoices.detail.receivingAccount')">{{ invoice.receivingAccount.name }}</InfoRow>
                 </section>
 
                 <section v-if="invoice.items?.length" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('Позиції') }}</SectionTitle>
+                    <SectionTitle>{{ t('invoices.detail.items') }}</SectionTitle>
                     <InvoiceItemCard v-for="item in invoice.items" :key="item.id" :item="item" />
                     <div v-if="compareAmounts(invoice.adjustment_amount, '0') !== 0" class="flex items-baseline justify-between px-0.5 text-14 text-ink-2">
-                        <span>{{ invoice.adjustment_label || t('Коригування') }}</span>
+                        <span>{{ invoice.adjustment_label || t('invoices.detail.adjustment') }}</span>
                         <span class="num">{{ formatAmount(invoice.adjustment_amount, { signed: true }) }}</span>
                     </div>
                 </section>
 
                 <section v-if="invoice.primaryFile" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('Документ') }}</SectionTitle>
+                    <SectionTitle>{{ t('invoices.detail.document') }}</SectionTitle>
                     <div class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
                         <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span class="num truncate text-15">{{ invoice.primaryFile.name }}</span>
                             <span class="text-12 text-ink-3">
                                 {{ invoice.primaryFile.collection === 'generated'
-                                    ? t('Згенеровано · основний · {size}', { size: fileSize })
-                                    : t('Завантажено · основний · {size}', { size: fileSize }) }}
+                                    ? t('invoices.detail.generatedMain', { size: fileSize })
+                                    : t('invoices.detail.uploadedMain', { size: fileSize }) }}
                             </span>
                         </span>
                         <a
                             :href="pdfUrl"
                             download
-                            :aria-label="t('Завантажити PDF')"
+                            :aria-label="t('invoices.detail.downloadPdf')"
                             class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line-input text-ink hover:text-ink"
                         >
                             <Icon name="download" :size="20" />
@@ -312,60 +312,60 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
                 <div v-if="can('update', 'invoices')" class="flex flex-col gap-1.5">
                     <TextAreaField
                         v-model="notes"
-                        :label="t('Примітка (можна змінювати)')"
+                        :label="t('invoices.detail.noteEditable')"
                         :rows="2"
-                        :placeholder="t('Не друкується в інвойсі')"
+                        :placeholder="t('invoices.detail.notPrintedInvoice')"
                         :error="notesError ?? undefined"
-                        :aside="savingNotes ? t('Зберігаю…') : undefined"
+                        :aside="savingNotes ? t('invoices.detail.saving') : undefined"
                         @focusout="saveNotes"
                     />
                 </div>
                 <div v-else-if="invoice.notes" class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">{{ t('Примітка') }}</span>
+                    <span class="text-13 font-medium text-ink-2">{{ t('core.common.note') }}</span>
                     <p class="m-0 rounded-control border border-line bg-surface px-3.5 py-3 text-15 whitespace-pre-line">{{ invoice.notes }}</p>
                 </div>
 
                 <template v-if="isOpen && can('update', 'invoices')">
                     <div class="flex flex-col gap-2">
-                        <SecondaryButton v-if="invoice.status === 'ready'" @click="ask('send')">{{ t('Позначити надісланим') }}</SecondaryButton>
-                        <PrimaryButton v-if="covered" @click="ask('pay')">{{ t('Позначити оплаченим') }}</PrimaryButton>
+                        <SecondaryButton v-if="invoice.status === 'ready'" @click="ask('send')">{{ t('invoices.detail.markSent') }}</SecondaryButton>
+                        <PrimaryButton v-if="covered" @click="ask('pay')">{{ t('invoices.detail.markPaid') }}</PrimaryButton>
                         <button
                             v-else
                             type="button"
                             disabled
                             class="flex h-13 w-full items-center justify-center rounded-button bg-muted text-16 font-medium text-ink-3"
                         >
-                            {{ t('Позначити оплаченим') }}
+                            {{ t('invoices.detail.markPaid') }}
                         </button>
                         <p class="m-0 text-center text-13 leading-normal text-ink-3">
-                            <template v-if="!covered">{{ t('Стане доступним, коли надходження покриють суму.') }}<br></template>
-                            <template v-if="invoice.can_unfreeze">{{ t('Можна повернути в чернетку, поки немає надходжень.') }}</template>
-                            <template v-else-if="sortedPayments.length">{{ t('Повернути в чернетку не можна — вже є надходження.') }}</template>
+                            <template v-if="!covered">{{ t('invoices.detail.availableWhenCovered') }}<br></template>
+                            <template v-if="invoice.can_unfreeze">{{ t('invoices.detail.canReturnToDraft') }}</template>
+                            <template v-else-if="sortedPayments.length">{{ t('invoices.detail.cantReturnToDraft') }}</template>
                         </p>
                     </div>
                     <button type="button" class="flex min-h-11 items-center self-center text-15 font-medium text-negative" @click="ask('cancel')">
-                        {{ t('Скасувати інвойс') }}
+                        {{ t('invoices.detail.cancelInvoice') }}
                     </button>
                 </template>
             </template>
         </LoadState>
 
-        <BottomSheet v-model:open="menuOpen" :title="t('Дії з інвойсом')">
+        <BottomSheet v-model:open="menuOpen" :title="t('invoices.detail.invoiceActions')">
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                 <a v-if="invoice?.primary_file_id" :href="pdfUrl" download class="flex min-h-13 items-center gap-3 text-15 text-ink no-underline hover:text-ink">
-                    <Icon name="download" :size="20" /> {{ t('Завантажити PDF') }}
+                    <Icon name="download" :size="20" /> {{ t('invoices.detail.downloadPdf') }}
                 </a>
                 <button v-if="invoice?.status === 'ready'" type="button" class="flex min-h-13 items-center gap-3 text-left text-15" @click="ask('send')">
-                    <Icon name="transfer" :size="20" /> {{ t('Позначити надісланим') }}
+                    <Icon name="transfer" :size="20" /> {{ t('invoices.detail.markSent') }}
                 </button>
                 <button v-if="invoice?.can_unfreeze" type="button" class="flex min-h-13 items-center gap-3 text-left text-15" @click="ask('unfreeze')">
-                    <Icon name="invoice" :size="20" /> {{ t('Повернути в чернетку') }}
+                    <Icon name="invoice" :size="20" /> {{ t('invoices.detail.returnToDraft') }}
                 </button>
                 <button v-if="isOpen" type="button" class="flex min-h-13 items-center gap-3 text-left text-15 text-negative" @click="ask('cancel')">
-                    <Icon name="close" :size="20" /> {{ t('Скасувати інвойс') }}
+                    <Icon name="close" :size="20" /> {{ t('invoices.detail.cancelInvoice') }}
                 </button>
                 <p v-if="!isOpen" class="m-0 py-3.5 text-14 text-ink-3">
-                    {{ invoice?.status === 'paid' ? t('Оплачений інвойс змінити не можна; лише примітку.') : t('Скасований інвойс змінити не можна; лише примітку.') }}
+                    {{ invoice?.status === 'paid' ? t('invoices.detail.paidNoteOnly') : t('invoices.detail.cancelledNoteOnly') }}
                 </p>
             </div>
         </BottomSheet>

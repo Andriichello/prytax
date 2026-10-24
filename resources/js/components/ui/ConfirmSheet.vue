@@ -27,7 +27,7 @@ const emit = defineEmits<{ confirm: [] }>();
         </div>
         <p v-if="error" class="m-0 text-14 text-negative" role="alert">{{ error }}</p>
         <div class="grid grid-cols-[1fr_1.4fr] gap-2.5 pt-1">
-            <SecondaryButton @click="open = false">{{ t('Скасувати') }}</SecondaryButton>
+            <SecondaryButton @click="open = false">{{ t('core.common.cancel') }}</SecondaryButton>
             <SecondaryButton v-if="destructive" tone="negative" :busy="busy" @click="emit('confirm')">{{ confirmLabel }}</SecondaryButton>
             <PrimaryButton v-else :busy="busy" @click="emit('confirm')">{{ confirmLabel }}</PrimaryButton>
         </div>

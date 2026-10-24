@@ -46,25 +46,25 @@ async function submit(): Promise<void> {
 <template>
     <AuthLayout>
         <div v-if="done" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Пароль змінено') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Увійдіть з новим паролем. Інші сесії цього облікового запису завершено.') }}</p>
-            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">{{ t('Увійти') }}</RouterLink>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.resetPassword.passwordChanged') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.resetPassword.changedHint') }}</p>
+            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">{{ t('shell.login.signIn') }}</RouterLink>
         </div>
 
         <div v-else-if="!token || !email" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Посилання неповне') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Відкрийте посилання з листа повністю або попросіть нове.') }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.resetPassword.linkIncomplete') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.resetPassword.openWholeLink') }}</p>
             <RouterLink :to="{ name: 'forgot-password' }" class="flex min-h-11 items-center text-15 font-medium no-underline">
-                {{ t('Надіслати нове посилання') }}
+                {{ t('shell.resetPassword.sendNewLink') }}
             </RouterLink>
         </div>
 
         <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Новий пароль') }}</h1>
-            <p class="m-0 text-15 text-ink-2">{{ t('для {email}', { email }) }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.resetPassword.newPassword') }}</h1>
+            <p class="m-0 text-15 text-ink-2">{{ t('shell.resetPassword.forEmail', { email }) }}</p>
             <TextField
                 v-model="password"
-                :label="t('Новий пароль')"
+                :label="t('shell.resetPassword.newPassword')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -72,7 +72,7 @@ async function submit(): Promise<void> {
             />
             <TextField
                 v-model="confirmation"
-                :label="t('Повторіть пароль')"
+                :label="t('shell.resetPassword.confirmPassword')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -80,7 +80,7 @@ async function submit(): Promise<void> {
             <p v-if="error && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ fieldError(error, 'email') ?? errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Зберегти пароль') }}</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.resetPassword.savePassword') }}</PrimaryButton>
         </form>
     </AuthLayout>
 </template>

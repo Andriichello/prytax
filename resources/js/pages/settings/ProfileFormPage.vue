@@ -117,7 +117,7 @@ const sample = (format: MoneyFormat, amount: string) => formatAmount(amount, { f
 /** The money formats of the app, the default one marked. */
 const displayFormats = computed(() => FORMATS.map((format) => ({
     value: format.value,
-    label: format.value === 'space_dot' ? t('{format} — за замовчуванням', { format: format.label }) : format.label,
+    label: format.value === 'space_dot' ? t('settings.profile.defaultFormat', { format: format.label }) : format.label,
 })));
 
 /* The PDF signature: a PNG, which replaces the previous one */
@@ -229,53 +229,53 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? t('Новий ФОП') : t('Профіль ФОП')" :back="{ name: 'more' }">
+    <SubScreen :title="isNew ? t('settings.profile.newFop') : t('settings.profile.fopProfile')" :back="{ name: 'more' }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <div class="flex items-start gap-3 rounded-control border border-line bg-surface px-3.5 py-3 text-13 text-ink-2">
-                <span class="text-14 leading-tight font-semibold text-ink"><Translated :text="t('3{br}група')"><template #br><br></template></Translated></span>
-                <span>{{ t('· спрощена система · без ПДВ · без працівників') }}</span>
+                <span class="text-14 leading-tight font-semibold text-ink"><Translated :text="t('settings.profile.groupBadge')"><template #br><br></template></Translated></span>
+                <span>{{ t('settings.profile.taxSystem') }}</span>
             </div>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Податкова особа') }}</SectionTitle>
-                <TextField v-model="form.full_name" :label="t('ПІБ')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name')" />
-                <TextField v-model="form.full_name_en" :label="t('ПІБ латиницею — для інвойсів')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name_en')" />
+                <SectionTitle>{{ t('settings.profile.taxpayer') }}</SectionTitle>
+                <TextField v-model="form.full_name" :label="t('settings.profile.fullName')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name')" />
+                <TextField v-model="form.full_name_en" :label="t('settings.profile.fullNameLatinHint')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name_en')" />
                 <div class="grid grid-cols-2 gap-2.5">
                     <TextField
                         v-model="form.tax_id"
-                        :label="form.passport ? t('Паспорт') : t('РНОКПП')"
+                        :label="form.passport ? t('settings.profile.passport') : t('settings.profile.taxId')"
                         class="num"
                         :placeholder="existing?.tax_id_masked ?? ''"
                         :disabled="!canEditIdentity"
                         :error="fieldError(saveError, 'tax_id')"
                     />
-                    <DateField v-model="form.registered_at" :label="t('Дата реєстрації')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
+                    <DateField v-model="form.registered_at" :label="t('settings.profile.registrationDate')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
                 </div>
                 <label class="flex min-h-11 items-center gap-3 text-15 text-ink-2">
                     <input v-model="form.passport" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity">
-                    {{ t('Серія й номер паспорта замість РНОКПП') }}
+                    {{ t('settings.profile.passportHint') }}
                 </label>
-                <span class="-mt-2 text-12 text-ink-3">{{ t('Зберігається зашифрованим, унікальний у межах організації') }}</span>
+                <span class="-mt-2 text-12 text-ink-3">{{ t('settings.profile.taxIdHint') }}</span>
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Адреса й контакти') }}</SectionTitle>
-                <TextAreaField v-model="form.address" :label="t('Адреса')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
-                <TextAreaField v-model="form.address_en" :label="t('Адреса англійською')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
+                <SectionTitle>{{ t('settings.profile.addressContacts') }}</SectionTitle>
+                <TextAreaField v-model="form.address" :label="t('core.common.address')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
+                <TextAreaField v-model="form.address_en" :label="t('settings.profile.addressEnglish')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
                 <TextField v-model="form.email" label="Email" type="email" :disabled="!canEditIdentity" :error="fieldError(saveError, 'email')" />
-                <TextField v-model="form.phone" :label="t('Телефон')" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
+                <TextField v-model="form.phone" :label="t('settings.profile.phone')" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Інвойси') }}</SectionTitle>
+                <SectionTitle>{{ t('shell.nav.invoices') }}</SectionTitle>
                 <div class="grid grid-cols-2 gap-2.5">
-                    <SelectField v-model="form.default_currency" :label="t('Валюта')" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                    <SelectField v-model="form.locale" :label="t('Мова документа')" :disabled="!canEditIdentity" :options="DOCUMENT_LOCALES" />
+                    <SelectField v-model="form.default_currency" :label="t('core.common.currency')" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
+                    <SelectField v-model="form.locale" :label="t('settings.profile.documentLanguage')" :disabled="!canEditIdentity" :options="DOCUMENT_LOCALES" />
                 </div>
                 <div v-if="!isNew" class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">{{ t('Підпис у PDF') }}</span>
+                    <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>
                     <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">
-                        <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('Підпис')" class="h-10 max-w-32 object-contain">
+                        <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-10 max-w-32 object-contain">
                         <span class="min-w-0 flex-1 truncate text-14 text-ink-2">{{ signature.name }}</span>
                     </div>
                     <label
@@ -283,7 +283,7 @@ const generalError = computed(() => {
                         class="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
                     >
                         <Icon :name="uploading ? 'spinner' : 'upload'" :size="20" :class="uploading ? 'animate-spin' : ''" />
-                        {{ signature ? t('Замінити підпис (PNG)') : t('Завантажити PNG підпису') }}
+                        {{ signature ? t('settings.profile.replaceSignaturePng') : t('settings.profile.uploadSignaturePng') }}
                         <input type="file" accept="image/png" class="sr-only" @change="uploadSignature">
                     </label>
                     <span v-if="signatureError" class="text-12 text-negative">{{ errorMessage(signatureError) }}</span>
@@ -291,50 +291,50 @@ const generalError = computed(() => {
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Формат сум') }}</SectionTitle>
+                <SectionTitle>{{ t('settings.profile.moneyFormat') }}</SectionTitle>
                 <SelectField
                     v-model="form.display_format"
-                    :label="t('У застосунку')"
+                    :label="t('settings.profile.inApp')"
                     :disabled="!canConfigure"
                     :options="displayFormats"
                 />
                 <SelectField
                     v-model="form.invoice_format"
-                    :label="t('В інвойсах (PDF)')"
+                    :label="t('settings.profile.onInvoices')"
                     :disabled="!canConfigure"
                     :options="FORMATS.map((format) => ({ value: format.value, label: format.label }))"
                 />
                 <div class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-14 text-ink-2">
-                    <span class="flex justify-between gap-3">{{ t('Застосунок:') }} <span class="num font-semibold text-ink">{{ sample(form.display_format, '1840135.05') }} ₴</span></span>
-                    <span class="flex justify-between gap-3">{{ t('Інвойс:') }} <span class="num font-semibold text-ink">{{ sample(form.invoice_format, '3892.50') }} {{ form.default_currency }}</span></span>
+                    <span class="flex justify-between gap-3">{{ t('settings.profile.appLabel') }} <span class="num font-semibold text-ink">{{ sample(form.display_format, '1840135.05') }} ₴</span></span>
+                    <span class="flex justify-between gap-3">{{ t('settings.profile.invoiceLabel') }} <span class="num font-semibold text-ink">{{ sample(form.invoice_format, '3892.50') }} {{ form.default_currency }}</span></span>
                 </div>
-                <span class="text-12 text-ink-3">{{ t('Окремо для застосунку та інвойсів. Розділювач копійок — крапка або кома.') }}</span>
+                <span class="text-12 text-ink-3">{{ t('settings.profile.moneyFormatHint') }}</span>
             </section>
 
             <label class="flex min-h-14 items-center justify-between gap-3 rounded-control border border-line bg-surface px-4">
                 <span class="flex flex-col gap-0.5">
-                    <span class="text-15">{{ t('Активний ФОП') }}</span>
-                    <span class="text-12 text-ink-3">{{ t('Неактивний зникає з панелей і термінів') }}</span>
+                    <span class="text-15">{{ t('settings.profile.activeFop') }}</span>
+                    <span class="text-12 text-ink-3">{{ t('settings.profile.inactiveHint') }}</span>
                 </span>
                 <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity" @change="onActiveChange">
             </label>
             <DateField
                 v-if="!form.is_active"
                 v-model="form.closed_at"
-                :label="t('Дата закриття')"
-                :hint="t('Податки й ЄСВ відстежуються до цієї дати')"
+                :label="t('settings.profile.closingDate')"
+                :hint="t('settings.profile.closingDateHint')"
                 :max="today()"
                 :disabled="!canEditIdentity"
                 :error="fieldError(saveError, 'closed_at')"
             />
 
-            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">{{ t('Дані податкової особи, адресу, контакти й мову документів змінює власник організації.') }}</p>
+            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">{{ t('settings.profile.ownerEditsIdentity') }}</p>
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
         <template v-if="canEditIdentity || canConfigure" #footer>
             <PrimaryButton :busy="saving" :disabled="loading || !form.full_name.trim() || (isNew && !form.tax_id.trim())" @click="save">
-                {{ isNew ? t('Створити ФОП') : t('Зберегти') }}
+                {{ isNew ? t('settings.profile.createFop') : t('core.common.save') }}
             </PrimaryButton>
         </template>
     </SubScreen>

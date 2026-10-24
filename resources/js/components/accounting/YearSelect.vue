@@ -29,7 +29,7 @@ const years = computed(() => {
 
 <template>
     <label class="relative flex min-h-11 items-center rounded-control border border-line-input bg-surface">
-        <span class="sr-only">{{ t('Рік') }}</span>
+        <span class="sr-only">{{ t('core.common.year') }}</span>
         <select
             v-model.number="year"
             class="num h-11 appearance-none bg-transparent pr-8 pl-3 text-15 font-medium"

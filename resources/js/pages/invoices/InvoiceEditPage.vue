@@ -40,7 +40,6 @@ import { t } from '@/i18n';
 import { dateParts, formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } from '@/utils/money';
-import { countOf, DAYS } from '@/utils/plural';
 
 /**
  * Новий інвойс / чернетка (S-InvoiceEdit, S-InvoiceExternal): an invoice made in PryTax from items, or an external
@@ -344,12 +343,12 @@ const numberPreview = computed(() => {
 
 const numberHint = computed(() => {
     const parts = [
-        numbering.value?.prefix === 'none' ? null : t('абревіатура клієнта'),
-        numbering.value?.strategy === 'sequence' ? null : (numbering.value?.date_source === 'issued_at' ? t('дата виставлення') : t('дата кінця періоду')),
-        numbering.value?.scope === 'global' ? t('лічильник ФОП') : t('лічильник клієнта'),
+        numbering.value?.prefix === 'none' ? null : t('invoices.numberParts.abbreviation'),
+        numbering.value?.strategy === 'sequence' ? null : (numbering.value?.date_source === 'issued_at' ? t('invoices.numberParts.issueDate') : t('invoices.numberParts.periodEnd')),
+        numbering.value?.scope === 'global' ? t('invoices.numberParts.fopCounter') : t('invoices.numberParts.clientCounter'),
     ];
 
-    return t('Номер буде присвоєно під час фіксації: {parts}.', { parts: parts.filter(Boolean).join(' + ') });
+    return t('invoices.editor.numberOnFreeze', { parts: parts.filter(Boolean).join(' + ') });
 });
 
 const accountOptions = computed(() => accounts.value
@@ -378,7 +377,7 @@ const requisites = computed(() => {
 
 const contractHint = computed(() => {
     if (!contract.value) {
-        return form.source === 'generated' ? t('Без договору ціну кожної позиції вводите вручну.') : undefined;
+        return form.source === 'generated' ? t('invoices.editor.noContractNote') : undefined;
     }
 
     const general = defaults.value?.hourly_rate;
@@ -386,18 +385,18 @@ const contractHint = computed(() => {
 
     return [
         contract.value.currency,
-        general ? t('ставка {rate} / год', { rate: formatAmount(general) }) : null,
-        days ? t('оплата {days}', { days: countOf(days, DAYS) }) : null,
+        general ? t('invoices.editor.ratePerHour', { rate: formatAmount(general) }) : null,
+        days ? t('invoices.editor.paymentWithin', { days: t('core.counts.days', { count: days }) }) : null,
     ].filter(Boolean).join(' · ');
 });
 
 const sourceOptions = computed<{ value: InvoiceSource; label: string }[]>(() => [
-    { value: 'generated', label: t('Створити в PryTax') },
-    { value: 'external', label: t('Зовнішній PDF') },
+    { value: 'generated', label: t('invoices.editor.createPrytax') },
+    { value: 'external', label: t('invoices.editor.externalPdf') },
 ]);
 
 const contractOptions = computed(() => [
-    { value: 0, label: t('Без договору') },
+    { value: 0, label: t('invoices.editor.noContract') },
     ...contracts.value.map((item) => ({ value: item.id, label: `${item.name} · ${formatDate(item.started_at)}` })),
 ]);
 
@@ -636,7 +635,7 @@ onBeforeRouteLeave((to) => {
         return true;
     }
 
-    return window.confirm(t('Зміни в чернетці не збережено. Вийти без збереження?'));
+    return window.confirm(t('invoices.editor.unsavedChanges'));
 });
 
 const freezeOpen = ref(false);
@@ -702,20 +701,20 @@ const generalError = computed(() => {
     const fields = ['client_id', 'contract_id', 'receiving_account_id', 'number', 'period_start', 'period_end', 'issued_at', 'due_at', 'total', 'adjustment_amount'];
     const shown = fields.some((field) => fieldError(saveError.value, field));
 
-    return shown ? t('Перевірте поля, позначені червоним.') : errorMessage(saveError.value);
+    return shown ? t('invoices.editor.checkFields') : errorMessage(saveError.value);
 });
 
 const itemErrors = computed(() => form.items.map((_item, index) => fieldError(saveError.value, `items.${index}.quantity`)
     ?? fieldError(saveError.value, `items.${index}.unit_price`)
     ?? fieldError(saveError.value, `items.${index}.description`)));
 
-const title = computed(() => (isNew.value ? (form.source === 'external' ? t('Зовнішній інвойс') : t('Новий інвойс')) : t('Чернетка інвойсу')));
+const title = computed(() => (isNew.value ? (form.source === 'external' ? t('invoices.editor.externalInvoice') : t('invoices.editor.newInvoice')) : t('invoices.editor.invoiceDraft')));
 </script>
 
 <template>
     <SubScreen :title="title" :back="{ name: 'invoices' }">
         <template #action>
-            <StatusBadge :label="t('Чернетка')" class="mr-3" />
+            <StatusBadge :label="t('core.invoiceStatus.draft')" class="mr-3" />
         </template>
 
         <LoadState :loading="loading" :error="loadError" @retry="reload">
@@ -723,33 +722,33 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                 <SegmentedControl
                     v-if="isNew"
                     v-model="form.source"
-                    :label="t('Джерело інвойсу')"
+                    :label="t('invoices.editor.invoiceSource')"
                     :options="sourceOptions"
                 />
 
                 <!-- Generated: the number the freeze will give -->
                 <section v-if="form.source === 'generated'" class="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-13 font-medium text-ink-2">{{ t('Номер') }}</span>
+                        <span class="text-13 font-medium text-ink-2">{{ t('core.common.number') }}</span>
                         <button
                             type="button"
                             class="min-h-9 text-14 font-medium text-accent"
                             @click="form.customNumber = !form.customNumber"
                         >
-                            {{ form.customNumber ? t('Автоматичний') : t('Ввести власний') }}
+                            {{ form.customNumber ? t('invoices.editor.automatic') : t('invoices.editor.enterOwn') }}
                         </button>
                     </div>
                     <TextField
                         v-if="form.customNumber"
                         v-model="form.number"
-                        :label="t('Власний номер')"
+                        :label="t('invoices.editor.customNumber')"
                         class="num"
                         :error="fieldError(saveError, 'number')"
                     />
                     <template v-else>
                         <div class="flex items-baseline gap-2.5">
                             <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
-                            <span class="text-12 text-ink-3">{{ t('попередній перегляд') }}</span>
+                            <span class="text-12 text-ink-3">{{ t('invoices.editor.preview') }}</span>
                         </div>
                         <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ numberHint }}</p>
                     </template>
@@ -758,56 +757,56 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                 <!-- External: the uploaded PDF -->
                 <template v-else>
                     <p class="m-0 text-15 leading-normal text-ink-2">
-                        {{ t('Для історичних інвойсів або коли клієнт виставляє інвойс сам. Завантажений PDF стає основним документом, суму вводите вручну.') }}
+                        {{ t('invoices.editor.externalExplained') }}
                     </p>
                     <div v-if="fileName" class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
                         <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span class="truncate text-15">{{ fileName }}</span>
-                            <span v-if="checkingFile" class="text-12 text-ink-3">{{ t('Перевіряю на дублікати…') }}</span>
+                            <span v-if="checkingFile" class="text-12 text-ink-3">{{ t('invoices.editor.checkingDuplicates') }}</span>
                             <span v-else-if="duplicates.length" class="text-12 text-warning-text">
-                                <Translated :text="t('Такий самий файл уже є в інвойсі {invoices}')">
+                                <Translated :text="t('invoices.editor.duplicateFile')">
                                     <template #invoices>
                                         <template v-for="(duplicate, index) in duplicates" :key="duplicate.invoice_id">
-                                            {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? t('чернетка') }}</RouterLink>
+                                            {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? t('invoices.editor.draft') }}</RouterLink>
                                         </template>
                                     </template>
                                 </Translated>
                             </span>
-                            <span v-else-if="pendingFile && isChecked" class="text-12 text-positive">{{ t('Готово до завантаження · дублікатів не знайдено') }}</span>
-                            <span v-else-if="pendingFile" class="text-12 text-ink-3">{{ t('Готово до завантаження · дублікати перевірить сервер') }}</span>
-                            <span v-else class="text-12 text-positive">{{ t('Завантажено · основний документ') }}</span>
+                            <span v-else-if="pendingFile && isChecked" class="text-12 text-positive">{{ t('invoices.editor.readyNoDuplicates') }}</span>
+                            <span v-else-if="pendingFile" class="text-12 text-ink-3">{{ t('invoices.editor.readyServerChecks') }}</span>
+                            <span v-else class="text-12 text-positive">{{ t('invoices.editor.uploadedMainDocument') }}</span>
                         </span>
-                        <button v-if="pendingFile" type="button" :aria-label="t('Прибрати файл')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
+                        <button v-if="pendingFile" type="button" :aria-label="t('invoices.editor.removeFile')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
                             <Icon name="close" :size="20" />
                         </button>
                     </div>
                     <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
                         <Icon name="upload" :size="20" />
-                        {{ fileName ? t('Замінити PDF') : t('Обрати PDF') }}
+                        {{ fileName ? t('invoices.editor.replacePdf') : t('invoices.editor.choosePdf') }}
                         <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="sr-only" @change="chooseFile">
                     </label>
                     <TextField
                         v-model="form.number"
-                        :label="t('Номер інвойсу')"
-                        :hint="t('Власний номер не змінюється генератором')"
+                        :label="t('invoices.editor.invoiceNumber')"
+                        :hint="t('invoices.editor.customNumberHint')"
                         :error="fieldError(saveError, 'number')"
                     />
                 </template>
 
                 <section class="flex flex-col gap-3">
-                    <SectionTitle>{{ form.source === 'generated' ? t('Клієнт і договір') : t('Клієнт') }}</SectionTitle>
+                    <SectionTitle>{{ form.source === 'generated' ? t('invoices.editor.clientContract') : t('core.common.client') }}</SectionTitle>
                     <SelectField
                         v-model="form.client_id"
-                        :label="t('Клієнт')"
-                        :placeholder="t('Оберіть клієнта')"
+                        :label="t('core.common.client')"
+                        :placeholder="t('invoices.editor.chooseClient')"
                         :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
                         :error="fieldError(saveError, 'client_id')"
                     />
                     <SelectField
                         v-if="form.source === 'generated'"
                         :model-value="form.contract_id ?? 0"
-                        :label="t('Договір')"
+                        :label="t('core.common.contract')"
                         :options="contractOptions"
                         :hint="contractHint"
                         :error="fieldError(saveError, 'contract_id')"
@@ -816,38 +815,38 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                 </section>
 
                 <section class="flex flex-col gap-3">
-                    <SectionTitle>{{ t('Період і дати') }}</SectionTitle>
+                    <SectionTitle>{{ t('invoices.editor.periodDates') }}</SectionTitle>
                     <div class="grid grid-cols-2 gap-2.5">
                         <DateField
                             v-model="form.period_start"
-                            :label="t('Період з')"
+                            :label="t('invoices.editor.periodFrom')"
                             :error="fieldError(saveError, 'period_start')"
                             @update:model-value="touched.period = true"
                         />
                         <DateField
                             v-model="form.period_end"
-                            :label="t('по')"
+                            :label="t('invoices.filters.through')"
                             :min="form.period_start || undefined"
                             :error="fieldError(saveError, 'period_end')"
                             @update:model-value="touched.period = true"
                         />
                         <DateField
                             v-model="form.issued_at"
-                            :label="form.source === 'generated' ? t('Дата виставлення') : t('Виставлено')"
+                            :label="form.source === 'generated' ? t('invoices.editor.issueDate') : t('invoices.detail.issued')"
                             :error="fieldError(saveError, 'issued_at')"
                             @update:model-value="touched.issued_at = true"
                         />
                         <DateField
                             v-if="form.source === 'generated'"
                             v-model="form.due_at"
-                            :label="t('Сплатити до')"
+                            :label="t('invoices.detail.dueDate')"
                             :error="fieldError(saveError, 'due_at')"
                             @update:model-value="touched.due_at = true"
                         />
                         <SelectField
                             v-else
                             v-model="form.currency"
-                            :label="t('Валюта')"
+                            :label="t('core.common.currency')"
                             :options="currencies"
                             @update:model-value="touched.currency = true"
                         />
@@ -857,20 +856,20 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                 <TextField
                     v-if="form.source === 'external'"
                     v-model="form.total"
-                    :label="t('Сума інвойсу')"
+                    :label="t('invoices.editor.invoiceAmount')"
                     numeric
                     class="text-18 font-bold"
                     :error="fieldError(saveError, 'total')"
                 />
 
                 <section class="flex flex-col gap-3">
-                    <SectionTitle v-if="form.source === 'generated'">{{ t('Отримання коштів') }}</SectionTitle>
+                    <SectionTitle v-if="form.source === 'generated'">{{ t('invoices.editor.gettingPaid') }}</SectionTitle>
                     <SelectField
                         v-model="form.receiving_account_id"
-                        :label="form.source === 'generated' ? t('Рахунок для оплати') : t('Рахунок отримання')"
-                        :placeholder="t('Оберіть рахунок')"
+                        :label="form.source === 'generated' ? t('invoices.editor.accountPayInto') : t('invoices.detail.receivingAccount')"
+                        :placeholder="t('core.common.chooseAccount')"
                         :options="accountOptions"
-                        :hint="t('Лише активні рахунки в {currency}', { currency: form.currency })"
+                        :hint="t('invoices.editor.accountHint', { currency: form.currency })"
                         :error="fieldError(saveError, 'receiving_account_id')"
                         @update:model-value="touched.receiving_account_id = true"
                     />
@@ -879,7 +878,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                         class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2"
                     >
                         <span v-if="account.holder_name">
-                            <Translated :text="t('Отримувач: {holder}')">
+                            <Translated :text="t('invoices.editor.recipientHolder')">
                                 <template #holder><span class="text-ink">{{ account.holder_name }}</span></template>
                             </Translated>
                         </span>
@@ -888,13 +887,13 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                                 {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
                             </template>
                         </span>
-                        <span>{{ t('Реквізити буде надруковано в інвойсі') }}</span>
+                        <span>{{ t('invoices.editor.paymentDetailsHint') }}</span>
                     </div>
                 </section>
 
                 <section class="flex flex-col gap-3">
                     <SectionTitle>
-                        {{ form.source === 'external' ? t('Позиції (необов\'язково)') : t('Позиції') }}
+                        {{ form.source === 'external' ? t('invoices.editor.itemsOptional') : t('invoices.detail.items') }}
                         <template #aside><span class="num">{{ form.currency }}</span></template>
                     </SectionTitle>
                     <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
@@ -917,7 +916,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                         @click="newItem"
                     >
                         <Icon name="plus" :size="20" />
-                        {{ t('Додати позицію') }}
+                        {{ t('invoices.editor.addItem') }}
                     </button>
                     <p v-if="fieldError(saveError, 'items')" class="m-0 text-12 text-negative">{{ fieldError(saveError, 'items') }}</p>
 
@@ -928,13 +927,13 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                             class="flex min-h-11 items-center self-start text-14 font-medium text-accent"
                             @click="form.showAdjustment = true"
                         >
-                            {{ t('+ Знижка або коригування') }}
+                            {{ t('invoices.editor.discountAdjustment') }}
                         </button>
                         <div v-else class="grid grid-cols-[2fr_1fr] gap-2.5">
-                            <TextField v-model="form.adjustment_label" :label="t('Коригування')" :placeholder="t('Знижка')" />
+                            <TextField v-model="form.adjustment_label" :label="t('invoices.detail.adjustment')" :placeholder="t('invoices.editor.discount')" />
                             <TextField
                                 v-model="form.adjustment_amount"
-                                :label="t('Сума, ±')"
+                                :label="t('invoices.editor.adjustmentAmount')"
                                 numeric
                                 placeholder="-100.00"
                                 :error="fieldError(saveError, 'adjustment_amount')"
@@ -943,26 +942,26 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                     </template>
                 </section>
 
-                <section v-if="form.source === 'generated'" class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('Підсумок')">
+                <section v-if="form.source === 'generated'" class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('invoices.editor.summary')">
                     <div class="flex justify-between text-14 text-ink-2">
-                        <span>{{ t('Проміжна сума') }}</span>
+                        <span>{{ t('invoices.editor.subtotal') }}</span>
                         <span class="num">{{ formatAmount(subtotal) }}</span>
                     </div>
                     <div class="flex justify-between text-14 text-ink-2">
-                        <span>{{ form.adjustment_label || t('Коригування') }}</span>
+                        <span>{{ form.adjustment_label || t('invoices.detail.adjustment') }}</span>
                         <span class="num">{{ formatAmount(adjustment) }}</span>
                     </div>
                     <div class="flex items-baseline justify-between border-t border-divider pt-2.5">
-                        <span class="text-16 font-semibold">{{ t('Разом') }}</span>
+                        <span class="text-16 font-semibold">{{ t('core.common.total') }}</span>
                         <span class="num text-22 font-semibold">{{ formatMoney(total, form.currency) }}</span>
                     </div>
                 </section>
 
-                <TextAreaField v-model="form.notes" :label="t('Внутрішня примітка')" :placeholder="t('Не друкується в інвойсі')" />
+                <TextAreaField v-model="form.notes" :label="t('invoices.editor.internalNote')" :placeholder="t('invoices.detail.notPrintedInvoice')" />
 
                 <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
                 <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">
-                    <Translated :text="t('Чернетку збережено о {time}.')">
+                    <Translated :text="t('invoices.editor.draftSaved')">
                         <template #time><span class="num">{{ savedAt }}</span></template>
                     </Translated>
                 </p>
@@ -974,16 +973,16 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
                 class="flex min-h-11 items-center self-center text-15 font-medium text-negative"
                 @click="deleteOpen = true"
             >
-                {{ t('Видалити чернетку') }}
+                {{ t('invoices.editor.deleteDraft') }}
             </button>
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'invoices')" #footer>
             <div class="grid grid-cols-[1fr_1.4fr] gap-2.5">
-                <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || form.client_id === null" @click="save">{{ t('Зберегти') }}</SecondaryButton>
+                <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || form.client_id === null" @click="save">{{ t('core.common.save') }}</SecondaryButton>
                 <PrimaryButton :disabled="loading || saving || form.client_id === null" @click="askFreeze">
                     <Icon name="lock" :size="20" />
-                    {{ t('Зафіксувати') }}
+                    {{ t('invoices.editor.freeze') }}
                 </PrimaryButton>
             </div>
         </template>
@@ -1015,14 +1014,14 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('З�
 
         <ConfirmSheet
             v-model:open="deleteOpen"
-            :title="t('Видалити чернетку?')"
-            :confirm-label="t('Видалити')"
+            :title="t('invoices.editor.deleteDraftQuestion')"
+            :confirm-label="t('core.common.delete')"
             destructive
             :busy="deleting"
             :error="deleteError"
             @confirm="remove"
         >
-            <p class="m-0">{{ t('Чернетку буде видалено. Її номер, якщо вже показувався, перейде до наступного інвойсу.') }}</p>
+            <p class="m-0">{{ t('invoices.editor.deleteDraftExplained') }}</p>
         </ConfirmSheet>
     </SubScreen>
 </template>

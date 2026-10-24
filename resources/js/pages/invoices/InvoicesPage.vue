@@ -81,14 +81,14 @@ function chipLabel(kind: 'client' | 'status' | 'currency'): string {
     if (kind === 'client') {
         const name = facets.value?.clients.find((client) => client.client_id === clients[0])?.name;
 
-        return clients.length === 1 && name ? name : clients.length ? t('Клієнти · {count}', { count: clients.length }) : t('Клієнти');
+        return clients.length === 1 && name ? name : clients.length ? t('invoices.list.clientsCount', { count: clients.length }) : t('core.common.clients');
     }
 
     if (kind === 'status') {
-        return statuses.length === 1 ? INVOICE_STATUSES[statuses[0]!].label : statuses.length ? t('Статус · {count}', { count: statuses.length }) : t('Статус');
+        return statuses.length === 1 ? INVOICE_STATUSES[statuses[0]!].label : statuses.length ? t('invoices.list.statusCount', { count: statuses.length }) : t('core.common.status');
     }
 
-    return currencies.length ? currencies.join(', ') : t('Валюта');
+    return currencies.length ? currencies.join(', ') : t('core.common.currency');
 }
 
 const chips = computed(() => [
@@ -105,12 +105,12 @@ const chipClass = (active: boolean): string => (active
 </script>
 
 <template>
-    <TabScreen :title="t('Інвойси')">
+    <TabScreen :title="t('shell.nav.invoices')">
         <template #action>
             <RouterLink
                 v-if="can('create', 'invoices')"
                 :to="{ name: 'invoice-new', query: { source: 'external' } }"
-                :aria-label="t('Завантажити зовнішній інвойс')"
+                :aria-label="t('invoices.list.uploadExternalInvoice')"
                 class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
             >
                 <Icon name="upload" :size="22" />
@@ -124,11 +124,11 @@ const chipClass = (active: boolean): string => (active
                 class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
             >
                 <Icon name="plus" :size="20" />
-                {{ t('Новий') }}
+                {{ t('core.common.new') }}
             </RouterLink>
         </template>
 
-        <nav :aria-label="t('Фільтри')" class="-mx-4 -mt-0.5 flex gap-2 overflow-x-auto px-4 pb-0.5">
+        <nav :aria-label="t('invoices.list.filters')" class="-mx-4 -mt-0.5 flex gap-2 overflow-x-auto px-4 pb-0.5">
             <button
                 type="button"
                 class="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
@@ -136,7 +136,7 @@ const chipClass = (active: boolean): string => (active
                 @click="filtering = true"
             >
                 <Icon name="calendar" :size="16" />
-                <span :class="periodSummary && /^\d/.test(periodSummary) ? 'num' : ''">{{ periodSummary ?? t('Період') }}</span>
+                <span :class="periodSummary && /^\d/.test(periodSummary) ? 'num' : ''">{{ periodSummary ?? t('core.common.period') }}</span>
                 <Icon name="chevronDown" :size="16" />
             </button>
             <button
@@ -156,21 +156,21 @@ const chipClass = (active: boolean): string => (active
                 class="flex min-h-11 shrink-0 items-center px-2 text-14 font-medium text-accent"
                 @click="apply(emptyFilters())"
             >
-                {{ t('Скинути') }}
+                {{ t('invoices.list.reset') }}
             </button>
         </nav>
 
         <LoadState :loading="list.loading.value && list.items.value.length === 0" :error="list.error.value" @retry="list.reload">
             <EmptyState
                 v-if="!list.loading.value && list.items.value.length === 0"
-                :text="countFilters(filters) ? t('За цими фільтрами інвойсів немає.') : t('Інвойсів ще немає.')"
+                :text="countFilters(filters) ? t('invoices.list.noInvoicesMatch') : t('invoices.list.noInvoicesYet')"
             >
                 <RouterLink
                     v-if="!countFilters(filters) && can('create', 'invoices')"
                     :to="{ name: 'invoice-new' }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"
                 >
-                    {{ t('Створити перший інвойс') }}
+                    {{ t('invoices.list.createFirstInvoice') }}
                 </RouterLink>
             </EmptyState>
 
@@ -182,7 +182,7 @@ const chipClass = (active: boolean): string => (active
             </section>
 
             <InfiniteSentinel v-if="list.hasMore.value" :loading="list.loadingMore.value" :failed="Boolean(list.moreError.value)" @visible="list.loadMore">
-                {{ loadingMonth ? t('Завантаження {month}…', { month: loadingMonth }) : t('Завантаження…') }}
+                {{ loadingMonth ? t('invoices.list.loadingMonth', { month: loadingMonth }) : t('core.common.loading') }}
             </InfiniteSentinel>
         </LoadState>
 

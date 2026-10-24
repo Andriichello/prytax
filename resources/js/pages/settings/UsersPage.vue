@@ -35,20 +35,20 @@ interface OrganizationUser {
 const ROLES: { value: RoleName; readonly label: string; readonly text: string; tone: Tone }[] = [
     {
         value: 'owner',
-        get label() { return t('Власник'); },
-        get text() { return t('Усе, включно з ФОП і користувачами'); },
+        get label() { return t('settings.users.owner'); },
+        get text() { return t('settings.users.ownerRights'); },
         tone: 'neutral',
     },
     {
         value: 'accountant',
-        get label() { return t('Бухгалтер'); },
-        get text() { return t('Усі фінансові операції в кожному ФОП'); },
+        get label() { return t('settings.users.accountant'); },
+        get text() { return t('settings.users.accountantRights'); },
         tone: 'info',
     },
     {
         value: 'viewer',
-        get label() { return t('Перегляд'); },
-        get text() { return t('Лише читання'); },
+        get label() { return t('settings.users.viewer'); },
+        get text() { return t('settings.users.viewerRights'); },
         tone: 'neutral',
     },
 ];
@@ -107,7 +107,7 @@ async function run(action: () => Promise<unknown>, done: (() => string) | null =
 const save = () => run(() => (editing.value
     ? api.patch(`users/${editing.value.id}`, { name: draft.name.trim(), roles: [draft.role] })
     : api.post('users', { name: draft.name.trim(), email: draft.email.trim(), roles: [draft.role], locale: locale.value })));
-const resend = () => run(() => api.post(`users/${editing.value?.id}/invitation`), () => t('Запрошення надіслано знову.'));
+const resend = () => run(() => api.post(`users/${editing.value?.id}/invitation`), () => t('settings.users.invitationSentAgain'));
 const confirmingRemoval = ref(false);
 
 /**
@@ -130,7 +130,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Користувачі') }}</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('settings.users.users') }}</h1>
                 <button
                     v-if="can('create', 'users')"
                     type="button"
@@ -138,10 +138,10 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     @click="open(null)"
                 >
                     <Icon name="plus" :size="20" />
-                    {{ t('Запросити') }}
+                    {{ t('settings.users.invite') }}
                 </button>
             </div>
-            <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('Кожен користувач бачить усі ФОП організації. Доступ до окремих ФОП — у наступній версії.') }}</p>
+            <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('settings.users.accessNote') }}</p>
         </div>
 
         <LoadState :loading="loading && !users" :error="error" @retry="reload">
@@ -156,14 +156,14 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                 >
                     <Avatar :initials="initials(user.name)" :variant="user.id === me?.id ? 'dark' : 'light'" />
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span class="truncate text-16">{{ user.name }}<span v-if="user.id === me?.id" class="text-13 text-ink-3">{{ ' ' + t('(ви)') }}</span></span>
-                        <span class="truncate text-13 text-ink-3">{{ isPending(user) ? t('запрошено · {email}', { email: user.email }) : user.email }}</span>
+                        <span class="truncate text-16">{{ user.name }}<span v-if="user.id === me?.id" class="text-13 text-ink-3">{{ ' ' + t('settings.users.you') }}</span></span>
+                        <span class="truncate text-13 text-ink-3">{{ isPending(user) ? t('settings.users.invitedEmail', { email: user.email }) : user.email }}</span>
                     </span>
                     <span
                         v-if="roleOf(user)?.value === 'owner'"
                         class="shrink-0 rounded-badge bg-ink px-2 py-[3px] text-12 font-semibold text-white"
                     >
-                        {{ t('Власник') }}
+                        {{ t('settings.users.owner') }}
                     </span>
                     <StatusBadge v-else-if="roleOf(user)" :label="roleOf(user)!.label" :tone="roleOf(user)!.tone" />
                 </button>
@@ -171,7 +171,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
         </LoadState>
 
         <section class="flex flex-col gap-2">
-            <SectionTitle>{{ t('Ролі') }}</SectionTitle>
+            <SectionTitle>{{ t('settings.users.roles') }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                 <div v-for="role in ROLES" :key="role.value" class="flex flex-col gap-0.5 py-3">
                     <span class="text-16 font-semibold">{{ role.label }}</span>
@@ -180,13 +180,13 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
             </div>
         </section>
 
-        <BottomSheet v-model:open="sheetOpen" :title="editing ? editing.name : t('Запросити користувача')">
+        <BottomSheet v-model:open="sheetOpen" :title="editing ? editing.name : t('settings.users.inviteUser')">
             <template v-if="!editing">
-                <TextField v-model="draft.name" :label="t('Ім\'я')" :error="fieldError(sheetError, 'name')" />
+                <TextField v-model="draft.name" :label="t('settings.users.name')" :error="fieldError(sheetError, 'name')" />
                 <TextField v-model="draft.email" label="Email" type="email" :error="fieldError(sheetError, 'email')" />
             </template>
             <div class="flex flex-col gap-1.5">
-                <span id="user-role" class="text-13 font-medium text-ink-2">{{ t('Роль') }}</span>
+                <span id="user-role" class="text-13 font-medium text-ink-2">{{ t('settings.users.role') }}</span>
                 <div role="radiogroup" aria-labelledby="user-role" class="flex flex-col gap-2">
                     <button
                         v-for="role in ROLES"
@@ -209,7 +209,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     </button>
                 </div>
             </div>
-            <p v-if="!editing" class="m-0 text-13 text-ink-3">{{ t('Людина отримає лист і сама задасть пароль.') }}</p>
+            <p v-if="!editing" class="m-0 text-13 text-ink-3">{{ t('settings.users.inviteHint') }}</p>
             <p v-if="notice" class="m-0 text-14 text-positive" role="status">{{ notice() }}</p>
             <p v-if="sheetError && !fieldError(sheetError, 'name') && !fieldError(sheetError, 'email')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(sheetError) }}
@@ -217,12 +217,12 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
             <template #footer>
                 <div class="flex flex-col gap-2">
                     <PrimaryButton :busy="busy" :disabled="!draft.name.trim() || (!editing && !draft.email.trim())" @click="save">
-                        {{ editing ? t('Зберегти роль') : t('Надіслати запрошення') }}
+                        {{ editing ? t('settings.users.saveRole') : t('settings.users.sendInvitation') }}
                     </PrimaryButton>
                     <div v-if="editing && !isSelf" class="grid grid-cols-2 gap-2">
-                        <SecondaryButton v-if="isPending(editing)" :busy="busy" @click="resend">{{ t('Запросити знову') }}</SecondaryButton>
+                        <SecondaryButton v-if="isPending(editing)" :busy="busy" @click="resend">{{ t('settings.users.inviteAgain') }}</SecondaryButton>
                         <SecondaryButton v-if="can('delete', 'users')" tone="negative" :busy="busy" :class="isPending(editing) ? '' : 'col-span-2'" @click="remove">
-                            {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
+                            {{ confirmingRemoval ? t('core.common.yesDelete') : t('core.common.delete') }}
                         </SecondaryButton>
                     </div>
                 </div>

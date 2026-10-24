@@ -31,7 +31,7 @@ const number = computed(() => (isExternal.value ? invoice.number : invoice.numbe
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('Зафіксувати інвойс?')">
+    <BottomSheet v-model:open="open" :title="t('invoices.freeze.freezeQuestion')">
         <template #lead>
             <span class="flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
                 <Icon name="lock" :size="24" />
@@ -40,23 +40,23 @@ const number = computed(() => (isExternal.value ? invoice.number : invoice.numbe
 
         <dl class="m-0 flex flex-col gap-2.5 rounded-card border border-line bg-surface p-4 text-15">
             <div class="flex items-baseline justify-between gap-3">
-                <dt class="text-ink-2">{{ t('Номер') }}</dt>
+                <dt class="text-ink-2">{{ t('core.common.number') }}</dt>
                 <dd class="num m-0 text-18 font-bold">{{ number }}</dd>
             </div>
             <div class="flex items-baseline justify-between gap-3">
-                <dt class="text-ink-2">{{ t('Клієнт') }}</dt>
+                <dt class="text-ink-2">{{ t('core.common.client') }}</dt>
                 <dd class="m-0 truncate">{{ invoice.client?.name }}</dd>
             </div>
             <div class="flex items-baseline justify-between gap-3">
-                <dt class="text-ink-2">{{ t('Період') }}</dt>
+                <dt class="text-ink-2">{{ t('core.common.period') }}</dt>
                 <dd class="num m-0">{{ formatPeriod(invoice.period_start, invoice.period_end) }}</dd>
             </div>
             <div v-if="invoice.receivingAccount" class="flex items-baseline justify-between gap-3">
-                <dt class="text-ink-2">{{ t('На рахунок') }}</dt>
+                <dt class="text-ink-2">{{ t('invoices.freeze.toAccount') }}</dt>
                 <dd class="m-0">{{ invoice.receivingAccount.name }}</dd>
             </div>
             <div class="flex items-baseline justify-between gap-3 border-t border-divider pt-3">
-                <dt class="font-semibold text-ink">{{ t('Разом') }}</dt>
+                <dt class="font-semibold text-ink">{{ t('core.common.total') }}</dt>
                 <dd class="num m-0 text-18 font-bold">{{ formatMoney(invoice.total, invoice.currency) }}</dd>
             </div>
         </dl>
@@ -64,31 +64,31 @@ const number = computed(() => (isExternal.value ? invoice.number : invoice.numbe
         <ul class="m-0 flex list-none flex-col gap-3 p-0 text-15 leading-normal text-ink-2">
             <li v-if="!isExternal" class="flex gap-3">
                 <Icon name="check" :size="20" class="mt-0.5 text-positive" />
-                <span v-if="isTyped">{{ t('Номер введено вручну — лічильник його не змінить') }}</span>
+                <span v-if="isTyped">{{ t('invoices.freeze.numberByHand') }}</span>
                 <span v-else-if="counterScope === 'per_client'">
-                    {{ t('Номер буде присвоєно з лічильника клієнта {client}', { client: invoice.client?.name ?? '' }) }}
+                    {{ t('invoices.freeze.numberFromClientCounter', { client: invoice.client?.name ?? '' }) }}
                 </span>
-                <span v-else>{{ t('Номер буде присвоєно з лічильника ФОП') }}</span>
+                <span v-else>{{ t('invoices.freeze.numberFromFopCounter') }}</span>
             </li>
             <li class="flex gap-3">
                 <Icon name="check" :size="20" class="mt-0.5 text-positive" />
-                <span>{{ t('Дані ФОП, клієнта, договору й реквізити збережуться в знімку — пізніші зміни не вплинуть на документ') }}</span>
+                <span>{{ t('invoices.freeze.snapshotNote') }}</span>
             </li>
             <li class="flex gap-3">
                 <Icon name="check" :size="20" class="mt-0.5 text-positive" />
-                <span>{{ isExternal ? t('Основним документом стане завантажений PDF') : t('Буде створено PDF') }}</span>
+                <span>{{ isExternal ? t('invoices.freeze.uploadedPdfMain') : t('invoices.freeze.pdfGenerated') }}</span>
             </li>
             <li class="flex gap-3">
                 <Icon name="info" :size="20" class="mt-0.5 text-ink-2" />
-                <span>{{ t('Повернути в чернетку можна, поки немає надходжень') }}</span>
+                <span>{{ t('invoices.freeze.canReturnToDraft') }}</span>
             </li>
         </ul>
 
         <p v-if="error" class="m-0 text-14 text-negative" role="alert">{{ error }}</p>
 
         <div class="grid grid-cols-[1fr_1.4fr] gap-2.5">
-            <SecondaryButton @click="open = false">{{ t('Скасувати') }}</SecondaryButton>
-            <PrimaryButton :busy="busy" @click="emit('confirm')">{{ t('Зафіксувати') }}</PrimaryButton>
+            <SecondaryButton @click="open = false">{{ t('core.common.cancel') }}</SecondaryButton>
+            <PrimaryButton :busy="busy" @click="emit('confirm')">{{ t('invoices.editor.freeze') }}</PrimaryButton>
         </div>
     </BottomSheet>
 </template>

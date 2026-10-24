@@ -22,21 +22,21 @@ const MESSAGES: Record<string, string> = {
 function byStatus(status: number): string {
     switch (status) {
         case 401:
-            return t('Сесія завершилась. Увійдіть знову.');
+            return t('core.errors.sessionEnded');
         case 403:
-            return t('Недостатньо прав для цієї дії.');
+            return t('core.errors.forbidden');
         case 404:
-            return t('Не знайдено.');
+            return t('core.errors.notFound');
         case 409:
-            return t('Запис змінився або заблокований. Оновіть сторінку.');
+            return t('core.errors.conflict');
         case 419:
-            return t('Сесія застаріла. Оновіть сторінку.');
+            return t('core.errors.sessionExpired');
         case 422:
-            return t('Перевірте дані форми.');
+            return t('core.errors.checkForm');
         case 429:
-            return t('Забагато спроб. Зачекайте хвилину і спробуйте знову.');
+            return t('core.errors.tooManyAttempts');
         default:
-            return t('Щось пішло не так. Спробуйте ще раз.');
+            return t('core.errors.somethingWentWrong');
     }
 }
 
@@ -67,7 +67,7 @@ export function errorMessage(error: unknown): string {
         return translateMessage(error.message, error.status);
     }
 
-    return t('Не вдалося зв’язатися із сервером. Перевірте з’єднання і спробуйте ще раз.');
+    return t('core.errors.offline');
 }
 
 /**

@@ -33,9 +33,9 @@ const overdue = computed(() => invoice.due_at !== null && invoice.due_at < today
             <span class="num font-semibold">{{ formatMoney(invoice.total, invoice.currency) }}</span>
         </span>
         <span class="flex justify-between gap-2 text-12 text-ink-3">
-            <span>{{ t('Період {period}', { period: formatPeriod(invoice.period_start, invoice.period_end) }) }}</span>
-            <span v-if="overdue" class="text-negative">{{ t('прострочено з {date}', { date: formatDayMonth(invoice.due_at) }) }}</span>
-            <span v-else-if="invoice.due_at">{{ t('сплатити до {date}', { date: formatDayMonth(invoice.due_at) }) }}</span>
+            <span>{{ t('invoices.home.periodOf', { period: formatPeriod(invoice.period_start, invoice.period_end) }) }}</span>
+            <span v-if="overdue" class="text-negative">{{ t('core.common.overdueSince', { date: formatDayMonth(invoice.due_at) }) }}</span>
+            <span v-else-if="invoice.due_at">{{ t('invoices.home.dueBy', { date: formatDayMonth(invoice.due_at) }) }}</span>
         </span>
         <span class="flex items-center gap-2.5">
             <ProgressBar :percent="percent" />

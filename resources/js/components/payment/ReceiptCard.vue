@@ -36,7 +36,7 @@ const fee = computed(() => (payment.received_currency === payment.currency && pa
             </span>
         </span>
         <span v-if="fee !== null" class="mt-2 flex items-baseline justify-between gap-2 border-t border-divider pt-2.5 text-14">
-            <span class="text-ink-2">{{ t('Комісія при отриманні') }}</span>
+            <span class="text-ink-2">{{ t('money.paymentForm.feeReceipt') }}</span>
             <span class="num font-semibold">{{ formatMoney(fee, payment.currency) }}</span>
         </span>
     </RouterLink>

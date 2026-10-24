@@ -14,7 +14,6 @@ import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { ACCOUNT_KINDS } from '@/utils/accounts';
 import { formatAmount, formatMoney } from '@/utils/money';
-import { countOf } from '@/utils/plural';
 
 /**
  * Рахунки (S-Accounts): the profile's accounts by kind, with balances from tracked movements, the progress of a
@@ -27,8 +26,8 @@ const KINDS: AccountKind[] = ['platform', 'fop_bank', 'foreign_bank', 'personal'
  */
 function limitText(counts: LimitCounts, period: LimitPeriod): string {
     const texts: Record<LimitCounts, Record<LimitPeriod, string>> = {
-        receipts: { month: t('Надходження за місяць'), quarter: t('Надходження за квартал'), year: t('Надходження за рік') },
-        all_inbound: { month: t('Усі зарахування за місяць'), quarter: t('Усі зарахування за квартал'), year: t('Усі зарахування за рік') },
+        receipts: { month: t('money.accounts.receiptsPerMonth'), quarter: t('money.accounts.receiptsPerQuarter'), year: t('money.accounts.receiptsPerYear') },
+        all_inbound: { month: t('money.accounts.allIncomingPerMonth'), quarter: t('money.accounts.allIncomingPerQuarter'), year: t('money.accounts.allIncomingPerYear') },
     };
 
     return texts[counts][period];
@@ -49,10 +48,10 @@ const lateWhen = computed(() => {
     const days = /^days:(\d+)$/.exec(rule);
 
     if (!days) {
-        return t('після кінця кварталу');
+        return t('money.accounts.afterQuartersEnd');
     }
 
-    return t('довше {days}', { days: countOf(Number(days[1]), { uk: ['дня', 'днів', 'днів'], en: ['day', 'days'] }) });
+    return t('money.accounts.longerThanDays', { count: Number(days[1]) });
 });
 
 const groups = computed(() => KINDS
@@ -61,18 +60,18 @@ const groups = computed(() => KINDS
 
 function caption(account: Account): string {
     if (!account.is_active) {
-        return t('Неактивний · історія збережена');
+        return t('money.accounts.inactiveHistoryKept');
     }
 
     if (account.kind === 'personal') {
-        return t('{currency} · лише для переказів і сплати податків', { currency: account.currency });
+        return t('money.accounts.personalAccountNote', { currency: account.currency });
     }
 
     if (account.id === settings.value?.taxes.default_account_id) {
-        return t('{currency} · рахунок для податків', { currency: account.currency });
+        return t('money.accounts.taxAccountNote', { currency: account.currency });
     }
 
-    return t('Без ліміту');
+    return t('money.accounts.noLimit');
 }
 </script>
 
@@ -80,25 +79,25 @@ function caption(account: Account): string {
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Рахунки') }}</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.accounts.title') }}</h1>
                 <RouterLink
                     v-if="can('create', 'accounts')"
                     :to="{ name: 'account-new' }"
                     class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
                 >
                     <Icon name="plus" :size="20" />
-                    {{ t('Додати') }}
+                    {{ t('core.common.add') }}
                 </RouterLink>
             </div>
             <p class="m-0 text-14 leading-[1.45] text-ink-3">
-                {{ t('Баланси — за відстежуваними рухами (надходження, перекази, податки). Витрати не враховуються.') }}
+                {{ t('money.accounts.balancesNote') }}
             </p>
         </div>
 
         <LoadState :loading="loading && !accounts" :error="error" @retry="reload">
-            <EmptyState v-if="accounts && accounts.length === 0" :text="t('Рахунків ще немає. Додайте рахунок, на який отримуєте оплату.')">
+            <EmptyState v-if="accounts && accounts.length === 0" :text="t('money.accounts.noAccountsYet')">
                 <RouterLink v-if="can('create', 'accounts')" :to="{ name: 'account-new' }" class="flex min-h-11 items-center text-14 font-medium no-underline">
-                    {{ t('Додати рахунок') }}
+                    {{ t('money.accounts.addAccount') }}
                 </RouterLink>
             </EmptyState>
 

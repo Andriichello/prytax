@@ -66,15 +66,15 @@ const ownError = computed(() => {
     }
 
     if (!model.value) {
-        return t('Дата у форматі дд.мм.рррр');
+        return t('shell.dateField.invalid');
     }
 
     if (min && model.value < min) {
-        return t('Не раніше {date}', { date: formatDate(min) });
+        return t('shell.dateField.notBefore', { date: formatDate(min) });
     }
 
     if (max && model.value > max) {
-        return t('Не пізніше {date}', { date: formatDate(max) });
+        return t('shell.dateField.notAfter', { date: formatDate(max) });
     }
 
     return undefined;
@@ -93,7 +93,7 @@ const shownError = computed(() => error ?? ownError.value);
                 type="text"
                 inputmode="numeric"
                 autocomplete="off"
-                :placeholder="t('дд.мм.рррр')"
+                :placeholder="t('shell.dateField.placeholder')"
                 :required="required"
                 :disabled="disabled"
                 :aria-invalid="shownError ? 'true' : undefined"
@@ -109,7 +109,7 @@ const shownError = computed(() => error ?? ownError.value);
                     ref="picker"
                     type="date"
                     tabindex="-1"
-                    :aria-label="t('{label}: календар', { label })"
+                    :aria-label="t('shell.dateField.calendar', { label })"
                     :value="model"
                     :min="min"
                     :max="max"

@@ -60,9 +60,9 @@ const quarterModel = computed({ get: () => quarter.value, set: (value: number) =
 
 /** The views of a tax: ЄСВ isn't owed per receipt, so it has no view by receipt. */
 const viewOptions = computed<{ value: View; label: string }[]>(() => [
-    ...(tax.value === 'social_contribution' ? [] : [{ value: 'receipts' as const, label: t('Надходження') }]),
-    { value: 'months', label: t('Місяць') },
-    { value: 'quarters', label: t('Квартал') },
+    ...(tax.value === 'social_contribution' ? [] : [{ value: 'receipts' as const, label: t('core.common.receipts') }]),
+    { value: 'months', label: t('core.common.month') },
+    { value: 'quarters', label: t('core.common.quarter') },
 ]);
 
 const { data: reconciliation, error, loading, reload } = useLoader(async (signal) => {
@@ -78,11 +78,11 @@ const declaration = computed(() => (now.quarter > 1 ? { year: now.year, quarter:
 </script>
 
 <template>
-    <TabScreen :title="t('Податки')">
+    <TabScreen :title="t('shell.nav.taxes')">
         <template #action>
             <RouterLink
                 :to="{ name: 'declaration', params: declaration }"
-                :aria-label="t('Декларація за {quarter} {year}', { quarter: quarterLabel(declaration.quarter), year: declaration.year })"
+                :aria-label="t('accounting.taxes.declarationFor', { quarter: quarterLabel(declaration.quarter), year: declaration.year })"
                 class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
             >
                 <Icon name="calendar" :size="22" />
@@ -95,12 +95,12 @@ const declaration = computed(() => (now.quarter > 1 ? { year: now.year, quarter:
                 class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
             >
                 <Icon name="plus" :size="20" />
-                {{ t('Сплата') }}
+                {{ t('accounting.taxes.payment') }}
             </RouterLink>
         </template>
 
         <div class="-mt-1 flex items-end justify-between gap-3 border-b border-line">
-            <nav :aria-label="t('Податок')" class="flex gap-5">
+            <nav :aria-label="t('core.common.tax')" class="flex gap-5">
                 <button
                     v-for="type in TAXES"
                     :key="type"
@@ -118,20 +118,20 @@ const declaration = computed(() => (now.quarter > 1 ? { year: now.year, quarter:
 
         <SegmentedControl
             v-model="viewModel"
-            :label="t('Подання')"
+            :label="t('accounting.taxes.view')"
             :options="viewOptions"
         />
 
         <template v-if="view === 'receipts'">
             <div class="flex items-center justify-between gap-3">
                 <label class="relative flex min-h-11 items-center rounded-control border border-line-input bg-surface">
-                    <span class="sr-only">{{ t('Квартал') }}</span>
+                    <span class="sr-only">{{ t('core.common.quarter') }}</span>
                     <select v-model.number="quarterModel" class="h-11 appearance-none bg-transparent pr-9 pl-3.5 text-16">
                         <option v-for="value in 4" :key="value" :value="value">{{ quarterLabel(value) }} {{ year }}</option>
                     </select>
                     <Icon name="chevronDown" :size="16" class="pointer-events-none absolute right-3" />
                 </label>
-                <span v-if="dueOfQuarter" class="text-14 text-ink-3"><Translated :text="t('ЄП + ВЗ · до {date}')"><template #date><span class="num">{{ formatDate(dueOfQuarter) }}</span></template></Translated></span>
+                <span v-if="dueOfQuarter" class="text-14 text-ink-3"><Translated :text="t('accounting.taxes.singleTaxAndLevyDue')"><template #date><span class="num">{{ formatDate(dueOfQuarter) }}</span></template></Translated></span>
             </div>
             <TaxReceiptsView :year="year" :quarter="quarter" />
         </template>

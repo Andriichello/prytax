@@ -98,7 +98,7 @@ const abbreviation = computed({
 
 const abbreviationError = computed(() => (/^[A-Z0-9]*$/.test(form.abbreviation.trim())
     ? fieldError(saveError.value, 'abbreviation')
-    : t('Лише латинські літери й цифри.')));
+    : t('clients.form.latinLettersDigits')));
 
 const countries = computed(() => {
     const codes = COMMON_COUNTRIES.includes(form.country) || !form.country ? COMMON_COUNTRIES : [form.country, ...COMMON_COUNTRIES];
@@ -152,40 +152,40 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? t('Новий клієнт') : existing?.name ?? t('Клієнт')" :back="isNew ? { name: 'clients' } : { name: 'client', params: { id: clientId } }">
+    <SubScreen :title="isNew ? t('clients.form.newClient') : existing?.name ?? t('core.common.client')" :back="isNew ? { name: 'clients' } : { name: 'client', params: { id: clientId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <TextField v-model="form.name" :label="t('Назва')" placeholder="Brightline Labs LLC" :hint="t('Так клієнт називається в інвойсах і списках')" :error="fieldError(saveError, 'name')" />
+            <TextField v-model="form.name" :label="t('core.common.name')" placeholder="Brightline Labs LLC" :hint="t('clients.form.nameHint')" :error="fieldError(saveError, 'name')" />
             <TextField
                 v-model="abbreviation"
-                :label="t('Абревіатура')"
+                :label="t('clients.form.abbreviation')"
                 placeholder="BL"
                 class="num"
                 autocapitalize="characters"
                 autocomplete="off"
                 spellcheck="false"
                 :maxlength="ABBREVIATION_MAX"
-                :hint="t('Префікс номерів інвойсів: {abbreviation}-РРРР-ММ-ДД-n. Латинські літери й цифри, своя в кожного клієнта ФОП.', { abbreviation: form.abbreviation.trim() || 'BL' })"
+                :hint="t('clients.form.abbreviationHint', { abbreviation: form.abbreviation.trim() || 'BL' })"
                 :error="abbreviationError"
             />
-            <TextField v-model="form.legal_name" :label="t('Юридична назва')" placeholder="Brightline Labs, LLC" :error="fieldError(saveError, 'legal_name')" />
+            <TextField v-model="form.legal_name" :label="t('clients.form.legalName')" placeholder="Brightline Labs, LLC" :error="fieldError(saveError, 'legal_name')" />
             <div class="grid grid-cols-2 gap-2.5">
-                <SelectField v-model="form.country" :label="t('Країна')" :options="countries" :error="fieldError(saveError, 'country')" />
+                <SelectField v-model="form.country" :label="t('clients.form.country')" :options="countries" :error="fieldError(saveError, 'country')" />
                 <SelectField
                     v-model="form.currency"
-                    :label="t('Валюта')"
+                    :label="t('core.common.currency')"
                     :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))"
                     :error="fieldError(saveError, 'currency')"
                 />
             </div>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Адреса для інвойсу') }}</SectionTitle>
+                <SectionTitle>{{ t('clients.form.invoiceAddress') }}</SectionTitle>
                 <TextField
                     v-for="(_, index) in form.lines"
                     :key="index"
                     v-model="form.lines[index]"
-                    :label="index === 0 ? t('Адреса') : t('Адреса, рядок {line}', { line: index + 1 })"
-                    :placeholder="index === 0 ? '500 Market St, Suite 200' : t('Необов\'язково')"
+                    :label="index === 0 ? t('core.common.address') : t('clients.form.addressLine', { line: index + 1 })"
+                    :placeholder="index === 0 ? '500 Market St, Suite 200' : t('core.common.optional')"
                 />
                 <button
                     v-if="form.lines.length < MAX_LINES"
@@ -193,32 +193,32 @@ const generalError = computed(() => {
                     class="-mt-1 flex min-h-11 items-center self-start text-15 font-medium text-accent"
                     @click="form.lines.push('')"
                 >
-                    {{ t('+ Ще рядок адреси') }}
+                    {{ t('clients.form.addAddressLine') }}
                 </button>
                 <div class="grid grid-cols-2 gap-2.5">
-                    <TextField v-model="form.city" :label="t('Місто')" />
-                    <TextField v-model="form.state" :label="t('Штат / регіон')" :placeholder="t('Необов\'язково')" />
+                    <TextField v-model="form.city" :label="t('clients.form.city')" />
+                    <TextField v-model="form.state" :label="t('clients.form.stateRegion')" :placeholder="t('core.common.optional')" />
                 </div>
-                <TextField v-model="form.zip" :label="t('Поштовий індекс')" class="num" />
+                <TextField v-model="form.zip" :label="t('clients.form.postalCode')" class="num" />
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Податкові дані') }}</SectionTitle>
+                <SectionTitle>{{ t('clients.form.taxDetails') }}</SectionTitle>
                 <div class="grid grid-cols-2 gap-2.5">
-                    <TextField v-model="form.tax_id" :label="t('Податковий номер')" class="num" placeholder="EIN" :error="fieldError(saveError, 'tax_id')" />
-                    <TextField v-model="form.vat_number" label="VAT" class="num" :placeholder="t('Необов\'язково')" :error="fieldError(saveError, 'vat_number')" />
+                    <TextField v-model="form.tax_id" :label="t('clients.detail.taxNumber')" class="num" placeholder="EIN" :error="fieldError(saveError, 'tax_id')" />
+                    <TextField v-model="form.vat_number" label="VAT" class="num" :placeholder="t('core.common.optional')" :error="fieldError(saveError, 'vat_number')" />
                 </div>
-                <TextField v-model="form.email" :label="t('Email для інвойсів')" type="email" :error="fieldError(saveError, 'email')" />
+                <TextField v-model="form.email" :label="t('clients.detail.invoiceEmail')" type="email" :error="fieldError(saveError, 'email')" />
             </section>
 
-            <TextAreaField v-model="form.invoice_footer_note" :label="t('Примітка в інвойсі')" :rows="2" :placeholder="t('Друкується під інвойсом цього клієнта')" />
-            <TextAreaField v-model="form.notes" :label="t('Внутрішня примітка')" :rows="2" :placeholder="t('Не друкується')" />
+            <TextAreaField v-model="form.invoice_footer_note" :label="t('clients.detail.invoiceNote')" :rows="2" :placeholder="t('clients.form.invoiceNoteHint')" />
+            <TextAreaField v-model="form.notes" :label="t('invoices.editor.internalNote')" :rows="2" :placeholder="t('clients.form.notPrinted')" />
 
             <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'clients')" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !/^[A-Z0-9]+$/.test(form.abbreviation.trim())" @click="save">{{ t('Зберегти') }}</PrimaryButton>
+            <PrimaryButton :busy="saving" :disabled="loading || !form.name.trim() || !/^[A-Z0-9]+$/.test(form.abbreviation.trim())" @click="save">{{ t('core.common.save') }}</PrimaryButton>
         </template>
     </SubScreen>
 </template>

@@ -47,7 +47,7 @@ async function submit(): Promise<void> {
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
             <TextField
                 v-model="email"
-                :label="t('Електронна пошта')"
+                :label="t('shell.login.email')"
                 type="email"
                 autocomplete="username"
                 required
@@ -55,7 +55,7 @@ async function submit(): Promise<void> {
             />
             <TextField
                 v-model="password"
-                :label="t('Пароль')"
+                :label="t('shell.login.password')"
                 type="password"
                 autocomplete="current-password"
                 required
@@ -64,23 +64,23 @@ async function submit(): Promise<void> {
             <div class="flex items-center justify-between gap-3">
                 <label class="flex min-h-11 items-center gap-2.5 text-14 text-ink-2">
                     <input v-model="remember" type="checkbox" class="m-0 size-5 accent-accent">
-                    {{ t('Запам’ятати мене') }}
+                    {{ t('shell.login.rememberMe') }}
                 </label>
                 <RouterLink
                     :to="{ name: 'forgot-password', query: email ? { email } : {} }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"
                 >
-                    {{ t('Забули пароль?') }}
+                    {{ t('shell.login.forgotPassword') }}
                 </RouterLink>
             </div>
             <p v-if="error && !fieldError(error, 'email') && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Увійти') }}</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.login.signIn') }}</PrimaryButton>
         </form>
 
         <template #footer>
-            {{ t('Доступ надає власник організації.') }}<br>{{ t('Бухгалтер бачить усі ФОП своєї практики.') }}
+            {{ t('shell.login.accessNote') }}<br>{{ t('shell.login.accountantNote') }}
         </template>
     </AuthLayout>
 </template>

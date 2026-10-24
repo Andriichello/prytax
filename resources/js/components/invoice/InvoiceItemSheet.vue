@@ -105,19 +105,19 @@ const chargeTypeId = computed({
     },
 });
 
-const quantityLabel = computed(() => ({ hour: t('Кількість, год'), fixed: t('Кількість'), item: t('Кількість, шт') })[draft.value.unit]);
+const quantityLabel = computed(() => ({ hour: t('invoices.item.quantityHours'), fixed: t('invoices.item.quantity'), item: t('invoices.item.quantityPieces') })[draft.value.unit]);
 const projectOptions = computed(() => [
-    { value: 0, label: t('Без проєкту') },
+    { value: 0, label: t('invoices.item.noProject') },
     ...projects.map((project) => ({ value: project.id, label: project.code ?? project.name })),
 ]);
 const chargeTypeOptions = computed(() => [
-    { value: 0, label: t('Без типу') },
+    { value: 0, label: t('invoices.item.noWorkType') },
     ...chargeTypes.map((type) => ({ value: type.id, label: type.name })),
 ]);
 const unitOptions = computed<{ value: ItemUnit; label: string }[]>(() => [
-    { value: 'hour', label: t('Година') },
-    { value: 'fixed', label: t('Фіксовано') },
-    { value: 'item', label: t('Штука') },
+    { value: 'hour', label: t('invoices.item.hour') },
+    { value: 'fixed', label: t('invoices.item.fixed') },
+    { value: 'item', label: t('invoices.item.piece') },
 ]);
 const chargeTypeName = computed(() => chargeTypes.find((type) => type.id === draft.value.charge_type_id)?.name);
 
@@ -142,36 +142,36 @@ function remove(): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('Позиція {position}', { position })">
+    <BottomSheet v-model:open="open" :title="t('invoices.item.itemNumber', { position })">
         <div class="grid grid-cols-2 gap-2.5">
-            <SelectField v-model="projectId" :label="t('Проєкт')" :options="projectOptions" />
-            <SelectField v-model="chargeTypeId" :label="t('Тип робіт')" :options="chargeTypeOptions" />
+            <SelectField v-model="projectId" :label="t('core.common.project')" :options="projectOptions" />
+            <SelectField v-model="chargeTypeId" :label="t('core.common.workType')" :options="chargeTypeOptions" />
         </div>
 
         <TextAreaField
             v-model="draft.description"
-            :label="t('Опис')"
+            :label="t('invoices.item.description')"
             :rows="3"
-            :aside="template && draft.description === template ? t('з шаблону договору') : undefined"
+            :aside="template && draft.description === template ? t('invoices.item.fromTemplate') : undefined"
         />
 
         <div class="flex flex-col gap-1.5">
-            <span class="text-13 font-medium text-ink-2">{{ t('Одиниця') }}</span>
-            <SegmentedControl v-model="draft.unit" :label="t('Одиниця')" size="lg" :options="unitOptions" />
+            <span class="text-13 font-medium text-ink-2">{{ t('invoices.item.unit') }}</span>
+            <SegmentedControl v-model="draft.unit" :label="t('invoices.item.unit')" size="lg" :options="unitOptions" />
         </div>
 
         <div class="flex flex-col gap-1.5">
             <div class="grid grid-cols-2 gap-2.5">
-                <TextField v-model="draft.quantity" :label="quantityLabel" numeric :error="errors.quantity ? t('Вкажіть кількість.') : undefined" />
+                <TextField v-model="draft.quantity" :label="quantityLabel" numeric :error="errors.quantity ? t('invoices.item.enterQuantity') : undefined" />
                 <TextField
                     v-model="draft.unit_price"
-                    :label="t('Ціна, {currency}', { currency })"
+                    :label="t('invoices.item.priceIn', { currency })"
                     numeric
-                    :error="errors.unit_price ? t('Вкажіть ціну.') : undefined"
+                    :error="errors.unit_price ? t('invoices.item.enterPrice') : undefined"
                 />
             </div>
             <p v-if="rate" class="m-0 text-13 text-ink-3">
-                <Translated :text="rate.charge_type_id && chargeTypeName ? t('Ставка договору для {type} з {date}') : t('Ставка договору з {date}')">
+                <Translated :text="rate.charge_type_id && chargeTypeName ? t('invoices.item.contractRateForType') : t('invoices.item.contractRate')">
                     <template #type>{{ chargeTypeName }}</template>
                     <template #date><span class="num">{{ formatDate(rate.effective_from) }}</span></template>
                 </Translated>
@@ -179,13 +179,13 @@ function remove(): void {
         </div>
 
         <div class="flex items-center justify-between rounded-card border border-line bg-surface px-4 py-4">
-            <span class="text-15 text-ink-2">{{ t('Сума позиції') }}</span>
+            <span class="text-15 text-ink-2">{{ t('invoices.item.itemAmount') }}</span>
             <span class="num text-22 font-bold">{{ amount ? formatMoney(amount, currency) : '—' }}</span>
         </div>
 
         <div class="grid grid-cols-[1fr_2fr] gap-2.5">
-            <SecondaryButton v-if="removable" tone="negative" @click="remove">{{ t('Видалити') }}</SecondaryButton>
-            <PrimaryButton :class="removable ? '' : 'col-span-2'" @click="done">{{ t('Готово') }}</PrimaryButton>
+            <SecondaryButton v-if="removable" tone="negative" @click="remove">{{ t('core.common.delete') }}</SecondaryButton>
+            <PrimaryButton :class="removable ? '' : 'col-span-2'" @click="done">{{ t('core.common.done') }}</PrimaryButton>
         </div>
     </BottomSheet>
 </template>

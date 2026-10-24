@@ -13,14 +13,14 @@ const { active, year } = defineProps<{
 }>();
 
 const tabs = computed(() => [
-    { name: 'quarters' as const, label: t('Квартали'), to: { name: 'accounting', params: { year } } },
-    { name: 'esv' as const, label: t('ЄСВ'), to: { name: 'accounting-esv', query: { year } } },
-    { name: 'income-book' as const, label: t('Книга доходів'), to: { name: 'income-book', query: { year } } },
+    { name: 'quarters' as const, label: t('invoices.filters.quarters'), to: { name: 'accounting', params: { year } } },
+    { name: 'esv' as const, label: t('core.taxes.socialContribution'), to: { name: 'accounting-esv', query: { year } } },
+    { name: 'income-book' as const, label: t('accounting.tabs.incomeBook'), to: { name: 'income-book', query: { year } } },
 ]);
 </script>
 
 <template>
-    <nav :aria-label="t('Розділи обліку')" class="-mt-1 flex gap-5 border-b border-line">
+    <nav :aria-label="t('accounting.tabs.sections')" class="-mt-1 flex gap-5 border-b border-line">
         <RouterLink
             v-for="tab in tabs"
             :key="tab.name"

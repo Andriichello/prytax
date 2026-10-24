@@ -39,17 +39,17 @@ const grid = 'grid grid-cols-[1.1fr_1fr_1fr_24px] items-center gap-2 px-3.5';
 
 <template>
     <LoadState :loading="loading && !data" :error="error" @retry="reload">
-        <section v-if="data" class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="t('Податки за місяцями')">
+        <section v-if="data" class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="t('accounting.taxMonths.title')">
             <div :class="grid" class="border-b border-divider bg-paper-light py-2.5 text-12 font-semibold text-ink-3">
-                <span>{{ t('Місяць') }}</span>
-                <span class="text-right">{{ t('Нараховано') }}</span>
-                <span class="text-right">{{ t('Сплачено') }}</span>
+                <span>{{ t('core.common.month') }}</span>
+                <span class="text-right">{{ t('accounting.esv.owed') }}</span>
+                <span class="text-right">{{ t('core.common.paid') }}</span>
                 <span />
             </div>
             <template v-for="group in quarters" :key="group.quarter">
                 <div class="flex justify-between gap-2 bg-paper px-3.5 py-2 text-12 text-ink-2">
                     <span class="font-semibold">{{ quarterLabel(group.quarter) }}</span>
-                    <span v-if="group.months[0]?.[taxType].due_at"><Translated :text="t('до {date}')"><template #date><span class="num">{{ formatDayMonth(group.months[0][taxType].due_at) }}</span></template></Translated></span>
+                    <span v-if="group.months[0]?.[taxType].due_at"><Translated :text="t('core.common.untilDate')"><template #date><span class="num">{{ formatDayMonth(group.months[0][taxType].due_at) }}</span></template></Translated></span>
                 </div>
                 <div
                     v-for="(month, index) in group.months"
@@ -64,10 +64,10 @@ const grid = 'grid grid-cols-[1.1fr_1fr_1fr_24px] items-center gap-2 px-3.5';
                     <span class="num text-right">{{ formatAmount(month[taxType].owed) }}</span>
                     <span class="num text-right">
                         {{ compareAmounts(month[taxType].paid, '0') > 0 ? formatAmount(month[taxType].paid) : '—' }}
-                        <span v-if="compareAmounts(month[taxType].pending, '0') > 0" class="block text-12 text-warning-text">{{ t('+{amount} надісл.', { amount: formatAmount(month[taxType].pending) }) }}</span>
+                        <span v-if="compareAmounts(month[taxType].pending, '0') > 0" class="block text-12 text-warning-text">{{ t('accounting.taxMonths.sentAmount', { amount: formatAmount(month[taxType].pending) }) }}</span>
                         <span v-if="compareAmounts(month[taxType].from_quarter, '0') > 0" class="block text-12 text-ink-3">
-                            <template v-if="compareAmounts(month[taxType].from_quarter, sumAmounts(month[taxType].paid, month[taxType].pending)) === 0">{{ t('за кв.') }}</template>
-                            <template v-else>{{ t('з них за кв. {amount}', { amount: formatAmount(month[taxType].from_quarter) }) }}</template>
+                            <template v-if="compareAmounts(month[taxType].from_quarter, sumAmounts(month[taxType].paid, month[taxType].pending)) === 0">{{ t('accounting.taxMonths.forQuarter') }}</template>
+                            <template v-else>{{ t('accounting.taxMonths.ofItForQuarter', { amount: formatAmount(month[taxType].from_quarter) }) }}</template>
                         </span>
                     </span>
                     <Icon v-if="month[taxType].quarter_state === 'closed'" name="check" :size="18" class="text-positive" />
@@ -76,10 +76,10 @@ const grid = 'grid grid-cols-[1.1fr_1fr_1fr_24px] items-center gap-2 px-3.5';
             </template>
         </section>
         <p class="m-0 text-13 leading-normal text-ink-3">
-            <template v-if="taxType === 'social_contribution'">{{ t('ЄСВ — за кожен місяць, крім звільнених.') }}</template>
-            <template v-else>{{ t('Нараховано за місяць — сума підказок його надходжень; до сплати за квартал береться його нарахування.') }}</template>
-            {{ t('Сплати за квартал розносяться по місяцях з першого: кожен бере те, що ще винен, решта — останньому («за кв.»).') }}
-            {{ t('Галочка — квартал закрито.') }}
+            <template v-if="taxType === 'social_contribution'">{{ t('accounting.taxMonths.sscEveryMonth') }}</template>
+            <template v-else>{{ t('accounting.taxMonths.owedExplained') }}</template>
+            {{ t('accounting.taxMonths.spreadExplained') }}
+            {{ t('accounting.taxMonths.tickMeansClosed') }}
         </p>
     </LoadState>
 </template>

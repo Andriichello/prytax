@@ -34,13 +34,13 @@ import { unpaidStatusOf } from '@/utils/statuses';
  */
 const KIND_ACCOUNT_LABELS: Record<string, string> = {
     get platform() {
-        return t('платформа');
+        return t('money.paymentForm.platform');
     },
     get fop_bank() {
-        return t('ФОП');
+        return t('money.paymentForm.fop');
     },
     get foreign_bank() {
-        return t('іноземний банк');
+        return t('money.paymentForm.foreignBank');
     },
 };
 
@@ -139,16 +139,16 @@ const sameCurrency = computed(() => !account.value || account.value.currency ===
 const remaining = computed(() => (invoice.value ? remainingOf(invoice.value) : null));
 
 const kindOptions = computed<{ value: PaymentKind; label: string }[]>(() => [
-    { value: 'invoice', label: t('За інвойсом') },
-    { value: 'advance', label: t('Аванс') },
-    { value: 'other', label: t('Інший дохід') },
+    { value: 'invoice', label: t('money.paymentForm.forInvoice') },
+    { value: 'advance', label: t('money.payment.advance') },
+    { value: 'other', label: t('money.payment.otherIncome') },
 ]);
 
 /** The name of a wire's amount field: "Сума за INV-0042". */
 function amountLabel(invoiceId: number | null): string {
     const number = invoiceOf(invoiceId)?.number;
 
-    return number ? t('Сума за {number}', { number }) : t('Сума за інвойсом');
+    return number ? t('money.paymentForm.amountFor', { number }) : t('settings.taxes.invoicedAmount');
 }
 
 /* One wire for several invoices */
@@ -437,25 +437,25 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? t('Нове надходження') : t('Редагування надходження')" :back="isNew ? { name: 'home' } : { name: 'payment', params: { id: paymentId } }">
+    <SubScreen :title="isNew ? t('money.paymentForm.newReceipt') : t('money.paymentForm.editReceipt')" :back="isNew ? { name: 'home' } : { name: 'payment', params: { id: paymentId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <SegmentedControl
                 v-if="isNew"
                 v-model="form.kind"
-                :label="t('Тип надходження')"
+                :label="t('money.paymentForm.receiptType')"
                 :options="kindOptions"
             />
 
             <TextField
                 v-if="form.kind !== 'invoice'"
                 v-model="form.description"
-                :label="form.kind === 'advance' ? t('Від кого й за що') : t('Опис доходу')"
-                :placeholder="form.kind === 'advance' ? t('Аванс від Brightline за листопад') : t('Напр., продаж обладнання')"
+                :label="form.kind === 'advance' ? t('money.paymentForm.whoPaidWhat') : t('money.paymentForm.incomeDescription')"
+                :placeholder="form.kind === 'advance' ? t('money.paymentForm.descriptionPlaceholder') : t('money.paymentForm.otherIncomePlaceholder')"
                 :error="fieldError(shownError, 'description')"
             />
 
-            <section v-if="isGroup" class="flex flex-col gap-2" :aria-label="t('Інвойси одного платежу')">
-                <SectionTitle>{{ t('Інвойси в цьому платежі') }}</SectionTitle>
+            <section v-if="isGroup" class="flex flex-col gap-2" :aria-label="t('money.paymentForm.invoicesOnePayment')">
+                <SectionTitle>{{ t('money.paymentForm.invoicesPayment') }}</SectionTitle>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                     <div
                         v-for="(line, index) in [{ invoice_id: form.invoice_id, amount: form.amount }, ...extra]"
@@ -466,7 +466,7 @@ const generalError = computed(() => {
                             <span class="num text-15 font-semibold text-accent">{{ invoiceOf(line.invoice_id)?.number }}</span>
                             <span class="truncate text-14 font-light">{{ invoiceOf(line.invoice_id)?.client?.name }}</span>
                             <span v-if="invoiceOf(line.invoice_id)" class="text-12 text-ink-3">
-                                <Translated :text="t('залишок {amount}')">
+                                <Translated :text="t('money.paymentForm.remainingAmount')">
                                     <template #amount><span class="num">{{ formatAmount(remainingOf(invoiceOf(line.invoice_id)!)) }}</span></template>
                                 </Translated>
                             </span>
@@ -486,12 +486,12 @@ const generalError = computed(() => {
                             :aria-label="amountLabel(line.invoice_id)"
                             class="num h-11 w-28 rounded-control border border-line-input bg-surface px-3 text-right text-16"
                         >
-                        <button type="button" :aria-label="t('Прибрати інвойс')" class="flex size-11 shrink-0 items-center justify-center text-ink-3" @click="removeLine(index)">
+                        <button type="button" :aria-label="t('money.paymentForm.removeInvoice')" class="flex size-11 shrink-0 items-center justify-center text-ink-3" @click="removeLine(index)">
                             <Icon name="close" :size="18" />
                         </button>
                     </div>
                     <div class="flex items-center justify-between py-3 text-15 font-semibold">
-                        <span>{{ t('Разом') }}</span>
+                        <span>{{ t('core.common.total') }}</span>
                         <span class="num">{{ formatMoney(groupTotal, currency) }}</span>
                     </div>
                 </div>
@@ -499,7 +499,7 @@ const generalError = computed(() => {
             </section>
 
             <div v-else-if="form.kind === 'invoice' || isAdvanceEdit" class="flex flex-col gap-1.5">
-                <span id="payment-invoice" class="text-13 font-medium text-ink-2">{{ isAdvanceEdit ? t('Інвойс, до якого належить аванс') : t('Інвойс') }}</span>
+                <span id="payment-invoice" class="text-13 font-medium text-ink-2">{{ isAdvanceEdit ? t('money.paymentForm.advanceInvoice') : t('core.common.invoice') }}</span>
                 <button
                     type="button"
                     aria-labelledby="payment-invoice"
@@ -511,18 +511,18 @@ const generalError = computed(() => {
                         <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
                         <span class="truncate text-15 font-light text-ink">{{ invoice.client?.name }}</span>
                     </span>
-                    <span v-else class="flex-1 text-16 text-ink-3">{{ isAdvanceEdit ? t('Прив’язати до інвойсу') : t('Оберіть інвойс') }}</span>
+                    <span v-else class="flex-1 text-16 text-ink-3">{{ isAdvanceEdit ? t('money.paymentForm.linkInvoice') : t('money.paymentForm.chooseInvoice') }}</span>
                     <Icon name="chevronDown" :size="18" class="text-ink-2" />
                 </button>
                 <span v-if="invoice" class="text-12 text-ink-3">
-                    <Translated :text="t('Отримано {received} · залишок {remaining}')">
+                    <Translated :text="t('money.paymentForm.receivedRemaining')">
                         <template #received><span class="num">{{ formatAmount(invoice.paid_amount ?? '0') }} / {{ formatMoney(invoice.total, invoice.currency) }}</span></template>
                         <template #remaining><span class="num">{{ formatAmount(remaining) }}</span></template>
                     </Translated>
                 </span>
                 <span v-if="isAdvanceEdit && invoice" class="text-12 text-ink-3">
-                    {{ t('Після збереження аванс стане надходженням за цим інвойсом.') }}
-                    <button type="button" class="min-h-11 font-medium text-accent" @click="form.invoice_id = null">{{ t('Не прив’язувати') }}</button>
+                    {{ t('money.paymentForm.advanceWillLink') }}
+                    <button type="button" class="min-h-11 font-medium text-accent" @click="form.invoice_id = null">{{ t('money.paymentForm.dontLink') }}</button>
                 </span>
                 <span v-if="fieldError(shownError, 'invoice_id')" class="text-12 text-negative">{{ fieldError(shownError, 'invoice_id') }}</span>
             </div>
@@ -534,37 +534,37 @@ const generalError = computed(() => {
                 @click="picking = 'extra'"
             >
                 <Icon name="plus" :size="18" />
-                {{ isGroup ? t('Додати інвойс') : t('Один платіж за кілька інвойсів') }}
+                {{ isGroup ? t('money.paymentForm.addInvoice') : t('money.paymentForm.onePaymentForSeveral') }}
             </button>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Дохід') }}</SectionTitle>
+                <SectionTitle>{{ t('money.paymentForm.income') }}</SectionTitle>
                 <TextField
                     v-if="!isGroup"
                     v-model="form.amount"
-                    :label="form.kind === 'invoice' ? t('Сума за інвойсом, {currency}', { currency }) : t('Сума, {currency}', { currency })"
+                    :label="form.kind === 'invoice' ? t('money.paymentForm.invoiceAmountIn', { currency }) : t('core.common.amountInCurrency', { currency })"
                     numeric
                     class="h-14 text-20 font-semibold"
-                    :hint="t('База оподаткування — повна сума, навіть якщо банк утримав комісію')"
+                    :hint="t('money.paymentForm.taxBaseHint')"
                     :error="fieldError(shownError, 'amount')"
                     @update:model-value="touched.amount = true"
                 />
                 <TextField
                     v-model="form.client_fee_amount"
-                    :label="t('Комісія, сплачена клієнтом понад суму')"
+                    :label="t('money.paymentForm.clientFeeHint')"
                     numeric
                     placeholder="0.00"
-                    :hint="t('Не є доходом, лише фіксується')"
+                    :hint="t('money.paymentForm.notIncome')"
                     :error="fieldError(shownError, 'client_fee_amount')"
                 />
             </section>
 
             <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Зарахування') }}</SectionTitle>
+                <SectionTitle>{{ t('money.paymentForm.moneyIn') }}</SectionTitle>
                 <SelectField
                     v-model="form.received_to_account_id"
-                    :label="t('Зараховано на')"
-                    :placeholder="t('Оберіть рахунок')"
+                    :label="t('money.paymentForm.creditedTo')"
+                    :placeholder="t('core.common.chooseAccount')"
                     :options="accountOptions"
                     :error="fieldError(shownError, 'received_to_account_id')"
                     @update:model-value="touched.account = true"
@@ -572,14 +572,14 @@ const generalError = computed(() => {
                 <div class="grid grid-cols-2 gap-2.5">
                     <TextField
                         v-model="form.received_amount"
-                        :label="t('Отримано, {currency}', { currency: account?.currency ?? currency })"
+                        :label="t('money.paymentForm.receivedIn', { currency: account?.currency ?? currency })"
                         numeric
                         :error="fieldError(shownError, 'received_amount')"
                         @update:model-value="touched.received_amount = true"
                     />
                     <DateField
                         v-model="form.received_at"
-                        :label="t('Дата зарахування')"
+                        :label="t('money.paymentForm.dateCredited')"
                         :max="today()"
                         :error="fieldError(shownError, 'received_at')"
                     />
@@ -588,30 +588,30 @@ const generalError = computed(() => {
                     v-if="preview?.receipt_fee && compareAmounts(preview.receipt_fee, '0') !== 0"
                     class="flex items-center justify-between rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2"
                 >
-                    <span>{{ t('Комісія при отриманні') }}</span>
+                    <span>{{ t('money.paymentForm.feeReceipt') }}</span>
                     <span class="num font-semibold text-ink">{{ formatMoney(preview.receipt_fee, currency) }}</span>
                 </div>
-                <p class="m-0 text-12 leading-[1.45] text-ink-3">{{ t('Дата доходу — день зарахування на платформу (позиція ДПС).') }}</p>
+                <p class="m-0 text-12 leading-[1.45] text-ink-3">{{ t('money.paymentForm.incomeDateHint') }}</p>
             </section>
 
             <TextField
                 v-if="needsManualRate"
                 v-model="form.nbu_rate"
-                :label="t('Курс, ₴ за 1 {currency}', { currency })"
+                :label="t('money.paymentForm.rateUahPer', { currency })"
                 numeric
                 placeholder="41.8710"
-                :hint="t('Вручну — лише поки НБУ не опублікував курс на цю дату; потім запис візьме курс НБУ.')"
+                :hint="t('money.paymentForm.manualRateHint')"
                 :error="fieldError(shownError, 'nbu_rate')"
             />
 
             <section
                 v-if="preview"
-                :aria-label="t('Податковий знімок')"
+                :aria-label="t('money.paymentForm.taxSnapshot')"
                 class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4"
                 :class="previewing ? 'opacity-60' : ''"
             >
                 <div class="flex items-center justify-between">
-                    <SectionTitle as="span">{{ t('Буде збережено') }}</SectionTitle>
+                    <SectionTitle as="span">{{ t('money.paymentForm.willBeSaved') }}</SectionTitle>
                     <span class="rounded-badge bg-accent-soft px-2 py-[3px] text-12 font-semibold text-accent-hover">
                         {{ quarterLabel(preview.period_quarter) }} · {{ monthNameInText(preview.period_month) }}
                     </span>
@@ -620,29 +620,29 @@ const generalError = computed(() => {
                     <span class="num text-26 font-semibold tracking-[-0.02em]">{{ formatMoney(preview.uah_amount, 'UAH') }}</span>
                     <span v-if="preview.currency !== 'UAH'" class="num text-13 text-ink-3">
                         {{ preview.currency }} {{ formatAmount(preview.amount) }} @ {{ formatAmount(preview.nbu_rate) }}
-                        · {{ preview.rate_is_manual ? t('вручну') : t('НБУ') }} {{ formatDate(preview.nbu_rate_date) }}
+                        · {{ preview.rate_is_manual ? t('money.paymentForm.manual') : t('money.paymentForm.nbu') }} {{ formatDate(preview.nbu_rate_date) }}
                     </span>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div class="flex flex-col gap-1 rounded-control bg-paper p-2.5">
-                        <span class="text-12 text-ink-3">{{ t('ЄП {percent} %', { percent: percentOfIncome(preview.single_tax_uah) }) }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.paymentForm.singleTaxPercent', { percent: percentOfIncome(preview.single_tax_uah) }) }}</span>
                         <span class="num text-15 font-semibold">{{ formatAmount(preview.single_tax_uah) }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-control bg-paper p-2.5">
-                        <span class="text-12 text-ink-3">{{ t('ВЗ {percent} %', { percent: percentOfIncome(preview.military_levy_uah) }) }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.paymentForm.militaryLevyPercent', { percent: percentOfIncome(preview.military_levy_uah) }) }}</span>
                         <span class="num text-15 font-semibold">{{ formatAmount(preview.military_levy_uah) }}</span>
                     </div>
                 </div>
-                <span v-if="isGroup" class="text-12 text-ink-3">{{ t('Буде записано окремим надходженням для кожного інвойсу; гривні й податки кожного округлюються окремо.') }}</span>
+                <span v-if="isGroup" class="text-12 text-ink-3">{{ t('money.paymentForm.groupExplained') }}</span>
             </section>
 
             <TextAreaField
                 v-if="needsNote"
                 v-model="form.correction_note"
                 :label="lockedQuarter
-                    ? t('{quarter} {year} уже задекларовано — що уточнюєте?', { quarter: quarterLabel(lockedQuarter.quarter), year: lockedQuarter.year })
-                    : t('Квартал уже задекларовано — що уточнюєте?')"
-                :placeholder="t('Напр., надходження зараховано пізніше, ніж записано')"
+                    ? t('money.paymentForm.correctionQuestionFor', { quarter: quarterLabel(lockedQuarter.quarter), year: lockedQuarter.year })
+                    : t('money.payment.correctionQuestion')"
+                :placeholder="t('money.paymentForm.correctionPlaceholder')"
                 :rows="2"
             />
             <p v-if="needsNote && !lockedQuarter && saveError" class="m-0 text-14 text-warning-text" role="alert">{{ errorMessage(saveError) }}</p>
@@ -653,16 +653,16 @@ const generalError = computed(() => {
             >
                 <input v-model="markPaid" type="checkbox" class="m-0 mt-px size-5 shrink-0 accent-positive">
                 <span class="flex flex-col gap-0.5">
-                    <strong class="font-semibold">{{ isGroup ? t('Оплачено повністю: {count} з {total}', { count: paysInFull, total: extra.length + 1 }) : t('Інвойс буде оплачено повністю') }}</strong>
-                    <span>{{ t('Позначити оплаченим з датою {date}', { date: formatDate(form.received_at) }) }}</span>
+                    <strong class="font-semibold">{{ isGroup ? t('money.paymentForm.paidInFull', { count: paysInFull, total: extra.length + 1 }) : t('money.paymentForm.invoicePaidFull') }}</strong>
+                    <span>{{ t('money.paymentForm.markPaidOn', { date: formatDate(form.received_at) }) }}</span>
                 </span>
             </label>
             <p v-if="overpays" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
-                {{ t('Сума перевищує залишок інвойсу. Перевірте суму або запишіть різницю як інший дохід.') }}
+                {{ t('money.paymentForm.amountTooHigh') }}
             </p>
 
             <p v-if="reopens" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
-                <Translated :text="t('Інвойс {number} більше не буде покрито повністю, тож після збереження він повернеться до статусу «{status}».', { status: reopens.status })">
+                <Translated :text="t('money.paymentForm.invoiceWillReopen', { status: reopens.status })">
                     <template #number><span class="num">{{ reopens.number }}</span></template>
                 </Translated>
             </p>
@@ -676,7 +676,7 @@ const generalError = computed(() => {
                 :disabled="loading || !ready || (needsNote && !form.correction_note.trim())"
                 @click="save"
             >
-                {{ isNew ? t('Зберегти надходження') : t('Зберегти зміни') }}
+                {{ isNew ? t('money.paymentForm.saveReceipt') : t('core.common.saveChanges') }}
             </PrimaryButton>
         </template>
 
@@ -684,10 +684,10 @@ const generalError = computed(() => {
             v-model:open="pickerOpen"
             :invoices="pickable"
             :selected-id="picking === 'main' ? form.invoice_id : null"
-            :title="picking === 'extra' ? t('Ще інвойс у цьому платежі') : t('Оберіть інвойс')"
+            :title="picking === 'extra' ? t('money.paymentForm.anotherInvoicePayment') : t('money.paymentForm.chooseInvoice')"
             :empty-text="picking === 'extra'
-                ? t('Інших відкритих інвойсів у {currency} немає. Один платіж може покривати інвойси лише в одній валюті.', { currency })
-                : isNew ? undefined : t('Відкритих інвойсів у {currency} немає.', { currency })"
+                ? t('money.paymentForm.noOtherOpenInvoices', { currency })
+                : isNew ? undefined : t('money.paymentForm.noOpenInvoices', { currency })"
             @select="pick"
         />
     </SubScreen>

@@ -84,21 +84,21 @@ const generalError = computed(() => (error.value && !fieldError(error.value, 'as
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('Залишок на дату')">
+    <BottomSheet v-model:open="open" :title="t('money.accountForm.openingBalance')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            {{ t('Скільки було на рахунку того дня. Баланс рахується від останнього такого залишку.') }}
+            {{ t('money.openingBalance.hint') }}
         </p>
         <div class="grid grid-cols-2 gap-2.5">
-            <DateField v-model="form.as_of" :label="t('На дату')" :max="today()" :error="fieldError(error, 'as_of')" />
-            <TextField v-model="form.amount" :label="t('Сума, {currency}', { currency })" numeric placeholder="0.00" :error="fieldError(error, 'amount')" />
+            <DateField v-model="form.as_of" :label="t('core.common.asOf')" :max="today()" :error="fieldError(error, 'as_of')" />
+            <TextField v-model="form.amount" :label="t('core.common.amountInCurrency', { currency })" numeric placeholder="0.00" :error="fieldError(error, 'amount')" />
         </div>
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         <template #footer>
             <div class="grid gap-2.5" :class="balance ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
                 <SecondaryButton v-if="balance" tone="negative" :busy="saving" @click="remove">
-                    {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
+                    {{ confirmingRemoval ? t('core.common.yesDelete') : t('core.common.delete') }}
                 </SecondaryButton>
-                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.as_of" @click="save">{{ t('Зберегти') }}</PrimaryButton>
+                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.as_of" @click="save">{{ t('core.common.save') }}</PrimaryButton>
             </div>
         </template>
     </BottomSheet>

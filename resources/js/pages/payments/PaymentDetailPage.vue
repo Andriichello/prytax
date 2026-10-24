@@ -51,7 +51,7 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 const payment = computed(() => data.value?.payment ?? null);
 const flow = computed(() => data.value?.flow ?? null);
 
-const kindTitle = computed(() => (payment.value?.kind === 'advance' ? t('Аванс') : payment.value?.kind === 'other' ? t('Інший дохід') : t('Надходження||одне')));
+const kindTitle = computed(() => (payment.value?.kind === 'advance' ? t('money.payment.advance') : payment.value?.kind === 'other' ? t('money.payment.otherIncome') : t('core.common.receipt')));
 const ratePercent = (rate: string | undefined): string => (rate ? `${Number((Number(rate) * 100).toFixed(2))} %` : '');
 
 const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding.kind !== 'fop_bank' && compareAmounts(holding.amount, '0') > 0) ?? null);
@@ -172,7 +172,7 @@ async function removeRefund(): Promise<void> {
             <button
                 v-if="payment && can('update', 'payments')"
                 type="button"
-                :aria-label="t('Інші дії')"
+                :aria-label="t('core.common.moreActions')"
                 class="flex size-11 items-center justify-center text-ink"
                 @click="menuOpen = true"
             >
@@ -183,7 +183,7 @@ async function removeRefund(): Promise<void> {
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="payment && flow">
                 <p v-if="unpaid" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning" role="alert">
-                    <Translated :text="t('Надходження збережено, але позначити оплаченим інвойс {number} не вдалося. Зробіть це на сторінці інвойсу.')">
+                    <Translated :text="t('money.payment.markPaidFailed')">
                         <template #number><span class="num">{{ unpaid }}</span></template>
                     </Translated>
                 </p>
@@ -211,29 +211,29 @@ async function removeRefund(): Promise<void> {
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4 py-1 text-14">
                     <div class="flex justify-between gap-3 py-3">
-                        <span class="text-ink-3">{{ t('Дата доходу') }}</span>
+                        <span class="text-ink-3">{{ t('money.payment.incomeDate') }}</span>
                         <span class="num">{{ formatDate(payment.received_at) }}</span>
                     </div>
                     <div v-if="payment.currency !== 'UAH'" class="flex justify-between gap-3 py-3">
-                        <span class="text-ink-3">{{ payment.rate_is_manual ? t('Курс (вручну)') : t('Курс НБУ') }}</span>
+                        <span class="text-ink-3">{{ payment.rate_is_manual ? t('money.payment.manualRate') : t('money.payment.nbuRate') }}</span>
                         <span class="num">{{ formatAmount(payment.nbu_rate) }} · {{ formatDate(payment.nbu_rate_date) }}</span>
                     </div>
                     <div class="flex justify-between gap-3 py-3">
-                        <span class="text-ink-3">{{ t('ЄП {rate} (підказка)', { rate: ratePercent(payment.taxRule?.single_tax_rate) }) }}</span>
+                        <span class="text-ink-3">{{ t('money.payment.singleTaxEstimate', { rate: ratePercent(payment.taxRule?.single_tax_rate) }) }}</span>
                         <span class="num font-semibold">{{ formatAmount(payment.single_tax_uah) }}</span>
                     </div>
                     <div class="flex justify-between gap-3 py-3">
-                        <span class="text-ink-3">{{ t('ВЗ {rate} (підказка)', { rate: ratePercent(payment.taxRule?.military_levy_rate) }) }}</span>
+                        <span class="text-ink-3">{{ t('money.payment.militaryLevyEstimate', { rate: ratePercent(payment.taxRule?.military_levy_rate) }) }}</span>
                         <span class="num font-semibold">{{ formatAmount(payment.military_levy_uah) }}</span>
                     </div>
                     <div v-if="payment.taxRule" class="flex justify-between gap-3 py-3">
-                        <span class="text-ink-3">{{ t('Податкові правила') }}</span>
-                        <span>{{ t('з {date}', { date: formatDate(payment.taxRule.effective_from) }) }}</span>
+                        <span class="text-ink-3">{{ t('money.payment.taxRules') }}</span>
+                        <span>{{ t('core.common.fromDate', { date: formatDate(payment.taxRule.effective_from) }) }}</span>
                     </div>
                 </section>
 
                 <section class="flex flex-col gap-2.5">
-                    <SectionTitle>{{ t('Шлях коштів') }}</SectionTitle>
+                    <SectionTitle>{{ t('money.payment.moneyFlow') }}</SectionTitle>
                     <MoneyFlow :flow="flow" :can-remove-refunds="can('delete', 'refunds')" @remove-refund="openRefundRemoval" />
                     <RouterLink
                         v-if="onPlatform && can('create', 'account-transfers')"
@@ -241,21 +241,21 @@ async function removeRefund(): Promise<void> {
                         class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink"
                     >
                         <Icon name="transfer" :size="20" />
-                        {{ t('Вивести залишок') }}
+                        {{ t('money.payment.withdrawBalance') }}
                     </RouterLink>
                 </section>
 
-                <section class="grid grid-cols-2 gap-2" :aria-label="t('Підсумки')">
+                <section class="grid grid-cols-2 gap-2" :aria-label="t('money.payment.summary')">
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Втрати на комісіях') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.lostFees') }}</span>
                         <span class="num text-16 font-semibold">{{ flow.fees !== null ? formatMoney(flow.fees, flow.currency) : '—' }}</span>
                         <span v-if="flow.transfer_fee_share && compareAmounts(flow.transfer_fee_share, '0') !== 0" class="num text-11 text-ink-3">
                             {{ formatAmount(flow.receipt_fee ?? '0') }} + {{ formatAmount(flow.transfer_fee_share) }}
                         </span>
-                        <span v-else class="text-11 text-ink-3">{{ t('при отриманні') }}</span>
+                        <span v-else class="text-11 text-ink-3">{{ t('money.payment.onReceipt') }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Дійшло на ФОП') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.reachedFopAccount') }}</span>
                         <template v-if="landed.length">
                             <span v-for="holding in landed" :key="holding.account_id ?? 0" class="num text-16 font-semibold">
                                 {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}
@@ -264,30 +264,30 @@ async function removeRefund(): Promise<void> {
                         </template>
                         <template v-else>
                             <span class="num text-16 font-semibold">{{ formatMoney('0.00', flow.currency) }}</span>
-                            <span class="text-11 text-ink-3">{{ t('ще не переказано') }}</span>
+                            <span class="text-11 text-ink-3">{{ t('money.payment.notTransferredYet') }}</span>
                         </template>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Ще на платформі') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.stillPlatform') }}</span>
                         <span class="num text-16 font-semibold">{{ formatMoney(flow.still_on_platform, flow.currency) }}</span>
-                        <span class="text-11 text-ink-3">{{ t('не втрата, а залишок') }}</span>
+                        <span class="text-11 text-ink-3">{{ t('money.payment.balanceNotLoss') }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Чистий дохід') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.netIncome') }}</span>
                         <span class="num text-16 font-semibold">{{ flow.net_income !== null ? formatMoney(flow.net_income, flow.currency) : '—' }}</span>
-                        <span class="text-11 text-ink-3">{{ t('після комісій, ЄП і ВЗ') }}</span>
+                        <span class="text-11 text-ink-3">{{ t('money.payment.netIncomeNote') }}</span>
                     </div>
                 </section>
 
                 <section class="flex flex-col gap-2.5">
                     <SectionTitle>
-                        {{ t('Сплата податків') }}
+                        {{ t('settings.taxes.payingTaxes') }}
                         <template v-if="can('create', 'tax-payments')" #aside>
                             <RouterLink
                                 :to="{ name: 'tax-payment-new', query: { allocation: 'payment', payment: payment.id, year: payment.period_year, quarter: payment.period_quarter } }"
                                 class="flex min-h-11 items-center text-14 font-medium no-underline"
                             >
-                                {{ t('+ Додати') }}
+                                {{ t('core.common.plusAdd') }}
                             </RouterLink>
                         </template>
                     </SectionTitle>
@@ -306,26 +306,26 @@ async function removeRefund(): Promise<void> {
                         </div>
                     </div>
                     <p v-else class="m-0 rounded-card border border-line bg-surface p-4 text-14 text-ink-3">
-                        {{ t('Податки за цим надходженням ще не сплачено. Їх можна сплатити й за квартал загалом.') }}
+                        {{ t('money.payment.taxesUnpaid') }}
                     </p>
                 </section>
 
                 <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ actionError }}</p>
 
                 <SecondaryButton v-if="can('create', 'refunds') && payment.kind !== 'fx_gain'" class="bg-muted" @click="refunding = true">
-                    {{ t('Оформити повернення клієнту') }}
+                    {{ t('money.payment.refundToClient') }}
                 </SecondaryButton>
             </template>
         </LoadState>
 
-        <BottomSheet v-model:open="menuOpen" :title="t('Дії з надходженням')">
+        <BottomSheet v-model:open="menuOpen" :title="t('money.payment.receiptActions')">
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                 <RouterLink
                     v-if="payment?.kind !== 'fx_gain'"
                     :to="{ name: 'payment-edit', params: { id } }"
                     class="flex min-h-13 items-center gap-3 text-15 text-ink no-underline hover:text-ink"
                 >
-                    <Icon name="invoice" :size="20" /> {{ t('Редагувати') }}
+                    <Icon name="invoice" :size="20" /> {{ t('money.payment.edit') }}
                 </RouterLink>
                 <button
                     v-if="onPlatform && !payment?.repatriation_ack_at"
@@ -333,7 +333,7 @@ async function removeRefund(): Promise<void> {
                     class="flex min-h-13 items-center gap-3 text-left text-15"
                     @click="acknowledge"
                 >
-                    <Icon name="bell" :size="20" /> {{ t('Не нагадувати про кошти на платформі') }}
+                    <Icon name="bell" :size="20" /> {{ t('money.payment.dontRemindPlatform') }}
                 </button>
                 <button
                     v-if="can('delete', 'payments') && payment?.kind !== 'fx_gain'"
@@ -341,7 +341,7 @@ async function removeRefund(): Promise<void> {
                     class="flex min-h-13 items-center gap-3 text-left text-15 text-negative"
                     @click="openDelete"
                 >
-                    <Icon name="close" :size="20" /> {{ t('Видалити надходження') }}
+                    <Icon name="close" :size="20" /> {{ t('money.payment.deleteReceipt') }}
                 </button>
             </div>
         </BottomSheet>
@@ -350,33 +350,33 @@ async function removeRefund(): Promise<void> {
 
         <ConfirmSheet
             v-model:open="deleteOpen"
-            :title="t('Видалити надходження?')"
-            :confirm-label="t('Видалити')"
+            :title="t('money.payment.deleteReceiptQuestion')"
+            :confirm-label="t('core.common.delete')"
             destructive
             :busy="busy"
             :error="actionError"
             @confirm="remove"
         >
-            <p class="m-0">{{ t('Дохід і податки за ним зникнуть з обліку. Якщо кошти вже переказано, повернено або за ними сплачено податки, видалити не вийде.') }}</p>
+            <p class="m-0">{{ t('money.payment.deleteReceiptExplained') }}</p>
             <p v-if="reopenedStatus" class="m-0 text-warning">
-                <Translated :text="t('Інвойс {number} повернеться до статусу «{status}».', { status: reopenedStatus })">
+                <Translated :text="t('money.payment.invoiceWillReturn', { status: reopenedStatus })">
                     <template #number><span class="num">{{ payment?.invoice?.number }}</span></template>
                 </Translated>
             </p>
-            <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('Квартал уже задекларовано — що уточнюєте?')" :rows="2" />
+            <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('money.payment.correctionQuestion')" :rows="2" />
         </ConfirmSheet>
 
         <ConfirmSheet
             v-model:open="refundOpen"
-            :title="t('Видалити повернення?')"
-            :confirm-label="t('Видалити')"
+            :title="t('money.payment.deleteRefundQuestion')"
+            :confirm-label="t('core.common.delete')"
             destructive
             :busy="busy"
             :error="actionError"
             @confirm="removeRefund"
         >
-            <p class="m-0">{{ t('Повернення зникне з обліку, а дохід його періоду знову збільшиться. Щоб виправити повернення, видаліть його і запишіть знову.') }}</p>
-            <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('Квартал уже задекларовано — що уточнюєте?')" :rows="2" />
+            <p class="m-0">{{ t('money.payment.deleteRefundExplained') }}</p>
+            <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('money.payment.correctionQuestion')" :rows="2" />
         </ConfirmSheet>
     </SubScreen>
 </template>

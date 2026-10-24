@@ -1,37 +1,10 @@
-import { locale } from '@/i18n';
+import { locale, t } from '@/i18n';
 
 /**
  * Dates of the API are `YYYY-MM-DD` strings in Kyiv's calendar; they are split as text, never parsed into a Date, so
- * no time zone moves them by a day. Dates are written дд.мм.рррр in both languages; the names of months follow the
- * language of the screens.
+ * no time zone moves them by a day. Dates are written дд.мм.рррр in every language; the names of months come from
+ * `Intl` in the language of the screens, and the names of quarters from its dictionary.
  */
-
-// i18n-ignore-start: the Ukrainian months, in their cases; MONTHS_EN has the English ones
-const MONTHS = [
-    'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
-    'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень',
-];
-
-/** Months in the genitive case, for "7 липня". */
-const MONTHS_GENITIVE = [
-    'січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
-    'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня',
-];
-
-/** Months in the locative case, for "у жовтні" and "Завантаження липня 2026…" (genitive). */
-const MONTHS_LOCATIVE = [
-    'січні', 'лютому', 'березні', 'квітні', 'травні', 'червні',
-    'липні', 'серпні', 'вересні', 'жовтні', 'листопаді', 'грудні',
-];
-// i18n-ignore-end
-
-/** English months, which have one form for every case. */
-const MONTHS_EN = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const ROMAN_QUARTERS = ['I', 'II', 'III', 'IV'];
 
 export interface DateParts {
     year: number;
@@ -105,24 +78,46 @@ export function formatDayMonthWords(date: string | null | undefined): string {
     return `${day} ${monthNameGenitive(month)}`;
 }
 
+const monthFormats = new Map<string, { alone: Intl.DateTimeFormat; withDay: Intl.DateTimeFormat }>();
+
+/**
+ * The formats of a month's name in the language of the screens: alone ("жовтень") and with a day ("7 жовтня").
+ */
+function monthFormat(): { alone: Intl.DateTimeFormat; withDay: Intl.DateTimeFormat } {
+    if (!monthFormats.has(locale.value)) {
+        monthFormats.set(locale.value, {
+            alone: new Intl.DateTimeFormat(locale.value, { month: 'long', timeZone: 'UTC' }),
+            withDay: new Intl.DateTimeFormat(locale.value, { day: 'numeric', month: 'long', timeZone: 'UTC' }),
+        });
+    }
+
+    return monthFormats.get(locale.value)!;
+}
+
+/**
+ * The first day of a month (1–12), for naming the month; null when there is no such month.
+ */
+const dayOfMonth = (month: number): Date | null => (month >= 1 && month <= 12 ? new Date(Date.UTC(2000, month - 1, 1)) : null);
+
+/** "жовтень", "October": a month inside a sentence, written as its language writes it there */
+export function monthNameInText(month: number): string {
+    const date = dayOfMonth(month);
+
+    return date ? monthFormat().alone.format(date) : '';
+}
+
 /** "Жовтень", "October" */
 export function monthName(month: number): string {
-    return (locale.value === 'en' ? MONTHS_EN : MONTHS)[month - 1] ?? '';
+    const name = monthNameInText(month);
+
+    return name.charAt(0).toLocaleUpperCase(locale.value) + name.slice(1);
 }
 
-/** "жовтня", "October" */
+/** "жовтня", "October": the month of a day, as in "7 липня" */
 export function monthNameGenitive(month: number): string {
-    return (locale.value === 'en' ? MONTHS_EN : MONTHS_GENITIVE)[month - 1] ?? '';
-}
+    const date = dayOfMonth(month);
 
-/** "жовтень", "October": a month inside a sentence, which only English writes with a capital */
-export function monthNameInText(month: number): string {
-    return locale.value === 'en' ? monthName(month) : monthName(month).toLowerCase();
-}
-
-/** "жовтні", "October" */
-export function monthNameLocative(month: number): string {
-    return (locale.value === 'en' ? MONTHS_EN : MONTHS_LOCATIVE)[month - 1] ?? '';
+    return date ? monthFormat().withDay.formatToParts(date).find((part) => part.type === 'month')?.value ?? '' : '';
 }
 
 /** "Жовтень 2026", "October 2026" */
@@ -132,7 +127,13 @@ export function formatMonthYear(year: number, month: number): string {
 
 /** "IV кв.", "Q4" */
 export function quarterLabel(quarter: number): string {
-    return locale.value === 'en' ? `Q${quarter}` : `${ROMAN_QUARTERS[quarter - 1] ?? quarter} кв.`; // i18n-ignore
+    return [t('core.quarters.q1'), t('core.quarters.q2'), t('core.quarters.q3'), t('core.quarters.q4')][quarter - 1] ?? String(quarter);
+}
+
+/** "IV квартал", "Q4" */
+export function quarterName(quarter: number): string {
+    return [t('core.quarterNames.q1'), t('core.quarterNames.q2'), t('core.quarterNames.q3'), t('core.quarterNames.q4')][quarter - 1]
+        ?? String(quarter);
 }
 
 /** The quarter (1–4) of a month or a date. */

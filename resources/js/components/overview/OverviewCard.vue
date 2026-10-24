@@ -8,7 +8,6 @@ import Translated from '@/components/ui/Translated.vue';
 import { t } from '@/i18n';
 import { quarterLabel } from '@/utils/dates';
 import { formatAmount, formatMoney } from '@/utils/money';
-import { countOf, type PluralForms } from '@/utils/plural';
 import { TAX_TYPES } from '@/utils/statuses';
 
 /**
@@ -31,11 +30,6 @@ const capWarns = computed(() => capPercent.value >= 80);
 const cap = computed(() => formatMoney(entry.cap.income_cap.replace(/\.00$/, ''), 'UAH'));
 
 const TAXES = ['social_contribution', 'single_tax', 'military_levy'] as const;
-
-const UNREAD_ALERTS: PluralForms = {
-    uk: ['непрочитане сповіщення', 'непрочитані сповіщення', 'непрочитаних сповіщень'],
-    en: ['unread notification', 'unread notifications'],
-};
 </script>
 
 <template>
@@ -44,14 +38,14 @@ const UNREAD_ALERTS: PluralForms = {
             <Avatar :initials="entry.profile.initials" :variant="current ? 'dark' : entry.profile.is_active ? 'light' : 'dashed'" :size="36" />
             <span class="flex flex-1 flex-col">
                 <span class="text-16 font-semibold">{{ entry.profile.short_name }}</span>
-                <span v-if="!entry.profile.is_active" class="text-12 text-ink-3">{{ t('Неактивний') }}</span>
+                <span v-if="!entry.profile.is_active" class="text-12 text-ink-3">{{ t('core.common.inactive') }}</span>
             </span>
             <Icon name="chevronRight" :size="18" class="text-ink-3" />
         </button>
 
         <div class="flex flex-col gap-2 py-3.5">
             <div class="flex items-baseline justify-between">
-                <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('Ліміт доходу {year}', { year }) }}</span>
+                <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.incomeCapFor', { year }) }}</span>
                 <span class="num text-14 font-semibold" :class="capWarns ? 'text-warning-text' : ''">{{ entry.cap.percent }} %</span>
             </div>
             <div class="relative flex">
@@ -61,17 +55,17 @@ const UNREAD_ALERTS: PluralForms = {
             </div>
             <div class="flex justify-between text-13 text-ink-3">
                 <span class="num">{{ formatMoney(entry.cap.ytd_income, 'UAH') }}</span>
-                <span class="num">{{ t('з {total}', { total: cap }) }}</span>
+                <span class="num">{{ t('shell.overview.ofTotal', { total: cap }) }}</span>
             </div>
         </div>
 
         <div class="flex flex-col gap-2.5 py-3.5">
-            <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('Дохід {quarter}', { quarter: quarterLabel(quarter) }) }}</span>
+            <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.incomeIn', { quarter: quarterLabel(quarter) }) }}</span>
             <div v-for="income in entry.income" :key="income.currency" class="flex flex-col gap-1.5">
                 <div class="flex items-baseline justify-between gap-2 text-14">
                     <span class="font-semibold">{{ income.currency }}</span>
                     <span class="text-ink-2">
-                        <Translated :text="t('отримано {received} з {invoiced} · {percent}')">
+                        <Translated :text="t('shell.overview.receivedOfInvoiced')">
                             <template #received><span class="num font-semibold text-ink">{{ formatAmount(income.received) }}</span></template>
                             <template #invoiced><span class="num">{{ formatAmount(income.invoiced) }}</span></template>
                             <template #percent><span class="num">{{ income.percent }} %</span></template>
@@ -80,27 +74,27 @@ const UNREAD_ALERTS: PluralForms = {
                 </div>
                 <ProgressBar :percent="Number(income.percent)" />
             </div>
-            <span v-if="entry.income.length === 0" class="text-14 text-ink-3">{{ t('Інвойсів за квартал немає.') }}</span>
+            <span v-if="entry.income.length === 0" class="text-14 text-ink-3">{{ t('shell.overview.noInvoicesQuarter') }}</span>
             <span class="text-13 text-ink-3">
-                <Translated :text="t('Дохід для податків: {amount}')">
+                <Translated :text="t('shell.overview.taxableIncome')">
                     <template #amount><span class="num">{{ formatMoney(entry.taxable_income, 'UAH') }}</span></template>
                 </Translated>
             </span>
         </div>
 
         <div class="flex flex-col gap-2.5 py-3.5">
-            <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('Податки {quarter}', { quarter: quarterLabel(quarter) }) }}</span>
+            <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.taxesIn', { quarter: quarterLabel(quarter) }) }}</span>
             <div class="grid grid-cols-3 gap-2">
                 <div v-for="tax in TAXES" :key="tax" class="flex flex-col gap-[3px]">
                     <span class="text-13 text-ink-3">{{ TAX_TYPES[tax] }}</span>
                     <span class="num text-15 font-semibold">{{ formatAmount(entry.taxes[tax].owed) }}</span>
                     <span class="text-12 text-ink-3">
-                        <Translated :text="t('сплачено {amount}')">
+                        <Translated :text="t('shell.overview.paidAmount')">
                             <template #amount><span class="num">{{ formatAmount(entry.taxes[tax].paid) }}</span></template>
                         </Translated>
                     </span>
                     <span v-if="Number(entry.taxes[tax].pending) > 0" class="text-12 text-warning-text">
-                        <Translated :text="t('надіслано {amount}')">
+                        <Translated :text="t('shell.overview.sentAmount')">
                             <template #amount><span class="num">{{ formatAmount(entry.taxes[tax].pending) }}</span></template>
                         </Translated>
                     </span>
@@ -115,12 +109,12 @@ const UNREAD_ALERTS: PluralForms = {
             @click="emit('open', 'alerts')"
         >
             <Icon name="bell" :size="18" />
-            <span class="flex-1">{{ countOf(entry.unread_alerts, UNREAD_ALERTS) }}</span>
+            <span class="flex-1">{{ t('shell.overview.unreadAlerts', { count: entry.unread_alerts }) }}</span>
             <Icon name="chevronRight" :size="18" class="text-ink-3" />
         </button>
         <div v-else class="flex min-h-13 items-center gap-2.5 text-14 text-ink-3">
             <Icon name="bell" :size="18" />
-            {{ t('Немає сповіщень') }}
+            {{ t('shell.overview.noNotifications') }}
         </div>
     </article>
 </template>

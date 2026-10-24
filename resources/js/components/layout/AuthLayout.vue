@@ -18,7 +18,7 @@ import { t } from '@/i18n';
                 </span>
                 <span class="text-[32px] font-bold tracking-[-0.03em]">Pry<span class="text-accent">Tax</span></span>
             </div>
-            <p class="m-0 max-w-75 text-17 leading-[1.45] text-ink-2">{{ t('Облік доходів, інвойси та податки для ФОП 3 групи') }}</p>
+            <p class="m-0 max-w-75 text-17 leading-[1.45] text-ink-2">{{ t('shell.more.tagline') }}</p>
         </div>
 
         <slot />

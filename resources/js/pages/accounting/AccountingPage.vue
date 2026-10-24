@@ -21,7 +21,6 @@ import { useStoredState } from '@/composables/useStoredState';
 import { t } from '@/i18n';
 import { currentQuarter, formatDate, monthName, quarterLabel } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney, sumAmounts } from '@/utils/money';
-import { countOf, PAYMENTS } from '@/utils/plural';
 import { DECLARATION_STATUSES } from '@/utils/statuses';
 
 /**
@@ -114,21 +113,21 @@ const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${qua
 const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)));
 
 const groupingOptions = computed<{ value: Grouping; label: string }[]>(() => [
-    { value: 'none', label: t('Ні') },
-    { value: 'month', label: t('Місяць') },
-    { value: 'invoice', label: t('Інвойс') },
+    { value: 'none', label: t('accounting.quarters.none') },
+    { value: 'month', label: t('core.common.month') },
+    { value: 'invoice', label: t('core.common.invoice') },
 ]);
 
 const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid' || compareAmounts(invoice.remaining, '0') <= 0;
 </script>
 
 <template>
-    <TabScreen :title="t('Облік')">
+    <TabScreen :title="t('shell.nav.accounting')">
         <template #action>
             <a
                 :href="exportQuarter"
                 download
-                :aria-label="t('Експорт кварталу в CSV')"
+                :aria-label="t('accounting.quarters.exportQuarterCsv')"
                 class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
             >
                 <Icon name="download" :size="22" />
@@ -142,7 +141,7 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
 
         <SegmentedControl
             v-model="quarterModel"
-            :label="t('Квартал')"
+            :label="t('core.common.quarter')"
             :options="[1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) }))"
         />
 
@@ -152,18 +151,18 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
             class="flex min-h-12 items-center gap-2.5 rounded-control border border-line bg-surface px-3.5 text-14 text-ink no-underline hover:text-ink"
         >
             <template v-if="data.period.id === null">
-                <StatusBadge :label="t('Не відстежується')" tone="neutral" />
-                <span class="flex-1">{{ t('Квартал поза обліком цього ФОП') }}</span>
+                <StatusBadge :label="t('accounting.quarters.notTracked')" tone="neutral" />
+                <span class="flex-1">{{ t('accounting.quarters.outsideRecords') }}</span>
             </template>
             <template v-else>
                 <StatusBadge v-bind="DECLARATION_STATUSES[data.period.declaration_status]" />
-                <span class="flex-1"><Translated :text="t('Декларація до {date}')"><template #date><span class="num">{{ formatDate(data.period.declaration_due_at) }}</span></template></Translated></span>
+                <span class="flex-1"><Translated :text="t('accounting.quarters.declarationDue')"><template #date><span class="num">{{ formatDate(data.period.declaration_due_at) }}</span></template></Translated></span>
             </template>
             <Icon name="chevronRight" :size="18" class="text-ink-3" />
         </RouterLink>
 
         <div class="flex items-center justify-between gap-2">
-            <span id="grouping" class="text-13 text-ink-3">{{ t('Групувати') }}</span>
+            <span id="grouping" class="text-13 text-ink-3">{{ t('accounting.quarters.groupBy') }}</span>
             <div role="group" aria-labelledby="grouping" class="flex gap-1.5">
                 <button
                     v-for="option in groupingOptions"
@@ -180,20 +179,20 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
         </div>
 
         <div class="flex flex-col gap-2">
-            <span id="show-in-list" class="text-13 text-ink-3">{{ t('Показувати в списку') }}</span>
+            <span id="show-in-list" class="text-13 text-ink-3">{{ t('accounting.quarters.showList') }}</span>
             <div role="group" aria-labelledby="show-in-list" class="flex gap-2">
-                <SwitchTile v-model="showTaxes" :label="t('Податки')" />
-                <SwitchTile v-model="showFees" :label="t('Комісії й чисто')" />
+                <SwitchTile v-model="showTaxes" :label="t('shell.nav.taxes')" />
+                <SwitchTile v-model="showFees" :label="t('accounting.quarters.feesNet')" />
             </div>
         </div>
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="data">
-                <EmptyState v-if="data.rows.length === 0" :text="t('У {quarter} {year} надходжень немає.', { quarter: quarterLabel(quarter), year })" />
+                <EmptyState v-if="data.rows.length === 0" :text="t('accounting.quarters.noReceipts', { quarter: quarterLabel(quarter), year })" />
 
                 <template v-else-if="grouping === 'none'">
                     <div class="flex items-baseline justify-between px-0.5">
-                        <span class="text-13 text-ink-3">{{ t('{count} · від старших', { count: countOf(paymentsCount, PAYMENTS) }) }}</span>
+                        <span class="text-13 text-ink-3">{{ t('accounting.quarters.countOldestFirst', { count: t('core.counts.payments', { count: paymentsCount }) }) }}</span>
                         <span class="num text-13 font-semibold">{{ formatMoney(total, 'UAH') }}</span>
                     </div>
                     <div class="flex flex-col gap-2">
@@ -208,12 +207,12 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
                         v-for="group in groups"
                         :key="group.key"
                         class="overflow-hidden rounded-card border border-line bg-surface"
-                        :aria-label="group.month ? monthName(group.month) : group.invoice?.number ?? t('Без інвойсу')"
+                        :aria-label="group.month ? monthName(group.month) : group.invoice?.number ?? t('accounting.quarters.noInvoice')"
                     >
                         <div v-if="group.month" class="flex items-center justify-between gap-3 bg-ink px-4 py-3.5 text-white">
                             <span class="flex flex-col gap-0.5">
                                 <h2 class="m-0 text-17 font-semibold">{{ monthName(group.month) }}</h2>
-                                <span class="text-12 text-on-ink-3">{{ countOf(group.count, PAYMENTS) }}</span>
+                                <span class="text-12 text-on-ink-3">{{ t('core.counts.payments', { count: group.count }) }}</span>
                             </span>
                             <span class="num text-18 font-bold">{{ formatMoney(group.total, 'UAH') }}</span>
                         </div>
@@ -225,24 +224,24 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
                             class="flex items-center justify-between gap-3 bg-ink px-4 py-3.5 text-white no-underline hover:text-white"
                         >
                             <span class="flex min-w-0 flex-col gap-[3px]">
-                                <h2 class="num m-0 text-16 font-semibold">{{ group.invoice?.number ?? t('Без інвойсу') }}</h2>
+                                <h2 class="num m-0 text-16 font-semibold">{{ group.invoice?.number ?? t('accounting.quarters.noInvoice') }}</h2>
                                 <span v-if="group.invoice" class="truncate text-12 text-on-ink-3">{{ group.invoice.client_name }}</span>
                                 <span v-if="group.invoice && isPaid(group.invoice)" class="text-12 text-on-ink-3">
-                                    <Translated :text="t('Оплачено повністю · {total}')">
+                                    <Translated :text="t('accounting.quarters.paidInFull')">
                                         <template #total><span class="num">{{ formatMoney(group.invoice.total, group.invoice.currency) }}</span></template>
                                     </Translated>
                                 </span>
                                 <span v-else-if="group.invoice" class="text-12 text-warning-on-ink">
-                                    <Translated :text="t('Залишок {remaining} з {total}')">
+                                    <Translated :text="t('money.invoicePicker.remainingOfTotal')">
                                         <template #remaining><span class="num">{{ formatAmount(group.invoice.remaining) }}</span></template>
                                         <template #total><span class="num">{{ formatMoney(group.invoice.total, group.invoice.currency) }}</span></template>
                                     </Translated>
                                 </span>
-                                <span v-else class="text-12 text-on-ink-3">{{ t('Аванси й інший дохід') }}</span>
+                                <span v-else class="text-12 text-on-ink-3">{{ t('accounting.quarters.advancesOtherIncome') }}</span>
                             </span>
                             <span class="flex shrink-0 flex-col items-end gap-[3px]">
                                 <span class="num text-18 font-bold">{{ formatMoney(group.total, 'UAH') }}</span>
-                                <span class="text-12 text-on-ink-3">{{ countOf(group.count, PAYMENTS) }}</span>
+                                <span class="text-12 text-on-ink-3">{{ t('core.counts.payments', { count: group.count }) }}</span>
                             </span>
                         </component>
 
@@ -258,10 +257,10 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
 
                 <div class="grid grid-cols-2 gap-2">
                     <a :href="exportQuarter" download class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink">
-                        <Icon name="download" :size="18" /> {{ t('CSV кварталу') }}
+                        <Icon name="download" :size="18" /> {{ t('accounting.quarters.quarterCsv') }}
                     </a>
                     <a :href="exportYear" download class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink">
-                        <Icon name="download" :size="18" /> {{ t('CSV за рік') }}
+                        <Icon name="download" :size="18" /> {{ t('accounting.quarters.yearCsv') }}
                     </a>
                 </div>
             </template>

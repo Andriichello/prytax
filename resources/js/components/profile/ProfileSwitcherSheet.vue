@@ -9,7 +9,6 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { formatDate } from '@/utils/dates';
-import { countOf, NOTIFICATIONS } from '@/utils/plural';
 
 /**
  * "Оберіть ФОП": search the organization's profiles and switch the app to one of them. Opening it loads the profiles
@@ -43,21 +42,21 @@ const shown = computed(() => {
 function caption(profile: Profile): { text: string; alarming: boolean } {
     if (!profile.is_active) {
         return {
-            text: profile.closed_at ? t('Неактивний · закрито {date}', { date: formatDate(profile.closed_at) }) : t('Неактивний'),
+            text: profile.closed_at ? t('shell.profileSwitcher.inactiveClosed', { date: formatDate(profile.closed_at) }) : t('core.common.inactive'),
             alarming: false,
         };
     }
 
     if (profile.needs_correction) {
-        return { text: t('Потрібна уточнююча декларація'), alarming: true };
+        return { text: t('shell.profileSwitcher.correctiveDeclarationNeeded'), alarming: true };
     }
 
     const unread = profile.unread_alerts_count ?? 0;
 
     return {
-        text: t('РНОКПП {taxId} · {alerts}', {
+        text: t('shell.profileSwitcher.taxId', {
             taxId: profile.tax_id_masked,
-            alerts: unread ? countOf(unread, NOTIFICATIONS) : t('без сповіщень'),
+            alerts: unread ? t('core.counts.notifications', { count: unread }) : t('shell.profileSwitcher.noNotifications'),
         }),
         alarming: false,
     };
@@ -77,15 +76,15 @@ async function go(name: string): Promise<void> {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('Оберіть ФОП')">
+    <BottomSheet v-model:open="open" :title="t('shell.nav.chooseFop')">
         <div class="relative">
-            <label for="profile-search" class="sr-only">{{ t('Пошук ФОП') }}</label>
+            <label for="profile-search" class="sr-only">{{ t('shell.profileSwitcher.searchFops') }}</label>
             <Icon name="search" :size="20" class="pointer-events-none absolute top-3.5 left-3.5 text-ink-3" />
             <input
                 id="profile-search"
                 v-model="search"
                 type="search"
-                :placeholder="t('Пошук за ПІБ або РНОКПП')"
+                :placeholder="t('shell.profileSwitcher.searchPlaceholder')"
                 class="h-12 w-full rounded-control border border-line-input bg-surface pr-3.5 pl-11 text-16 placeholder:text-ink-3"
             >
         </div>
@@ -120,7 +119,7 @@ async function go(name: string): Promise<void> {
                 </span>
                 <Icon v-if="profile.id === profileId" name="check" :size="22" class="text-accent" />
             </button>
-            <p v-if="shown.length === 0" class="m-0 px-3.5 py-4 text-14 text-ink-3">{{ t('Нікого не знайдено.') }}</p>
+            <p v-if="shown.length === 0" class="m-0 px-3.5 py-4 text-14 text-ink-3">{{ t('core.common.nothingFound') }}</p>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
@@ -130,7 +129,7 @@ async function go(name: string): Promise<void> {
                 @click="go('overview')"
             >
                 <Icon name="overview" :size="18" />
-                {{ t('Огляд усіх') }}
+                {{ t('shell.profileSwitcher.overviewAll') }}
             </button>
             <button
                 v-if="can('create', 'profiles')"
@@ -139,7 +138,7 @@ async function go(name: string): Promise<void> {
                 @click="go('profile-new')"
             >
                 <Icon name="plus" :size="18" />
-                {{ t('Додати ФОП') }}
+                {{ t('shell.profileSwitcher.addFop') }}
             </button>
         </div>
     </BottomSheet>

@@ -107,7 +107,7 @@ const fromHint = computed(() => {
 
     const kind = ACCOUNT_KINDS[from.value.kind].label;
 
-    return from.value.balance !== undefined ? t('{kind} · баланс {balance}', { kind, balance: formatMoney(from.value.balance, from.value.currency) }) : kind;
+    return from.value.balance !== undefined ? t('money.transferForm.kindBalance', { kind, balance: formatMoney(from.value.balance, from.value.currency) }) : kind;
 });
 
 function swap(): void {
@@ -279,8 +279,8 @@ function applyMode(): void {
 watch(mode, applyMode);
 
 const modeOptions = computed<{ value: 'fifo' | 'exact'; label: string }[]>(() => [
-    { value: 'fifo', label: t('Від найстаріших') },
-    { value: 'exact', label: proposal.value?.exact ? t('Точний збіг') : t('Точний збіг · немає') },
+    { value: 'fifo', label: t('money.transferForm.oldestFirst') },
+    { value: 'exact', label: proposal.value?.exact ? t('money.transferForm.exactMatch') : t('money.transferForm.exactMatchNone') },
 ]);
 
 /**
@@ -352,13 +352,13 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? t('Новий переказ') : t('Редагування переказу')" :back="isNew ? { name: 'transfers' } : { name: 'transfer', params: { id: transferId } }">
+    <SubScreen :title="isNew ? t('money.transferForm.newTransfer') : t('money.transferForm.editTransfer')" :back="isNew ? { name: 'transfers' } : { name: 'transfer', params: { id: transferId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <section class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('Маршрут')">
+            <section class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('money.transferForm.route')">
                 <SelectField
                     v-model="form.from_account_id"
-                    :label="t('Звідки')"
-                    :placeholder="t('Оберіть рахунок')"
+                    :label="t('money.transferForm.from')"
+                    :placeholder="t('core.common.chooseAccount')"
                     :options="options(form.to_account_id)"
                     :hint="fromHint"
                     :error="fieldError(saveError, 'from_account_id')"
@@ -367,7 +367,7 @@ const generalError = computed(() => {
                     <span class="absolute inset-x-0 top-1/2 border-t border-divider" aria-hidden="true" />
                     <button
                         type="button"
-                        :aria-label="t('Поміняти місцями')"
+                        :aria-label="t('money.transferForm.swap')"
                         class="relative flex size-11 items-center justify-center rounded-full border border-line-input bg-surface text-ink"
                         @click="swap"
                     >
@@ -376,8 +376,8 @@ const generalError = computed(() => {
                 </div>
                 <SelectField
                     v-model="form.to_account_id"
-                    :label="t('Куди')"
-                    :placeholder="t('Оберіть рахунок')"
+                    :label="t('money.transferForm.to')"
+                    :placeholder="t('core.common.chooseAccount')"
                     :options="options(form.from_account_id)"
                     :hint="to ? ACCOUNT_KINDS[to.kind].label : undefined"
                     :error="fieldError(saveError, 'to_account_id')"
@@ -387,23 +387,23 @@ const generalError = computed(() => {
             <div class="grid grid-cols-2 gap-2.5">
                 <TextField
                     v-model="form.amount_sent"
-                    :label="t('Відправлено, {currency}', { currency: from?.currency ?? '' })"
+                    :label="t('money.transferForm.sentIn', { currency: from?.currency ?? '' })"
                     numeric
                     :error="fieldError(saveError, 'amount_sent')"
                 />
                 <TextField
                     v-model="form.amount_received"
-                    :label="t('Отримано, {currency}', { currency: to?.currency ?? '' })"
+                    :label="t('money.paymentForm.receivedIn', { currency: to?.currency ?? '' })"
                     numeric
                     :error="fieldError(saveError, 'amount_received')"
                     @update:model-value="touchedReceived = true"
                 />
-                <DateField v-model="form.sent_at" :label="t('Відправлено')" :max="form.received_at || undefined" :error="fieldError(saveError, 'sent_at')" />
-                <DateField v-model="form.received_at" :label="t('Зараховано')" :max="today()" :error="fieldError(saveError, 'received_at')" />
+                <DateField v-model="form.sent_at" :label="t('money.transfer.sent')" :max="form.received_at || undefined" :error="fieldError(saveError, 'sent_at')" />
+                <DateField v-model="form.received_at" :label="t('money.transfer.credited')" :max="today()" :error="fieldError(saveError, 'received_at')" />
             </div>
 
             <div v-if="fee !== null" class="flex items-center justify-between gap-3 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2">
-                <span>{{ t('Комісія (відправлено − отримано)') }}</span>
+                <span>{{ t('money.transferForm.feeSentReceived') }}</span>
                 <span class="num font-semibold" :class="compareAmounts(fee, '0') < 0 ? 'text-negative' : 'text-ink'">
                     {{ formatMoney(fee, from?.currency ?? '') }}<template v-if="feePercent"> · {{ feePercent }} %</template>
                 </span>
@@ -411,20 +411,20 @@ const generalError = computed(() => {
             <template v-if="isSale">
                 <div v-if="effectiveRate" class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2">
                     <span class="flex justify-between gap-3">
-                        <span>{{ t('Курс переказу') }}</span>
-                        <span class="num font-semibold text-ink">{{ formatAmount(effectiveRate) }}<template v-if="nbuRate"> · {{ t('НБУ {rate}', { rate: formatAmount(nbuRate) }) }}</template></span>
+                        <span>{{ t('money.transfer.transferRate') }}</span>
+                        <span class="num font-semibold text-ink">{{ formatAmount(effectiveRate) }}<template v-if="nbuRate"> · {{ t('money.transferForm.nbuRate', { rate: formatAmount(nbuRate) }) }}</template></span>
                     </span>
                     <span v-if="spread" class="flex justify-between gap-3">
-                        <span>{{ t('Курсовий спред') }}</span>
+                        <span>{{ t('money.transfers.fxSpread') }}</span>
                         <span class="num font-semibold text-ink">{{ formatMoney(spread, 'UAH') }}</span>
                     </span>
                 </div>
                 <TextField
                     v-model="form.fee_amount"
-                    :label="t('Комісія банку окремо, {currency}', { currency: from?.currency ?? '' })"
+                    :label="t('money.transferForm.separateBankFee', { currency: from?.currency ?? '' })"
                     numeric
                     placeholder="0.00"
-                    :hint="t('Якщо банк узяв комісію понад курс')"
+                    :hint="t('money.transferForm.separateFeeHint')"
                     :error="fieldError(saveError, 'fee_amount')"
                 />
             </template>
@@ -432,17 +432,17 @@ const generalError = computed(() => {
             <TextField
                 v-if="needsRate"
                 v-model="form.nbu_rate"
-                :label="t('Курс НБУ, ₴ (вручну)')"
+                :label="t('money.transferForm.nbuRateManual')"
                 numeric
-                :hint="t('Лише поки НБУ не опублікував курс на цю дату.')"
+                :hint="t('money.transferForm.manualRateHint')"
                 :error="fieldError(saveError, 'nbu_rate')"
             />
 
             <section v-if="proposal && proposal.candidates.length" class="flex flex-col gap-3">
-                <SectionTitle>{{ t('Які надходження переказуєте') }}</SectionTitle>
+                <SectionTitle>{{ t('money.transferForm.whichReceipts') }}</SectionTitle>
                 <SegmentedControl
                     v-model="mode"
-                    :label="t('Розподіл')"
+                    :label="t('money.transferForm.allocation')"
                     :options="modeOptions"
                 />
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -453,13 +453,13 @@ const generalError = computed(() => {
                                 <span :class="candidate.invoice_number ? 'num' : ''">{{ candidate.invoice_number ?? candidate.description ?? candidate.client_name }}</span>
                             </span>
                             <span class="text-12 text-ink-3">
-                                <Translated :text="t('доступно {amount}')"><template #amount><span class="num">{{ formatAmount(candidate.holding) }}</span></template></Translated>
+                                <Translated :text="t('money.transferForm.availableAmount')"><template #amount><span class="num">{{ formatAmount(candidate.holding) }}</span></template></Translated>
                             </span>
                         </span>
                         <input
                             v-model="allocations[candidate.payment_id]"
                             inputmode="decimal"
-                            :aria-label="t('Сума з надходження {receipt}', { receipt: candidate.invoice_number ?? candidate.payment_id })"
+                            :aria-label="t('money.transferForm.amountReceipt', { receipt: candidate.invoice_number ?? candidate.payment_id })"
                             placeholder="0.00"
                             class="num h-11 w-32 rounded-control border border-line-input bg-surface px-3 text-right text-16"
                             :class="allocations[candidate.payment_id] ? '' : 'bg-muted'"
@@ -471,27 +471,27 @@ const generalError = computed(() => {
                             :class="{ 'text-positive': allocationState === 'full', 'text-warning-text': allocationState === 'partial', 'text-negative': allocationState === 'over' }"
                         >
                             <Icon v-if="allocationState === 'full'" name="check" :size="18" />
-                            {{ allocationState === 'over' ? t('Забагато') : allocationState === 'partial' ? t('Частково') : t('Розподілено') }}
+                            {{ allocationState === 'over' ? t('money.transferForm.tooMuch') : allocationState === 'partial' ? t('money.transferForm.partial') : t('money.transferForm.allocated') }}
                         </span>
                         <span class="num text-15 font-semibold">{{ formatAmount(allocated) }} / {{ formatAmount(sumAmounts(sent)) }}</span>
                     </div>
                 </div>
                 <p class="m-0 text-13 leading-normal text-ink-3">
-                    {{ t('Суми можна змінити. Нерозподілене лишається на рахунку і не губиться.') }}
+                    {{ t('money.transferForm.allocationHint') }}
                 </p>
             </section>
 
             <p v-if="proposalFailed" class="m-0 flex flex-wrap items-center gap-x-2 text-14 text-warning-text" role="alert">
-                {{ t('Не вдалося запропонувати, які надходження переказуєте.') }}
-                <button type="button" class="min-h-11 font-medium text-accent" @click="requestProposal">{{ t('Повторити') }}</button>
+                {{ t('money.transferForm.proposalFailed') }}
+                <button type="button" class="min-h-11 font-medium text-accent" @click="requestProposal">{{ t('core.common.retry') }}</button>
             </p>
 
-            <TextField v-model="form.reference" :label="t('Референс або примітка')" :placeholder="t('Необов\'язково')" />
+            <TextField v-model="form.reference" :label="t('money.transferForm.referenceNote')" :placeholder="t('core.common.optional')" />
 
             <TextAreaField
                 v-if="needsNote"
                 v-model="form.correction_note"
-                :label="t('Квартал уже задекларовано — що уточнюєте?')"
+                :label="t('money.payment.correctionQuestion')"
                 :rows="2"
             />
 
@@ -505,7 +505,7 @@ const generalError = computed(() => {
                 :disabled="loading || proposing || !form.from_account_id || !form.to_account_id || sent === null || received === null || allocationState === 'over'"
                 @click="save"
             >
-                {{ isNew ? t('Зберегти переказ') : t('Зберегти зміни') }}
+                {{ isNew ? t('money.transferForm.saveTransfer') : t('core.common.saveChanges') }}
             </PrimaryButton>
         </template>
     </SubScreen>

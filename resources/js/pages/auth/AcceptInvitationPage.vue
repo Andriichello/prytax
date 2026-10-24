@@ -47,22 +47,22 @@ async function submit(): Promise<void> {
 <template>
     <AuthLayout>
         <div v-if="done" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Запрошення прийнято') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Увійдіть зі своєю поштою і щойно заданим паролем.') }}</p>
-            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">{{ t('Увійти') }}</RouterLink>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.invitation.invitationAccepted') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.invitation.acceptedHint') }}</p>
+            <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">{{ t('shell.login.signIn') }}</RouterLink>
         </div>
 
         <div v-else-if="!isComplete" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Посилання неповне') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Відкрийте посилання з листа повністю або попросіть власника організації запросити вас знову.') }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.resetPassword.linkIncomplete') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.invitation.openWholeLink') }}</p>
         </div>
 
         <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Вас запрошено') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Задайте пароль, щоб приєднатися до організації.') }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.invitation.title') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.invitation.hint') }}</p>
             <TextField
                 v-model="password"
-                :label="t('Пароль')"
+                :label="t('shell.login.password')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -70,7 +70,7 @@ async function submit(): Promise<void> {
             />
             <TextField
                 v-model="confirmation"
-                :label="t('Повторіть пароль')"
+                :label="t('shell.resetPassword.confirmPassword')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -78,7 +78,7 @@ async function submit(): Promise<void> {
             <p v-if="error && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Приєднатися') }}</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.invitation.join') }}</PrimaryButton>
         </form>
     </AuthLayout>
 </template>

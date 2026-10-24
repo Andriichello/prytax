@@ -16,5 +16,5 @@ const steps = computed(() => STEPS.map((key) => ({ key, label: INVOICE_STATUSES[
 </script>
 
 <template>
-    <Stepper :steps="steps" :current="status" :label="t('Статус інвойсу')" />
+    <Stepper :steps="steps" :current="status" :label="t('invoices.detail.invoiceStatus')" />
 </template>

@@ -32,11 +32,11 @@ onBeforeUnmount(() => observer?.disconnect());
     <div ref="element" role="status" class="flex min-h-14 items-center justify-center gap-2.5 text-14 text-ink-3">
         <template v-if="loading">
             <Icon name="spinner" :size="20" class="animate-spin text-accent" />
-            <slot>{{ t('Завантаження…') }}</slot>
+            <slot>{{ t('core.common.loading') }}</slot>
         </template>
         <template v-else-if="failed">
-            <span>{{ t('Не вдалося завантажити далі.') }}</span>
-            <button type="button" class="min-h-11 px-1 text-14 font-medium text-accent" @click="emit('visible')">{{ t('Повторити') }}</button>
+            <span>{{ t('shell.ui.loadMoreFailed') }}</span>
+            <button type="button" class="min-h-11 px-1 text-14 font-medium text-accent" @click="emit('visible')">{{ t('core.common.retry') }}</button>
         </template>
     </div>
 </template>

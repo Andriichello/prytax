@@ -22,7 +22,7 @@ const isRead = computed(() => alert.read_at !== null);
 const context = computed(() => {
     const text = typeof alert.payload?.context === 'string' ? alert.payload.context : '';
 
-    return isRead.value ? [text, t('Прочитано')].filter(Boolean).join(' · ') : text;
+    return isRead.value ? [text, t('shell.alerts.read')].filter(Boolean).join(' · ') : text;
 });
 const percent = computed(() => (['limit', 'cap'].includes(alert.type) && typeof alert.payload?.percent === 'number'
     ? alert.payload.percent
@@ -56,7 +56,7 @@ async function act(): Promise<void> {
         @click="markRead"
     >
         <div class="flex items-center gap-2.5">
-            <span v-if="!isRead" role="img" :aria-label="t('Непрочитане')" class="size-2 shrink-0 rounded-full bg-accent" />
+            <span v-if="!isRead" role="img" :aria-label="t('shell.alerts.unread')" class="size-2 shrink-0 rounded-full bg-accent" />
             <span v-if="isRead" class="rounded-badge bg-paper px-2 py-[3px] text-12 font-medium text-ink-3">
                 {{ ALERT_SEVERITIES[alert.severity].label }}
             </span>
@@ -64,7 +64,7 @@ async function act(): Promise<void> {
             <span class="min-w-0 flex-1 truncate text-12 text-ink-3">{{ context }}</span>
             <button
                 type="button"
-                :aria-label="isRead ? t('Прочитано') : t('Позначити прочитаним')"
+                :aria-label="isRead ? t('shell.alerts.read') : t('shell.alerts.markRead')"
                 :aria-pressed="isRead ? 'true' : 'false'"
                 class="flex size-11 shrink-0 items-center justify-center text-ink-2"
                 @click.stop="markRead"

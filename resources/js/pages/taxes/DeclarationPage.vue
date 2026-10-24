@@ -21,7 +21,6 @@ import { t } from '@/i18n';
 import { dateParts, daysBetween, formatDate, formatDayMonth, monthName, quarterLabel, today } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, sumAmounts } from '@/utils/money';
-import { countOf, DAYS } from '@/utils/plural';
 import { DECLARATION_STATUSES } from '@/utils/statuses';
 
 /**
@@ -33,14 +32,14 @@ import { DECLARATION_STATUSES } from '@/utils/statuses';
 /**
  * The days of the week from Sunday, as `getUTCDay()` counts them, for the countdown of a deadline.
  */
-const weekdays = (): string[] => [t('неділя'), t('понеділок'), t('вівторок'), t('середа'), t('четвер'), t("п'ятниця"), t('субота')];
+const weekdays = (): string[] => [t('core.weekdays.sunday'), t('core.weekdays.monday'), t('core.weekdays.tuesday'), t('core.weekdays.wednesday'), t('core.weekdays.thursday'), t('core.weekdays.friday'), t('core.weekdays.saturday')];
 
 /**
  * The short names of the months, for the tiles of the deadlines.
  */
 const shortMonths = (): string[] => [
-    t('січ'), t('лют'), t('бер'), t('кві'), t('тра'), t('чер'),
-    t('лип'), t('сер'), t('вер'), t('жов'), t('лис'), t('гру'),
+    t('core.shortMonths.jan'), t('core.shortMonths.feb'), t('core.shortMonths.mar'), t('core.shortMonths.apr'), t('core.shortMonths.may'), t('core.shortMonths.jun'),
+    t('core.shortMonths.jul'), t('core.shortMonths.aug'), t('core.shortMonths.sep'), t('core.shortMonths.oct'), t('core.shortMonths.nov'), t('core.shortMonths.dec'),
 ];
 
 const route = useRoute();
@@ -71,7 +70,7 @@ const steps = computed(() => (status.value === 'corrected'
     ? [
         { key: 'submitted', label: DECLARATION_STATUSES.submitted.label },
         { key: 'corrected', label: DECLARATION_STATUSES.corrected.label },
-        { key: 'resubmitted', label: t('Уточнюючу подано') },
+        { key: 'resubmitted', label: t('accounting.declaration.correctiveFiled') },
         { key: 'accepted', label: DECLARATION_STATUSES.accepted.label },
     ]
     : [
@@ -82,8 +81,8 @@ const steps = computed(() => (status.value === 'corrected'
     ]));
 const stepKey = computed(() => (status.value === 'rejected' ? 'submitted' : status.value));
 const declaredBefore = computed(() => (quarter.value > 1
-    ? t('Задекларовано за {quarter}', { quarter: quarterLabel(quarter.value - 1) })
-    : t('Задекларовано раніше')));
+    ? t('accounting.declaration.declaredFor', { quarter: quarterLabel(quarter.value - 1) })
+    : t('accounting.declaration.declaredEarlier')));
 const ended = computed(() => {
     const lastMonth = quarter.value * 3;
     const end = new Date(Date.UTC(year.value, lastMonth, 0)).toISOString().slice(0, 10);
@@ -97,8 +96,8 @@ const taxesLeft = computed(() => (declaration.value
 
 /** The taxes of the declaration's figures, by their full names. */
 const declaredTaxes = computed(() => [
-    { key: 'single_tax' as const, name: t('Єдиний податок') },
-    { key: 'military_levy' as const, name: t('Військовий збір') },
+    { key: 'single_tax' as const, name: t('accounting.declaration.singleTax') },
+    { key: 'military_levy' as const, name: t('accounting.declaration.militaryLevy') },
 ]);
 
 function tile(date: string): { day: string; month: string } {
@@ -112,10 +111,10 @@ function countdown(date: string): string {
     const weekday = weekdays()[new Date(`${date}T12:00:00Z`).getUTCDay()];
 
     if (days > 0) {
-        return t('{weekday} · через {days}', { weekday, days: countOf(days, DAYS) });
+        return t('accounting.declaration.weekdayIn', { weekday, days: t('core.counts.days', { count: days }) });
     }
 
-    return days === 0 ? t('{weekday} · сьогодні', { weekday }) : t('строк минув {date}', { date: formatDate(date) });
+    return days === 0 ? t('accounting.declaration.weekdayToday', { weekday }) : t('accounting.declaration.dueDatePassed', { date: formatDate(date) });
 }
 
 /* The notes, saved when the field is left; they also go with every status change */
@@ -174,15 +173,15 @@ async function setStatus(next: DeclarationStatus): Promise<void> {
 const actions = computed<{ primary?: { label: string; status: DeclarationStatus }; secondary?: { label: string; status: DeclarationStatus } }>(() => {
     switch (status.value) {
         case 'none':
-            return { secondary: { label: DECLARATION_STATUSES.filled.label, status: 'filled' }, primary: { label: t('Позначити поданою'), status: 'submitted' } };
+            return { secondary: { label: DECLARATION_STATUSES.filled.label, status: 'filled' }, primary: { label: t('accounting.declaration.markFiled'), status: 'submitted' } };
         case 'filled':
-            return { primary: { label: t('Позначити поданою'), status: 'submitted' } };
+            return { primary: { label: t('accounting.declaration.markFiled'), status: 'submitted' } };
         case 'submitted':
             return { secondary: { label: DECLARATION_STATUSES.rejected.label, status: 'rejected' }, primary: { label: DECLARATION_STATUSES.accepted.label, status: 'accepted' } };
         case 'rejected':
-            return { secondary: { label: DECLARATION_STATUSES.filled.label, status: 'filled' }, primary: { label: t('Подано знову'), status: 'submitted' } };
+            return { secondary: { label: DECLARATION_STATUSES.filled.label, status: 'filled' }, primary: { label: t('accounting.declaration.filedAgain'), status: 'submitted' } };
         case 'corrected':
-            return { primary: { label: t('Уточнюючу подано'), status: 'submitted' } };
+            return { primary: { label: t('accounting.declaration.correctiveFiled'), status: 'submitted' } };
         default:
             return {};
     }
@@ -190,39 +189,39 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
 </script>
 
 <template>
-    <SubScreen :title="t('Податковий період')" muted :back="{ name: 'taxes', query: { year } }">
+    <SubScreen :title="t('accounting.declaration.taxPeriod')" muted :back="{ name: 'taxes', query: { year } }">
         <LoadState :loading="loading && !declaration" :error="error" @retry="reload">
             <template v-if="declaration">
                 <div class="-mt-1 flex flex-col gap-2">
                     <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">
                         {{ declaration.is_annual
-                            ? t('Річна декларація за {quarter} {year}', { quarter: quarterLabel(quarter), year })
-                            : t('Декларація за {quarter} {year}', { quarter: quarterLabel(quarter), year }) }}
+                            ? t('accounting.declaration.annualDeclaration', { quarter: quarterLabel(quarter), year })
+                            : t('accounting.taxes.declarationFor', { quarter: quarterLabel(quarter), year }) }}
                     </h1>
                     <div class="flex flex-wrap items-center gap-2">
                         <StatusBadge v-bind="DECLARATION_STATUSES[status]" />
                         <span v-if="declaration.period.declaration_submitted_at" class="text-13 text-ink-3">
-                            {{ t('подано {date}', { date: formatDate(declaration.period.declaration_submitted_at) }) }}
+                            {{ t('accounting.declaration.filedOn', { date: formatDate(declaration.period.declaration_submitted_at) }) }}
                         </span>
                     </div>
                 </div>
 
-                <Stepper :steps="steps" :current="stepKey" :label="t('Статус декларації')" />
+                <Stepper :steps="steps" :current="stepKey" :label="t('accounting.declaration.declarationStatus')" />
 
                 <p v-if="status === 'corrected'" class="m-0 rounded-card bg-warning-soft p-4 text-14 leading-normal text-warning">
-                    {{ t('Після подання декларації доходи або податки цього року змінено. Подайте уточнюючу декларацію і позначте її поданою.') }}
+                    {{ t('accounting.declaration.incomeChangedAfterFiling') }}
                 </p>
 
-                <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4" :aria-label="t('Строки')">
+                <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4" :aria-label="t('accounting.declaration.deadlines')">
                     <div class="flex items-center gap-3 py-3">
                         <span class="flex w-12 shrink-0 flex-col items-center rounded-control bg-accent-soft py-1.5 text-accent-hover">
                             <span class="num text-20 font-bold leading-tight">{{ tile(declaration.period.declaration_due_at).day }}</span>
                             <span class="text-11">{{ tile(declaration.period.declaration_due_at).month }}</span>
                         </span>
                         <span class="flex flex-col gap-0.5">
-                            <span class="text-16 font-medium">{{ t('Подати декларацію') }}</span>
-                            <span v-if="status === 'corrected'" class="text-13 font-semibold text-warning-text">{{ t('потрібна уточнююча декларація') }}</span>
-                            <span v-else class="text-13 text-ink-3">{{ ['submitted', 'accepted'].includes(status) ? t('подано') : countdown(declaration.period.declaration_due_at) }}</span>
+                            <span class="text-16 font-medium">{{ t('accounting.declaration.fileDeclaration') }}</span>
+                            <span v-if="status === 'corrected'" class="text-13 font-semibold text-warning-text">{{ t('accounting.declaration.correctiveDeclarationNeeded') }}</span>
+                            <span v-else class="text-13 text-ink-3">{{ ['submitted', 'accepted'].includes(status) ? t('accounting.declaration.filed') : countdown(declaration.period.declaration_due_at) }}</span>
                         </span>
                     </div>
                     <div class="flex items-center gap-3 py-3">
@@ -231,9 +230,9 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                             <span class="text-11">{{ tile(declaration.period.tax_due_at).month }}</span>
                         </span>
                         <span class="flex flex-col gap-0.5">
-                            <span class="text-16 font-medium">{{ t('Сплатити ЄП і ВЗ') }}</span>
-                            <span v-if="compareAmounts(taxesLeft, '0') > 0" class="text-13 text-negative"><Translated :text="t('залишок {amount}')"><template #amount><span class="num">{{ formatMoney(taxesLeft, 'UAH') }}</span></template></Translated></span>
-                            <span v-else class="text-13 text-positive">{{ t('сплачено') }}</span>
+                            <span class="text-16 font-medium">{{ t('accounting.declaration.paySingleTax') }}</span>
+                            <span v-if="compareAmounts(taxesLeft, '0') > 0" class="text-13 text-negative"><Translated :text="t('money.paymentForm.remainingAmount')"><template #amount><span class="num">{{ formatMoney(taxesLeft, 'UAH') }}</span></template></Translated></span>
+                            <span v-else class="text-13 text-positive">{{ t('accounting.taxReceipts.paid') }}</span>
                         </span>
                     </div>
                     <div v-if="declaration.esv_quarter" class="flex items-center gap-3 py-3">
@@ -242,13 +241,13 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                             <span class="text-11">{{ tile(declaration.esv_quarter.due_at).month }}</span>
                         </span>
                         <span class="flex flex-col gap-0.5">
-                            <span class="text-16 font-medium">{{ t('Сплатити ЄСВ') }}</span>
+                            <span class="text-16 font-medium">{{ t('accounting.declaration.paySsc') }}</span>
                             <span v-if="declaration.esv_quarter.is_paid" class="text-13 text-positive">
-                                {{ declaration.esv_quarter.paid_at ? t('сплачено {date}', { date: formatDayMonth(declaration.esv_quarter.paid_at) }) : t('сплачено') }} ·
+                                {{ declaration.esv_quarter.paid_at ? t('accounting.esv.paidOn', { date: formatDayMonth(declaration.esv_quarter.paid_at) }) : t('accounting.taxReceipts.paid') }} ·
                                 <span class="num">{{ formatAmount(declaration.esv_quarter.paid) }}</span>
                             </span>
                             <span v-else class="text-13 text-negative">
-                                <Translated :text="t('залишок {amount}')">
+                                <Translated :text="t('money.paymentForm.remainingAmount')">
                                     <template #amount><span class="num">{{ formatMoney(declaration.esv_quarter.balance?.replace('-', '') ?? declaration.esv_quarter.owed, 'UAH') }}</span></template>
                                 </Translated>
                             </span>
@@ -257,13 +256,13 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                 </section>
 
                 <section class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('Показники для декларації') }}</SectionTitle>
+                    <SectionTitle>{{ t('accounting.declaration.figures') }}</SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface pr-1 pl-4">
-                        <CopyRow :label="t('Дохід наростаючим з 01.01')" :value="declaration.income_ytd" :shown="formatAmount(declaration.income_ytd)" />
+                        <CopyRow :label="t('accounting.declaration.incomeYearToDate')" :value="declaration.income_ytd" :shown="formatAmount(declaration.income_ytd)" />
                         <div v-for="tax in declaredTaxes" :key="tax.key" class="flex flex-col gap-1.5 py-3 pr-3">
                             <span class="text-15 font-semibold">{{ tax.name }}, {{ Number((Number(declaration[tax.key].rate) * 100).toFixed(2)) }} %</span>
                             <span class="flex justify-between gap-3 text-14 text-ink-2">
-                                <span>{{ t('Нараховано з початку року') }}</span>
+                                <span>{{ t('accounting.declaration.owedYearToDate') }}</span>
                                 <span class="num">{{ formatAmount(declaration[tax.key].ytd) }}</span>
                             </span>
                             <span class="flex justify-between gap-3 text-14 text-ink-2">
@@ -271,14 +270,14 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
                                 <span class="num">{{ formatAmount(declaration[tax.key].previously_declared) }}</span>
                             </span>
                             <div class="-mr-3">
-                                <CopyRow :label="t('До сплати за {quarter}', { quarter: quarterLabel(quarter) })" :value="declaration[tax.key].to_pay" :shown="formatAmount(declaration[tax.key].to_pay)" />
+                                <CopyRow :label="t('accounting.declaration.owedFor', { quarter: quarterLabel(quarter) })" :value="declaration[tax.key].to_pay" :shown="formatAmount(declaration[tax.key].to_pay)" />
                             </div>
                         </div>
                         <div v-if="declaration.esv_months?.length" class="flex flex-col gap-1.5 py-3 pr-3">
-                            <span class="text-15 font-semibold">{{ t('ЄСВ, додаток 1') }}</span>
+                            <span class="text-15 font-semibold">{{ t('accounting.declaration.sscAppendix1') }}</span>
                             <span v-for="month in declaration.esv_months" :key="month.month" class="flex justify-between gap-3 text-14 text-ink-2">
                                 <span>{{ monthName(month.month) }}</span>
-                                <span class="num">{{ month.status === 'exempt' ? t('звільнено') : formatAmount(month.amount_due) }}</span>
+                                <span class="num">{{ month.status === 'exempt' ? t('accounting.esv.exempt') : formatAmount(month.amount_due) }}</span>
                             </span>
                         </div>
                     </div>
@@ -286,20 +285,20 @@ const actions = computed<{ primary?: { label: string; status: DeclarationStatus 
 
                 <p class="m-0 flex gap-3 rounded-card bg-accent-soft p-4 text-14 leading-normal text-accent-hover">
                     <Icon name="lock" :size="20" class="shrink-0" />
-                    {{ t('Після позначки «Подано» квартал блокується. Зміни в ньому потребуватимуть примітки й позначать цей і наступні квартали року як «потрібна уточнююча».') }}
+                    {{ t('accounting.declaration.lockedOnceFiled') }}
                 </p>
 
                 <TextAreaField
                     v-model="notes"
-                    :label="t('Примітки')"
+                    :label="t('accounting.declaration.notes')"
                     :rows="2"
-                    :placeholder="canUpdate ? t('Номер квитанції, коментар') : ''"
+                    :placeholder="canUpdate ? t('accounting.declaration.acknowledgmentNumberComment') : ''"
                     :disabled="!canUpdate"
                     @focusout="saveNotes"
                 />
 
-                <p v-if="!declaration.period.id" class="m-0 text-14 text-ink-3">{{ t('Цей квартал не відстежується, тож статус декларації не змінюється.') }}</p>
-                <p v-else-if="actions.primary?.status === 'submitted' && !ended" class="m-0 text-14 text-ink-3">{{ t('Подати можна після закінчення кварталу.') }}</p>
+                <p v-if="!declaration.period.id" class="m-0 text-14 text-ink-3">{{ t('accounting.declaration.quarterNotTracked') }}</p>
+                <p v-else-if="actions.primary?.status === 'submitted' && !ended" class="m-0 text-14 text-ink-3">{{ t('accounting.declaration.fileAfterQuarterEnds') }}</p>
                 <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ actionError }}</p>
             </template>
         </LoadState>

@@ -32,8 +32,8 @@ const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ saved: [] }>();
 
 const directions = computed<{ value: MovementDirection; label: string }[]>(() => [
-    { value: 'out', label: t('Списання') },
-    { value: 'in', label: t('Зарахування') },
+    { value: 'out', label: t('money.movement.moneyOut') },
+    { value: 'in', label: t('money.paymentForm.moneyIn') },
 ]);
 
 const { path } = useCurrentProfile();
@@ -122,24 +122,24 @@ const generalError = computed(() => (error.value && !['amount', 'booked_at', 'ca
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="movement ? t('Рух коштів') : t('Новий рух коштів')">
+    <BottomSheet v-model:open="open" :title="movement ? t('money.account.moneyMovement') : t('money.movement.newMovement')">
         <p class="m-0 text-14 leading-normal text-ink-2">
-            {{ t('Комісії банку, відсотки, витрати чи зняття — лише для балансу рахунку. Доходом ФОП вони не є.') }}
+            {{ t('money.movement.explained') }}
         </p>
-        <SegmentedControl v-model="form.direction" :label="t('Напрям')" size="lg" :options="directions" :disabled="!editable" />
-        <SelectField v-model="form.category" :label="t('Що це')" :options="categoryOptions" :disabled="!editable" :error="fieldError(error, 'category')" />
+        <SegmentedControl v-model="form.direction" :label="t('money.movement.direction')" size="lg" :options="directions" :disabled="!editable" />
+        <SelectField v-model="form.category" :label="t('money.movement.whatItIs')" :options="categoryOptions" :disabled="!editable" :error="fieldError(error, 'category')" />
         <div class="grid grid-cols-2 gap-2.5">
-            <TextField v-model="form.amount" :label="t('Сума, {currency}', { currency })" numeric :disabled="!editable" :error="fieldError(error, 'amount')" />
-            <DateField v-model="form.booked_at" :label="t('Дата')" :max="today()" :disabled="!editable" :error="fieldError(error, 'booked_at')" />
+            <TextField v-model="form.amount" :label="t('core.common.amountInCurrency', { currency })" numeric :disabled="!editable" :error="fieldError(error, 'amount')" />
+            <DateField v-model="form.booked_at" :label="t('core.common.date')" :max="today()" :disabled="!editable" :error="fieldError(error, 'booked_at')" />
         </div>
-        <TextField v-model="form.note" :label="t('Примітка')" :placeholder="t('Напр., обслуговування рахунку')" :disabled="!editable" :error="fieldError(error, 'note')" />
+        <TextField v-model="form.note" :label="t('core.common.note')" :placeholder="t('money.movement.descriptionPlaceholder')" :disabled="!editable" :error="fieldError(error, 'note')" />
         <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
         <template v-if="editable" #footer>
             <div class="grid gap-2.5" :class="movement ? 'grid-cols-[1fr_2fr]' : 'grid-cols-1'">
                 <SecondaryButton v-if="movement" tone="negative" :busy="saving" @click="remove">
-                    {{ confirmingRemoval ? t('Так, видалити') : t('Видалити') }}
+                    {{ confirmingRemoval ? t('core.common.yesDelete') : t('core.common.delete') }}
                 </SecondaryButton>
-                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.booked_at" @click="save">{{ t('Зберегти') }}</PrimaryButton>
+                <PrimaryButton :busy="saving" :disabled="parseAmount(form.amount) === null || !form.booked_at" @click="save">{{ t('core.common.save') }}</PrimaryButton>
             </div>
         </template>
     </BottomSheet>

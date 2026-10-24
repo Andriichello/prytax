@@ -18,15 +18,15 @@ const emit = defineEmits<{ retry: [] }>();
 const message = computed(() => {
     if (error instanceof ApiError) {
         if (error.status === 404) {
-            return t('Не знайдено: запис видалено, або він належить іншому ФОП.');
+            return t('shell.ui.notFound');
         }
 
         if (error.status === 403) {
-            return t('Недостатньо прав, щоб це переглянути.');
+            return t('shell.ui.forbidden');
         }
     }
 
-    return t('Не вдалося завантажити дані. Перевірте з’єднання і спробуйте ще раз.');
+    return t('shell.ui.loadFailed');
 });
 </script>
 
@@ -38,10 +38,10 @@ const message = computed(() => {
             class="flex min-h-11 items-center rounded-control border border-line-input bg-surface px-4 text-14 font-medium"
             @click="emit('retry')"
         >
-            {{ t('Спробувати ще раз') }}
+            {{ t('shell.ui.tryAgain') }}
         </button>
     </div>
-    <div v-else-if="loading" class="flex justify-center py-10 text-ink-3" role="status" :aria-label="t('Завантаження')">
+    <div v-else-if="loading" class="flex justify-center py-10 text-ink-3" role="status" :aria-label="t('shell.ui.loadingLabel')">
         <Icon name="spinner" class="animate-spin" />
     </div>
     <slot v-else />

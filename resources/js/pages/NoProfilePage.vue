@@ -21,11 +21,11 @@ async function leave(): Promise<void> {
 <template>
     <AuthLayout>
         <div class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Ще немає жодного ФОП') }}</h1>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.noProfile.noFopsYet') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                {{ t('Власник організації має додати ФОП, перш ніж {name} зможете працювати з обліком.', { name: user?.name ?? t('ви') }) }}
+                {{ t('shell.noProfile.explained', { name: user?.name ?? t('shell.noProfile.you') }) }}
             </p>
-            <button type="button" class="flex min-h-11 items-center self-start text-15 font-medium text-accent" @click="leave">{{ t('Вийти') }}</button>
+            <button type="button" class="flex min-h-11 items-center self-start text-15 font-medium text-accent" @click="leave">{{ t('shell.more.signOut') }}</button>
         </div>
     </AuthLayout>
 </template>

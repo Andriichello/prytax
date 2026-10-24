@@ -28,13 +28,13 @@ const emit = defineEmits<{ open: [] }>();
 /** The short names of the units, which translate when they are read. */
 const UNITS: Record<ItemUnit, string> = {
     get hour() {
-        return t('год');
+        return t('invoices.detail.hours');
     },
     get fixed() {
-        return t('фікс.');
+        return t('invoices.detail.fixed');
     },
     get item() {
-        return t('шт');
+        return t('invoices.detail.pcs');
     },
 };
 </script>
@@ -52,7 +52,7 @@ const UNITS: Record<ItemUnit, string> = {
             <span class="flex-1" />
             <Icon v-if="editable" name="chevronRight" :size="18" class="text-ink-2" />
         </span>
-        <span class="text-14 leading-[1.45]">{{ item.description || t('Без опису') }}</span>
+        <span class="text-14 leading-[1.45]">{{ item.description || t('invoices.detail.noDescription') }}</span>
         <span class="flex items-baseline justify-between border-t border-divider pt-2">
             <span class="num text-13 text-ink-2">
                 {{ formatAmount(item.quantity) }} {{ UNITS[item.unit] }}<template v-if="item.unit_price"> × {{ formatAmount(item.unit_price) }}</template>

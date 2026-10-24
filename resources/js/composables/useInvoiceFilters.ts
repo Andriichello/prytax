@@ -114,7 +114,7 @@ export function useInvoiceFilters() {
             return periodLabel(periods[0]!);
         }
 
-        return periods.length ? t('Період · {count}', { count: periods.length }) : null;
+        return periods.length ? t('invoices.list.periodCount', { count: periods.length }) : null;
     });
 
     function apply(next: InvoiceFilters): void {

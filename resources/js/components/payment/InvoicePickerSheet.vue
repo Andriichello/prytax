@@ -29,7 +29,7 @@ function choose(invoice: Invoice): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="title ?? t('Оберіть інвойс')">
+    <BottomSheet v-model:open="open" :title="title ?? t('money.paymentForm.chooseInvoice')">
         <div v-if="invoices.length" class="flex flex-col divide-y divide-divider overflow-hidden rounded-card border border-line bg-surface">
             <button
                 v-for="invoice in invoices"
@@ -43,7 +43,7 @@ function choose(invoice: Invoice): void {
                     <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
                     <span class="truncate text-15 font-light">{{ invoice.client?.name }}</span>
                     <span class="text-12 text-ink-3">
-                        <Translated :text="t('Залишок {remaining} з {total}')">
+                        <Translated :text="t('money.invoicePicker.remainingOfTotal')">
                             <template #remaining><span class="num">{{ formatMoney(subtractAmounts(invoice.total, invoice.paid_amount ?? '0'), invoice.currency) }}</span></template>
                             <template #total><span class="num">{{ formatAmount(invoice.total) }}</span></template>
                         </Translated>
@@ -53,7 +53,7 @@ function choose(invoice: Invoice): void {
             </button>
         </div>
         <p v-else class="m-0 text-15 text-ink-2">
-            {{ emptyText ?? t('Відкритих інвойсів немає. Надходження записують для зафіксованих інвойсів: готових або надісланих.') }}
+            {{ emptyText ?? t('money.invoicePicker.noOpenInvoices') }}
         </p>
     </BottomSheet>
 </template>

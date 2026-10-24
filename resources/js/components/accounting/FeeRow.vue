@@ -36,9 +36,9 @@ const tone = (value: string | null): string => (value === null ? 'text-ink-3' : 
             </span>
             <span class="text-12 text-ink-3"><slot /></span>
             <span class="text-12 text-ink-3">
-                <Translated v-if="compareAmounts(fees, '0') !== 0 || compareAmounts(spread, '0') === 0" :text="t('комісії {amount}')"><template #amount><span class="num">{{ formatAmount(fees) }}</span></template></Translated>
+                <Translated v-if="compareAmounts(fees, '0') !== 0 || compareAmounts(spread, '0') === 0" :text="t('accounting.fees.feesAmount')"><template #amount><span class="num">{{ formatAmount(fees) }}</span></template></Translated>
                 <template v-if="compareAmounts(fees, '0') !== 0 && compareAmounts(spread, '0') !== 0"> · </template>
-                <Translated v-if="compareAmounts(spread, '0') !== 0" :text="t('спред {amount}')"><template #amount><span class="num">{{ formatAmount(spread) }}</span></template></Translated>
+                <Translated v-if="compareAmounts(spread, '0') !== 0" :text="t('money.transfers.spreadAmount')"><template #amount><span class="num">{{ formatAmount(spread) }}</span></template></Translated>
                 ₴
             </span>
         </span>

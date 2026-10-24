@@ -4,7 +4,7 @@ import { computed } from 'vue';
 /**
  * A translated sentence with markup inside it: each `{name}` of the text is replaced by the slot of that name, so the
  * words keep the order of each language —
- * `<Translated :text="t('Останній номер {number}.')"><template #number><b>13</b></template></Translated>`.
+ * `<Translated :text="t('money.flow.feeAmount')"><template #fee><b>12.00 USD</b></template></Translated>`.
  */
 const { text } = defineProps<{
     /** The sentence, already translated with `t()`. */

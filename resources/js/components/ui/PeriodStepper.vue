@@ -20,7 +20,7 @@ const emit = defineEmits<{ previous: []; next: [] }>();
     <div role="group" :aria-label="label" class="flex items-center gap-2 rounded-button border border-line bg-surface p-1">
         <button
             type="button"
-            :aria-label="previousLabel ?? t('Попередній')"
+            :aria-label="previousLabel ?? t('shell.ui.previous')"
             :disabled="!canPrevious"
             class="flex size-11 items-center justify-center rounded-[10px] text-ink disabled:text-handle"
             @click="emit('previous')"
@@ -30,7 +30,7 @@ const emit = defineEmits<{ previous: []; next: [] }>();
         <span class="flex-1 text-center text-16 font-semibold" aria-live="polite">{{ label }}</span>
         <button
             type="button"
-            :aria-label="nextLabel ?? t('Наступний')"
+            :aria-label="nextLabel ?? t('shell.ui.next')"
             :disabled="!canNext"
             class="flex size-11 items-center justify-center rounded-[10px] text-ink disabled:text-handle"
             @click="emit('next')"

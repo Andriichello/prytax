@@ -100,7 +100,7 @@ async function saveMonth(): Promise<void> {
 </script>
 
 <template>
-    <TabScreen :title="t('Облік')">
+    <TabScreen :title="t('shell.nav.accounting')">
         <template #title-action>
             <YearSelect v-model="yearModel" />
         </template>
@@ -111,40 +111,40 @@ async function saveMonth(): Promise<void> {
             <template v-if="esv">
                 <div class="grid grid-cols-3 gap-2">
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Нараховано') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('accounting.esv.owed') }}</span>
                         <span class="num text-14 font-semibold">{{ formatAmount(esv.accrued) }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('Сплачено') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('core.common.paid') }}</span>
                         <span class="num text-14 font-semibold">{{ formatAmount(esv.paid) }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ compareAmounts(esv.balance, '0') > 0 ? t('Переплата') : t('Залишок') }}</span>
+                        <span class="text-12 text-ink-3">{{ compareAmounts(esv.balance, '0') > 0 ? t('accounting.esv.overpaid') : t('invoices.detail.balance') }}</span>
                         <span class="num text-14 font-semibold">{{ formatAmount(compareAmounts(esv.balance, '0') > 0 ? esv.balance : esv.remaining) }}</span>
                     </div>
                 </div>
                 <p class="-mt-1 m-0 text-12 leading-[1.45] text-ink-3">
-                    <Translated :text="t('{percent} % мінзарплати ({minWage}) = {monthly} на місяць. Генерується незалежно від доходу.', { percent: percentOfWage })">
+                    <Translated :text="t('accounting.esv.monthlyMinimum', { percent: percentOfWage })">
                         <template #minWage><span class="num">{{ formatAmount(esv.min_wage.replace(/\.00$/, '')) }} ₴</span></template>
                         <template #monthly><span class="num">{{ formatAmount(esv.monthly) }}</span></template>
                     </Translated>
                 </p>
 
-                <section class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="t('ЄСВ за місяцями')">
+                <section class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="t('accounting.esv.sscByMonth')">
                     <div :class="grid" class="border-b border-divider bg-paper-light py-2.5 text-12 font-semibold text-ink-3">
-                        <span>{{ t('Місяць') }}</span>
-                        <span class="text-right">{{ t('Нараховано') }}</span>
-                        <span class="text-right">{{ t('Сплачено') }}</span>
+                        <span>{{ t('core.common.month') }}</span>
+                        <span class="text-right">{{ t('accounting.esv.owed') }}</span>
+                        <span class="text-right">{{ t('core.common.paid') }}</span>
                         <span />
                     </div>
                     <template v-for="quarter in esv.quarters" :key="quarter.quarter">
                         <div class="flex justify-between gap-2 bg-paper px-3.5 py-2 text-12 text-ink-2">
-                            <span class="font-semibold"><Translated :text="t('{quarter} · до {date}', { quarter: quarterLabel(quarter.quarter) })"><template #date><span class="num">{{ deadline(quarter) }}</span></template></Translated></span>
+                            <span class="font-semibold"><Translated :text="t('accounting.esv.quarterDue', { quarter: quarterLabel(quarter.quarter) })"><template #date><span class="num">{{ deadline(quarter) }}</span></template></Translated></span>
                             <span class="text-right">
-                                <Translated v-if="quarter.is_paid && quarter.paid_at" :text="t('сплачено {date}')"><template #date><span class="num">{{ formatDayMonth(quarter.paid_at) }}</span></template></Translated>
-                                <Translated v-else-if="compareAmounts(quarter.pending, '0') > 0" :text="t('надіслано {amount}')"><template #amount><span class="num">{{ formatAmount(quarter.pending) }}</span></template></Translated>
-                                <span v-else-if="quarter.state === 'overdue'" class="text-negative">{{ t('прострочено') }}</span>
-                                <template v-if="quarter.is_annual">{{ quarter.is_paid || compareAmounts(quarter.pending, '0') > 0 || quarter.state === 'overdue' ? ' · ' : '' }}{{ t('річна декларація, додаток 1') }}</template>
+                                <Translated v-if="quarter.is_paid && quarter.paid_at" :text="t('accounting.esv.paidOn')"><template #date><span class="num">{{ formatDayMonth(quarter.paid_at) }}</span></template></Translated>
+                                <Translated v-else-if="compareAmounts(quarter.pending, '0') > 0" :text="t('shell.overview.sentAmount')"><template #amount><span class="num">{{ formatAmount(quarter.pending) }}</span></template></Translated>
+                                <span v-else-if="quarter.state === 'overdue'" class="text-negative">{{ t('core.common.overdue') }}</span>
+                                <template v-if="quarter.is_annual">{{ quarter.is_paid || compareAmounts(quarter.pending, '0') > 0 || quarter.state === 'overdue' ? ' · ' : '' }}{{ t('accounting.esv.annualDeclarationAppendix') }}</template>
                             </span>
                         </div>
                         <component
@@ -158,23 +158,23 @@ async function saveMonth(): Promise<void> {
                         >
                             <span>{{ monthName(month.month) }}</span>
                             <template v-if="month.status === 'exempt'">
-                                <span class="col-span-2 text-right text-13 text-ink-3">{{ t('звільнено') }}{{ month.note ? ` · ${month.note}` : '' }}</span>
+                                <span class="col-span-2 text-right text-13 text-ink-3">{{ t('accounting.esv.exempt') }}{{ month.note ? ` · ${month.note}` : '' }}</span>
                                 <span />
                             </template>
                             <template v-else-if="month.status === null">
-                                <span class="col-span-2 text-right text-13 text-ink-3">— · {{ t('не відстежується') }}</span>
+                                <span class="col-span-2 text-right text-13 text-ink-3">— · {{ t('accounting.esv.notTracked') }}</span>
                                 <span />
                             </template>
                             <template v-else>
                                 <span class="num text-right">{{ formatAmount(month.amount_due) }}</span>
                                 <span class="num text-right">{{ compareAmounts(month.paid, '0') > 0 ? formatAmount(month.paid) : '—' }}</span>
                                 <Icon v-if="compareAmounts(month.paid, month.amount_due) >= 0 && compareAmounts(month.amount_due, '0') > 0" name="check" :size="20" class="text-positive" />
-                                <span v-else class="size-4.5 rounded-[5px] border-2 border-ink-3" :aria-label="t('Не сплачено')" role="img" />
+                                <span v-else class="size-4.5 rounded-[5px] border-2 border-ink-3" :aria-label="t('accounting.esv.notPaid')" role="img" />
                             </template>
                         </component>
                     </template>
                     <div :class="grid" class="border-t border-line bg-paper-light py-3 text-15 font-semibold">
-                        <span>{{ t('Рік') }}</span>
+                        <span>{{ t('core.common.year') }}</span>
                         <span class="num text-right">{{ formatAmount(esv.accrued) }}</span>
                         <span class="num text-right">{{ formatAmount(esv.paid) }}</span>
                         <span />
@@ -186,22 +186,22 @@ async function saveMonth(): Promise<void> {
                     :to="{ name: 'tax-payment-new', query: { tax: 'social_contribution', year, quarter: toPay.quarter } }"
                     class="flex h-13 items-center justify-center rounded-button bg-accent text-16 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
                 >
-                    {{ t('Сплатити ЄСВ за {quarter}', { quarter: quarterLabel(toPay.quarter) }) }}
+                    {{ t('accounting.esv.paySsc', { quarter: quarterLabel(toPay.quarter) }) }}
                 </RouterLink>
                 <p class="m-0 text-13 leading-normal text-ink-3">
-                    {{ t('Можна сплатити більше мінімуму (до 15 мінзарплат): переплата зараховується в наступні квартали.') }}
-                    <template v-if="canChangeMonths">{{ t('Місяць, звільнений від сплати, позначте дотиком.') }}</template>
+                    {{ t('accounting.esv.payAboveMinimum') }}
+                    <template v-if="canChangeMonths">{{ t('accounting.esv.tapToExempt') }}</template>
                 </p>
             </template>
         </LoadState>
 
-        <BottomSheet v-model:open="monthOpen" :title="editing ? t('ЄСВ · {month} {year}', { month: monthName(editing.month), year }) : t('ЄСВ')">
-            <SwitchTile v-model="monthDraft.exempt" :label="t('Звільнено від сплати')" />
-            <TextField v-model="monthDraft.note" :label="t('Підстава')" :placeholder="t('Напр., воєнний стан, 2022–2024')" />
-            <p class="m-0 text-13 leading-normal text-ink-3">{{ t('Звільнений місяць нічого не нараховує.') }}</p>
+        <BottomSheet v-model:open="monthOpen" :title="editing ? t('accounting.esv.sscForMonth', { month: monthName(editing.month), year }) : t('core.taxes.socialContribution')">
+            <SwitchTile v-model="monthDraft.exempt" :label="t('accounting.esv.exemptPayment')" />
+            <TextField v-model="monthDraft.note" :label="t('accounting.esv.reason')" :placeholder="t('accounting.esv.reasonPlaceholder')" />
+            <p class="m-0 text-13 leading-normal text-ink-3">{{ t('accounting.esv.exemptMonthOwes') }}</p>
             <p v-if="monthError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(monthError) }}</p>
             <template #footer>
-                <PrimaryButton :busy="monthSaving" @click="saveMonth">{{ t('Зберегти') }}</PrimaryButton>
+                <PrimaryButton :busy="monthSaving" @click="saveMonth">{{ t('core.common.save') }}</PrimaryButton>
             </template>
         </BottomSheet>
     </TabScreen>

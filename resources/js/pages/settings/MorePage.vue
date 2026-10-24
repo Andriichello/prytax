@@ -23,11 +23,11 @@ import { t } from '@/i18n';
 function roleName(role: string): string {
     switch (role) {
         case 'owner':
-            return t('власник');
+            return t('core.roles.owner');
         case 'accountant':
-            return t('бухгалтер');
+            return t('core.roles.accountant');
         case 'viewer':
-            return t('перегляд');
+            return t('core.roles.viewer');
         default:
             return role;
     }
@@ -49,29 +49,29 @@ const { data: counts } = useLoader(async (signal) => {
 const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; visible?: boolean }[] }[]>(() => [
     {
         key: 'money',
-        title: t('Гроші й контрагенти'),
+        title: t('shell.more.moneyCounterparties'),
         items: [
-            { label: t('Рахунки'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
-            { label: t('Перекази та комісії'), icon: 'transfer', to: '/transfers' },
-            { label: t('Комісії й чистий дохід'), icon: 'percent', to: '/fees' },
-            { label: t('Клієнти й договори'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
+            { label: t('money.accounts.title'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
+            { label: t('shell.more.transfersFees'), icon: 'transfer', to: '/transfers' },
+            { label: t('shell.more.feesNetIncome'), icon: 'percent', to: '/fees' },
+            { label: t('shell.more.clientsContracts'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
         ],
     },
     {
         key: 'settings',
-        title: t('Налаштування ФОП'),
+        title: t('shell.more.fopSettings'),
         items: [
-            { label: t('Профіль і реквізити ФОП'), icon: 'person', to: '/settings/profile' },
-            { label: t('Нумерація інвойсів'), icon: 'hash', to: '/settings/numbering' },
-            { label: t('Податки й сповіщення'), icon: 'sliders', to: '/settings/taxes' },
+            { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
+            { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
+            { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
         ],
     },
     {
         key: 'organization',
-        title: t('Організація'),
+        title: t('shell.more.organization'),
         items: [
-            { label: t('Огляд усіх ФОП'), icon: 'overview', to: '/overview' },
-            { label: t('Користувачі й ролі'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
+            { label: t('shell.more.overviewAllFops'), icon: 'overview', to: '/overview' },
+            { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
         ],
     },
 ]);
@@ -92,7 +92,7 @@ async function leave(): Promise<void> {
 </script>
 
 <template>
-    <TabScreen :title="t('Ще')">
+    <TabScreen :title="t('shell.more.more')">
         <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
             <SectionTitle>{{ section.title }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -116,13 +116,13 @@ async function leave(): Promise<void> {
                     @click="leave"
                 >
                     <Icon name="signOut" :size="22" />
-                    <span class="flex-1 text-16">{{ t('Вийти') }}</span>
+                    <span class="flex-1 text-16">{{ t('shell.more.signOut') }}</span>
                 </button>
             </div>
         </section>
 
         <section class="flex flex-col gap-2">
-            <SectionTitle>{{ t('Мова') }}</SectionTitle>
+            <SectionTitle>{{ t('shell.more.language') }}</SectionTitle>
             <LanguageSwitch size="lg" />
         </section>
 

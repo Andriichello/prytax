@@ -26,5 +26,5 @@ const chosen = computed({
 </script>
 
 <template>
-    <SegmentedControl v-model="chosen" :label="t('Мова')" :size="size" :options="OPTIONS" />
+    <SegmentedControl v-model="chosen" :label="t('shell.more.language')" :size="size" :options="OPTIONS" />
 </template>

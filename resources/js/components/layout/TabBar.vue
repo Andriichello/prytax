@@ -7,11 +7,11 @@ import { t } from '@/i18n';
 import type { TabName } from '@/router';
 
 const TABS: { name: TabName; label: string; icon: IconName; to: string }[] = [
-    { name: 'home', get label() { return t('Головна'); }, icon: 'home', to: '/' },
-    { name: 'invoices', get label() { return t('Інвойси'); }, icon: 'invoice', to: '/invoices' },
-    { name: 'accounting', get label() { return t('Облік'); }, icon: 'ledger', to: '/accounting' },
-    { name: 'taxes', get label() { return t('Податки'); }, icon: 'bank', to: '/taxes' },
-    { name: 'more', get label() { return t('Ще'); }, icon: 'menu', to: '/more' },
+    { name: 'home', get label() { return t('shell.nav.home'); }, icon: 'home', to: '/' },
+    { name: 'invoices', get label() { return t('shell.nav.invoices'); }, icon: 'invoice', to: '/invoices' },
+    { name: 'accounting', get label() { return t('shell.nav.accounting'); }, icon: 'ledger', to: '/accounting' },
+    { name: 'taxes', get label() { return t('shell.nav.taxes'); }, icon: 'bank', to: '/taxes' },
+    { name: 'more', get label() { return t('shell.more.more'); }, icon: 'menu', to: '/more' },
 ];
 
 const route = useRoute();
@@ -20,7 +20,7 @@ const active = computed(() => route.meta.tab);
 
 <template>
     <nav
-        :aria-label="t('Основна навігація')"
+        :aria-label="t('shell.nav.mainNavigation')"
         class="sticky bottom-0 z-10 flex border-t border-line bg-surface px-1 pt-1.5 pb-[calc(env(safe-area-inset-bottom)+6px)]"
     >
         <RouterLink

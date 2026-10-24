@@ -13,11 +13,11 @@ export interface StatusLabel {
 }
 
 export const INVOICE_STATUSES: Record<InvoiceStatus, StatusLabel> = {
-    draft: { get label() { return t('Чернетка'); }, tone: 'neutral' },
-    ready: { get label() { return t('Готовий'); }, tone: 'info' },
-    sent: { get label() { return t('Надіслано'); }, tone: 'warning' },
-    paid: { get label() { return t('Оплачено'); }, tone: 'positive' },
-    cancelled: { get label() { return t('Скасовано'); }, tone: 'negative' },
+    draft: { get label() { return t('core.invoiceStatus.draft'); }, tone: 'neutral' },
+    ready: { get label() { return t('core.invoiceStatus.ready'); }, tone: 'info' },
+    sent: { get label() { return t('core.invoiceStatus.sent'); }, tone: 'warning' },
+    paid: { get label() { return t('core.invoiceStatus.paid'); }, tone: 'positive' },
+    cancelled: { get label() { return t('core.invoiceStatus.cancelled'); }, tone: 'negative' },
 };
 
 /**
@@ -29,25 +29,25 @@ export function unpaidStatusOf(invoice: Pick<Invoice, 'sent_at'>): StatusLabel {
 }
 
 export const ALERT_SEVERITIES: Record<AlertSeverity, StatusLabel> = {
-    info: { get label() { return t('Інфо'); }, tone: 'info' },
-    warning: { get label() { return t('Увага'); }, tone: 'warning' },
-    error: { get label() { return t('Терміново'); }, tone: 'negative' },
+    info: { get label() { return t('core.alertSeverity.info'); }, tone: 'info' },
+    warning: { get label() { return t('core.alertSeverity.warning'); }, tone: 'warning' },
+    error: { get label() { return t('core.alertSeverity.error'); }, tone: 'negative' },
 };
 
 export const DECLARATION_STATUSES: Record<DeclarationStatus, StatusLabel> = {
-    none: { get label() { return t('Не подано'); }, tone: 'neutral' },
-    filled: { get label() { return t('Заповнено'); }, tone: 'info' },
-    submitted: { get label() { return t('Подано'); }, tone: 'warning' },
-    accepted: { get label() { return t('Прийнято'); }, tone: 'positive' },
-    rejected: { get label() { return t('Відхилено'); }, tone: 'negative' },
+    none: { get label() { return t('core.declarationStatus.none'); }, tone: 'neutral' },
+    filled: { get label() { return t('core.declarationStatus.filled'); }, tone: 'info' },
+    submitted: { get label() { return t('core.declarationStatus.submitted'); }, tone: 'warning' },
+    accepted: { get label() { return t('core.declarationStatus.accepted'); }, tone: 'positive' },
+    rejected: { get label() { return t('core.declarationStatus.rejected'); }, tone: 'negative' },
     /** A write into the declared quarter (or an earlier one of the year) needs an уточнююча декларація. */
-    corrected: { get label() { return t('Потрібна уточнююча'); }, tone: 'warning' },
+    corrected: { get label() { return t('core.declarationStatus.corrected'); }, tone: 'warning' },
 };
 
 export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {
-    sent: { get label() { return t('Надіслано'); }, tone: 'warning' },
-    paid: { get label() { return t('Сплачено'); }, tone: 'positive' },
-    failed: { get label() { return t('Не пройшов'); }, tone: 'negative' },
+    sent: { get label() { return t('core.taxPaymentStatus.sent'); }, tone: 'warning' },
+    paid: { get label() { return t('core.taxPaymentStatus.paid'); }, tone: 'positive' },
+    failed: { get label() { return t('core.taxPaymentStatus.failed'); }, tone: 'negative' },
 };
 
 /**
@@ -56,12 +56,12 @@ export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {
  */
 export const TAX_TYPES: Record<TaxType, string> = {
     get single_tax() {
-        return t('ЄП');
+        return t('core.taxes.singleTax');
     },
     get military_levy() {
-        return t('ВЗ');
+        return t('core.taxes.militaryLevy');
     },
     get social_contribution() {
-        return t('ЄСВ');
+        return t('core.taxes.socialContribution');
     },
 };

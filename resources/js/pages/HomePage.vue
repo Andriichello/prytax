@@ -14,7 +14,6 @@ import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { dateParts, formatMonthYear } from '@/utils/dates';
 import { formatMoney } from '@/utils/money';
-import { countOf, INVOICES } from '@/utils/plural';
 
 /**
  * Головна: the open invoices (ready and sent) by month of their period's end, newest month first, and within a month
@@ -69,11 +68,11 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
 </script>
 
 <template>
-    <TabScreen :title="t('Головна')">
+    <TabScreen :title="t('shell.nav.home')">
         <template #action>
             <RouterLink
                 :to="{ name: 'alerts' }"
-                :aria-label="unread ? t('Сповіщення, непрочитаних: {count}', { count: unread }) : t('Сповіщення')"
+                :aria-label="unread ? t('invoices.home.notificationsUnread', { count: unread }) : t('shell.alerts.notifications')"
                 class="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
             >
                 <Icon name="bell" :size="22" />
@@ -88,21 +87,21 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
 
         <template #subtitle>
             <p v-if="data" class="m-0 text-14 text-ink-3">
-                <Translated v-if="toPay" :text="t('Відкриті інвойси · {amount} до оплати')">
+                <Translated v-if="toPay" :text="t('invoices.home.openInvoicesOutstanding')">
                     <template #amount><span class="num">{{ toPay }}</span></template>
                 </Translated>
-                <template v-else>{{ t('Відкриті інвойси') }}</template>
+                <template v-else>{{ t('invoices.home.openInvoices') }}</template>
             </p>
         </template>
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
-            <EmptyState v-if="months.length === 0" :text="t('Відкритих інвойсів немає: усі оплачені або ще в чернетках.')">
+            <EmptyState v-if="months.length === 0" :text="t('invoices.home.noOpenInvoices')">
                 <RouterLink
                     v-if="can('create', 'invoices')"
                     :to="{ name: 'invoice-new' }"
                     class="flex min-h-11 items-center text-14 font-medium no-underline"
                 >
-                    {{ t('Створити інвойс') }}
+                    {{ t('invoices.home.createInvoice') }}
                 </RouterLink>
             </EmptyState>
 
@@ -111,7 +110,7 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
                     <h2 :id="`month-${month.key}`" class="m-0 text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">
                         {{ month.title }}
                     </h2>
-                    <span class="num text-13 text-ink-2">{{ countOf(month.invoices.length, INVOICES) }}</span>
+                    <span class="num text-13 text-ink-2">{{ t('core.counts.invoices', { count: month.invoices.length }) }}</span>
                 </div>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <OpenInvoiceRow v-for="invoice in month.invoices" :key="invoice.id" :invoice="invoice" />
@@ -119,7 +118,7 @@ const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
             </section>
 
             <RouterLink :to="{ name: 'invoices' }" class="flex min-h-11 items-center self-center text-14 font-medium no-underline">
-                {{ t('Усі інвойси') }}
+                {{ t('invoices.home.allInvoices') }}
             </RouterLink>
         </LoadState>
     </TabScreen>

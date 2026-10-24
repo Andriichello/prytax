@@ -84,15 +84,15 @@ const mask = (value: string): string => {
 function entryTitle(entry: StatementEntry): string {
     switch (entry.type) {
         case 'receipt':
-            return t('Надходження · {title}', { title: entry.title ?? entry.invoice_number ?? '' });
+            return t('money.account.receiptTitle', { title: entry.title ?? entry.invoice_number ?? '' });
         case 'transfer_in':
-            return t('Переказ ← {account}', { account: entry.title });
+            return t('money.account.transferIn', { account: entry.title });
         case 'transfer_out':
-            return t('Переказ → {account}', { account: entry.title });
+            return t('money.account.transferOut', { account: entry.title });
         case 'tax':
-            return t('Сплата {tax}', { tax: TAX_TYPES[entry.title] });
+            return t('money.account.taxPayment', { tax: TAX_TYPES[entry.title] });
         case 'refund':
-            return entry.title ? t('Повернення клієнту · {reason}', { reason: entry.title }) : t('Повернення клієнту');
+            return entry.title ? t('money.account.refundReason', { reason: entry.title }) : t('money.refund.refundClient');
         default:
             return entry.title ? `${MOVEMENT_CATEGORIES[entry.category].label} · ${entry.title}` : MOVEMENT_CATEGORIES[entry.category].label;
     }
@@ -113,14 +113,14 @@ function entryLink(entry: StatementEntry) {
 </script>
 
 <template>
-    <SubScreen :title="t('Рахунок')" muted :back="{ name: 'accounts' }">
+    <SubScreen :title="t('money.account.account')" muted :back="{ name: 'accounts' }">
         <template #action>
             <RouterLink
                 v-if="account && can('update', 'accounts')"
                 :to="{ name: 'account-edit', params: { id } }"
                 class="flex min-h-11 items-center px-3 text-15 font-medium no-underline"
             >
-                {{ t('Змінити') }}
+                {{ t('core.common.edit') }}
             </RouterLink>
         </template>
 
@@ -129,39 +129,39 @@ function entryLink(entry: StatementEntry) {
                 <div class="-mt-1 flex flex-col gap-1.5">
                     <div class="flex gap-2">
                         <StatusBadge :label="`${ACCOUNT_KINDS[account.kind].label} · ${account.currency}`" />
-                        <StatusBadge v-if="!account.is_active" :label="t('Неактивний')" tone="negative" />
+                        <StatusBadge v-if="!account.is_active" :label="t('core.common.inactive')" tone="negative" />
                     </div>
                     <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ account.name }}</h1>
                 </div>
 
-                <section class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('Баланс')">
+                <section class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('money.account.balance')">
                     <div class="flex flex-col gap-0.5">
-                        <span class="text-14 text-ink-3">{{ t('Баланс за відстежуваними рухами') }}</span>
+                        <span class="text-14 text-ink-3">{{ t('money.account.balanceTrackedMovements') }}</span>
                         <span class="num text-30 font-bold">{{ formatMoney(statement.balance, account.currency) }}</span>
                     </div>
                     <div class="flex flex-col divide-y divide-divider border-t border-divider text-15">
                         <div class="flex justify-between gap-3 py-2.5">
-                            <span class="text-ink-2">{{ t('Надходження') }}</span>
+                            <span class="text-ink-2">{{ t('core.common.receipts') }}</span>
                             <span class="num font-semibold text-positive">{{ formatAmount(statement.flows.inbound, { signed: true }) }}</span>
                         </div>
                         <div class="flex justify-between gap-3 py-2.5">
-                            <span class="text-ink-2">{{ t('Перекази') }}</span>
+                            <span class="text-ink-2">{{ t('money.transfers.title') }}</span>
                             <span class="num font-semibold text-negative">{{ formatAmount(`-${statement.flows.outbound}`) }}</span>
                         </div>
                     </div>
                     <template v-if="statement.limit">
                         <ProgressBar :percent="Number(statement.limit.percent)" :warn-from="80" />
                         <span class="flex justify-between gap-3 text-13 text-ink-2">
-                            <span>{{ t('Ліміт {from} – {to}', { from: formatDate(statement.limit.from), to: formatDate(statement.limit.to) }) }}</span>
+                            <span>{{ t('money.account.limitWindow', { from: formatDate(statement.limit.from), to: formatDate(statement.limit.to) }) }}</span>
                             <span class="num">{{ formatAmount(statement.limit.used) }} / {{ formatAmount(statement.limit.limit) }} · {{ statement.limit.percent }} %</span>
                         </span>
                     </template>
                     <p class="m-0 text-12 leading-normal text-ink-3">
-                        <Translated :text="t('{year} рік · витрати та особисті зняття не відстежуються')">
+                        <Translated :text="t('money.account.yearNote')">
                             <template #year><span class="num">{{ statement.year }}</span></template>
                         </Translated>
                         <template v-if="opening">
-                            · <Translated :text="t('від залишку {amount} на {date}')">
+                            · <Translated :text="t('money.account.fromOpeningBalance')">
                                 <template #amount><span class="num">{{ formatMoney(opening.amount, account.currency) }}</span></template>
                                 <template #date><span class="num">{{ formatDate(opening.as_of) }}</span></template>
                             </Translated>
@@ -171,10 +171,10 @@ function entryLink(entry: StatementEntry) {
 
                 <section v-if="statement.holdings.length" class="flex flex-col gap-2">
                     <SectionTitle>
-                        {{ t('Невиведені надходження') }}
+                        {{ t('money.account.receiptsNotWithdrawn') }}
                         <template v-if="can('create', 'account-transfers') && account.is_active" #aside>
                             <RouterLink :to="{ name: 'transfer-new', query: { from: account.id } }" class="flex min-h-11 items-center text-15 font-medium no-underline">
-                                {{ t('Вивести') }}
+                                {{ t('money.account.withdraw') }}
                             </RouterLink>
                         </template>
                     </SectionTitle>
@@ -191,7 +191,7 @@ function entryLink(entry: StatementEntry) {
                                     <span :class="holding.invoice_number ? 'num' : ''">{{ holding.invoice_number ?? holding.description }}</span>
                                 </span>
                                 <span v-if="holding.is_late && holding.repatriation_deadline" class="text-12 text-warning-text">
-                                    {{ t('{quarter} — мало бути виведено до {date}', { quarter: quarterLabel(quarterOf(holding.received_at)), date: formatDayMonth(holding.repatriation_deadline) }) }}
+                                    {{ t('money.account.lateSince', { quarter: quarterLabel(quarterOf(holding.received_at)), date: formatDayMonth(holding.repatriation_deadline) }) }}
                                 </span>
                                 <span v-else class="truncate text-12 text-ink-3">{{ holding.client_name }}</span>
                             </span>
@@ -202,20 +202,20 @@ function entryLink(entry: StatementEntry) {
 
                 <section class="flex flex-col gap-2">
                     <SectionTitle>
-                        {{ t('Рух коштів') }}
+                        {{ t('money.account.moneyMovement') }}
                         <template v-if="can('create', 'account-movements')" #aside>
-                            <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openMovement(null)">{{ t('+ Комісія, витрата') }}</button>
+                            <button type="button" class="flex min-h-11 items-center text-15 font-medium text-accent" @click="openMovement(null)">{{ t('money.account.addMovement') }}</button>
                         </template>
                     </SectionTitle>
                     <PeriodStepper
-                        :label="t('{year} рік', { year })"
+                        :label="t('money.account.yearTitle', { year })"
                         :can-next="year < now"
-                        :previous-label="t('Попередній рік')"
-                        :next-label="t('Наступний рік')"
+                        :previous-label="t('core.common.previousYear')"
+                        :next-label="t('core.common.nextYear')"
                         @previous="year -= 1"
                         @next="year += 1"
                     />
-                    <EmptyState v-if="statement.history.length === 0" :text="t('Рухів за цей рік немає.')" />
+                    <EmptyState v-if="statement.history.length === 0" :text="t('money.account.noMovementsYear')" />
                     <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                         <component
                             :is="entryTag(entry)"
@@ -231,9 +231,9 @@ function entryLink(entry: StatementEntry) {
                                 <span class="text-12 text-ink-3">
                                     <span class="num">{{ formatDate(entry.date) }}</span>
                                     <template v-if="(entry.type === 'receipt' || entry.type === 'transfer_out') && entry.fee && Number(entry.fee) !== 0">
-                                        · <Translated :text="t('комісія {fee}')"><template #fee><span class="num">{{ formatAmount(entry.fee) }}</span></template></Translated>
+                                        · <Translated :text="t('money.flow.feeAmount')"><template #fee><span class="num">{{ formatAmount(entry.fee) }}</span></template></Translated>
                                     </template>
-                                    <template v-if="entry.type === 'tax' && entry.status === 'sent'"> · {{ t('надіслано') }}</template>
+                                    <template v-if="entry.type === 'tax' && entry.status === 'sent'"> · {{ t('money.account.sent') }}</template>
                                 </span>
                             </span>
                             <span class="num text-15 font-semibold" :class="entry.amount.startsWith('-') ? 'text-negative' : 'text-positive'">
@@ -244,10 +244,10 @@ function entryLink(entry: StatementEntry) {
                 </section>
 
                 <section v-if="hasRequisites" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('Реквізити для інвойсів') }}</SectionTitle>
+                    <SectionTitle>{{ t('money.account.paymentDetailsInvoices') }}</SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface pr-1 pl-4">
-                        <CopyRow v-if="account.holder_name" :label="t('Отримувач')" :value="account.holder_name" :figure="false" />
-                        <CopyRow v-if="account.bank_name" :label="t('Банк')" :value="account.bank_name" :figure="false" />
+                        <CopyRow v-if="account.holder_name" :label="t('core.common.recipient')" :value="account.holder_name" :figure="false" />
+                        <CopyRow v-if="account.bank_name" :label="t('money.account.bank')" :value="account.bank_name" :figure="false" />
                         <CopyRow v-if="account.iban" label="IBAN" :value="account.iban" :shown="mask(account.iban)" />
                         <CopyRow v-if="account.account_number" label="Account number" :value="account.account_number" :shown="mask(account.account_number)" />
                         <CopyRow v-if="account.swift" label="SWIFT / BIC" :value="account.swift" />
@@ -267,7 +267,7 @@ function entryLink(entry: StatementEntry) {
                     class="flex h-12 items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent no-underline"
                 >
                     <Icon name="plus" :size="20" />
-                    {{ t('Додати реквізити для інвойсів') }}
+                    {{ t('money.account.addPaymentDetails') }}
                 </RouterLink>
             </template>
         </LoadState>

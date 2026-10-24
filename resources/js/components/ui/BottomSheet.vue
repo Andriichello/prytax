@@ -105,7 +105,7 @@ onBeforeUnmount(release);
                         <slot name="action">
                             <button
                                 type="button"
-                                :aria-label="t('Закрити')"
+                                :aria-label="t('shell.ui.close')"
                                 class="flex size-11 items-center justify-center text-ink"
                                 @click="close"
                             >

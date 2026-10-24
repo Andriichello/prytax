@@ -54,13 +54,13 @@ async function leave(): Promise<void> {
 <template>
     <AuthLayout>
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Задайте свій пароль') }}</h1>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.changePassword.title') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                {{ t('Пароль для {email} задав не ви, тож перед роботою його треба змінити.', { email: user?.email ?? '' }) }}
+                {{ t('shell.changePassword.explained', { email: user?.email ?? '' }) }}
             </p>
             <TextField
                 v-model="current"
-                :label="t('Поточний пароль')"
+                :label="t('shell.changePassword.currentPassword')"
                 type="password"
                 autocomplete="current-password"
                 required
@@ -68,7 +68,7 @@ async function leave(): Promise<void> {
             />
             <TextField
                 v-model="password"
-                :label="t('Новий пароль')"
+                :label="t('shell.resetPassword.newPassword')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -76,7 +76,7 @@ async function leave(): Promise<void> {
             />
             <TextField
                 v-model="confirmation"
-                :label="t('Повторіть новий пароль')"
+                :label="t('shell.changePassword.confirmNewPassword')"
                 type="password"
                 autocomplete="new-password"
                 required
@@ -84,8 +84,8 @@ async function leave(): Promise<void> {
             <p v-if="error && !fieldError(error, 'current_password') && !fieldError(error, 'password')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Зберегти пароль') }}</PrimaryButton>
-            <button type="button" class="flex min-h-11 items-center self-center text-15 font-medium text-accent" @click="leave">{{ t('Вийти') }}</button>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.resetPassword.savePassword') }}</PrimaryButton>
+            <button type="button" class="flex min-h-11 items-center self-center text-15 font-medium text-accent" @click="leave">{{ t('shell.more.signOut') }}</button>
         </form>
     </AuthLayout>
 </template>

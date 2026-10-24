@@ -67,28 +67,28 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
-                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('Перекази') }}</h1>
+                <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.transfers.title') }}</h1>
                 <RouterLink
                     v-if="can('create', 'account-transfers')"
                     :to="{ name: 'transfer-new' }"
                     class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
                 >
                     <Icon name="plus" :size="20" />
-                    {{ t('Новий') }}
+                    {{ t('core.common.new') }}
                 </RouterLink>
             </div>
-            <p class="m-0 text-14 text-ink-3">{{ t('Рух коштів між вашими рахунками. Не є доходом.') }}</p>
+            <p class="m-0 text-14 text-ink-3">{{ t('money.transfers.intro') }}</p>
         </div>
 
         <section v-if="stats && stats.routes.length" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-            <SectionTitle as="span">{{ t('Втрати {year} · за маршрутами', { year }) }}</SectionTitle>
+            <SectionTitle as="span">{{ t('money.transfers.lossesByRoute', { year }) }}</SectionTitle>
             <div class="grid grid-cols-2 gap-2">
                 <div class="flex flex-col gap-1 rounded-control bg-paper p-3">
-                    <span class="text-13 text-ink-3">{{ t('Комісії') }}</span>
+                    <span class="text-13 text-ink-3">{{ t('money.transfers.fees') }}</span>
                     <span class="num text-17 font-bold">{{ formatMoney(stats.fees_uah, 'UAH') }}</span>
                 </div>
                 <div class="flex flex-col gap-1 rounded-control bg-paper p-3">
-                    <span class="text-13 text-ink-3">{{ t('Курсовий спред') }}</span>
+                    <span class="text-13 text-ink-3">{{ t('money.transfers.fxSpread') }}</span>
                     <span class="num text-17 font-bold">{{ formatMoney(stats.spread_uah, 'UAH') }}</span>
                 </div>
             </div>
@@ -106,14 +106,14 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
                 </div>
             </div>
             <p v-if="stats.unknown_fees_count" class="m-0 text-12 text-ink-3">
-                {{ t('Без курсу НБУ не пораховано комісій: {count}.', { count: stats.unknown_fees_count }) }}
+                {{ t('money.transfers.feesWithoutRate', { count: stats.unknown_fees_count }) }}
             </p>
         </section>
 
         <LoadState :loading="list.loading.value && list.items.value.length === 0" :error="list.error.value" @retry="list.reload">
-            <EmptyState v-if="!list.loading.value && list.items.value.length === 0" :text="t('Переказів ще немає.')">
+            <EmptyState v-if="!list.loading.value && list.items.value.length === 0" :text="t('money.transfers.noTransfersYet')">
                 <RouterLink v-if="can('create', 'account-transfers')" :to="{ name: 'transfer-new' }" class="flex min-h-11 items-center text-14 font-medium no-underline">
-                    {{ t('Записати переказ') }}
+                    {{ t('money.transfers.recordTransfer') }}
                 </RouterLink>
             </EmptyState>
 

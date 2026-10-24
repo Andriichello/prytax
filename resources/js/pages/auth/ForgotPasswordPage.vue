@@ -38,23 +38,23 @@ async function submit(): Promise<void> {
 <template>
     <AuthLayout>
         <div v-if="sent" class="flex flex-col gap-4">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Перевірте пошту') }}</h1>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.forgotPassword.checkEmail') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                <Translated :text="t('Якщо {email} належить обліковому запису, ми надіслали на неї посилання для зміни пароля. Воно діє годину.')">
+                <Translated :text="t('shell.forgotPassword.sent')">
                     <template #email><span class="font-medium text-ink">{{ email }}</span></template>
                 </Translated>
             </p>
             <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center text-15 font-medium no-underline">
-                {{ t('Повернутися до входу') }}
+                {{ t('shell.forgotPassword.backToSignIn') }}
             </RouterLink>
         </div>
 
         <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="submit">
-            <h1 class="m-0 text-22 font-semibold">{{ t('Зміна пароля') }}</h1>
-            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('Надішлемо посилання для нового пароля на вашу пошту.') }}</p>
+            <h1 class="m-0 text-22 font-semibold">{{ t('shell.forgotPassword.title') }}</h1>
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.forgotPassword.hint') }}</p>
             <TextField
                 v-model="email"
-                :label="t('Електронна пошта')"
+                :label="t('shell.login.email')"
                 type="email"
                 autocomplete="username"
                 required
@@ -63,9 +63,9 @@ async function submit(): Promise<void> {
             <p v-if="error && !fieldError(error, 'email')" class="m-0 text-14 text-negative" role="alert">
                 {{ errorMessage(error) }}
             </p>
-            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('Надіслати посилання') }}</PrimaryButton>
+            <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.forgotPassword.sendLink') }}</PrimaryButton>
             <RouterLink :to="{ name: 'login' }" class="flex min-h-11 items-center justify-center text-15 font-medium no-underline">
-                {{ t('Повернутися до входу') }}
+                {{ t('shell.forgotPassword.backToSignIn') }}
             </RouterLink>
         </form>
     </AuthLayout>

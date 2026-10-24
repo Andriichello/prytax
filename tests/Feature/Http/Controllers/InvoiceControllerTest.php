@@ -580,6 +580,65 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that the style preview renders the client's latest invoice in the asked style and language as a PDF, for a
+     * viewer too, and saves nothing: the draft keeps its own settings and gets no number or file.
+     *
+     * @return void
+     */
+    public function testPreviewsAStyleOnTheClientsLatestInvoiceWithoutSavingIt(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile);
+        $id = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
+        ])->json('data.id');
+        $this->actAs($profile, 'viewer');
+
+        $response = $this->get($this->profilePath($profile, "invoices/style-preview?style=colored&locale=uk&client_id={$client->id}"));
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertDatabaseHas('invoices', ['id' => $id, 'style' => null, 'locale' => null, 'number' => null]);
+        $this->assertDatabaseCount('files', 0);
+    }
+
+    /**
+     * Test that the style preview of a profile without any invoice renders a demo invoice.
+     *
+     * @return void
+     */
+    public function testPreviewsAStyleOnADemoInvoiceWithoutAnyInvoice(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+
+        $response = $this->get($this->profilePath($profile, 'invoices/style-preview?style=andriichello_carpathians'));
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    /**
+     * Test that the style preview refuses an unknown style and another profile's client with 422.
+     *
+     * @return void
+     */
+    public function testReturns422ForAPreviewOfAnUnknownStyleOrAnotherProfilesClient(): void
+    {
+        $profile = $this->createProfile();
+        [$stranger] = $this->createClientWithContract($this->createProfile($profile->organization));
+        $this->actAs($profile);
+
+        $this->getJson($this->profilePath($profile, "invoices/style-preview?style=glitter&client_id={$stranger->id}"))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['style', 'client_id']);
+    }
+
+    /**
      * Test that a draft's payment purpose with a placeholder outside of the whitelist is refused with 422.
      *
      * @return void

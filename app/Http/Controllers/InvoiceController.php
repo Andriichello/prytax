@@ -10,7 +10,10 @@ use Core\Http\Requests\Crud\UpdateRequest;
 use Core\Http\Responses\ApiResponse;
 use Core\Models\File;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use PryTax\Enums\InvoiceLocale;
+use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\Decimal;
 use PryTax\Http\Requests\Invoices\CancelInvoiceRequest;
 use PryTax\Http\Requests\Invoices\FindDuplicateFilesRequest;
@@ -18,6 +21,7 @@ use PryTax\Http\Requests\Invoices\FreezeInvoiceRequest;
 use PryTax\Http\Requests\Invoices\InvoiceDefaultsRequest;
 use PryTax\Http\Requests\Invoices\PayInvoiceRequest;
 use PryTax\Http\Requests\Invoices\PreviewNumberRequest;
+use PryTax\Http\Requests\Invoices\PreviewStyleRequest;
 use PryTax\Http\Requests\Invoices\SendInvoiceRequest;
 use PryTax\Http\Requests\Invoices\SetCounterRequest;
 use PryTax\Http\Requests\Invoices\StoreInvoiceRequest;
@@ -33,6 +37,7 @@ use PryTax\Services\Invoices\InvoiceFreezer;
 use PryTax\Services\Invoices\InvoiceLifecycle;
 use PryTax\Services\Invoices\InvoiceNumberGenerator;
 use PryTax\Services\Invoices\InvoicePdfRenderer;
+use PryTax\Services\Invoices\InvoiceStylePreview;
 use PryTax\Services\Invoices\InvoiceWriter;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -83,6 +88,7 @@ class InvoiceController extends TenantController
         'pay' => PayInvoiceRequest::class,
         'cancel' => CancelInvoiceRequest::class,
         'pdf' => ShowRequest::class,
+        'stylePreview' => PreviewStyleRequest::class,
         'previewNumber' => PreviewNumberRequest::class,
         'counters' => IndexRequest::class,
         'setCounter' => SetCounterRequest::class,
@@ -102,6 +108,7 @@ class InvoiceController extends TenantController
      * @param InvoiceNumberGenerator $numbers
      * @param InvoicePdfRenderer $renderer
      * @param InvoiceWriter $writer
+     * @param InvoiceStylePreview $stylePreviews
      */
     public function __construct(
         InvoicePolicy $policy,
@@ -110,7 +117,8 @@ class InvoiceController extends TenantController
         protected InvoiceLifecycle $lifecycle,
         protected InvoiceNumberGenerator $numbers,
         protected InvoicePdfRenderer $renderer,
-        protected InvoiceWriter $writer
+        protected InvoiceWriter $writer,
+        protected InvoiceStylePreview $stylePreviews
     ) {
         parent::__construct($policy, $repository);
     }
@@ -232,6 +240,35 @@ class InvoiceController extends TenantController
         }
 
         return $file->download();
+    }
+
+    /**
+     * Render a PDF of an invoice in a style, which the style picker previews: the given invoice, or the client's or the
+     * ФОП's latest one, or else a demo one, in the asked style and language. Nothing is stored.
+     *
+     * @param Request $request
+     *
+     * @return Response
+     */
+    public function stylePreview(Request $request): Response
+    {
+        /** @var PreviewStyleRequest $preview */
+        $preview = $this->prepareRequest('stylePreview', $request);
+        $data = $preview->validated();
+
+        $pdf = $this->stylePreviews->render(
+            $this->profileOf($preview),
+            InvoiceStyle::from($data['style']),
+            InvoiceLocale::tryFrom((string) ($data['locale'] ?? '')),
+            isset($data['client_id']) ? Client::query()->findOrFail($data['client_id']) : null,
+            isset($data['invoice_id']) ? Invoice::query()->findOrFail($data['invoice_id']) : null,
+        );
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="preview.pdf"',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     /**

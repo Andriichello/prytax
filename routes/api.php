@@ -104,6 +104,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('invoices/facets', [InvoiceController::class, 'facets'])->name('invoices.facets');
                     Route::get('invoices/duplicates', [InvoiceController::class, 'duplicates'])->name('invoices.duplicates');
                     Route::get('invoices/number-preview', [InvoiceController::class, 'previewNumber'])->name('invoices.number-preview');
+                    Route::get('invoices/style-preview', [InvoiceController::class, 'stylePreview'])->name('invoices.style-preview');
                     $crud('invoices', InvoiceController::class, $all, 'invoices');
 
                     foreach (['freeze', 'unfreeze', 'send', 'pay', 'cancel'] as $operation) {

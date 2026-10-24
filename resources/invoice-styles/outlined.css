@@ -1,4 +1,4 @@
-/* outlined: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* outlined: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-outlined .party-details.contacts .sp { color:#C4B49F; }
 .s-outlined { position:relative; }
 .s-outlined .rule-double { border-top:3pt solid #17191F; border-bottom:0.75pt solid #17191F; height:1.5pt; margin:0 0 18pt; }

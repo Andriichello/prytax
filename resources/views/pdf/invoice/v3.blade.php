@@ -1,5 +1,5 @@
 {{--
-    The PDF of an invoice (template v3, INVOICE_STYLES.md), rendered from a snapshot of version 2 or 3. $doc: the
+    The PDF of an invoice (template v3, docs/specs/invoice.md), rendered from a snapshot of version 2 or 3. $doc: the
     InvoiceDocument, which InvoicePdfRenderer builds of it, in the snapshot's language and style; $css: the shared rules
     and the style's own. Every style shares this structure, and differs by its CSS class and its few extra elements
     ($doc->layout). The fonts beyond DejaVu (Plex Mono, Unbounded) are installed with dompdf by the renderer.

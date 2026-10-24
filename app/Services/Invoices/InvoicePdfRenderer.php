@@ -22,7 +22,7 @@ use PryTax\Models\Invoice;
  * Renders an invoice's PDF from its snapshot only, never from live relations, in the money format, which the snapshot
  * keeps (design.md §4, §10), with dompdf and its bundled DejaVu fonts for Cyrillic. Each generated file records its
  * template, so old invoices keep rendering after the template changes: a snapshot of version 1 renders with template
- * v1 as it always did; a newer one with v3 (INVOICE_STYLES.md), in the snapshot's language and style, whose texts,
+ * v1 as it always did; a newer one with v3 (docs/specs/invoice.md), in the snapshot's language and style, whose texts,
  * classes, column widths and decoration InvoiceDocument carries. Version 2 snapshots never left development; they
  * render with v3 as `outlined`, their footer note as another note. The language is passed to every translation, never
  * set on the application. Every page is numbered at its bottom right, once dompdf knows how many there are.

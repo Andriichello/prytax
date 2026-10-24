@@ -1,4 +1,4 @@
-/* vivid: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* vivid: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-vivid { position:relative; }
 .s-vivid .topbar { position:absolute; left:0; right:0; top:0; height:7pt; background:#0F766E; }
 .s-vivid .content { padding-top:6pt; }

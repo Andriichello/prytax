@@ -19,7 +19,7 @@ use Tests\TestCase;
  *
  * The invoice's document is rendered from its snapshot only (design.md §4, §10): in the money format, which was in
  * force when it was frozen, so a later change of the setting, of the profile or of the account renders the same. A
- * snapshot of version 1 keeps template v1; a newer one takes template v3 (INVOICE_STYLES.md), in its language and
+ * snapshot of version 1 keeps template v1; a newer one takes template v3 (docs/specs/invoice.md), in its language and
  * style, with its contract section, payment purpose, act note and note as they were resolved on freeze. A snapshot of
  * version 2, which never left development, renders with v3 as `outlined`.
  *

@@ -1,4 +1,4 @@
-/* colored: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* colored: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-colored .band .party-details.contacts .sp { color:#7F93DA; }
 .s-colored { position:relative; }
 .s-colored .band { margin:-30pt -30pt 0; padding:26pt 30pt 22pt; background:#2B45B8; color:#FFFFFF; }

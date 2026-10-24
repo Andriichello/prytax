@@ -1,4 +1,4 @@
-/* andriichello_schema: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* andriichello_schema: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-schema { position:relative; }
 .s-schema .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
 .s-schema .content { position:relative; z-index:1; }

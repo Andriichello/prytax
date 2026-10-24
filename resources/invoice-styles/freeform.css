@@ -1,4 +1,4 @@
-/* freeform: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* freeform: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-free { position:relative; }
 .s-free .shape { position:absolute; z-index:0; }
 .s-free .c1 { width:270pt; height:270pt; border-radius:135pt; background:#FFD9C2; right:-110pt; bottom:-120pt; }

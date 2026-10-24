@@ -1,4 +1,4 @@
-/* freeform_mono: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* freeform_mono: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-ffmono { position:relative; }
 .s-ffmono .shape { position:absolute; z-index:0; }
 .s-ffmono .content { z-index:1; }

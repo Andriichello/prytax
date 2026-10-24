@@ -1,4 +1,4 @@
-/* base: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* base: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .inv { position:relative; margin-top:-30pt; padding:30pt 30pt 0; height:781.89pt; background:#FFFFFF; color:#17191F; font-family:'DejaVu Sans',sans-serif; font-size:7.5pt; line-height:11.5pt; }
 .inv table { border-collapse:collapse; }
 .mono { font-family:'DejaVu Sans Mono',monospace; }

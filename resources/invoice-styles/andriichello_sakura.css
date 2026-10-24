@@ -1,4 +1,4 @@
-/* andriichello_sakura: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* andriichello_sakura: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-sakura { position:relative; }
 .s-sakura .layer { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; z-index:0; }
 .s-sakura .content { position:relative; z-index:1; }

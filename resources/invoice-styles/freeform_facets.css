@@ -1,4 +1,4 @@
-/* freeform_facets: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* freeform_facets: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-fffacets { position:relative; }
 .s-fffacets .shape { position:absolute; z-index:0; }
 .s-fffacets .content { z-index:1; }

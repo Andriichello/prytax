@@ -15,7 +15,7 @@ use PryTax\Services\Invoices\PreviewInvoiceFactory;
 /**
  * Class InvoiceStyleThumbnails.
  *
- * Draws the thumbnails of the invoice style picker (INVOICE_STYLES.md §6.7): the demo invoice in every style and
+ * Draws the thumbnails of the invoice style picker (docs/specs/invoice.md §8): the demo invoice in every style and
  * language, rendered by the real renderer, its first page rasterized to 316px wide by `pdftoppm` (poppler-utils, a
  * development tool), into `public/images/invoice-styles/{style}-{locale}.png`, which are committed. Run it after a
  * style or the template changes.

@@ -1,4 +1,4 @@
-/* monochrome: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* monochrome: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-mono { position:relative; }
 .s-mono .doc-title { font-size:40pt; line-height:40pt; letter-spacing:-0.03em; text-transform:uppercase; }
 .s-mono .doc-number-line { margin-top:8pt; }

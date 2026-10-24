@@ -1,4 +1,4 @@
-/* freeform_blocks: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* freeform_blocks: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-ffblocks { position:relative; }
 .s-ffblocks .shape { position:absolute; z-index:0; }
 .s-ffblocks .content { z-index:1; }

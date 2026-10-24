@@ -1,4 +1,4 @@
-/* simplified: ported from the Claude Design handoff (INVOICE_STYLES.md), dompdf-safe */
+/* simplified: ported from the Claude Design handoff (docs/specs/invoice.md), dompdf-safe */
 .s-simplified { position:relative; }
 .s-simplified .doc-title { font-size:22pt; line-height:24pt; letter-spacing:0.08em; }
 .s-simplified .doc-number-line { margin-top:5pt; }

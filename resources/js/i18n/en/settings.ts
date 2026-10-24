@@ -78,6 +78,13 @@ export default {
             'The next one can only be increased — for example, to continue the numbering of a previous system.',
     },
 
+    document: {
+        title: 'Invoice document',
+        explained:
+            'The language, payment purpose, act of acceptance note and contract of the FOP’s invoices. A client or a single invoice may have its own; an empty field takes the default.',
+        languageByOwner: 'The organization’s owner changes the document language.',
+    },
+
     taxes: {
         title: 'Taxes and notifications',
         warnAhead: 'Warn ahead of deadlines by',

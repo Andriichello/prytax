@@ -63,6 +63,7 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         items: [
             { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
             { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
+            { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document' },
             { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
         ],
     },

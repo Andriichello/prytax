@@ -75,6 +75,8 @@ export default {
         postalCode: 'Поштовий індекс',
         taxDetails: 'Податкові дані',
         invoiceNoteHint: 'Друкується під інвойсом цього клієнта',
+        invoiceDefaults: 'Інвойси за замовчуванням',
+        currencyHint: 'Валюта нових договорів та інвойсів клієнта',
         notPrinted: 'Не друкується',
     },
 
@@ -94,5 +96,7 @@ export default {
         rate: 'Ставка',
         duplicateRate: 'Ставка цього типу робіт з цієї дати вже є.',
         perHour: 'За годину, {currency}',
+        subject: 'Предмет (послуги)',
+        subjectHint: 'Підставляється в призначення платежу замість {placeholder}',
     },
 } satisfies Messages;

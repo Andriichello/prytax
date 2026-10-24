@@ -72,6 +72,8 @@ export default {
         postalCode: 'Postal code',
         taxDetails: 'Tax details',
         invoiceNoteHint: 'Printed at the bottom of this client’s invoices',
+        invoiceDefaults: 'Invoice defaults',
+        currencyHint: 'The currency of the client’s new contracts and invoices',
         notPrinted: 'Not printed',
     },
 
@@ -90,5 +92,7 @@ export default {
         rate: 'Rate',
         duplicateRate: 'This work type already has a rate from this date.',
         perHour: 'Per hour, {currency}',
+        subject: 'Subject (services)',
+        subjectHint: 'Fills {placeholder} in the payment purpose',
     },
 } satisfies Translation<typeof uk>;

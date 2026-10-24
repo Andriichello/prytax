@@ -98,6 +98,12 @@ export type FxGainPolicy = 'ignore' | 'include';
 
 export type InvoiceSource = 'generated' | 'external';
 
+/** Language of an invoice's PDF. */
+export type InvoiceLocale = 'en' | 'uk';
+
+/** Level an invoice setting comes from (design.md §4.1). */
+export type SettingSource = 'invoice' | 'client' | 'profile' | 'default';
+
 export type InvoiceStatus = 'draft' | 'ready' | 'sent' | 'paid' | 'cancelled';
 
 export type ItemUnit = 'hour' | 'fixed' | 'item';
@@ -290,7 +296,8 @@ export interface Profile {
     email: string | null;
     phone: string | null;
     default_currency: CurrencyCode;
-    locale: string;
+    /** The language of its invoices, unless a client or an invoice has its own. */
+    locale: InvoiceLocale;
     is_active: boolean;
     closed_at: DateString | null;
     created_at: DateTimeString;
@@ -306,7 +313,52 @@ export interface Profile {
     unread_alerts_count?: number;
     /** Append: whether a quarter's declaration was corrected, so an уточнююча декларація is due. */
     needs_correction?: boolean;
+    /** Append: the document settings, which its clients take. */
+    effective_invoice_settings?: EffectiveInvoiceSettings;
+    /** Append: the built-in texts of invoices in each language. */
+    invoice_texts?: Record<InvoiceLocale, InvoiceTexts>;
 }
+
+/**
+ * The document settings of an invoice, a client or (in `invoice.*` settings) a ФОП: each null to take the next
+ * level's (invoice → client → ФОП → built-in, design.md §4.1). The ФОП's language is its `locale`.
+ */
+export interface InvoiceDocumentSettings {
+    locale: InvoiceLocale | null;
+    /** With placeholders such as `{services}`, `{invoice.number}`, `{invoice.date}`. */
+    payment_purpose_template: string | null;
+    /** "Act note off" is `false`; an empty text is null and takes the next level's. */
+    act_note_enabled: boolean | null;
+    act_note: string | null;
+    show_contract: boolean | null;
+}
+
+/** A resolved invoice setting: its value, the level it comes from, and the value the levels below give it. */
+export interface ResolvedSetting<T> {
+    value: T;
+    source: SettingSource;
+    inherited: { value: T; source: SettingSource };
+}
+
+/** The resolved document settings: `effective_settings` of invoices and clients, `effective_invoice_settings` of profiles. */
+export interface EffectiveInvoiceSettings {
+    locale: ResolvedSetting<InvoiceLocale>;
+    payment_purpose_template: ResolvedSetting<string>;
+    act_note_enabled: ResolvedSetting<boolean>;
+    act_note: ResolvedSetting<string>;
+    show_contract: ResolvedSetting<boolean>;
+}
+
+/** The built-in texts of invoices in one language. */
+export interface InvoiceTexts {
+    payment_purpose: string;
+    act_note: string;
+    /** The {services} of a contract without a subject. */
+    services: string;
+}
+
+/** Why an invoice may fail on its way to the client, without stopping it. */
+export type InvoiceWarning = 'payment_purpose_too_long' | 'payment_purpose_charset' | 'currency_differs_from_contract';
 
 /** How long money may stay on a platform: until the quarter's end, never checked, or N days. */
 export type PlatformRepatriation = 'quarter_end' | 'off' | `days:${number}`;
@@ -324,6 +376,11 @@ export interface ProfileSettings {
         };
         /** Printed under the invoice, unless the client has its own note. */
         footer_note: string | null;
+        /** The ФОП's level of the document settings; null takes the built-in one. */
+        payment_purpose_template: string | null;
+        act_note_enabled: boolean | null;
+        act_note: string | null;
+        show_contract: boolean | null;
         /** Money format of the PDFs. */
         money_format: MoneyFormat;
     };
@@ -692,10 +749,18 @@ export interface Client {
     tax_id: string | null;
     email: string | null;
     invoice_footer_note: string | null;
+    /** The client's level of the document settings, each null to take the ФОП's. */
+    invoice_locale: InvoiceLocale | null;
+    payment_purpose_template: string | null;
+    act_note_enabled: boolean | null;
+    act_note: string | null;
+    show_contract: boolean | null;
     notes: string | null;
     is_active: boolean;
     created_at: DateTimeString;
     updated_at: DateTimeString;
+    /** Append: the settings its new invoices take. */
+    effective_settings?: EffectiveInvoiceSettings;
     /** Only through the clients endpoints, not when a client is included elsewhere. */
     contracts_count?: number;
     /** Only through the clients endpoints, not when a client is included elsewhere. */
@@ -715,6 +780,8 @@ export interface Contract {
     created_by_user_id: number | null;
     name: string;
     number: string | null;
+    /** Such as `IT services`: the {services} of the invoices' payment purpose. */
+    subject: string | null;
     started_at: DateString;
     ends_at: DateString | null;
     currency: CurrencyCode;
@@ -911,6 +978,12 @@ export interface Invoice {
     issued_at: DateString;
     due_at: DateString | null;
     currency: CurrencyCode;
+    /** The invoice's level of the document settings, each null to take the client's; locked past the draft. */
+    locale: InvoiceLocale | null;
+    payment_purpose_template: string | null;
+    act_note_enabled: boolean | null;
+    act_note: string | null;
+    show_contract: boolean | null;
     subtotal: Amount;
     /** Added to the subtotal; negative for a discount. */
     adjustment_amount: Amount;
@@ -942,6 +1015,12 @@ export interface Invoice {
     can_unfreeze?: boolean;
     /** Append: null for a draft. */
     snapshot?: InvoiceSnapshot | null;
+    /** Append: the document settings with the levels they come from. */
+    effective_settings?: EffectiveInvoiceSettings;
+    /** Append: the frozen payment purpose, or the one the settings render now. */
+    payment_purpose_preview?: string;
+    /** Append. */
+    warnings?: InvoiceWarning[];
 }
 
 /** An invoice counter: `GET|PATCH profiles/{profile}/invoices/counters`. */
@@ -984,6 +1063,8 @@ export interface InvoiceDefaults {
     charge_type_rates: ChargeTypeRate[];
     /** For the issue date (today without one). */
     number_preview: string;
+    /** The document settings, which the invoice takes from the client. */
+    effective_settings: EffectiveInvoiceSettings;
 }
 
 /** `GET profiles/{profile}/invoices/outstanding`: open (ready and sent) invoices of one currency. */

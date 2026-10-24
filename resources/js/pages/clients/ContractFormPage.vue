@@ -23,8 +23,9 @@ import { errorMessage, fieldError } from '@/utils/errors';
 import { formatAmount, parseAmount } from '@/utils/money';
 
 /**
- * Договір (S-ContractEdit): name and number, dates, currency, payment terms, the template of item descriptions with
- * a live preview, and hourly rates by work type, each from a date (one rate of a type per date).
+ * Договір (S-ContractEdit): name and number, its subject (the {services} of the invoices' payment purpose), dates,
+ * currency (a new one's is the client's, else the ФОП's default one), payment terms, the template of item
+ * descriptions with a live preview, and hourly rates by work type, each from a date (one rate of a type per date).
  */
 interface RateDraft {
     key: number;
@@ -39,7 +40,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
 const route = useRoute();
 const router = useRouter();
 const { can } = useSession();
-const { profileId, path } = useCurrentProfile();
+const { profileId, path, profile } = useCurrentProfile();
 
 const clientId = computed(() => Number(route.params.clientId));
 const contractId = computed(() => (route.params.id ? Number(route.params.id) : null));
@@ -48,6 +49,7 @@ const isNew = computed(() => contractId.value === null);
 const form = reactive({
     name: '',
     number: '',
+    subject: '',
     started_at: today(),
     ends_at: '',
     currency: 'USD',
@@ -73,6 +75,7 @@ const { data, error: loadError, loading, reload } = useLoader(async (signal) => 
         Object.assign(form, {
             name: contract.name,
             number: contract.number ?? '',
+            subject: contract.subject ?? '',
             started_at: contract.started_at,
             ends_at: contract.ends_at ?? '',
             currency: contract.currency,
@@ -87,7 +90,7 @@ const { data, error: loadError, loading, reload } = useLoader(async (signal) => 
             })),
         });
     } else {
-        form.currency = client.data.currency ?? 'USD';
+        form.currency = client.data.currency ?? profile.value?.default_currency ?? 'USD';
     }
 
     return { client: client.data, chargeTypes: types };
@@ -168,6 +171,7 @@ async function save(): Promise<void> {
     const body = {
         name: form.name.trim(),
         number: form.number.trim() || null,
+        subject: form.subject.trim() || null,
         started_at: form.started_at,
         ends_at: form.ends_at || null,
         currency: form.currency,
@@ -197,7 +201,7 @@ async function save(): Promise<void> {
 }
 
 const generalError = computed(() => {
-    const fields = ['name', 'number', 'started_at', 'ends_at', 'currency', 'payment_terms_days', 'description_template'];
+    const fields = ['name', 'number', 'subject', 'started_at', 'ends_at', 'currency', 'payment_terms_days', 'description_template'];
 
     return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
 });
@@ -208,6 +212,13 @@ const generalError = computed(() => {
         <LoadState :loading="loading" :error="loadError" @retry="reload">
             <TextField v-model="form.name" :label="t('core.common.name')" placeholder="Service Agreement" :error="fieldError(saveError, 'name')" />
             <TextField v-model="form.number" :label="t('core.common.number')" :placeholder="t('core.common.optional')" :error="fieldError(saveError, 'number')" />
+            <TextField
+                v-model="form.subject"
+                :label="t('clients.contract.subject')"
+                placeholder="IT services"
+                :hint="t('clients.contract.subjectHint', { placeholder: '{services}' })"
+                :error="fieldError(saveError, 'subject')"
+            />
             <div class="grid grid-cols-2 gap-2.5">
                 <DateField v-model="form.started_at" :label="t('clients.contract.validFrom')" :error="fieldError(saveError, 'started_at')" />
                 <DateField v-model="form.ends_at" :label="t('clients.contract.validUntil')" :hint="t('clients.contract.emptyOpenEnded')" :min="form.started_at || undefined" :error="fieldError(saveError, 'ends_at')" />

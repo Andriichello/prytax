@@ -10,9 +10,13 @@ import type {
     Contract,
     Invoice,
     InvoiceDefaults,
+    InvoiceDocumentSettings,
+    InvoiceLocale,
+    InvoiceTexts,
     InvoiceDuplicate,
     InvoiceSource,
     Paginated,
+    Profile,
     Project,
     StoredFile,
 } from '@/api/types';
@@ -21,6 +25,7 @@ import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
 import FreezeSheet from '@/components/invoice/FreezeSheet.vue';
+import InvoiceDocumentFields from '@/components/invoice/InvoiceDocumentFields.vue';
 import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceItemSheet, { type ItemDraft } from '@/components/invoice/InvoiceItemSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
@@ -36,20 +41,22 @@ import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { t } from '@/i18n';
+import { LOCALE_NAMES, t } from '@/i18n';
 import { dateParts, formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
+import { type PurposeSample, purposeValues, purposeWarnings, renderPurpose } from '@/utils/invoiceDocument';
 import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } from '@/utils/money';
 
 /**
  * Новий інвойс / чернетка (S-InvoiceEdit, S-InvoiceExternal): an invoice made in PryTax from items, or an external
  * PDF with its total typed in. "Зберегти" keeps the draft; "Зафіксувати" saves it and asks before freezing. Leaving
- * with unsaved changes asks first.
+ * with unsaved changes asks first. A generated one has its document settings (language, payment purpose, act note,
+ * contract section) in a collapsed "Документ" block, each the client's unless the invoice has its own.
  */
 const route = useRoute();
 const router = useRouter();
 const { can } = useSession();
-const { profileId, path, settings } = useCurrentProfile();
+const { profileId, path, settings, profile } = useCurrentProfile();
 
 const invoiceId = computed(() => (route.params.id ? Number(route.params.id) : null));
 const isNew = computed(() => invoiceId.value === null);
@@ -61,6 +68,8 @@ const contracts = ref<Contract[]>([]);
 const projects = ref<Project[]>([]);
 const chargeTypes = ref<ChargeType[]>([]);
 const defaults = ref<InvoiceDefaults | null>(null);
+/** The built-in texts of invoices, which the document settings show in the chosen language. */
+const texts = ref<Record<InvoiceLocale, InvoiceTexts> | null>(null);
 
 const form = reactive({
     source: 'generated' as InvoiceSource,
@@ -80,6 +89,7 @@ const form = reactive({
     total: '',
     notes: '',
     items: [] as ItemDraft[],
+    document: { locale: null, payment_purpose_template: null, act_note_enabled: null, act_note: null, show_contract: null } as InvoiceDocumentSettings,
 });
 
 /** Fields the person set; defaults no longer overwrite them. */
@@ -121,6 +131,13 @@ function fill(invoice: Invoice): void {
         adjustment_label: invoice.adjustment_label ?? '',
         total: invoice.source === 'external' ? invoice.total : '',
         notes: invoice.notes ?? '',
+        document: {
+            locale: invoice.locale,
+            payment_purpose_template: invoice.payment_purpose_template,
+            act_note_enabled: invoice.act_note_enabled,
+            act_note: invoice.act_note,
+            show_contract: invoice.show_contract,
+        },
         items: (invoice.items ?? []).map((item) => ({
             key: nextKey++,
             project_id: item.project_id,
@@ -150,15 +167,17 @@ async function fetchInvoice(id: number, signal?: AbortSignal): Promise<Invoice> 
 }
 
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
-    const [clientList, accountList, invoice, latest] = await Promise.all([
+    const [clientList, accountList, invoice, latest, owner] = await Promise.all([
         api.all<Client>(path('clients'), {}, signal),
         api.all<Account>(path('accounts'), {}, signal),
         invoiceId.value === null ? Promise.resolve(null) : fetchInvoice(invoiceId.value, signal),
         invoiceId.value === null
             ? api.get<Paginated<Invoice>>(path('invoices'), { page: { size: 1 } }, signal).then(({ data }) => data[0] ?? null)
             : Promise.resolve(null),
+        api.get<ApiResponse<Profile>>(`profiles/${profileId.value}`, { append: ['invoice_texts'] }, signal),
     ]);
 
+    texts.value = owner.data.invoice_texts ?? null;
     clients.value = clientList;
     accounts.value = accountList;
     existing.value = invoice;
@@ -311,6 +330,44 @@ watch(() => form.source, (source) => {
 });
 
 const contract = computed(() => contracts.value.find((item) => item.id === form.contract_id) ?? null);
+
+/* The document: its settings over the client's, and the payment purpose, which the form's invoice would print */
+const documentOpen = ref(false);
+
+/** The invoice of the form, on which the payment purpose is previewed. */
+const purposeSample = computed<PurposeSample>(() => ({
+    number: (form.customNumber ? form.number.trim() : numberPreview.value) || null,
+    issuedAt: form.issued_at || null,
+    periodStart: form.period_start || null,
+    periodEnd: form.period_end || null,
+    contract: contract.value,
+    client: clients.value.find((client) => client.id === form.client_id) ?? null,
+    profile: profile.value,
+}));
+
+/** What the invoice prints, in short: "English · з приміткою «акт» · з договором". */
+const documentSummary = computed(() => {
+    const inherited = defaults.value?.effective_settings;
+    const locale = form.document.locale ?? inherited?.locale.value ?? 'en';
+    const act = form.document.act_note_enabled ?? inherited?.act_note_enabled.value ?? true;
+    const shown = form.document.show_contract ?? inherited?.show_contract.value ?? true;
+
+    return [
+        LOCALE_NAMES[locale],
+        act ? t('invoices.document.withActNote') : t('invoices.document.withoutActNote'),
+        shown ? t('invoices.document.withContract') : t('invoices.document.withoutContract'),
+    ].join(' · ');
+});
+
+/** Whether the payment purpose, which the invoice would print, can't go through SWIFT as it is. */
+const purposeWarned = computed(() => {
+    const inherited = defaults.value?.effective_settings;
+    const locale = form.document.locale ?? inherited?.locale.value ?? 'en';
+    const template = form.document.payment_purpose_template
+        || (inherited?.payment_purpose_template.source === 'default' && texts.value ? texts.value[locale].payment_purpose : inherited?.payment_purpose_template.value);
+
+    return template ? purposeWarnings(renderPurpose(template, purposeValues(purposeSample.value, locale, texts.value?.[locale] ?? null)), form.currency).length > 0 : false;
+});
 const rates = computed(() => (contract.value?.currency === form.currency ? contract.value.rates ?? [] : []));
 const numbering = computed(() => settings.value?.invoice.numbering ?? null);
 
@@ -544,6 +601,11 @@ function payload(): Record<string, unknown> {
         adjustment_amount: form.showAdjustment ? parseAmount(form.adjustment_amount) ?? (form.adjustment_amount || '0') : '0',
         adjustment_label: form.showAdjustment ? form.adjustment_label.trim() || null : null,
         notes: form.notes.trim() || null,
+        locale: form.document.locale,
+        payment_purpose_template: form.document.payment_purpose_template?.trim() || null,
+        act_note_enabled: form.document.act_note_enabled,
+        act_note: form.document.act_note?.trim() || null,
+        show_contract: form.document.show_contract,
         ...(external || form.customNumber
             ? { number: form.number.trim() || null }
             // Back to the generator: clear a number typed before
@@ -698,7 +760,10 @@ const generalError = computed(() => {
         return null;
     }
 
-    const fields = ['client_id', 'contract_id', 'receiving_account_id', 'number', 'period_start', 'period_end', 'issued_at', 'due_at', 'total', 'adjustment_amount'];
+    const fields = [
+        'client_id', 'contract_id', 'receiving_account_id', 'number', 'period_start', 'period_end', 'issued_at', 'due_at', 'total',
+        'adjustment_amount', 'locale', 'payment_purpose_template', 'act_note',
+    ];
     const shown = fields.some((field) => fieldError(saveError.value, field));
 
     return shown ? t('invoices.editor.checkFields') : errorMessage(saveError.value);
@@ -889,6 +954,42 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         </span>
                         <span>{{ t('invoices.editor.paymentDetailsHint') }}</span>
                     </div>
+                    <p v-if="form.source === 'generated' && contract && contract.currency !== form.currency" class="m-0 text-13 leading-normal text-warning-text" role="status">
+                        {{ t('invoices.document.currencyDiffers') }}
+                    </p>
+                </section>
+
+                <section v-if="form.source === 'generated'" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+                    <button
+                        type="button"
+                        class="flex min-h-11 items-center justify-between gap-3 text-left"
+                        :aria-expanded="documentOpen ? 'true' : 'false'"
+                        @click="documentOpen = !documentOpen"
+                    >
+                        <span class="flex min-w-0 flex-col gap-0.5">
+                            <span class="text-16 font-semibold">{{ t('invoices.document.title') }}</span>
+                            <span class="text-13 text-ink-3">{{ documentSummary }}</span>
+                            <span v-if="purposeWarned" class="flex items-center gap-1 text-13 text-warning-text">
+                                <Icon name="info" :size="16" />
+                                {{ t('invoices.document.checkPurpose') }}
+                            </span>
+                        </span>
+                        <Icon name="chevronDown" :size="20" class="shrink-0 text-ink-2 transition-transform" :class="{ 'rotate-180': documentOpen }" />
+                    </button>
+                    <InvoiceDocumentFields
+                        v-if="documentOpen"
+                        v-model="form.document"
+                        level="invoice"
+                        :inherited="defaults?.effective_settings ?? null"
+                        :texts="texts"
+                        :sample="purposeSample"
+                        :currency="form.currency"
+                        :errors="{
+                            locale: fieldError(saveError, 'locale'),
+                            payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
+                            act_note: fieldError(saveError, 'act_note'),
+                        }"
+                    />
                 </section>
 
                 <section class="flex flex-col gap-3">

@@ -2,10 +2,11 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, Client } from '@/api/types';
+import type { ApiResponse, Client, Contract, InvoiceDocumentSettings, Profile } from '@/api/types';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
+import InvoiceDocumentFields from '@/components/invoice/InvoiceDocumentFields.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
@@ -15,12 +16,15 @@ import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { locale, t } from '@/i18n';
 import { ABBREVIATION_MAX, COMMON_COUNTRIES, countryName, suggestAbbreviation } from '@/utils/clients';
+import { dateParts, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
+import type { PurposeSample } from '@/utils/invoiceDocument';
 
 /**
  * Клієнт — новий або редагування: the name on invoices and the abbreviation, which prefixes its invoice numbers
- * (suggested from the name until it is typed), the legal name, country and currency, the address (up to four lines)
- * and tax numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner note.
+ * (suggested from the name until it is typed), the legal name and country, the address (up to four lines) and tax
+ * numbers printed on invoices, the e-mail for invoices, a note printed under them and an inner note. Its invoice
+ * defaults (design.md §4.1) are the currency and the document settings, each empty to take the ФОП's.
  */
 const MAX_LINES = 4;
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
@@ -38,7 +42,7 @@ const form = reactive({
     abbreviation: '',
     legal_name: '',
     country: 'US',
-    currency: 'USD',
+    currency: null as string | null,
     lines: ['', ''],
     city: '',
     state: '',
@@ -48,17 +52,30 @@ const form = reactive({
     email: '',
     invoice_footer_note: '',
     notes: '',
+    document: { locale: null, payment_purpose_template: null, act_note_enabled: null, act_note: null, show_contract: null } as InvoiceDocumentSettings,
 });
 
 /** Whether the abbreviation was typed (or is the saved one), so the name no longer suggests it. */
 const abbreviationTyped = ref(false);
 
+/** The ФОП with its invoice settings, which the client's take, and the built-in texts. */
+const profile = ref<Profile | null>(null);
+
 const { data: existing, error: loadError, loading, reload } = useLoader(async (signal) => {
-    if (clientId.value === null) {
+    const [owner, client] = await Promise.all([
+        api.get<ApiResponse<Profile>>(`profiles/${profileId.value}`, { append: ['effective_invoice_settings', 'invoice_texts'] }, signal),
+        clientId.value === null
+            ? Promise.resolve(null)
+            : api.get<ApiResponse<Client>>(path(`clients/${clientId.value}`), { include: ['contracts'] }, signal),
+    ]);
+
+    profile.value = owner.data;
+
+    if (client === null) {
         return null;
     }
 
-    const { data } = await api.get<ApiResponse<Client>>(path(`clients/${clientId.value}`), undefined, signal);
+    const { data } = client;
 
     abbreviationTyped.value = true;
     Object.assign(form, {
@@ -66,7 +83,7 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         abbreviation: data.abbreviation,
         legal_name: data.legal_name ?? '',
         country: data.country ?? '',
-        currency: data.currency ?? 'USD',
+        currency: data.currency,
         lines: [...data.address?.lines ?? [], '', ''].slice(0, Math.max(2, data.address?.lines?.length ?? 0)).map((line) => line ?? ''),
         city: data.address?.city ?? '',
         state: data.address?.state ?? '',
@@ -76,10 +93,42 @@ const { data: existing, error: loadError, loading, reload } = useLoader(async (s
         email: data.email ?? '',
         invoice_footer_note: data.invoice_footer_note ?? '',
         notes: data.notes ?? '',
+        document: {
+            locale: data.invoice_locale,
+            payment_purpose_template: data.payment_purpose_template,
+            act_note_enabled: data.act_note_enabled,
+            act_note: data.act_note,
+            show_contract: data.show_contract,
+        },
     });
 
     return data;
 }, [profileId, clientId]);
+
+/** The ФОП's settings, which the client's take where it has none of its own. */
+const inherited = computed(() => profile.value?.effective_invoice_settings ?? null);
+
+const currencyPlaceholder = computed(() => t('invoices.document.inheritedValue', {
+    source: t('invoices.document.asProfile'),
+    value: profile.value?.default_currency ?? '',
+}));
+
+/** An invoice of the client for this month, on which the payment purpose is previewed. */
+const sample = computed<PurposeSample>(() => {
+    const { year, month } = dateParts(today());
+    const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const contract = existing.value?.contracts?.find((item: Contract) => item.is_active) ?? null;
+
+    return {
+        number: `${form.abbreviation.trim() || 'BL'}-${end}-1`,
+        issuedAt: end,
+        periodStart: `${end.slice(0, 8)}01`,
+        periodEnd: end,
+        contract,
+        client: { name: form.name, legal_name: form.legal_name || null, name_uk: existing.value?.name_uk ?? null, legal_name_uk: existing.value?.legal_name_uk ?? null },
+        profile: profile.value,
+    };
+});
 
 watch(() => form.name, (name) => {
     if (!abbreviationTyped.value) {
@@ -129,6 +178,11 @@ async function save(): Promise<void> {
         email: form.email.trim() || null,
         invoice_footer_note: form.invoice_footer_note.trim() || null,
         notes: form.notes.trim() || null,
+        invoice_locale: form.document.locale,
+        payment_purpose_template: form.document.payment_purpose_template?.trim() || null,
+        act_note_enabled: form.document.act_note_enabled,
+        act_note: form.document.act_note?.trim() || null,
+        show_contract: form.document.show_contract,
     };
 
     try {
@@ -145,7 +199,7 @@ async function save(): Promise<void> {
 }
 
 const generalError = computed(() => {
-    const fields = ['name', 'abbreviation', 'legal_name', 'country', 'currency', 'email', 'tax_id', 'vat_number'];
+    const fields = ['name', 'abbreviation', 'legal_name', 'country', 'currency', 'email', 'tax_id', 'vat_number', 'invoice_locale', 'payment_purpose_template', 'act_note'];
 
     return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
 });
@@ -168,15 +222,7 @@ const generalError = computed(() => {
                 :error="abbreviationError"
             />
             <TextField v-model="form.legal_name" :label="t('clients.form.legalName')" placeholder="Brightline Labs, LLC" :error="fieldError(saveError, 'legal_name')" />
-            <div class="grid grid-cols-2 gap-2.5">
-                <SelectField v-model="form.country" :label="t('clients.form.country')" :options="countries" :error="fieldError(saveError, 'country')" />
-                <SelectField
-                    v-model="form.currency"
-                    :label="t('core.common.currency')"
-                    :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))"
-                    :error="fieldError(saveError, 'currency')"
-                />
-            </div>
+            <SelectField v-model="form.country" :label="t('clients.form.country')" :options="countries" :error="fieldError(saveError, 'country')" />
 
             <section class="flex flex-col gap-3">
                 <SectionTitle>{{ t('clients.form.invoiceAddress') }}</SectionTitle>
@@ -209,6 +255,32 @@ const generalError = computed(() => {
                     <TextField v-model="form.vat_number" label="VAT" class="num" :placeholder="t('core.common.optional')" :error="fieldError(saveError, 'vat_number')" />
                 </div>
                 <TextField v-model="form.email" :label="t('clients.detail.invoiceEmail')" type="email" :error="fieldError(saveError, 'email')" />
+            </section>
+
+            <section class="flex flex-col gap-3">
+                <SectionTitle>{{ t('clients.form.invoiceDefaults') }}</SectionTitle>
+                <SelectField
+                    v-model="form.currency"
+                    :label="t('core.common.currency')"
+                    :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))"
+                    :placeholder="currencyPlaceholder"
+                    clearable
+                    :hint="t('clients.form.currencyHint')"
+                    :error="fieldError(saveError, 'currency')"
+                />
+                <InvoiceDocumentFields
+                    v-model="form.document"
+                    level="client"
+                    :inherited="inherited"
+                    :texts="profile?.invoice_texts ?? null"
+                    :sample="sample"
+                    :currency="form.currency ?? profile?.default_currency ?? null"
+                    :errors="{
+                        locale: fieldError(saveError, 'invoice_locale'),
+                        payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
+                        act_note: fieldError(saveError, 'act_note'),
+                    }"
+                />
             </section>
 
             <TextAreaField v-model="form.invoice_footer_note" :label="t('clients.detail.invoiceNote')" :rows="2" :placeholder="t('clients.form.invoiceNoteHint')" />

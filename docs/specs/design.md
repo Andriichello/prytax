@@ -177,8 +177,9 @@ All numbers live in `tax_rules`; `profiles.tax_group` supports `3` only in v1.
 12. **ЄСВ is a monthly obligation row** generated from `tax_rules`, `due | exempt`; paid state is derived.
 13. **Periods lock.** Once a declaration is submitted the period is locked; writes into it need a correction note and
     mark the period and every later period of the year `corrected` (§8.3).
-14. **Invoices have a `source`** (`generated | external | virtual`); uploaded primary files are never overwritten, and
-    virtual invoices have no document at all (§4.2).
+14. **Invoices have a `source`** (`generated | external | virtual`); uploaded primary files are never overwritten: a
+    draft's uploaded PDF is deleted only when the user replaces it (the new upload's `primary=1` deletes it) or deletes
+    it, never by a return to the draft; virtual invoices have no document at all (§4.2).
 15. **Notifications inform, never block.** They are persisted rows with per-user read state; read only by an
     explicit tap, never by loading a page; shown on their own screen, never as cards on Головна (§9).
 16. **Tenant key is `profile_id`** (§0).
@@ -418,11 +419,11 @@ virtual: paid from creation, no transitions (§4.2)
 | Transition | Preconditions | Effects |
 |---|---|---|
 | freeze `draft → ready` (`InvoiceFreezer`) | `generated`: items ≥ 1; `external`: an uploaded `is_primary` file and a typed number; never `virtual`. `receiving_account.is_active`; `receiving_account.currency = invoice.currency`; payment purpose renders without missing placeholders (§4.1) | Number: allocate if blank, **rebuild** if generator-allocated (§5); resolve the presentation settings (§4.1) and render the payment purpose with the final number; build `snapshot` (schema 3, `invoice.md` §3; `money_format` = the current `invoice.money_format`); set `locked_at`; `DB::afterCommit` → render the PDF as the generated primary file unless an uploaded primary exists |
-| unfreeze `ready → draft` | No payments, no refunds | Delete **generated** files only; null `snapshot`, `locked_at`; keep `number`, `sequence_*` |
+| unfreeze `ready → draft` | No payments, no refunds | Delete **generated** files only (an uploaded PDF stays, decision 14); null `snapshot`, `locked_at`; keep `number`, `sequence_*` |
 | `ready → sent` | — | `sent_at` (editable) |
 | `ready \| sent → paid` | The receipts cover the total (`Σ payments.amount − Σ refunds.amount ≥ total`); suggested, confirmed manually | `paid_at` defaults to the last receipt's `received_at` |
 | `paid → sent \| ready` | Automatic, when a receipt change (delete, reduce, move, refund) leaves it uncovered | back to `sent`, or `ready` when it was never sent; `paid_at` cleared |
-| `ready \| sent → cancelled` | No money kept by receipts (move them to the replacing invoice, or refund them) | `cancelled_at`; number never reused |
+| `ready \| sent → cancelled` | No money kept by receipts (move them to the replacing invoice; phase 1 has no refunds, §16.1) | `cancelled_at`; number never reused |
 
 - Partial payment is derived (`paid / total`); overpayment shown as `paid > total`.
 - Enforcement: `InvoiceObserver@updating/@deleting` and `InvoiceItemObserver` throw `InvoiceLockedException` unless
@@ -834,11 +835,11 @@ month and by quarter and `taxes.default_grouping` are gone.
   balance falls by `original_amount`; a UAH account's falls by `amount`, as before.
 - **Requisites and purpose** come from `tax_payment_requisites` (the copy block of the form). ЄП:
   `*;101;{РНОКПП};Єдиний податок, IV кв. 2026;{ПІБ}`; ВЗ the same with its own name; ЄСВ: `…;ЄСВ за жовтень 2026;…`.
-- **Entry points:** a tax row or «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» (Облік, Податки, the receipt
-  page, the «Без інвойсу» record) opens Сплата податку for that receipt and tax: the existing record for editing, else
-  a new one, prefilled. «Сплатити ЄП і ВЗ» opens the first unpaid one, and the form's ЄП | ВЗ switch moves to the
-  other. «+ ЄСВ» and «Сплатити ЄСВ за {місяць}» open Сплата ЄСВ on the earliest month of the quarter that isn't
-  fully paid.
+- **Entry points:** a receipt's ЄП or ВЗ row (Облік, Податки, the receipt page, the «Без інвойсу» record) opens
+  Сплата податку for that receipt and tax: the existing record for editing, else a new one, prefilled. The two are
+  paid one by one; the pay row «Сплатити ЄП і ВЗ за цим надходженням» is removed for now (the owner, 2026-10-25). A
+  user who can't record tax payments gets no link to a new one. «+ ЄСВ» and «Сплатити ЄСВ за {місяць}» open Сплата
+  ЄСВ on the earliest month of the quarter that isn't fully paid.
 - **History** («Історія сплат»): every tax payment with `paid_at` in the year, newest first, grouped by the month of
   `paid_at`. A month's total is the sum of its non-failed payments.
 - ЄП/ВЗ rows by month or by quarter are no longer created. There is no real data, so the demo data is reseeded
@@ -1135,8 +1136,8 @@ One component, for Облік, Податки and the «Без інвойсу» 
   receipt's currency, on a green pill; the client; the rate (`1 USD = 41.7350 ₴`); the credit date; the UAH amount, large.
 - **Tax rows** ЄП and ВЗ: the label (a 44 px column) and the amount on the left, the status badge on the right. A dashed
   rule runs above the first row and solid ones between the others. Each row opens that tax's payment (§8.4).
-- **The pay row** «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням», a full-width accent text row, shows while either
-  tax is unpaid: on Податки and on the record pages, not on Облік.
+- **No pay row:** the boards' «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» is removed for now (the owner,
+  2026-10-25); ЄП and ВЗ are paid one by one from their rows.
 - **Fee rows,** on Облік with «Комісії й чисто» on: «Ком.» and the fee, then «Чисто» and the net in green, laid out the
   same way, without a badge.
 - **Month card:** a dark header (the month, «N надходження», the UAH total on the right), then the receipts, 6 px apart.
@@ -1154,7 +1155,7 @@ Board numbers are in brackets.
 | Фільтри інвойсів (012) | As built, plus the status «Без інвойсу». |
 | Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): the black income-limit band (`%`, YTD income, «з 10 091 049 ₴», ticks at 80/90 %), then «Дохід IV кв.» per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; CSV / XLSX at the foot. |
 | Сповіщення (008, 009) | A sticky header with only «Усі · N» and «Непрочитані · N». A notification becomes read when it is tapped, on its action, or on ✓ (§9). |
-| Податки (010, 011) | **Header:** the sticky title with «+ ЄСВ», the segmented «Нарахування \| Історія сплат» (`?mode=history`) and the period badge. **Нарахування** (one quarter): «Податки за квартал», a card with a row per ЄП, ВЗ and ЄСВ. Each row has its due label (the quarter's deadline: «до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, which is due with its quarter however it is paid; «✓ закрито» in green when settled) and three cells, Нараховано · Сплачено · До сплати (red above zero, green at 0.00), plus an amber «+ X надіслано» when some is pending; the ЄСВ row adds «Сплатити ЄСВ за {місяць}». Then «По надходженнях», month cards of receipt cards with the pay row, and the hint «ЄП і ВЗ сплачуються з надходження…». **Історія сплат** (one year; §8.4): each row has the tax (a 44 px label), the amount (struck through when failed) and the badge; under it the invoice number · client (ЄП, ВЗ) or «за {місяць}» (ЄСВ); then «{date} · {account}» (`Monobank ФОП · USD → UAH` for a foreign one). A footnote explains «Надіслано» and «Не пройшов». |
+| Податки (010, 011) | **Header:** the sticky title with «+ ЄСВ», the segmented «Нарахування \| Історія сплат» (`?mode=history`) and the period badge. **Нарахування** (one quarter): «Податки за квартал», a card with a row per ЄП, ВЗ and ЄСВ. Each row has its due label (the quarter's deadline: «до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, which is due with its quarter however it is paid; «✓ закрито» in green when settled) and three cells, Нараховано · Сплачено · До сплати (red above zero, green at 0.00), plus an amber «+ X надіслано» when some is pending; the ЄСВ row adds «Сплатити ЄСВ за {місяць}». Then «По надходженнях», month cards of receipt cards, and the hint «ЄП і ВЗ сплачуються з надходження…». **Історія сплат** (one year; §8.4): each row has the tax (a 44 px label), the amount (struck through when failed) and the badge; under it the invoice number · client (ЄП, ВЗ) or «за {місяць}» (ЄСВ); then «{date} · {account}» (`Monobank ФОП · USD → UAH` for a foreign one). A footnote explains «Надіслано» and «Не пройшов». |
 | Новий інвойс (013, 014, 072–079) | **Top:** the source switch «Створити в PryTax \| Зовнішній PDF»; the number preview card («BL-2026-10-31-14», «Присвоюється під час фіксації: абревіатура клієнта, кінець періоду й лічильник клієнта.», «Ввести власний»). **Groups:** Клієнт і договір (the contract's terms: currency, rate, payment days) · Період і дати (quick picks 01–14, 15–31, the month, other; issued = the period's end; due by the contract's terms) · Отримання коштів (active accounts in the currency, the last invoice's one first) · Документ (Стиль · Мова · Показувати договір · Призначення платежу · Примітка «акт» · Примітка щодо оплати · Інша примітка) · Позиції (not a group; dimmed while a group is open; «+ Знижка або коригування») · Внутрішня примітка. **Footer:** «Чернетка зберігається після кожної групи» and «Зафіксувати». The board has no currency field: the currency follows the contract, else the client. |
 | Зовнішній інвойс, Рядок, Фіксація (018, 015, 016) | As built, with prefixed numbers. |
 | Інвойс (017) | As built, with prefixed numbers. |
@@ -1162,7 +1163,7 @@ Board numbers are in brackets.
 | Інвойс для надходження (041) | The search «Номер або клієнт»; «Відкриті інвойси», each with its remainder or «прострочено · {amount}»; «або»; the dashed «Без інвойсу — Оплата за договором, інвойсу немає» with «Створимо запис лише для обліку…». An open invoice → Нове надходження; «Без інвойсу» → the form without an invoice; ✕ back to Облік. |
 | Нове надходження без інвойсу (042) | §4.2. The invoice field shows the dashed marker («Оплата за договором · лише для обліку»). Then Клієнт; Договір («обов’язково, якщо інвойсу немає», whose currency and rates it takes); «Сума від клієнта» (the tax base, typed); «За що (необов’язково)»; «Період з / по», required (the board's «Період необов’язковий» is overruled). Then the usual crediting block (account, received amount, date, fee), «Буде збережено» with ЄП and ВЗ, and an info box: no PDF, number or due date; the counter untouched; counted like any receipt; can be issued or attached later. |
 | Надходження (020) | As built, without the refund action. **«Сплата податків»** always lists ЄП and ВЗ. A paid one shows the amount, the badge and «12.10.2026 · ПриватБанк ФОП · UAH». An unpaid one shows the computed amount, a dashed «Не сплачено» and the faded placeholder line «дд.мм.рррр · Рахунок · № платіжки» (opacity .4). Each row opens its tax payment; there is no «+ Додати». The caption reads «ЄП і ВЗ з цього надходження завжди тут. Натисніть, щоб записати чи змінити сплату. ЄСВ — окремо, у «Податки».» |
-| Запис «Без інвойсу» (043, 044) | §4.2. **Header:** the marker with «Оплачено {дд.мм}», «Оплата за договором», the client. **Body:** the amount card («Сума від клієнта = сума надходжень»); Договір, Дата оплати, Рахунок отримання, Період послуг, За що; «Надходження» with the receipt card and its pay row; the info box «Це запис лише для обліку». **Actions,** under «Якщо клієнт попросить інвойс»: «Оформити як інвойс» and «Прив’язати до виставленого інвойсу». |
+| Запис «Без інвойсу» (043, 044) | §4.2. **Header:** the marker with «Оплачено {дд.мм}», «Оплата за договором», the client. **Body:** the amount card («Сума від клієнта = сума надходжень»); Договір, Дата оплати, Рахунок отримання, Період послуг, За що; «Надходження» with the receipt card; the info box «Це запис лише для обліку». **Actions,** under «Якщо клієнт попросить інвойс»: «Оформити як інвойс» and «Прив’язати до виставленого інвойсу». |
 | Перекази (021) | As built; the losses card leads to Комісії. |
 | Новий переказ (022) | The source account's balance («8 217.50 USD») is bold accent. Tapping it sets Відправлено to the whole balance and clears Отримано. |
 | Сплата ЄП / ВЗ (023) | §8.4. From top to bottom: the receipt card's header, read-only; Податок, ЄП \| ВЗ; Сума, locked, with «5 % від 130 246.50 ₴ · нараховано з надходження»; Дата сплати; Статус (Надіслано \| Сплачено \| Не пройшов); «Сплачено з рахунку», with the primary account's hint and the foreign-currency hint; from a foreign-currency account, the amount that left it, typed by hand («Списано, USD»), with the bank's rate it implies; the requisites with copy buttons and the purpose; Номер платіжки; «Зберегти сплату». |

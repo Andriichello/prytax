@@ -33,7 +33,11 @@ bring back its screen.
 - Облік's ЄСВ tab (`esv/{year}`), Книга доходів (`income-book/{year}`) and the declaration screen with its status
   workflow (`declarations/{year}/{quarter}`, `tax-periods`), and with it the period lock and corrections.
 - Податки by month and by quarter (`taxes/{year}/months`, `taxes/{year}?…`) and the tax-period calendar button.
-- The refund action (`payments/{payment}/refunds`).
+- The refund action (`payments/{payment}/refunds`). The owner is fine without refunds (2026-10-25): cancelling an
+  invoice asks only to move its receipts to the invoice that replaces it.
+- The pay row «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» of the receipt cards (removed for now by the owner,
+  2026-10-25): ЄП and ВЗ are paid one by one from their rows. To restore it, bring back `ReceiptTaxCard`'s `payRow`
+  (git history) on Податки and the «Без інвойсу» record.
 
 **Removed:** dropped from the schema or the API. To restore one, re-add it.
 - Receipts of kind `advance` and `other` (virtual invoices replace them).

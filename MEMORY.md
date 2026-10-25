@@ -39,7 +39,7 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
-- `php8.5 artisan test --compact`: **405 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
+- `php8.5 artisan test --compact`: **406 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
   it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
   not run it). The frontend: `npm test` (Vitest, **529 tests**, incl. the translation guard
   `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
@@ -113,7 +113,7 @@ external PDF with the duplicate check, return to draft, delete; cancel refused w
 duplicate abbreviation; sign-in errors; English. The demo was reseeded afterwards. Fixed (one commit each):
 
 - `payments/preview` of an edited payment without an invoice was a **500** (`PaymentRecorder::reopens()` read a null
-  coverage; a virtual invoice never reopens). Test `testPreviewsAnEditOfAPaymentWithoutAnInvoice` (405 tests).
+  coverage; a virtual invoice never reopens). Test `testPreviewsAnEditOfAPaymentWithoutAnInvoice`.
 - Deleting such a receipt warned «Інвойс повернеться до статусу «Готовий»»; it now says the record goes with it.
 - Viewers saw «Сплатити ЄП і ВЗ…» and unpaid tax rows linking to forms they can't open; English tax labels overflowed
   the 44 px column («Military1 643.79») and the pay row read «Pay the Military levy» (now a sentence per tax).
@@ -127,13 +127,19 @@ duplicate abbreviation; sign-in errors; English. The demo was reseeded afterward
 - Signing out re-mounted the screen without a user (`App.vue`'s `KeepAlive` key) and fired 401/404 requests; a
   screen for signed-in users now renders only with a user.
 
-Open, for the user to decide (not changed):
+The user's decisions on the open points (2026-10-25, done, specs updated: design.md decision 14, §4, §8.4, §16.4,
+§16.5; suggestions.md §2):
+- **No pay row:** «Сплатити ЄП і ВЗ за цим надходженням» is removed for now; ЄП and ВЗ are paid one by one from their
+  rows (`ReceiptTaxCard` lost `payRow`; restore it from git history).
+- **No refunds** is fine: the cancel sheet and the API's refusal only ask to move the receipts.
+- **An uploaded PDF goes only when replaced or deleted:** `InvoiceFileController` deletes the uploaded primary that a
+  new `primary=1` upload replaces; an external draft's form deletes its PDF (✕, confirmed); a return to the draft keeps
+  it (it always did; the sheet now says so). Test `testDeletesTheUploadedPdfOfADraftOnlyWhenReplacedOrDeleted`.
+
+Still open (not changed):
 - ВЗ of a quarter (1 % of the quarter) and Σ per receipt differ by a kopeck (suggestions.md §1, known).
-- «Сплатити ЄП і ВЗ» opens ЄП and saving returns to the list (as §8.4 says); it could go on to ВЗ.
 - «Прив’язати» offers the client's paid invoices with 0.00 left too (attaching overpays them).
 - Облік's summary of an untracked quarter shows ЄСВ 0.00 owed with 5 280.00 paid; Податки now says «не відстежуються».
-- Copy: the unfreeze sheet of an external invoice says the generated PDF is deleted (it has none); the cancel refusal
-  (API) suggests refunding, which Minimal's screens no longer offer.
 - Minor: a field's API error stays until the next save (app-wide); the ЄСВ month stepper doesn't update the URL;
   «Без інвойсу» appears in the status filter only while such a record exists (facets).
 

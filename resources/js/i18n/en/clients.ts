@@ -60,7 +60,7 @@ export default {
         nameHint: 'The client’s name on invoices and in lists',
         abbreviation: 'Abbreviation',
         abbreviationHint:
-            'Prefix of invoice numbers: {abbreviation}-YYYY-MM-DD-n. Latin letters and digits, unique among the FOP’s clients.',
+            'Prefix of invoice numbers: {abbreviation}-YYYY-MM-DD-n. Latin letters and digits, unique among the ФОП’s clients.',
         legalName: 'Legal name',
         legalNameUk: 'Name in Ukrainian',
         legalNameUkHint: 'Printed on Ukrainian invoices. Empty: the legal name.',
@@ -77,7 +77,7 @@ export default {
         mainGroup: 'Main',
         lookGroup: 'Currency, language, contract and style',
         withSource: '{value} · {source}',
-        sourceProfile: 'as the FOP’s',
+        sourceProfile: 'as the ФОП’s',
         sourceOwn: 'own',
         noteEmpty: 'Empty · not printed',
     },

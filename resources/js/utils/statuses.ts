@@ -63,8 +63,8 @@ export const TAX_PAYMENT_STATUSES: Record<TaxPaymentStatus, StatusLabel> = {
 };
 
 /**
- * The short names of the taxes: ЄП (єдиний податок), ВЗ (військовий збір), ЄСВ — in English "Single tax", "Military
- * levy" and "SSC" (the single social contribution).
+ * The short names of the taxes: ЄП (єдиний податок), ВЗ (військовий збір) and ЄСВ, which English keeps as they are
+ * (design.md §16.5).
  */
 export const TAX_TYPES: Record<TaxType, string> = {
     get single_tax() {

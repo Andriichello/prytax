@@ -18,6 +18,9 @@ const DICTIONARIES: Record<Locale, Messages> = { uk, en };
 
 const CYRILLIC = /[Ѐ-ӿ]/;
 
+/** The Ukrainian names, which every language keeps as they are (design.md §16.5): the taxes and ФОП. */
+const UNTRANSLATED = /ЄСВ|ЄП|ВЗ|ФОП/g;
+
 /** A line, which is only a comment: of a docblock, `//` or `<!-- -->`. */
 const COMMENT = /^(\*|\/\*|\/\/|<!--)/;
 
@@ -168,9 +171,14 @@ describe.each(LOCALES.map((code) => [code]))('the %s dictionary', (code) => {
 });
 
 describe('the English dictionary', () => {
-    it('is English', () => {
-        expect([...ENTRIES.en].filter(([, entry]) => textsOf(entry).some((text) => CYRILLIC.test(text))).map(([key]) => key))
-            .toEqual([]);
+    it('is English, but for the names of the taxes and ФОП', () => {
+        expect([...ENTRIES.en].filter(([, entry]) => textsOf(entry).some((text) => CYRILLIC.test(text.replace(UNTRANSLATED, ''))))
+            .map(([key]) => key)).toEqual([]);
+    });
+
+    it('keeps the names of the taxes and ФОП, rather than translating them', () => {
+        expect([...ENTRIES.en].filter(([, entry]) => textsOf(entry).some((text) => /single tax|military levy|\bSSC\b|\bFOPs?\b/i.test(text)))
+            .map(([key]) => key)).toEqual([]);
     });
 });
 

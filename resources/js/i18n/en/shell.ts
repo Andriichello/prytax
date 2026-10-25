@@ -17,7 +17,7 @@ export default {
         forgotPassword: 'Forgot your password?',
         signIn: 'Sign in',
         accessNote: 'Access is given by the organization’s owner.',
-        accountantNote: 'An accountant sees every FOP of their practice.',
+        accountantNote: 'An accountant sees every ФОП of their practice.',
     },
 
     forgotPassword: {
@@ -59,8 +59,8 @@ export default {
     },
 
     noProfile: {
-        noFopsYet: 'No FOPs yet',
-        explained: 'The organization’s owner needs to add a FOP before {name} can work with the records.',
+        noFopsYet: 'No ФОП yet',
+        explained: 'The organization’s owner needs to add a ФОП before {name} can work with the records.',
         you: 'you',
         pageNotFound: 'Page not found',
         notFoundHint: 'The link may be outdated or contain a mistake.',
@@ -74,20 +74,20 @@ export default {
         taxes: 'Taxes',
         mainNavigation: 'Main navigation',
         back: 'Back',
-        fopGroup: 'FOP · group {group}',
+        fopGroup: 'ФОП · group {group}',
         notificationsUnread: 'Notifications, {count} unread',
     },
 
     more: {
         language: 'Language',
-        tagline: 'Income records, invoices and taxes for 3rd-group FOPs',
+        tagline: 'Income records, invoices and taxes for 3rd-group ФОП',
         more: 'More',
         moneyCounterparties: 'Money and counterparties',
         transfersFees: 'Transfers and fees',
         feesNetIncome: 'Fees and net income',
         clientsContracts: 'Clients and contracts',
-        fopSettings: 'FOP settings',
-        fopProfileDetails: 'FOP profile and details',
+        fopSettings: 'ФОП settings',
+        fopProfileDetails: 'ФОП profile and details',
         organization: 'Organization',
         usersRoles: 'Users and roles',
         signOut: 'Sign out',
@@ -136,7 +136,7 @@ export default {
         close: 'Close',
         loadingLabel: 'Loading',
         loadMoreFailed: 'Couldn’t load more.',
-        notFound: 'Not found: the record was deleted or belongs to another FOP.',
+        notFound: 'Not found: the record was deleted or belongs to another ФОП.',
         forbidden: 'You don’t have permission to view this.',
         loadFailed: 'Couldn’t load the data. Check your connection and try again.',
         tryAgain: 'Try again',

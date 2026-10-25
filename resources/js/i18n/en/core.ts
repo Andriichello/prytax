@@ -91,21 +91,21 @@ export default {
     },
 
     taxes: {
-        singleTax: 'Single tax',
-        militaryLevy: 'Military levy',
-        socialContribution: 'SSC',
+        singleTax: 'ЄП',
+        militaryLevy: 'ВЗ',
+        socialContribution: 'ЄСВ',
     },
 
     accountKinds: {
         platform: 'Platform',
-        fopBank: 'FOP account in Ukraine',
+        fopBank: 'ФОП account in Ukraine',
         foreignBank: 'Foreign bank',
         personal: 'Personal',
     },
 
     accountGroups: {
         platform: 'Platforms',
-        fopBank: 'FOP accounts in Ukraine',
+        fopBank: 'ФОП accounts in Ukraine',
         foreignBank: 'Foreign banks',
         personal: 'Personal',
     },

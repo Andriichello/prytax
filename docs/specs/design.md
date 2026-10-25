@@ -10,7 +10,8 @@ phase-1 UI scope («Minimal»); the invoice PDF is specified in `invoice.md`; wh
 ### Changes in v4 («Minimal»)
 
 v4 applies Claude Design's «Minimal» handoff (§16): the first product phase, one ФОП at a time, fewer options and
-simpler forms. Earlier revisions are in the git history.
+simpler forms. Its second handoff, of the same afternoon, makes Податки one tax ledger (§8.5). Earlier revisions are in
+the git history.
 
 - **UI scope** (§16.1): one ФОП per session, without a profile switcher, Огляд практики or an organization board; five
   tabs, Головна · Інвойси · Облік · Податки · Ще. The ЄСВ and Книга доходів tabs, the declaration screen and the tax
@@ -24,7 +25,8 @@ simpler forms. Earlier revisions are in the git history.
   receipt, paid from the start, never numbered, sent or rendered. The receipt kinds `advance` and `other` are gone:
   every client receipt belongs to an invoice.
 - **Tax payments** (§8.4): ЄП and ВЗ are paid only from a receipt, at the receipt's computed amounts; ЄСВ is paid per
-  month. Податки shows the taxes by receipt and a history of payments. Taxes may be paid from foreign-currency ФОП
+  month. Податки is one tax ledger (§8.5): month by month, what is still owed (each receipt's ЄП and ВЗ, each month's
+  ЄСВ) and every payment, with a summary of the chosen period. Taxes may be paid from foreign-currency ФОП
   accounts, and the ФОП keeps a list of payment accounts with a primary one (`taxes.payment_account_ids`).
 - **Removed options:** `income.taxable_base` (the base is always the invoiced amount), `taxes.default_grouping`,
   `accounts.limit_window` (calendar windows only) and `accounts.limit_counts` (client receipts only); the refund action
@@ -137,7 +139,7 @@ Computed calendar (before roll-over): Q1 10 May / 20 May / 19 Apr · Q2 9 Aug / 
 
 ЄСВ is accrued per month but due per quarter: a ФОП may pay every month (the owner does), and each month's ЄСВ is
 due with its quarter, by the 19th of the month after it (October's by 19.01.2027). The «Minimal» boards' monthly dates
-(«жовтень — до 19.11») are not used.
+(«жовтень — до 19.11», and the second handoff's «сплатити до 19.11.2026» on an unpaid ЄСВ row) are not used.
 
 All numbers live in `tax_rules`; `profiles.tax_group` supports `3` only in v1.
 
@@ -782,10 +784,11 @@ pending_q = Σ … WHERE status = sent
 balance_q = opening_balance(t) + Σ_{k ≤ q} (paid_k − owed_k)       -- across year boundaries
 ```
 
-`failed` excluded. `balance > 0` overpaid / carried forward; `< 0` outstanding. Phase 1 shows the reconciliation per
-quarter (Податки → «Податки за квартал»: Нараховано = owed, Сплачено = paid, До сплати = the outstanding part of the
-running balance, «+ X надіслано» = pending) and per receipt (each receipt's ЄП and ВЗ with their status). The views by
-month and by quarter and `taxes.default_grouping` are gone.
+`failed` excluded. `balance > 0` overpaid / carried forward; `< 0` outstanding. Phase 1 shows the reconciliation on
+Облік's quarter summary (each tax owed, with what is paid, §7), and the deadline notifications read it (§9). Податки
+shows the ledger instead (§8.5). The ledger's figures are sums of the receipts' and the months' own amounts, so its
+Нараховано for ЄП and ВЗ can differ from `owed` by the kopecks of §8.1. The views by month and by quarter, the first
+handoff's quarter card (Нараховано · Сплачено · До сплати) and `taxes.default_grouping` are gone.
 
 ### 8.3 Tax periods, deadlines, locks
 
@@ -822,8 +825,8 @@ month and by quarter and `taxes.default_grouping` are gone.
   (> 0), prefilled with the month's `esv_monthly` («Мінімальний внесок за місяць — 1 902.34 ₴ … Можна більше»). More
   than one payment per month is allowed, as a top-up. Each month is due with its quarter (`tax_periods.esv_due_at`;
   October → 19.01.2027).
-- **Status:** `paid` reduces the debt; `sent` is pending («+ 8 122.67 надіслано») and reduces nothing; `failed` counts
-  nowhere. `paid_at` is required for `sent` and `paid`.
+- **Status:** `paid` reduces the debt; `sent` is pending (Податки's «Надіслано», §8.5) and reduces nothing; `failed`
+  counts nowhere. `paid_at` is required for `sent` and `paid`.
 - **Account** (`paid_from_account_id`): an active account in UAH, or an active `fop_bank` account in another currency.
   From a foreign-currency account the bank first sells the currency into the ФОП's UAH account and pays from there;
   the record names the account the money left. The form offers `taxes.payment_account_ids`, primary first
@@ -835,15 +838,92 @@ month and by quarter and `taxes.default_grouping` are gone.
   balance falls by `original_amount`; a UAH account's falls by `amount`, as before.
 - **Requisites and purpose** come from `tax_payment_requisites` (the copy block of the form). ЄП:
   `*;101;{РНОКПП};Єдиний податок, IV кв. 2026;{ПІБ}`; ВЗ the same with its own name; ЄСВ: `…;ЄСВ за жовтень 2026;…`.
-- **Entry points:** a receipt's ЄП or ВЗ row (Облік, Податки, the receipt page, the «Без інвойсу» record) opens
-  Сплата податку for that receipt and tax: the existing record for editing, else a new one, prefilled. The two are
-  paid one by one; the pay row «Сплатити ЄП і ВЗ за цим надходженням» is removed for now (the owner, 2026-10-25). A
-  user who can't record tax payments gets no link to a new one. «+ ЄСВ» and «Сплатити ЄСВ за {місяць}» open Сплата
-  ЄСВ on the earliest month of the quarter that isn't fully paid.
-- **History** («Історія сплат»): every tax payment with `paid_at` in the year, newest first, grouped by the month of
-  `paid_at`. A month's total is the sum of its non-failed payments.
+- **Entry points:** the tax rows are the only ones.
+  - A receipt's ЄП or ВЗ row opens Сплата податку for that receipt and tax: the existing record for editing, else a new
+    one, prefilled. The row can be on Облік's receipt cards, the receipt page, the «Без інвойсу» record or Податки's
+    ledger.
+  - The two are paid one by one. The pay row «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» is removed (the
+    owner, 2026-10-25, and the second handoff).
+  - An ЄСВ row of the ledger opens Сплата ЄСВ: an unpaid one on its month, a payment for editing. Every month of a
+    started quarter has a row, so ЄСВ can be paid ahead. «+ ЄСВ» and «Сплатити ЄСВ за {місяць}» are gone.
+  - A failed payment's row opens that payment.
+  - A user who can't record tax payments gets no link to a new one.
+- **Податки** lists the payments together with what is still owed, in one ledger (§8.5). The first handoff's «Історія
+  сплат» mode is folded into it.
 - ЄП/ВЗ rows by month or by quarter are no longer created. There is no real data, so the demo data is reseeded
   without them.
+
+### 8.5 Tax ledger (`TaxLedger`, Податки)
+
+Податки is one ledger, month by month. It merges the **obligations** (what is to be paid) with the **tax payments**
+(what was sent, paid or failed), under a summary of the chosen period (§16.5). One service, `TaxLedger`, builds it.
+The endpoint below, the receipt page and the receipt cards all read it, so a receipt's ЄП and ВЗ read the same
+everywhere.
+
+**Obligations** are computed, never stored:
+- **ЄП and ВЗ per receipt:** a receipt's `single_tax_uah` / `military_levy_uah` (when not zero) is an obligation of the
+  receipt's quarter.
+  - It is listed as **unpaid** while the receipt has no non-failed payment of that tax.
+  - Once there is one, that payment stands for it, at the payment's own amount. A later edit of the receipt shows on
+    Облік's reconciliation (§8.2), not as a ledger row, like the kopecks of `suggestions.md` §1.
+- **ЄСВ per month:** every `due` month of every quarter that has started, including the quarter's months still ahead.
+  Only months the app tracks count (from the tax opening balances, within the ФОП's registration).
+  - The unpaid amount is `amount_due` minus the month's non-failed ЄСВ payments, listed as **unpaid** while above zero.
+  - A month paid in part shows its payment and the unpaid rest. A month paid above the minimum shows only its payments.
+  - Exempt months owe nothing.
+
+**Statuses:** `unpaid` is the virtual status of an obligation; `failed`, `sent` and `paid` are the payments' own.
+
+**Every item has two periods:**
+- **Its quarter** is the quarter the tax belongs to:
+  - ЄП/ВЗ: the receipt's (`received_at`; a payment's `period_year` / `period_quarter`);
+  - ЄСВ: the quarter of its month.
+- **Its month** is where the list places it:
+  - an unpaid ЄП/ВЗ: the month the receipt came in;
+  - an unpaid ЄСВ: the month it is for;
+  - a payment: the month of `paid_at`, or the month its tax belongs to when it has no date.
+
+The summary groups by quarter, the list by month. «ЄСВ за вересень» paid on 19.10 counts in III кв.'s summary, and
+sits in Жовтень's card.
+
+**Filters.** All three apply to the list, the month headers and the summary:
+- the period: one year and a contiguous range of its quarters; an empty range is the whole year (§16.2);
+- the taxes: any of ЄП · ВЗ · ЄСВ;
+- the statuses: any of Не сплачено · Не пройшов · Надіслано · Сплачено.
+
+**Summary** («Підсумок за період»). Per tax, it counts the items whose quarter is in the period and whose tax and
+status are selected:
+- the sums: `accrued = Σ unpaid + Σ sent + Σ paid`, `sent = Σ sent`, `paid = Σ paid`;
+- failed payments are in no sum. Their total is reported apart (`failed`), for the screen's red line;
+- a tax is left out when it isn't selected, or when it has nothing in the period (no accrued, no failed);
+- `due_at`, while some counted item isn't paid yet (unpaid or sent): the earliest deadline among them. That is the
+  quarter's `tax_due_at` for ЄП and ВЗ, and the quarter's `esv_due_at` for ЄСВ (§1);
+- when all of `accrued` is paid, the screen shows «✓ закрито» instead;
+- the total, for the «Усього податків» band, sums the taxes shown. The screen shows it only for two taxes or more.
+
+**List** («Податки за місяцями»):
+- **Months:** a card for every month of the period with a row that passes the filters, newest first. Every month of a
+  started quarter has its ЄСВ row, so the current quarter's months ahead are listed too.
+- **Order inside a month:**
+  1. unpaid: ЄСВ first, then ЄП/ВЗ by the receipt's date, newest first (ЄП before ВЗ);
+  2. failed;
+  3. sent;
+  4. paid.
+
+  Within each status, the newest come first.
+- **The month's header** sums its own rows: accrued (all but the failed ones), sent and paid.
+
+**API.** `GET taxes/{year}/ledger?quarter[]=&tax_type[]=&status[]=` (no quarter = the whole year; the statuses are
+`unpaid`, `failed`, `sent` and `paid`):
+
+```
+{ summary: { total: {accrued, sent, paid},
+             rows:  [{tax_type, accrued, sent, paid, failed, due_at}] },
+  months:  [{ month: '2026-12', accrued, sent, paid,
+              items: [{ kind: obligation | payment, tax_type, amount, status, tax_payment_id,
+                        receipt: {id, invoice_number, client, received_at}, period_month,
+                        paid_at, account, due_at, quarter: {year, quarter} }] }] }
+```
 
 ## 9. Notifications (`AlertCollector` → `NotificationSync`)
 
@@ -912,7 +992,8 @@ invoices on Головна (§16). The Сповіщення screen filters only 
 `CurrentProfile` · `ResolveProfile` · `BelongsToProfile` · `ProfileSettings` (DTO + repository) · `NbuRateProvider` +
 `FetchNbuRates` · `PaymentRecorder` (`record`, `recordGroup`) · `RefundRecorder` · `TransferRecorder` ·
 `AllocationProposer` · `HoldingCalculator` · `AccountBalanceCalculator` · `AccountLimitCalculator` · `TaxRuleResolver`
-(`forDate()`) · `TaxLiabilityCalculator` (`QuarterLiability`) · `TaxReconciler` · `TaxPaymentRecorder` · `PeriodLock` ·
+(`forDate()`) · `TaxLiabilityCalculator` (`QuarterLiability`) · `TaxReconciler` · `TaxLedger` (§8.5) ·
+`TaxPaymentRecorder` · `PeriodLock` ·
 `DeadlineScheduler` + `BusinessDayCalendar` · `EsvObligationScheduler` · `DeclarationFigures` · `InvoiceFreezer` ·
 `InvoiceNumberGenerator` (`allocate`, `preview`, `rebuild`) · `InvoiceSettingsResolver` (`forInvoice`, `forClient`,
 `currencyFor`; §4.1) · `PaymentPurposeRenderer` (`render`, `unknownPlaceholders`, `warnings`; §4.1) ·
@@ -957,9 +1038,16 @@ Added by v4 («Minimal»):
   kept; a virtual invoice takes no number.
 - **Tax payments:** ЄП/ВЗ require `payment_id` and reject a typed amount; ЄСВ requires the month; one non-failed
   ЄП and ВЗ per receipt, a failed one beside a paid one allowed; `sent` doesn't reduce the debt and `failed` is
-  excluded; the history ordered by `paid_at` descending and grouped by month; an account in a foreign currency
-  accepted only when it is a `fop_bank` one, and only with the original amount, which lowers its balance; ЄСВ months
-  due with their quarter; marking a month exempt is gone.
+  excluded; an account in a foreign currency accepted only when it is a `fop_bank` one, and only with the original
+  amount, which lowers its balance; ЄСВ months due with their quarter; marking a month exempt is gone.
+- **Tax ledger** (§8.5):
+  - the summary groups by the tax's quarter: «ЄСВ за вересень» paid on 19.10 counts in III кв., not IV;
+  - each column under each status filter; failed payments in no sum, but reported;
+  - unpaid rows placed in the receipt's month or the ЄСВ month;
+  - every month of a started quarter listed, the months ahead included;
+  - the order inside a month: unpaid, failed, sent, paid;
+  - the month headers summed from their own rows;
+  - the receipt page and the ledger agree.
 - **Virtual invoices:** created with the receipt and deleted with it; freeze, send, PDF, download and cancel denied;
   left out of overdue notifications and «до оплати», included in taxes, Облік and the client's totals; `issue` →
   numbered, issued on the payment date, one `fixed` item from the contract's template, PDF, still paid; `attach` →
@@ -970,8 +1058,16 @@ Added by v4 («Minimal»):
   editor, and Готово saves nothing until Зберегти; the filter drawer's draft, apply and reset, one quarter, the year
   bounds; Новий переказ's balance tap; Облік «+ Надходження» → the picker → each branch; the bank's rate shown from
   the typed original amount.
+- **Податки (SPA):**
+  - the quarter range: every rule of §16.2, and a change of year keeping the range;
+  - the multi-selects: removing the last option selects all; the badge labels;
+  - the summary: the band only for two taxes or more, the bar widths (`paid / accrued`, `sent / accrued`), the ticks
+    (months for ЄСВ, quarters for the others), green and amber only above zero;
+  - navigation: an unpaid ЄП/ВЗ row opens the receipt's payment prefilled, an unpaid ЄСВ row that month; no pay row on
+    any receipt card.
 - **Acceptance:** every screen (boards 001–044) and edit state (045–085) matches its PNG at 390 px within font
-  rendering; hidden features are unreachable; the PHP and frontend suites, Pint, the type check and the build pass.
+  rendering, and so do the second handoff's Податки renders (its eight summary states included); hidden features are
+  unreachable; the PHP and frontend suites, Pint, the type check and the build pass.
 
 ## 14. Build order
 
@@ -991,12 +1087,19 @@ demo data reseeded.
    (`income.taxable_base`, `taxes.default_grouping`, `limit_window`, `limit_counts`, marking ЄСВ months exempt); add
    the payment accounts.
 4. **The two notes** (§4.1): the migration, the cascade, the snapshot, template v3 (`invoice.md`), the SPA's preview.
-5. **Taxes** (§8.4): the tax-payment rules, the unique key and the original amount; Податки in both modes; Сплата ЄП /
-   ВЗ and Сплата ЄСВ; the receipt page's «Сплата податків»; the receipt cards of Облік.
+5. **Taxes** (§8.4): the tax-payment rules, the unique key and the original amount; Податки (first in two modes,
+   which step 8 replaces); Сплата ЄП / ВЗ and Сплата ЄСВ; the receipt page's «Сплата податків»; the receipt cards of
+   Облік.
 6. **Virtual invoices** and the receipt entry flow (§4.2): `source = virtual`, `POST payments` with `virtual_invoice`,
    `issue`, `attach`; «Інвойс для надходження», the receipt form without an invoice, the record.
 7. **Lists and summaries:** Головна (two quarters, every status) and Інвойси with virtual rows and the status option;
    Облік's quarter summary; the Рахунки caption («Надходження за …»).
+8. **Податки as the tax ledger** (the second handoff, §8.5):
+   - `TaxLedger` and `taxes/{year}/ledger`, with the receipt page and the receipt cards reading it;
+   - the screen: three filters, the summary and the month cards (§16.2, §16.5);
+   - «Нарахування», «Історія сплат», «+ ЄСВ» and their receipt cards leave Податки.
+
+Steps 1–7 are built (2026-10-25); step 8 is next.
 
 Later: `SheetImporter` for the 2025 sheet (`--profile=`, `--dry-run`: external invoices, payments, transfers, tax
 payments, ЄСВ months paid or exempt; totals must reconcile to the sheet within the rounding policy), XLSX exports and
@@ -1034,6 +1137,15 @@ requests in `CHAT_LOG.md`, 85 boards at 390 pt (`screens/png`), their static HTM
 copy) and the canvas sources with the state logic. Boards 001–044 are screens; 045–085 are the open states of the
 accordion forms, not routes.
 
+The second handoff, of the same afternoon, is in `storage/handoff/latest/`: `MINIMAL_DELTA_2026-10-25.md`, the owner's
+messages #39–#57 in `CHAT_LOG_DELTA.md`, and `prytax-minimal-handoff-2.zip`, extracted in
+`storage/handoff/prytax-minimal-handoff-2/`.
+- **What it changes:** Податки becomes one ledger. Its boards are `M-Taxes`, `M-TaxesFilters` and the spec board
+  `M-TaxesSummaryStates`, and they replace boards 010 and 011 (`M-TaxesHistory` is gone). The «Без інвойсу» record
+  (`M-VInvoiceDetail`) loses its pay row.
+- **Reference logic:** `source/M-Taxes.dc.html` holds the quarter range, the multi-selects and the aggregation.
+- **Precedence:** where the two handoffs differ, the second one wins.
+
 «Minimal» is a stripped-down copy of the earlier «Simplified» design, which the current app was built from: one ФОП at
 a time, fewer controls, simpler forms. Where they differ, Minimal wins. The app is mobile-first, with a bottom tab bar
 and bottom sheets for secondary flows. It is in Ukrainian and English (the SPA's dictionaries), and the boards' copy is
@@ -1058,6 +1170,9 @@ the Ukrainian one.
   - the account limit's «Усі зарахування» and «Ковзне» (§3);
   - the tax base «Фактично отримана сума»;
   - «Показувати податки за» (Надходж. / Місяць / Квартал);
+  - Податки's «Нарахування | Історія сплат» switch, its «+ ЄСВ» and «Сплатити ЄСВ за {місяць}», and every «До сплати»
+    figure and «+ X надіслано» note (the ledger replaces them, §8.5);
+  - the receipt card's pay row «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» (§16.4);
   - the single invoice note with its «Де друкувати» (§4.1);
   - every page-level «Зберегти» on settings pages (§16.3).
 - **Built, not on the boards, kept:** Комісії й чистий дохід (`/fees`, reached from Перекази's losses card), one
@@ -1071,22 +1186,48 @@ the Ukrainian one.
   2. A sticky block: the title, an optional action, an optional segmented switch and the filter row. Once stuck, it
      gets a 1 px rule and a soft shadow.
   3. The content.
-- **Actions:** an accent pill with «+»: «+ Новий» on Інвойси, «+ Надходження» on Облік, «+ ЄСВ» on Податки.
+- **Actions:** an accent pill with «+»: «+ Новий» on Інвойси, «+ Надходження» on Облік. Податки has none: ЄСВ is
+  paid from its rows (§8.4).
 - **The filter row** is one horizontally scrolling row of badges. The period badge comes first: dark when set, with a
   calendar icon. The others are white with a chevron.
 - **The drawer.** Any badge opens one bottom drawer, «Фільтри», with «Скинути» and a sticky «Застосувати». The drawer
   edits a draft: Застосувати commits it, and closing it discards it.
-- **Period** on Облік and Податки: one year (`‹ 2026 ›`, the arrows disabled at the bounds of the data) and one
-  quarter (I–IV кв.), by default the current ones.
-  - Облік adds «Групувати»: По місяцях · По інвойсах · Без групування.
-  - Податки in «Історія сплат» reads «2026 · увесь рік» and ignores the quarter.
+- **Облік:** one year (`‹ 2026 ›`, the arrows disabled at the bounds of the data) and one quarter (I–IV кв.), by
+  default the current ones; and «Групувати»: По місяцях · По інвойсах · Без групування.
+- **Податки** (§8.5) has three badges, and each opens the same drawer:
+  - **Період** (dark, with the calendar icon): one year and a contiguous range of its quarters.
+    - **Labels:** «IV кв. 2026», «II–IV кв. 2026», or «2026 · увесь рік».
+    - **Default:** the current quarter.
+    - **The year** (`‹ 2026 ›`): changing it keeps the selected quarters.
+    - **The whole year** is an empty range. It is drawn as all four quarters in a lighter «included» style, not as
+      unselected.
+    - **A tap on a quarter** (`tapQ_*` in the handoff's `M-Taxes.dc.html`):
+
+      | Selected | Tap | Result |
+      |---|---|---|
+      | the whole year | a quarter `q` | `[q]` |
+      | `[s..e]` | `q` outside it | `[min(s,q)..max(e,q)]`, the gap filled: IV, then II → II–IV |
+      | `[s..e]`, two or more | `s` or `e` | that end trimmed: II–IV, then II → III–IV |
+      | `[s..e]` | `q` strictly inside | the later part kept, `[q+1..e]`: II–IV, then III → IV |
+      | `[q]` | `q` | the whole year |
+
+    - **The hint** under the quarters: «Увесь рік. Натисніть квартал, щоб обрати лише його.» for the whole year, else
+      «Обрано II–IV кв. Інший квартал розширює діапазон; обраний — прибирає його. Прибрати єдиний — увесь рік.»
+  - **Податки:** ЄП · ВЗ · ЄСВ, several at once, all of them by default. Removing the last one selects all again. The
+    badge reads «Усі податки» or the chosen ones («ЄП, ВЗ»). The hint is «Можна обрати кілька. Прибрати останній —
+    знову всі.»
+  - **Статус:** Не сплачено · Не пройшов · Надіслано · Сплачено, with the same rules. The badge reads «Усі статуси» or
+    the chosen ones («Не пройшов, Надіслано»). The hint is «Підсумок рахує лише обрані статуси. Прибрати останній —
+    знову всі.»
+  - **The URL** mirrors the filters (§10). The first handoff's `?mode=` is gone.
 - **Інвойси** keeps its filters (years, quarters, months or a range; clients; statuses; currencies; the live count),
   plus the status «Без інвойсу» after Скасовано.
 - **Status badges:**
   - invoices: Чернетка (grey) · Готовий (accent-soft) · Надіслано {дд.мм} (amber) · Оплачено {дд.мм} (green) ·
     Скасовано {дд.мм} (red-soft, the number struck through);
   - tax payments: надіслано {дд.мм} (amber) · сплачено {дд.мм} (green) · не пройшов (red, the amount struck through) ·
-    не сплачено (no fill, dashed border, muted);
+    не сплачено (no fill, dashed border, muted). «Не сплачено» is also the ledger's status of an obligation, and a value
+    of Податки's status filter;
   - virtual invoices: «Без інвойсу», a white marker with a dashed border, in place of the number.
 
 ### 16.3 Accordion forms
@@ -1131,17 +1272,17 @@ own: «Типово», «Типово: увімкнено», «Типово: б�
 
 ### 16.4 Receipt card
 
-One component, for Облік, Податки and the «Без інвойсу» record.
+One component, for Облік and the «Без інвойсу» record. Податки lists its own rows (§16.5).
 - **Header** (links to the receipt): the invoice number in mono, or the «Без інвойсу» marker; the amount in the
   receipt's currency, on a green pill; the client; the rate (`1 USD = 41.7350 ₴`); the credit date; the UAH amount, large.
 - **Tax rows** ЄП and ВЗ: the label (a 44 px column) and the amount on the left, the status badge on the right. A dashed
   rule runs above the first row and solid ones between the others. Each row opens that tax's payment (§8.4).
-- **No pay row:** the boards' «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» is removed for now (the owner,
-  2026-10-25); ЄП and ВЗ are paid one by one from their rows.
+- **No pay row:** «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» is removed (the owner, 2026-10-25, and the
+  second handoff). The ЄП and ВЗ rows are the only way to pay a tax or to see its payment.
 - **Fee rows,** on Облік with «Комісії й чисто» on: «Ком.» and the fee, then «Чисто» and the net in green, laid out the
   same way, without a badge.
 - **Month card:** a dark header (the month, «N надходження», the UAH total on the right), then the receipts, 6 px apart.
-  The Податки history uses it with «N сплати» and the month's paid total.
+  Податки uses the same card with its own header and rows (§16.5).
 
 ### 16.5 Screens
 
@@ -1155,7 +1296,7 @@ Board numbers are in brackets.
 | Фільтри інвойсів (012) | As built, plus the status «Без інвойсу». |
 | Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): the black income-limit band (`%`, YTD income, «з 10 091 049 ₴», ticks at 80/90 %), then «Дохід IV кв.» per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; CSV / XLSX at the foot. |
 | Сповіщення (008, 009) | A sticky header with only «Усі · N» and «Непрочитані · N». A notification becomes read when it is tapped, on its action, or on ✓ (§9). |
-| Податки (010, 011) | **Header:** the sticky title with «+ ЄСВ», the segmented «Нарахування \| Історія сплат» (`?mode=history`) and the period badge. **Нарахування** (one quarter): «Податки за квартал», a card with a row per ЄП, ВЗ and ЄСВ. Each row has its due label (the quarter's deadline: «до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, which is due with its quarter however it is paid; «✓ закрито» in green when settled) and three cells, Нараховано · Сплачено · До сплати (red above zero, green at 0.00), plus an amber «+ X надіслано» when some is pending; the ЄСВ row adds «Сплатити ЄСВ за {місяць}». Then «По надходженнях», month cards of receipt cards, and the hint «ЄП і ВЗ сплачуються з надходження…». **Історія сплат** (one year; §8.4): each row has the tax (a 44 px label), the amount (struck through when failed) and the badge; under it the invoice number · client (ЄП, ВЗ) or «за {місяць}» (ЄСВ); then «{date} · {account}» (`Monobank ФОП · USD → UAH` for a foreign one). A footnote explains «Надіслано» and «Не пройшов». |
+| Податки (second handoff: `M-Taxes`, `M-TaxesFilters`, `M-TaxesSummaryStates`; replaces 010, 011) | §8.5, at `/taxes`. **Header:** the sticky title and the badges Період · Податки · Статус (§16.2); no action and no mode switch. **«Підсумок за період»:** one white card. **The «Усього податків» band** comes first, only when two or more taxes show. It is black, edge to edge, like Облік's income-limit band: the paid share on the right («57.3 %», paid ÷ accrued); a 10 px bar, paid in light green then sent in amber, with a tick per quarter; and the three columns on dark. **Then a row per tax,** ЄСВ, ЄП, ВЗ in that order: (1) the name, with the due label on the right: the earliest deadline not yet paid («до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, its quarter's, rather than the board's «жовтень — до 19.11»), or «✓ закрито» in green when all is paid. (2) An 8 px bar: paid in green (`#17683F`, never blue), then sent in amber. Tick marks overhang it like the 80/90 % ones, splitting it per month of the period for ЄСВ and per quarter for ЄП and ВЗ (12 and 4 for the whole year). (3) Three columns: **Нараховано** · **Надіслано** (amber above zero) · **Сплачено** (green above zero). (4) When «Не пройшов» is selected and an attempt failed, a red «7 945.41 не пройшло (не враховано)». There is no «До сплати» and no «+ X надіслано» anywhere. **«Податки за місяцями»:** month cards, newest first. The dark header has the month and the same three columns, summed from the card's rows (the failed ones left out). **A row** has three lines. (1) The tax (a 44 px label), the amount (bold mono; struck through and grey when failed) and the status badge. (2) The invoice number in mono · the client (ЄП, ВЗ; the «Без інвойсу» marker for a virtual one), or «за жовтень» (ЄСВ). (3) «надійшло 19 жовтня · сплатити до 19.02.2027» on an unpaid ЄП/ВЗ; «сплатити до 19.01.2027» on an unpaid ЄСВ (its quarter's deadline, not the board's 19.11.2026); «12 жовтня · ПриватБанк ФОП · UAH» on a payment (`Monobank ФОП · USD → UAH` from a foreign one). A row opens its payment (§8.4). **Footnote:** «У кожному місяці: спершу несплачене (ЄП і ВЗ — у місяці надходження, ЄСВ — у місяці, за який він), далі «Не пройшов», «Надіслано» й «Сплачено». «Надіслано» борг не зменшує; «Не пройшов» ніде не враховується.» **Empty:** «Немає сплат за обраний період і податки.» **The spec board** `M-TaxesSummaryStates` draws the summary's eight states: nothing paid or sent; sent only; all sent; part paid; paid, sent and unpaid over two quarters; all paid; a failed payment; one tax. |
 | Новий інвойс (013, 014, 072–079) | **Top:** the source switch «Створити в PryTax \| Зовнішній PDF»; the number preview card («BL-2026-10-31-14», «Присвоюється під час фіксації: абревіатура клієнта, кінець періоду й лічильник клієнта.», «Ввести власний»). **Groups:** Клієнт і договір (the contract's terms: currency, rate, payment days) · Період і дати (quick picks 01–14, 15–31, the month, other; issued = the period's end; due by the contract's terms) · Отримання коштів (active accounts in the currency, the last invoice's one first) · Документ (Стиль · Мова · Показувати договір · Призначення платежу · Примітка «акт» · Примітка щодо оплати · Інша примітка) · Позиції (not a group; dimmed while a group is open; «+ Знижка або коригування») · Внутрішня примітка. **Footer:** «Чернетка зберігається після кожної групи» and «Зафіксувати». The board has no currency field: the currency follows the contract, else the client. |
 | Зовнішній інвойс, Рядок, Фіксація (018, 015, 016) | As built, with prefixed numbers. |
 | Інвойс (017) | As built, with prefixed numbers. |
@@ -1163,7 +1304,7 @@ Board numbers are in brackets.
 | Інвойс для надходження (041) | The search «Номер або клієнт»; «Відкриті інвойси», each with its remainder or «прострочено · {amount}»; «або»; the dashed «Без інвойсу — Оплата за договором, інвойсу немає» with «Створимо запис лише для обліку…». An open invoice → Нове надходження; «Без інвойсу» → the form without an invoice; ✕ back to Облік. |
 | Нове надходження без інвойсу (042) | §4.2. The invoice field shows the dashed marker («Оплата за договором · лише для обліку»). Then Клієнт; Договір («обов’язково, якщо інвойсу немає», whose currency and rates it takes); «Сума від клієнта» (the tax base, typed); «За що (необов’язково)»; «Період з / по», required (the board's «Період необов’язковий» is overruled). Then the usual crediting block (account, received amount, date, fee), «Буде збережено» with ЄП and ВЗ, and an info box: no PDF, number or due date; the counter untouched; counted like any receipt; can be issued or attached later. |
 | Надходження (020) | As built, without the refund action. **«Сплата податків»** always lists ЄП and ВЗ. A paid one shows the amount, the badge and «12.10.2026 · ПриватБанк ФОП · UAH». An unpaid one shows the computed amount, a dashed «Не сплачено» and the faded placeholder line «дд.мм.рррр · Рахунок · № платіжки» (opacity .4). Each row opens its tax payment; there is no «+ Додати». The caption reads «ЄП і ВЗ з цього надходження завжди тут. Натисніть, щоб записати чи змінити сплату. ЄСВ — окремо, у «Податки».» |
-| Запис «Без інвойсу» (043, 044) | §4.2. **Header:** the marker with «Оплачено {дд.мм}», «Оплата за договором», the client. **Body:** the amount card («Сума від клієнта = сума надходжень»); Договір, Дата оплати, Рахунок отримання, Період послуг, За що; «Надходження» with the receipt card; the info box «Це запис лише для обліку». **Actions,** under «Якщо клієнт попросить інвойс»: «Оформити як інвойс» and «Прив’язати до виставленого інвойсу». |
+| Запис «Без інвойсу» (043, 044) | §4.2. **Header:** the marker with «Оплачено {дд.мм}», «Оплата за договором», the client. **Body:** the amount card («Сума від клієнта = сума надходжень»); Договір, Дата оплати, Рахунок отримання, Період послуг, За що; «Надходження» with the receipt card, without a pay row (the second handoff's `M-VInvoiceDetail`); the info box «Це запис лише для обліку». **Actions,** under «Якщо клієнт попросить інвойс»: «Оформити як інвойс» and «Прив’язати до виставленого інвойсу». |
 | Перекази (021) | As built; the losses card leads to Комісії. |
 | Новий переказ (022) | The source account's balance («8 217.50 USD») is bold accent. Tapping it sets Відправлено to the whole balance and clears Отримано. |
 | Сплата ЄП / ВЗ (023) | §8.4. From top to bottom: the receipt card's header, read-only; Податок, ЄП \| ВЗ; Сума, locked, with «5 % від 130 246.50 ₴ · нараховано з надходження»; Дата сплати; Статус (Надіслано \| Сплачено \| Не пройшов); «Сплачено з рахунку», with the primary account's hint and the foreign-currency hint; from a foreign-currency account, the amount that left it, typed by hand («Списано, USD»), with the bank's rate it implies; the requisites with copy buttons and the purpose; Номер платіжки; «Зберегти сплату». |

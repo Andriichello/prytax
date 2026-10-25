@@ -14,7 +14,8 @@ The «Minimal» handoff's questions were settled by the owner on 2026-10-25 and 
   rounded amount, while the quarter owes the year-to-date figure. The two can differ by a kopeck or so (the demo's
   III кв.: Δ −0.01). An underpaid kopeck can't be paid without a free amount, and it raises the tax-debt notification.
   One way: «Доплатити 0.01» on the quarter's row, a payment with `allocation = quarter` for exactly the remainder,
-  computed and not typed. An overpaid kopeck carries forward as now.
+  computed and not typed. An overpaid kopeck carries forward as now. Податки's «Нараховано» sums the receipts'
+  amounts (`design.md` §8.5), so it can differ from Облік's quarter figure by the same kopeck.
 - **A — the period of a refund.** Today a refund reduces income in its own period (п. 292.11, `design.md` §6.6). The
   alternative is to reduce the **original** receipt's period at the original rate, with a reason enum. The refund UI
   is hidden in phase 1, so this can wait.
@@ -35,9 +36,14 @@ bring back its screen.
 - Податки by month and by quarter (`taxes/{year}/months`, `taxes/{year}?…`) and the tax-period calendar button.
 - The refund action (`payments/{payment}/refunds`). The owner is fine without refunds (2026-10-25): cancelling an
   invoice asks only to move its receipts to the invoice that replaces it.
-- The pay row «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» of the receipt cards (removed for now by the owner,
-  2026-10-25): ЄП and ВЗ are paid one by one from their rows. To restore it, bring back `ReceiptTaxCard`'s `payRow`
-  (git history) on Податки and the «Без інвойсу» record.
+- Податки's two modes from the first «Minimal» handoff, which the ledger replaces (`design.md` §8.5). The receipts
+  with their taxes are on Облік.
+  - «Нарахування»: the quarter's card (Нараховано · Сплачено · До сплати, from `taxes/{year}` and `TaxReconciler`) and
+    the receipts by month (`taxes/{year}/{quarter}/payments`).
+  - «Історія сплат», with its «+ ЄСВ» and «Сплатити ЄСВ за {місяць}».
+- The pay row «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» of the receipt cards. The owner removed it on
+  2026-10-25, and the second handoff confirmed it: the ЄП and ВЗ rows are the only entry point. To restore it, bring
+  back `ReceiptTaxCard`'s `payRow` (git history).
 
 **Removed:** dropped from the schema or the API. To restore one, re-add it.
 - Receipts of kind `advance` and `other` (virtual invoices replace them).

@@ -322,9 +322,13 @@ profile independently of invoices and income, each `due` or `paid` (marking a mo
 phase) and allowing a voluntarily higher payment, and a monthly income table — the free-form record п. 296.1 asks for. Their screens are hidden in the first
 phase; the quarter, the year and the income table export to CSV, and XLSX comes later.
 
-Taxes are shown by receipt: the quarter's ЄП, ВЗ and ЄСВ, each accrued, paid and still to pay, and under them every
-receipt with its ЄП and ВЗ and whether they are paid; a second mode lists my tax payments as a history, newest first,
-month by month. I pay per receipt, and that habit is now the only way to pay ЄП and ВЗ, but it is not how periods are
+Taxes are shown as one ledger, month by month, newest first. It lists what is still to be paid: each receipt's ЄП and
+ВЗ in the month the money came in, and each month's ЄСВ in its own month (every month of a quarter once the quarter
+has started). It also lists every tax payment, sent, paid or failed, in the month it was made. Above the ledger, a
+summary of the chosen period shows each tax accrued, sent and paid, with a progress bar. The period is a year and a
+range of its quarters, and it can be narrowed to some taxes and some statuses. The summary counts each tax in the
+quarter it belongs to, so September's ЄСВ paid on 19 October counts in the third quarter; failed payments count
+nowhere. I pay per receipt, and that habit is now the only way to pay ЄП and ВЗ, but it is not how periods are
 split: the period of a receipt is always the quarter of its `received_at`, never
 the invoice issue or sent date, because an invoice sent on 28 September and paid on 5 October is Q4 income. Liability
 is never stored — `TaxLiabilityCalculator` computes it from the payments on demand with one indexed query per quarter
@@ -357,8 +361,8 @@ the quarter's obligation (the year-to-date delta for ЄП and ВЗ; for ЄСВ t
 sum of `paid` tax payments mapped to that quarter, shows `sent` ones as pending without counting them, excludes
 `failed` ones entirely, and carries a running balance — opening balance plus the accumulated paid-minus-owed over all
 quarters up to this one — across quarter and year boundaries, positive meaning overpaid and carried forward, negative
-meaning outstanding. The quarter shows owed, paid, pending and what is still to pay, with the deadline of the period,
-and each receipt shows its own ЄП and ВЗ with their status.
+meaning outstanding. The accounting screen's quarter summary shows each tax owed with what is paid, the deadline
+notifications read the running balance, and each receipt shows its own ЄП and ВЗ with their status.
 
 The app also watches for things I would otherwise miss and tells me about them as notifications that inform and
 never block: a deadline within `alerts.deadline_days` or past while the liability is not covered; an ЄСВ month still
@@ -384,11 +388,13 @@ the client, the total, the period and the date it is due by, or that it is overd
 of it is paid, and the subtitle sums what is still to be paid. The invoice list is an infinite scroll by month with no
 free-text search box — the system already knows every client, number and status — so it is narrowed by filters: a
 period (years, quarters, months or a range), clients, statuses (with "Без інвойсу" for the virtual records) and
-currencies, chosen in a drawer and applied together. The accounting and taxes screens use the same kind of drawer for
-one year and one quarter. The accounting screen starts with the quarter summary, lists the receipts by month, and its
-"+ Надходження" records a receipt against an open invoice or "Без інвойсу". The taxes screen shows the quarter's taxes
-and the receipts with a button to pay their ЄП and ВЗ, or, in its second mode, the history of tax payments; "+ ЄСВ"
-pays a month of ЄСВ. On the receipt's page ЄП and ВЗ are always listed, paid or not, and lead to their payment.
+currencies, chosen in a drawer and applied together. The accounting screen uses the same kind of drawer for one year
+and one quarter; the taxes screen uses it for one year and a range of its quarters, the taxes and the statuses. The
+accounting screen starts with the quarter summary, lists the receipts by month, and its "+ Надходження" records a
+receipt against an open invoice or "Без інвойсу". The taxes screen is the ledger above with its summary. Tapping a row
+opens its payment: a receipt's ЄП or ВЗ, or a month's ЄСВ, which can be paid ahead. Each tax is paid from its own
+row, since no receipt has a button that pays both. On the receipt's page ЄП and ВЗ are always listed, paid or not,
+and lead to their payment.
 Every settings page and form groups its fields into cards that open one at a time for editing and save on their own,
 and the texts printed on the invoice are shown as they will print and edited in place. Hidden for now, though their
 data and API stay: the ЄСВ table, the income book and the declaration screen (so declarations aren't filed through the

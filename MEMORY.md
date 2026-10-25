@@ -1,7 +1,8 @@
 # PryTax: progress and handoff
 
 Status as of the end of 2026-10-25: the «Minimal» redesign (design.md v4) is **built and committed on branch
-`feat/minimal`** (checked out; from `dev`; not merged, not pushed; the working tree is clean); see "Minimal". Before
+`feat/minimal`** (checked out; from `dev`; not merged, not pushed; the working tree is clean), and a browser QA pass
+of it fixed ten bugs on the same branch; see "Minimal" and "QA of Minimal". Before
 it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
 and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
@@ -24,12 +25,13 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 | 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done, merged and pushed** (2026-10-24); see "Invoice document" |
 | 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Built on `feat/minimal`** (2026-10-25), not merged; see "Minimal" |
+| 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Done on `feat/minimal`** (2026-10-25), 10 fixes; see "QA of Minimal" |
 
 - **Branches:** `main` and `dev` = backend + frontend + QA pass + follow-ups + English + translation keys + the
   invoice settings and styles (fast-forwarded and pushed on 2026-10-24, the user asked; the merged branches were
   deleted, except the local `feat/invoice-v2`). The `docs/specs` commits that followed are on `dev` only, not pushed.
   **`feat/minimal`** (checked out) = `dev` + the Minimal phase's commits (`git log --oneline dev..feat/minimal`:
-  specs, backend, SPA, demo, notes); not merged, not pushed. The remote
+  specs, backend, SPA, demo, notes, the QA fixes); not merged, not pushed. The remote
   `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
   only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
@@ -37,7 +39,7 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
-- `php8.5 artisan test --compact`: **404 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
+- `php8.5 artisan test --compact`: **405 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
   it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
   not run it). The frontend: `npm test` (Vitest, **529 tests**, incl. the translation guard
   `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
@@ -53,15 +55,15 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 ### First steps of the next session
 
 1. Ask the user to review `feat/minimal` and whether to merge it into `dev` (and push); don't merge or push unasked.
-   Then what is left: docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5,
-   golden PDFs), XLSX exports and the yearly PDF summary (need a package, so approval), pixel polish against the
-   boards, `SheetImporter`.
+   Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
+   remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a
+   package, so approval), pixel polish against the boards, `SheetImporter`.
 2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with
    `ss -ltnp | grep -E ':8010|:9223'` and start them if they're gone (commands under "Frontend" and "Checking the UI").
    `npm run build` after SPA changes; sign in as `olena@example.com` / `password` (the UI language is Ukrainian).
    Leave port 8000 (`/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers alone.
 3. Helper scripts kept on disk in `storage/handoff/tools/` (git-ignored): `act.mjs` (the browser step runner, see
-   "Checking the UI"), `i18n.py` (edits `i18n/uk` and `i18n/en` together: `rm AREA PATH`, `add AREA PARENT KEY UK EN`,
+   "Checking the UI"; it logs every API answer of 400 or more, and has `upload`, `url`, `clear-cookies`), `i18n.py` (edits `i18n/uk` and `i18n/en` together: `rm AREA PATH`, `add AREA PARENT KEY UK EN`,
    `set AREA PATH UK EN`, values as TS literals), `i18n-prune.sh` (removes the keys the guard reports unused, then
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
@@ -98,6 +100,42 @@ remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md 
   the browser against its board. The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys and on
   Cyrillic in English texts (English names the taxes "single tax", "military levy", "SSC"): run
   `storage/handoff/tools/i18n-prune.sh` after removing UI.
+
+## QA of Minimal (2026-10-25, branch `feat/minimal`)
+
+Every screen of §16.5 swept as owner, accountant and viewer (no errors; forms send the viewer to the record), then the
+flows driven in headless Chrome with the network watched: invoice by accordion groups → freeze → PDF → sent → receipt
+with a platform fee → ЄП paid from UAH, ВЗ sent from the USD account (original amount, bank rate) → paid; receipt
+without an invoice → record → issue as invoice; attach Kestrel's advance to KS-2026-10-15-7; ЄСВ for a month; transfer
+with the tapped balance and FIFO allocations; every settings accordion (save, cancel, 422 inline); style picker and
+pdf.js preview; client cascade (language, note) into a new invoice; filters of Інвойси, Облік, Податки; notifications;
+external PDF with the duplicate check, return to draft, delete; cancel refused with receipts; client create with a
+duplicate abbreviation; sign-in errors; English. The demo was reseeded afterwards. Fixed (one commit each):
+
+- `payments/preview` of an edited payment without an invoice was a **500** (`PaymentRecorder::reopens()` read a null
+  coverage; a virtual invoice never reopens). Test `testPreviewsAnEditOfAPaymentWithoutAnInvoice` (405 tests).
+- Deleting such a receipt warned «Інвойс повернеться до статусу «Готовий»»; it now says the record goes with it.
+- Viewers saw «Сплатити ЄП і ВЗ…» and unpaid tax rows linking to forms they can't open; English tax labels overflowed
+  the 44 px column («Military1 643.79») and the pay row read «Pay the Military levy» (now a sentence per tax).
+- The language select of a client/invoice offered «Власне» as its inherit option (now «Як у ФОП: English»).
+- Accountants couldn't upload the PDF signature (it sat in the owner-only «Інвойси» group of Профіль ФОП).
+- Нумерація: a counter moved back got the API's «уже на 9» while the screen shows 8 (last issued); told locally now.
+- The invoice editor asked `invoices/defaults` with the previous client's contract (a swallowed 422); item cards
+  showed typed `12,5 × 50` until reloaded.
+- Податки showed 0.00 everywhere for an untracked quarter (Коваленко's 2025: the opening balances of 01.01.2026 start
+  tracking); it says «не відстежуються» now.
+- Signing out re-mounted the screen without a user (`App.vue`'s `KeepAlive` key) and fired 401/404 requests; a
+  screen for signed-in users now renders only with a user.
+
+Open, for the user to decide (not changed):
+- ВЗ of a quarter (1 % of the quarter) and Σ per receipt differ by a kopeck (suggestions.md §1, known).
+- «Сплатити ЄП і ВЗ» opens ЄП and saving returns to the list (as §8.4 says); it could go on to ВЗ.
+- «Прив’язати» offers the client's paid invoices with 0.00 left too (attaching overpays them).
+- Облік's summary of an untracked quarter shows ЄСВ 0.00 owed with 5 280.00 paid; Податки now says «не відстежуються».
+- Copy: the unfreeze sheet of an external invoice says the generated PDF is deleted (it has none); the cancel refusal
+  (API) suggests refunding, which Minimal's screens no longer offer.
+- Minor: a field's API error stays until the next save (app-wide); the ЄСВ month stepper doesn't update the URL;
+  «Без інвойсу» appears in the status filter only while such a record exists (facets).
 
 ## QA pass (2026-10-21, branch `dev-qa-fixes`)
 

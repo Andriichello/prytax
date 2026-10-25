@@ -54,7 +54,7 @@ export default {
         empty: 'No payments for the chosen period and taxes.',
         filterTaxes: 'Taxes',
         filterStatuses: 'Status',
-        taxesHint: 'Choose one or more. Removing the last one chooses all again.',
+        taxesHint: 'Choose one or more. With none chosen, all are shown.',
         statusesHint: 'The summary counts the chosen statuses only. Removing the last one chooses all again.',
     },
 

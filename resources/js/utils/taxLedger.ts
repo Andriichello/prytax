@@ -1,7 +1,8 @@
 /**
  * Податки's filters (design.md §16.2, §8.5): one year with a contiguous range of its quarters, where none is the whole
- * year; any of the taxes and any of the statuses, where none is all of them. They live in the URL: `year`, `quarters`
- * (`2-4`, `4`, or `all` for the whole year), `taxes` and `statuses` (comma-separated, left out when all are chosen).
+ * year; any of the taxes, where none chosen means all of them, as all chosen does; any of the statuses, at least one.
+ * They live in the URL: `year`, `quarters` (`2-4`, `4`, or `all` for the whole year), `taxes` and `statuses`
+ * (comma-separated, left out when all are chosen; `taxes=` empty when none is).
  */
 
 import type { TaxLedgerStatus, TaxType } from '@/api/types';
@@ -19,6 +20,7 @@ export interface TaxLedgerFilter {
     year: number;
     /** A contiguous range, ascending; empty is the whole year. */
     quarters: number[];
+    /** None chosen means all of them. */
     taxes: TaxType[];
     statuses: TaxLedgerStatus[];
 }
@@ -61,15 +63,24 @@ export function tapQuarter(quarters: number[], quarter: number): number[] {
 }
 
 /**
- * The options after a tap on one: a chosen one leaves, unless it is the last one, which brings all of them back; a
- * new one joins, in the order of `all`.
+ * The options after a tap on one: a chosen one leaves, the last one too, and a new one joins, in the order of `all`.
+ */
+export function toggleChoice<T>(chosen: readonly T[], option: T, all: readonly T[]): T[] {
+    return chosen.includes(option) ? chosen.filter((item) => item !== option) : all.filter((item) => item === option || chosen.includes(item));
+}
+
+/**
+ * The options after a tap on one, keeping at least one: removing the last one brings all of them back (the statuses).
  */
 export function toggleOption<T>(chosen: readonly T[], option: T, all: readonly T[]): T[] {
-    if (chosen.includes(option)) {
-        return chosen.length === 1 ? [...all] : chosen.filter((item) => item !== option);
-    }
+    const next = toggleChoice(chosen, option, all);
 
-    return all.filter((item) => item === option || chosen.includes(item));
+    return next.length > 0 ? next : [...all];
+}
+
+/** Whether a choice of taxes shows every tax: all of them chosen, or none. */
+export function isEveryTax(taxes: readonly TaxType[]): boolean {
+    return taxes.length === 0 || taxes.length === LEDGER_TAXES.length;
 }
 
 /** «IV кв.», «II–IV кв.» (Q4, Q2–Q4). */
@@ -93,9 +104,9 @@ export function periodBadge(filter: Pick<TaxLedgerFilter, 'year' | 'quarters'>):
         : `${quarterRangeLabel(filter.quarters)} ${filter.year}`;
 }
 
-/** «Усі податки», or the chosen ones: «ЄП, ВЗ». */
+/** «Усі податки» (all of them chosen, or none), or the chosen ones: «ЄП, ВЗ». */
 export function taxesBadge(taxes: readonly TaxType[]): string {
-    return taxes.length === LEDGER_TAXES.length ? t('accounting.taxes.allTaxes') : taxes.map((tax) => TAX_TYPES[tax]).join(', ');
+    return isEveryTax(taxes) ? t('accounting.taxes.allTaxes') : taxes.map((tax) => TAX_TYPES[tax]).join(', ');
 }
 
 /** A status's name: «Не сплачено», «Не пройшов», «Надіслано», «Сплачено». */
@@ -146,7 +157,7 @@ export function filterFromQuery(query: Readonly<Record<string, unknown>>, now: {
     return {
         year,
         quarters,
-        taxes: listOf(query.taxes, LEDGER_TAXES),
+        taxes: query.taxes === '' ? [] : listOf(query.taxes, LEDGER_TAXES),
         statuses: listOf(query.statuses, LEDGER_STATUSES),
     };
 }

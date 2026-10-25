@@ -9,6 +9,7 @@ import {
     statusesBadge,
     tapQuarter,
     taxesBadge,
+    toggleChoice,
     toggleOption,
 } from '@/utils/taxLedger';
 
@@ -39,6 +40,14 @@ describe('toggleOption', () => {
     });
 });
 
+describe('toggleChoice', () => {
+    it('leaves none chosen, when the last one is removed, and adds in the order of all of them', () => {
+        expect(toggleChoice(['military_levy'], 'military_levy', LEDGER_TAXES)).toEqual([]);
+        expect(toggleChoice([], 'social_contribution', LEDGER_TAXES)).toEqual(['social_contribution']);
+        expect(toggleChoice(['social_contribution'], 'single_tax', LEDGER_TAXES)).toEqual(['single_tax', 'social_contribution']);
+    });
+});
+
 describe('the badges', () => {
     afterEach(() => {
         locale.value = 'uk';
@@ -49,6 +58,7 @@ describe('the badges', () => {
         expect(periodBadge({ year: 2026, quarters: [2, 3, 4] })).toBe('II–IV кв. 2026');
         expect(periodBadge({ year: 2026, quarters: [] })).toBe('2026 · увесь рік');
         expect(taxesBadge([...LEDGER_TAXES])).toBe('Усі податки');
+        expect(taxesBadge([])).toBe('Усі податки');
         expect(taxesBadge(['single_tax', 'military_levy'])).toBe('ЄП, ВЗ');
         expect(statusesBadge([...LEDGER_STATUSES])).toBe('Усі статуси');
         expect(statusesBadge(['failed', 'sent'])).toBe('Не пройшов, Надіслано');
@@ -60,10 +70,11 @@ describe('the badges', () => {
 });
 
 describe('the URL of the filter', () => {
-    it('keeps a range, the whole year, the taxes and the statuses', () => {
+    it('keeps a range, the whole year, the taxes (none chosen too) and the statuses', () => {
         for (const filter of [
             { year: 2025, quarters: [2, 3, 4], taxes: ['social_contribution' as const], statuses: ['unpaid' as const, 'failed' as const] },
             { year: 2026, quarters: [], taxes: [...LEDGER_TAXES], statuses: [...LEDGER_STATUSES] },
+            { year: 2026, quarters: [4], taxes: [], statuses: [...LEDGER_STATUSES] },
         ]) {
             expect(filterFromQuery(queryOfFilter(filter), now)).toEqual(filter);
         }

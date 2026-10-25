@@ -146,7 +146,7 @@
     "The fee of a same-currency transfer is the amount sent less the amount received: :fee.": "Комісія переказу в одній валюті — це різниця сум: :fee.",
     "The fee of a transfer is less than the amount sent.": "Комісія має бути меншою за суму переказу.",
     "The income of a filed quarter changed. Declarations are cumulative, so this quarter and the later filed quarters of the year need correcting.": "Дохід поданого кварталу змінено. Декларації наростаючим підсумком, тож уточнення потрібне для цього й наступних поданих кварталів року.",
-    "The invoice has :amount :currency of receipts: move them to the invoice, which replaces it, or refund them, before cancelling it.": "Інвойс має надходження на :amount :currency: перенесіть їх на інвойс, що його замінює, або поверніть, перш ніж скасувати.",
+    "The invoice has :amount :currency of receipts: move them to the invoice, which replaces it, before cancelling it.": "Інвойс має надходження на :amount :currency: перенесіть їх на інвойс, що його замінює, перш ніж скасувати.",
     "The invoice has no document yet: freeze it, or upload its PDF.": "Документа ще немає: зафіксуйте інвойс або завантажте PDF.",
     "The invoice has receipts, so it can't return to its draft.": "Інвойс має надходження, тож повернути його в чернетку не можна.",
     "The invoice is :status already.": "Статус інвойсу вже змінено. Оновіть сторінку.",

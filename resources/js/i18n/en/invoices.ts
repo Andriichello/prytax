@@ -65,8 +65,7 @@ export default {
             'The number is kept (its date changes if you change the period); the snapshot and the generated PDF will be deleted. You can then edit the invoice and freeze it again.',
         cancelQuestion: 'Cancel the invoice?',
         cancelInvoice: 'Cancel invoice',
-        cancelExplained:
-            'A cancelled invoice stays in the list with its number struck through. Move any receipts to the invoice that replaces it first, or refund them.',
+        cancelExplained: 'A cancelled invoice stays in the list with its number struck through. Move any receipts to the invoice that replaces it first.',
         downloadPdf: 'Download PDF',
         frozenOn: 'Frozen on {date}',
         noNumber: 'No number',

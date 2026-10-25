@@ -444,7 +444,7 @@ class InvoiceControllerTest extends TestCase
 
         $this->postJson($this->profilePath($profile, "invoices/{$paid->id}/cancel"))
             ->assertConflict()
-            ->assertJsonPath('message', 'The invoice has 100.00 USD of receipts: move them to the invoice, which replaces it, or refund them, before cancelling it.');
+            ->assertJsonPath('message', 'The invoice has 100.00 USD of receipts: move them to the invoice, which replaces it, before cancelling it.');
         $this->postJson($this->profilePath($profile, "invoices/{$unpaid->id}/cancel"))
             ->assertOk()
             ->assertJsonPath('data.status', 'cancelled');

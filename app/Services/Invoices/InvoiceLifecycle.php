@@ -140,7 +140,7 @@ class InvoiceLifecycle
             $kept = $invoice->receivedAmount();
 
             if ($kept->isPositive()) {
-                throw new ConflictHttpException(__('The invoice has :amount :currency of receipts: move them to the invoice, which replaces it, or refund them, before cancelling it.', [
+                throw new ConflictHttpException(__('The invoice has :amount :currency of receipts: move them to the invoice, which replaces it, before cancelling it.', [
                     'amount' => Decimal::money($kept),
                     'currency' => $invoice->currency,
                 ]));

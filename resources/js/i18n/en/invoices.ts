@@ -166,7 +166,6 @@ export default {
     /** A payment without an invoice («Без інвойсу», design.md §4.2) */
     virtual: {
         marker: 'No invoice',
-        byContract: 'Paid under the contract',
         forBooks: 'Paid under the contract · for the books only',
     },
 

@@ -90,6 +90,11 @@ export default {
         sent: 'Надіслано',
         paid: 'Сплачено',
         failed: 'Не пройшов',
+        unpaid: 'Не сплачено',
+        sentOn: 'надіслано {date}',
+        paidOn: 'сплачено {date}',
+        failedShort: 'не пройшов',
+        unpaidShort: 'не сплачено',
     },
 
     /** The short names of the taxes */

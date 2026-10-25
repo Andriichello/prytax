@@ -2,16 +2,16 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api } from '@/api/client';
-import type { Account, ApiResponse, Payment, PaymentFlow } from '@/api/types';
+import type { ApiResponse, Payment, PaymentFlow, TaxType } from '@/api/types';
 import TextAreaField from '@/components/form/TextAreaField.vue';
+import VirtualMarker from '@/components/invoice/VirtualMarker.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import MoneyFlow from '@/components/payment/MoneyFlow.vue';
-import RefundSheet from '@/components/payment/RefundSheet.vue';
+import ReceiptTaxRow from '@/components/taxes/ReceiptTaxRow.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
-import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import Translated from '@/components/ui/Translated.vue';
@@ -22,12 +22,13 @@ import { t } from '@/i18n';
 import { formatDate, monthNameInText, quarterLabel } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
-import { TAX_PAYMENT_STATUSES, TAX_TYPES, unpaidStatusOf } from '@/utils/statuses';
+import { TAX_TYPES, unpaidStatusOf } from '@/utils/statuses';
 
 /**
- * Надходження (S-PaymentDetail): the amount in its currency with hryvnias below, the invoice, the income date, the
- * NBU rate (only here), ЄП / ВЗ as hints, the way the money went, what it cost and what is left, and the taxes paid
- * for it. Deleting it, or one of its refunds, in a declared quarter asks for a correction note.
+ * Надходження (M-PaymentDetail): the amount in its currency with hryvnias below, the invoice (or the «Без інвойсу»
+ * record), the income date, the NBU rate (only here), ЄП / ВЗ as hints, the way the money went, what it cost and what
+ * is left, and «Сплата податків»: ЄП and ВЗ always, each opening its payment (design.md §16.5). Deleting it, or one
+ * of its refunds, in a declared quarter asks for a correction note.
  */
 const route = useRoute();
 const router = useRouter();
@@ -37,26 +38,37 @@ const { can } = useSession();
 const id = computed(() => Number(route.params.id));
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
-    const [payment, flow, accounts] = await Promise.all([
+    const [payment, flow] = await Promise.all([
         api.get<ApiResponse<Payment>>(path(`payments/${id.value}`), {
             include: ['invoice.client', 'receivedToAccount', 'taxPayments.paidFromAccount', 'taxRule'],
         }, signal),
         api.get<ApiResponse<PaymentFlow>>(path(`payments/${id.value}/flow`), undefined, signal),
-        api.all<Account>(path('accounts'), {}, signal),
     ]);
 
-    return { payment: payment.data, flow: flow.data, accounts };
+    return { payment: payment.data, flow: flow.data };
 }, [profileId, id]);
 
 const payment = computed(() => data.value?.payment ?? null);
 const flow = computed(() => data.value?.flow ?? null);
 
-const kindTitle = computed(() => (payment.value?.kind === 'advance' ? t('money.payment.advance') : payment.value?.kind === 'other' ? t('money.payment.otherIncome') : t('core.common.receipt')));
+const isVirtual = computed(() => payment.value?.invoice?.source === 'virtual');
 const ratePercent = (rate: string | undefined): string => (rate ? `${Number((Number(rate) * 100).toFixed(2))} %` : '');
 
 const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding.kind !== 'fop_bank' && compareAmounts(holding.amount, '0') > 0) ?? null);
 const landed = computed(() => flow.value?.landed_on_fop_bank.filter((holding) => compareAmounts(holding.amount, '0') > 0) ?? []);
-const taxPayments = computed(() => [...(payment.value?.taxPayments ?? [])].sort((a, b) => (a.paid_at ?? '').localeCompare(b.paid_at ?? '')));
+/** ЄП and ВЗ of the receipt: what it accrued, its payment (one per tax), and where a row leads. */
+const taxes = computed(() => (['single_tax', 'military_levy'] as const).map((type: Extract<TaxType, 'single_tax' | 'military_levy'>) => {
+    const taxPayment = payment.value?.taxPayments?.find((item) => item.tax_type === type) ?? null;
+
+    return {
+        type,
+        amount: (type === 'single_tax' ? payment.value?.single_tax_uah : payment.value?.military_levy_uah) ?? '0.00',
+        taxPayment,
+        to: taxPayment
+            ? { name: 'tax-payment', params: { id: taxPayment.id } }
+            : { name: 'tax-payment-new', query: { payment: id.value, tax: type } },
+    };
+}));
 
 /**
  * The status, to which deleting the receipt returns its paid invoice, as the receipts left no longer cover it (a
@@ -76,7 +88,6 @@ const reopenedStatus = computed(() => {
 const unpaid = computed(() => (typeof route.query.unpaid === 'string' ? route.query.unpaid : null));
 
 const menuOpen = ref(false);
-const refunding = ref(false);
 const deleteOpen = ref(false);
 const busy = ref(false);
 const actionError = ref<string | null>(null);
@@ -120,11 +131,12 @@ async function remove(): Promise<void> {
     actionError.value = null;
 
     try {
-        const invoiceId = payment.value?.invoice_id;
+        // A payment without an invoice takes its record along
+        const invoiceId = isVirtual.value ? null : payment.value?.invoice_id;
 
         await api.delete(path(`payments/${id.value}`), noteQuery());
         deleteOpen.value = false;
-        await router.replace(invoiceId ? { name: 'invoice', params: { id: invoiceId } } : { name: 'home' });
+        await router.replace(invoiceId ? { name: 'invoice', params: { id: invoiceId } } : { name: 'accounting' });
     } catch (caught) {
         failed(caught);
     } finally {
@@ -167,7 +179,7 @@ async function removeRefund(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="kindTitle" muted :back="payment?.invoice_id ? { name: 'invoice', params: { id: payment.invoice_id } } : { name: 'home' }">
+    <SubScreen :title="t('core.common.receipt')" muted :back="payment?.invoice_id ? { name: 'invoice', params: { id: payment.invoice_id } } : { name: 'accounting' }">
         <template #action>
             <button
                 v-if="payment && can('update', 'payments')"
@@ -202,12 +214,12 @@ async function removeRefund(): Promise<void> {
                         :to="{ name: 'invoice', params: { id: payment.invoice.id } }"
                         class="flex min-h-11 items-center gap-1.5 text-accent no-underline"
                     >
-                        <span class="num text-17 font-semibold">{{ payment.invoice.number }}</span>
+                        <VirtualMarker v-if="isVirtual" />
+                        <span v-else class="num text-17 font-semibold">{{ payment.invoice.number }}</span>
                         <Icon name="chevronRight" :size="18" />
                     </RouterLink>
                     <span class="-mt-1.5 text-16 font-light">{{ payment.invoice.client?.name }}</span>
                 </div>
-                <p v-else-if="payment.description" class="m-0 text-16 font-light">{{ payment.description }}</p>
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4 py-1 text-14">
                     <div class="flex justify-between gap-3 py-3">
@@ -279,42 +291,22 @@ async function removeRefund(): Promise<void> {
                     </div>
                 </section>
 
-                <section class="flex flex-col gap-2.5">
-                    <SectionTitle>
-                        {{ t('settings.taxes.payingTaxes') }}
-                        <template v-if="can('create', 'tax-payments')" #aside>
-                            <RouterLink
-                                :to="{ name: 'tax-payment-new', query: { allocation: 'payment', payment: payment.id, year: payment.period_year, quarter: payment.period_quarter } }"
-                                class="flex min-h-11 items-center text-14 font-medium no-underline"
-                            >
-                                {{ t('core.common.plusAdd') }}
-                            </RouterLink>
-                        </template>
-                    </SectionTitle>
-                    <div v-if="taxPayments.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                        <div v-for="taxPayment in taxPayments" :key="taxPayment.id" class="flex items-center gap-3 py-3">
-                            <span class="flex flex-1 flex-col gap-0.5">
-                                <span class="text-15 font-medium">{{ TAX_TYPES[taxPayment.tax_type] }}</span>
-                                <span class="text-12 text-ink-3">
-                                    {{ formatDate(taxPayment.paid_at) }}<template v-if="taxPayment.paidFromAccount"> · {{ taxPayment.paidFromAccount.name }}</template>
-                                </span>
-                            </span>
-                            <span class="flex flex-col items-end gap-1">
-                                <span class="num text-14 font-semibold">{{ formatAmount(taxPayment.amount) }}</span>
-                                <StatusBadge v-bind="TAX_PAYMENT_STATUSES[taxPayment.status]" size="sm" />
-                            </span>
-                        </div>
+                <section v-if="payment.kind === 'invoice'" class="flex flex-col gap-2.5">
+                    <SectionTitle>{{ t('settings.taxes.payingTaxes') }}</SectionTitle>
+                    <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                        <ReceiptTaxRow
+                            v-for="tax in taxes"
+                            :key="tax.type"
+                            :label="TAX_TYPES[tax.type]"
+                            :amount="tax.amount"
+                            :tax-payment="tax.taxPayment"
+                            :to="tax.to"
+                        />
                     </div>
-                    <p v-else class="m-0 rounded-card border border-line bg-surface p-4 text-14 text-ink-3">
-                        {{ t('money.payment.taxesUnpaid') }}
-                    </p>
+                    <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('money.payment.taxesCaption') }}</p>
                 </section>
 
                 <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ actionError }}</p>
-
-                <SecondaryButton v-if="can('create', 'refunds') && payment.kind !== 'fx_gain'" class="bg-muted" @click="refunding = true">
-                    {{ t('money.payment.refundToClient') }}
-                </SecondaryButton>
             </template>
         </LoadState>
 
@@ -345,8 +337,6 @@ async function removeRefund(): Promise<void> {
                 </button>
             </div>
         </BottomSheet>
-
-        <RefundSheet v-if="payment && data" v-model:open="refunding" :payment="payment" :accounts="data.accounts" @saved="reload" />
 
         <ConfirmSheet
             v-model:open="deleteOpen"

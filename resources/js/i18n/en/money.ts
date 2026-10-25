@@ -27,8 +27,6 @@ export default {
         balanceNotLoss: 'a balance, not a loss',
         netIncome: 'Net income',
         netIncomeNote: 'after fees, single tax and military levy',
-        taxesUnpaid: 'Taxes on this receipt aren’t paid yet. They can also be paid for the quarter as a whole.',
-        refundToClient: 'Refund the client',
         receiptActions: 'Receipt actions',
         edit: 'Edit',
         dontRemindPlatform: 'Don’t remind me about money left on the platform',
@@ -41,6 +39,8 @@ export default {
         deleteRefundQuestion: 'Delete the refund?',
         deleteRefundExplained:
             'The refund will be removed from the records, and its period’s income will go back up. To correct a refund, delete it and record it again.',
+        taxPlaceholder: 'dd.mm.yyyy · Account · Order No.',
+        taxesCaption: 'The single tax and the military levy of this receipt are always here. Tap one to record or change its payment. SSC is separate, in «Taxes».',
     },
 
     paymentForm: {
@@ -142,14 +142,6 @@ export default {
 
     refund: {
         refundClient: 'Refund to the client',
-        explained:
-            'A refund lowers the income of the period it’s made in. The money goes out of an account in {currency}.',
-        fromAccount: 'From account',
-        manualRateHint: 'Manual only until the NBU publishes a rate for this date.',
-        reason: 'Reason',
-        reasonPlaceholder: 'E.g., overpayment',
-        invoiceWillReopen: 'Invoice {number} will no longer be covered in full and will return to “{status}”.',
-        recordRefund: 'Record the refund',
     },
 
     transfers: {

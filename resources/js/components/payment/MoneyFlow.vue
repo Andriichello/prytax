@@ -81,7 +81,7 @@ const now = computed(() => flow.holdings.filter((holding) => compareAmounts(hold
                 <span class="text-12 text-ink-3">{{ t('money.flow.now') }}</span>
                 <span class="text-15 font-medium">{{ holding.kind === 'fop_bank' ? t('money.flow.onAccount', { account: holding.account_name }) : t('money.flow.leftOn', { account: holding.account_name }) }}</span>
                 <span class="num text-13 font-semibold" :class="holding.kind === 'fop_bank' ? 'text-positive' : 'text-warning-text'">
-                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'"> {{ t('money.flow.notAllocated') }}</template>
+                    {{ formatMoney(holding.amount, holding.currency ?? flow.currency) }}<template v-if="holding.kind !== 'fop_bank'">{{ ` ${t('money.flow.notAllocated')}` }}</template>
                 </span>
             </span>
         </li>

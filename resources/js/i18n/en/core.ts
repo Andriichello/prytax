@@ -85,6 +85,11 @@ export default {
         sent: 'Sent',
         paid: 'Paid',
         failed: 'Failed',
+        unpaid: 'Not paid',
+        sentOn: 'sent {date}',
+        paidOn: 'paid {date}',
+        failedShort: 'failed',
+        unpaidShort: 'not paid',
     },
 
     taxes: {

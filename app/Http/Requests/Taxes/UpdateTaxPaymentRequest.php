@@ -23,6 +23,6 @@ class UpdateTaxPaymentRequest extends UpdateRequest
      */
     public function rules(): array
     {
-        return $this->taxPaymentRules('sometimes');
+        return $this->taxPaymentRules();
     }
 }

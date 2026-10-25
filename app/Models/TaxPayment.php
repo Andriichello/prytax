@@ -19,9 +19,11 @@ use PryTax\Queries\TenantQuery;
 /**
  * Class TaxPayment.
  *
- * A payment of ЄП, ВЗ or ЄСВ, allocated to a receipt, a month or a quarter (design.md §8.2). The period columns are
- * always filled, so a quarter reconciles with one query; for a receipt, they are copied from its `received_at`. A
- * sent payment is pending (shown, not counted), a failed one is ignored.
+ * A payment of ЄП, ВЗ or ЄСВ, allocated to a receipt, a month or a quarter (design.md §8.2, §8.4): ЄП and ВЗ are paid
+ * from a receipt, ЄСВ by month; a quarter's allocation is left for imported history. The period columns are always
+ * filled, so a quarter reconciles with one query; for a receipt, they are copied from its `received_at`. A sent
+ * payment is pending (shown, not counted), a failed one is ignored. Paid from a foreign-currency account, it keeps
+ * what left that account (`original_amount` in `original_currency`).
  *
  * @property int $id
  * @property int $profile_id
@@ -36,6 +38,8 @@ use PryTax\Queries\TenantQuery;
  * @property int $period_quarter
  * @property int|null $period_month
  * @property int|null $paid_from_account_id
+ * @property string|null $original_amount
+ * @property string|null $original_currency
  * @property string|null $reference
  * @property string|null $note
  * @property Carbon|null $created_at
@@ -75,6 +79,8 @@ class TaxPayment extends BaseModel
         'period_quarter',
         'period_month',
         'paid_from_account_id',
+        'original_amount',
+        'original_currency',
         'reference',
         'note',
     ];
@@ -95,6 +101,7 @@ class TaxPayment extends BaseModel
         'period_quarter' => 'int',
         'period_month' => 'int',
         'paid_from_account_id' => 'int',
+        'original_amount' => 'decimal:2',
     ];
 
     /**

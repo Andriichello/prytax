@@ -24,7 +24,7 @@ class StoreTaxPaymentRequest extends StoreRequest
      */
     public function rules(): array
     {
-        return $this->taxPaymentRules('required');
+        return $this->taxPaymentRules();
     }
 
     /**

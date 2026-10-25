@@ -187,7 +187,7 @@ class AccountStatement
             ->each(fn (TaxPayment $payment) => $rows->push([
                 'type' => 'tax',
                 'date' => $payment->paid_at->toDateString(),
-                'amount' => Decimal::money(Decimal::of($payment->amount)->negated()),
+                'amount' => Decimal::money(Decimal::of($payment->original_amount ?? $payment->amount)->negated()),
                 'tax_payment_id' => $payment->getKey(),
                 'title' => $payment->tax_type->value,
                 'status' => $payment->status->value,

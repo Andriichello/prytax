@@ -4,6 +4,7 @@ namespace PryTax\Services\Accounts;
 
 use Brick\Math\BigDecimal;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 use PryTax\Enums\MovementDirection;
 use PryTax\Enums\TaxPaymentStatus;
@@ -82,7 +83,7 @@ class AccountBalanceCalculator
                 ->when($to, fn ($query) => $query->where($column, '<=', $to->toDateString()));
         };
 
-        $sum = fn ($query, string $column, $date) => Decimal::of((string) $range($query, $date)->sum($column));
+        $sum = fn ($query, string|Expression $column, $date) => Decimal::of((string) $range($query, $date)->sum($column));
 
         $receipts = $sum(Payment::query()->where('received_to_account_id', $account->getKey()), 'received_amount', 'received_at');
         $transfersIn = $sum(AccountTransfer::query()->where('to_account_id', $account->getKey()), 'amount_received', 'received_at');
@@ -92,11 +93,12 @@ class AccountBalanceCalculator
             'amount_sent',
             DB::raw('COALESCE(sent_at, received_at)')
         );
+        // A tax paid from a foreign-currency account takes what left it, which the bank sold
         $taxes = $sum(
             TaxPayment::query()
                 ->where('paid_from_account_id', $account->getKey())
                 ->where('status', '<>', TaxPaymentStatus::Failed->value),
-            'amount',
+            DB::raw('COALESCE(original_amount, amount)'),
             'paid_at'
         );
         $refunds = $sum(Refund::query()->where('from_account_id', $account->getKey()), 'amount', 'refunded_at');

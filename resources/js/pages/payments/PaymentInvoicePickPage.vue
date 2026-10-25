@@ -17,7 +17,8 @@ import { formatMoney, subtractAmounts } from '@/utils/money';
 /**
  * Інвойс для надходження (M-VPickInvoice, design.md §16.5): the first step of a receipt from Облік. The open invoices
  * (ready and sent), found by their number or client, each with what is left of it, or «Без інвойсу», a payment
- * under the contract, which is recorded with a virtual invoice (§4.2).
+ * under the contract, which is recorded with a virtual invoice (§4.2). A choice replaces this step with the form (its
+ * invoice field changes the choice), so the form and then the saved receipt go back to Облік.
  */
 const { profileId, path } = useCurrentProfile();
 
@@ -67,6 +68,7 @@ const remainderOf = (invoice: Invoice): string => formatMoney(subtractAmounts(in
                     v-for="invoice in shown"
                     :key="invoice.id"
                     :to="{ name: 'payment-new', query: { invoice: invoice.id } }"
+                    replace
                     class="flex flex-col gap-1 rounded-card border border-line bg-surface px-3.5 py-3 text-ink no-underline hover:text-ink"
                 >
                     <span class="num text-16 font-semibold">{{ invoice.number }}</span>
@@ -94,6 +96,7 @@ const remainderOf = (invoice: Invoice): string => formatMoney(subtractAmounts(in
 
             <RouterLink
                 :to="{ name: 'payment-new', query: { without: 1 } }"
+                replace
                 class="flex items-start gap-3 rounded-card border border-dashed border-ink-3 bg-surface px-3.5 py-3.5 text-ink no-underline hover:text-ink"
             >
                 <span class="flex min-w-0 flex-1 flex-col gap-1.5">

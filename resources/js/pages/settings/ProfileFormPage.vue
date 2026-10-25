@@ -29,7 +29,8 @@ import { formatAmount, setMoneyFormat } from '@/utils/money';
 /**
  * Профіль ФОП (M-ProfileEdit, design.md §16.5), and a new ФОП. The static banner of the 3rd group, then the groups:
  * «Податкова особа» (the РНОКПП is stored encrypted, owners change it), «Адреса й контакти», «Інвойси» (the currency,
- * the document's language and the PDF signature, which uploads at once) and «Формат сум» (settings); then the
+ * the document's language and the PDF signature, which uploads at once; an accountant opens it for the signature
+ * only) and «Формат сум» (settings); then the
  * «Активний ФОП» switch, which saves at once, with the date an inactive ФОП closed (its taxes are tracked until then).
  * A new ФОП is one form, which creates it and goes on to its taxes.
  */
@@ -125,7 +126,7 @@ async function saveGroup(group: ProfileGroup): Promise<void> {
             });
             await loadSettings();
             setMoneyFormat(form.value.display_format);
-        } else {
+        } else if (canEditIdentity.value) {
             await api.patch(`profiles/${profileId.value}`, profileFields(form.value, group));
             await loadProfiles();
         }
@@ -255,7 +256,7 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
                     </template>
                 </AccordionGroup>
 
-                <AccordionGroup id="invoices" :title="t('shell.nav.invoices')" :editable="canEditIdentity" :saving="saving" :error="generalError" @open="open" @save="saveGroup('invoices')">
+                <AccordionGroup id="invoices" :title="t('shell.nav.invoices')" :editable="canEditIdentity || canConfigure" :saving="saving" :error="generalError" @open="open" @save="saveGroup('invoices')">
                     <ReadRow :label="t('core.common.currency')" :value="saved.default_currency" />
                     <ReadRow :label="t('settings.profile.languageShort')" :value="DOCUMENT_LOCALES.find((locale) => locale.value === saved.locale)?.label ?? saved.locale" />
                     <ReadRow :label="t('settings.profile.signaturePdfs')">
@@ -263,7 +264,7 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
                         <span v-else class="text-ink-3">{{ t('settings.profile.noSignature') }}</span>
                     </ReadRow>
                     <template #edit>
-                        <ProfileInvoiceFields v-model="form" />
+                        <ProfileInvoiceFields v-model="form" :disabled="!canEditIdentity" />
                         <div v-if="canConfigure" class="flex flex-col gap-1.5">
                             <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>
                             <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">

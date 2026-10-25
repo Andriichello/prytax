@@ -1,7 +1,8 @@
 # Invoice PDF — template v3 and its 13 styles
 
-**State:** as built on 2026-10-24 (Laravel 13, Blade → dompdf 3.1.6).
-**Spec:** `design.md` v3.3 §4 (lifecycle, snapshot) and §4.1 (the settings cascade, which decides what this document
+**State:** as built on 2026-10-24 (Laravel 13, Blade → dompdf 3.1.6), except the two notes of design v4 («Minimal»),
+which are specified here and not built yet: they replace the single note and its kind (§3, §4).
+**Spec:** `design.md` v4 §4 (lifecycle, snapshot) and §4.1 (the settings cascade, which decides what this document
 prints); the functional rules are in `accounting.md`.
 **History:** this file first held the instructions for layout v2 (the header and party blocks, the contract toggle).
 That layout became the head and the strip of template v3, whose 13 styles came from Claude Design's handoff
@@ -52,7 +53,6 @@ content and structure: the styles differ by their CSS, their decoration and thei
 | View model | `app/Services/Invoices/InvoiceDocument.php` |
 | Snapshot | `InvoiceFreezer::snapshot()` |
 | Styles (catalogue order, `label()`, `group()`, `cssClass()`) | `app/Enums/InvoiceStyle.php` |
-| Where the note prints (`payment`, `other`) | `app/Enums/InvoiceNoteKind.php` |
 | Template v3 and its partials | `resources/views/pdf/invoice/v3.blade.php`, `v3/{decor,head,strip,items,card}.blade.php` |
 | Template v1 (schema 1, unchanged) | `resources/views/pdf/invoice/v1.blade.php` |
 | CSS: shared rules, then one file per style | `resources/invoice-styles/base.css`, `resources/invoice-styles/{style}.css` |
@@ -73,12 +73,15 @@ content and structure: the styles differ by their CSS, their decoration and thei
 | Snapshot | Template of the invoice's generated file | Renders with |
 |---|---|---|
 | `schema_version` 1 (or none) | any | **v1**, as it always did |
-| 2 (development only) | — | **v3** as `outlined`; its `footer_note` prints as a note of kind `other` |
+| 2 (development only) | — | **v3** as `outlined`; its `footer_note` prints as the other note |
 | 3 | `v3`, or no file yet | **v3** |
 | 2 or 3 | `v2` (development only) | **v3** |
 
 A generated file stores `template_version` and `schema_version` in its metadata (api-core's `files.metadata`; this
 is `invoice_files.template_version` in `design.md` §3). New renders use `TEMPLATE_VERSION = 'v3'`.
+
+The two notes change the snapshot's `presentation` (§3) in place, still as schema 3: no invoice was issued outside
+development, and the development data is reseeded.
 
 ---
 
@@ -107,8 +110,8 @@ on its own.
     "payment_purpose": "Payment for IT services by the invoice No. BRIT-2026-10-31-2 from Oct 31, 2026",
     "act_note": "Payment of this invoice confirms the successful delivery of services and serves as the Act of Acceptance. No additional signatures are required.",
     "show_contract": true,
-    "note": "Please quote the invoice number in the transfer reference.",
-    "note_kind": "payment"
+    "payment_note": "Please quote the invoice number in the transfer reference.",
+    "other_note": "Thank you for working with us."
   },
   "account": { "name": "Payoneer USD", "kind": "platform", "currency": "USD", "holder_name": "Myrchuk Mykola",
                "bank_name": "…", "iban": null, "swift": "…", "account_number": "…",
@@ -126,14 +129,16 @@ on its own.
   name.
 - `presentation.style` is always a valid key. A level may still hold the key of a removed style; that key freezes as
   `outlined`.
-- `presentation.act_note` is `null` when the act note is off. `presentation.note` is `null` when the note resolves to
-  off or has no text. `note_kind` defaults to `other`.
+- `presentation.act_note` is `null` when the act note is off. `presentation.payment_note` and `other_note` are each
+  `null` when that note resolves to off; either, both or neither may be set.
 - `presentation.payment_purpose` is already rendered: its placeholders are filled with the final number and the
   invoice's dates.
 - The contract block is kept when `show_contract` is false. The PDF shows the contract section only when
   `show_contract && contract !== null`.
-- Version 3 no longer writes `footer_note`; the note replaced it.
-- External invoices are never rendered: their primary document is the uploaded PDF.
+- There is no `footer_note` (the notes replaced it). `payment_note` and `other_note` replace the built schema 3's
+  `note` and `note_kind` (§2).
+- External invoices are never rendered: their primary document is the uploaded PDF. Virtual invoices (`design.md`
+  §4.2) have no snapshot and no document, until «Оформити як інвойс» turns one into a generated invoice.
 
 ---
 
@@ -166,10 +171,10 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 │ ┌ PAYMENT DETAILS ───────────────────┬ ACT OF ACCEPTANCE ──────────────────┐ │ card 50 | 50 %
 │ │ Beneficiary   Myrchuk Mykola       │ Payment of this invoice confirms …  │ │
 │ │ …                                  │ ─────────────────────────────────── │ │
-│ │ Currency      USD                  │ OTHER NOTES          (kind `other`) │ │
+│ │ Currency      USD                  │ OTHER NOTES     (the other note on) │ │
 │ │ Purpose       Payment for IT …     │                                     │ │
 │ │ ────────────────────────────────── │                                     │ │
-│ │ PAYMENT NOTE       (kind `payment`)│                                     │ │
+│ │ PAYMENT NOTE (the payment note on) │                                     │ │
 │ └────────────────────────────────────┴─────────────────────────────────────┘ │
 │ (signature image)                                                            │
 │                                                                Page 1 of 1   │
@@ -205,10 +210,10 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 **Card** (`v3/card`):
 - Left, PAYMENT DETAILS: a key–value grid of beneficiary, bank, IBAN, account number and SWIFT / BIC (when set), the
   account's own details as they were typed, the currency, and finally Purpose (the payment purpose). The keys share
-  one measured width. A note of kind `payment` follows as a `.card-section` titled PAYMENT NOTE.
-- Right: ACT OF ACCEPTANCE when the act note is on, then OTHER NOTES for a note of kind `other` (a `.card-section` when
+  one measured width. The payment note, when on, follows as a `.card-section` titled PAYMENT NOTE.
+- Right: ACT OF ACCEPTANCE when the act note is on, then OTHER NOTES when the other note is on (a `.card-section` when
   the act is shown too).
-- With nothing on the right, the details take the card's full width.
+- Both notes may print at once. With neither the act nor the other note, the details take the card's full width.
 - Notes print as typed, line breaks kept. Nothing prints under the card except the signature.
 
 **Signature:** the profile's signature image, when it has one, 36 pt high, 14 pt under the card.
@@ -345,7 +350,7 @@ are in `design.md` §4.1.
   with the asked style and language, and its number or the preview number. Every other setting resolves as usual.
   The PDF is rendered with v3 and nothing is saved.
 - **Without any invoice:** `PreviewInvoiceFactory` makes a demo invoice. It is the fixture of the reference renders:
-  BRIT-2026-10-31-2 to Bring IT LLC, three items in USD through Payoneer, with the contract, the act and another note.
+  BRIT-2026-10-31-2 to Bring IT LLC, three items in USD through Payoneer, with the contract, the act and both notes.
   Its ФОП is Myrchuk Mykola, or Prykhodko Andrii in the Andriichello group.
 - **In the SPA:** `InvoiceStylePreview.vue` draws page 1 with `pdfjs-dist` (6.4.299, a lazily loaded chunk), so the
   server needs no rasterizer. "Відкрити PDF" opens the blob in a new tab.
@@ -363,21 +368,23 @@ are in `design.md` §4.1.
 
 - **`InvoicePdfRendererTest`:**
   - template choice: schema 1 → v1; a new render records v3; a `v2` file renders again with v3; schema 2 renders as
-    `outlined`, with its footer note as another note;
+    `outlined`, with its footer note as the other note;
   - the snapshot's money format;
   - the v3 layout; alternating `odd` / `even` rows; the root class of each of the 13 styles; an unknown style as
     `outlined`, logged;
-  - the note: `payment` under the details, `other` under the act, `other` alone on the right; the details at full
-    width without a right side; the contract section left out when it is off or there is no contract;
+  - the notes: the payment note under the details, the other note under the act, the other note alone on the right,
+    both at once; the details at full width without a right side; the contract section left out when it is off or
+    there is no contract;
   - the monogram; Ukrainian labels, units and dates; the item columns fitted to their longest values;
   - the fonts embedded per style.
 - **Elsewhere:**
   - `InvoiceStyleCatalogueTest`: the SPA's catalogue equals the enum.
-  - The invoice API tests: the style and note validation, the preview on the client's latest invoice and on the demo
+  - The invoice API tests: the style and notes validation, the preview on the client's latest invoice and on the demo
     invoice, and the preview's 422s.
-  - `InvoiceSettingsResolverTest`: the style and the note at each level, with the note read whole from the level
-    that owns it. The invoice API test of the freeze checks the snapshot's `presentation`, with no `footer_note`.
-  - `InvoiceNoteMigrationTest`: the ФОП's footer note moved into its note.
+  - `InvoiceSettingsResolverTest`: the style and each note at each level, each note read whole from the level that
+    owns it. The invoice API test of the freeze checks the snapshot's `presentation`, with no `footer_note`, `note` or
+    `note_kind`.
+  - `InvoiceNoteMigrationTest`: the ФОП's footer note moved into its note; v4 adds the split of the note by its kind.
 - **No golden PDF files yet.** `design.md` §13 and `accounting.md` ask for them per schema version and language, and
   they are still to do. Until then, compare page 1 by eye with Claude Design's targets
   (`storage/handoff/invoice-styles-handoff/pdf/refs/{style}-{en,uk}.png`, at 110 dpi):
@@ -391,12 +398,14 @@ are in `design.md` §4.1.
 
 - Run the migrations: `2026_10_24_204757_add_invoice_style_and_note_to_clients_and_invoices` moves the old footer
   notes (`clients.invoice_footer_note`, the `invoice.footer_note` setting) into each level's note, switched on, kind
-  `other`, and drops them.
+  `other`, and drops them. v4's migration then moves each level's note into its payment note (kind `payment`) or its
+  other note (any other kind), keeping its switch, and drops `note`, `note_enabled` and `note_kind`.
 - `storage/fonts/` must be writable.
 - `pdftoppm` is needed only to draw the thumbnails again, and those are committed.
 
 ## 11. Not built yet
 
+- The two notes of v4 (§3, §4, §10).
 - The bilingual template (`en_uk`), and custom texts per language.
 - Golden PDF files (§9).
 - E-mailing invoices, and separate signed acts of acceptance.

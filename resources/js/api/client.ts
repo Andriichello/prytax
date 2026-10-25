@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import { locale } from '@/i18n';
 
 /**
@@ -144,8 +145,18 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
 }
 
 /**
+ * How many writes the API accepted in this session: every request but a GET, except the ones that save nothing (a
+ * receipt's preview, a transfer's proposal). A screen kept alive (KeepAlive) reads its data again on return only when
+ * this moved, so going back shows it as it was left, scroll and all, unless something may have changed it.
+ */
+export const dataVersion = ref(0);
+
+/** The requests, which only compute an answer and write nothing, though they are POSTs. */
+const SAVES_NOTHING = /\/(preview|propose)$/;
+
+/**
  * Send a request and return its JSON body; an error answer throws an ApiError. A stale CSRF token (419) is renewed
- * and the request sent once more.
+ * and the request sent once more. An accepted write moves `dataVersion`.
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     let response = await send(path, options);
@@ -153,6 +164,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (response.status === 419) {
         await fetchCsrfCookie();
         response = await send(path, options);
+    }
+
+    if (response.ok && (options.method ?? 'GET') !== 'GET' && !SAVES_NOTHING.test(path)) {
+        dataVersion.value++;
     }
 
     if (response.status === 204) {

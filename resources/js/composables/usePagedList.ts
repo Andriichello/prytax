@@ -1,4 +1,5 @@
 import { onActivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
+import { dataVersion } from '@/api/client';
 import type { Paginated } from '@/api/types';
 
 export interface PagedList<T> {
@@ -20,8 +21,9 @@ export interface PagedList<T> {
  * A list read page by page (api-core's `page[number]`), for infinite scroll: the first page loads, and again
  * whenever a source changes (the profile, the filters); `loadMore()` appends the next one, leaving out rows already
  * shown (a row added meanwhile shifts the pages). Only the latest request counts: a reload overtaken by another one
- * neither shows its rows nor ends the loading state. A page kept alive (KeepAlive) reads its shown pages again when
- * it is shown again, so a record changed meanwhile is up to date while the list keeps its length and scroll.
+ * neither shows its rows nor ends the loading state. A page kept alive (KeepAlive) is shown again as it was left; when
+ * the API accepted a write meanwhile (`dataVersion`), it reads its shown pages again, so a record changed meanwhile
+ * is up to date while the list keeps its length and scroll.
  */
 export function usePagedList<T>(
     fetchPage: (page: number, signal: AbortSignal) => Promise<Paginated<T>>,
@@ -37,6 +39,7 @@ export function usePagedList<T>(
 
     let page = 0;
     let controller: AbortController | null = null;
+    let loadedVersion = dataVersion.value;
 
     const idOf = (item: T): unknown => (item as { id?: unknown }).id;
 
@@ -84,6 +87,7 @@ export function usePagedList<T>(
     }
 
     async function reload(): Promise<void> {
+        loadedVersion = dataVersion.value;
         loading.value = true;
         error.value = null;
         moreError.value = null;
@@ -112,6 +116,7 @@ export function usePagedList<T>(
         controller?.abort();
 
         const own = (controller = new AbortController());
+        const version = dataVersion.value;
 
         try {
             const pages = await Promise.all(Array.from({ length: page }, (_, index) => fetchPage(index + 1, own.signal)));
@@ -135,6 +140,7 @@ export function usePagedList<T>(
             });
             total.value = pages.at(-1)!.meta.total;
             hasMore.value = pages.at(-1)!.meta.links.next !== null;
+            loadedVersion = version;
         } catch {
             // The rows shown stay; the next visit tries again
         }
@@ -147,7 +153,7 @@ export function usePagedList<T>(
     let activations = 0;
 
     onActivated(() => {
-        if (activations++ > 0) {
+        if (activations++ > 0 && dataVersion.value !== loadedVersion) {
             void refresh();
         }
     });

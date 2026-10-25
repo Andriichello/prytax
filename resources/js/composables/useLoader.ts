@@ -1,4 +1,5 @@
 import { onActivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
+import { dataVersion } from '@/api/client';
 
 export interface Loader<T> {
     data: Ref<T | null>;
@@ -9,8 +10,8 @@ export interface Loader<T> {
 
 /**
  * Load data for a screen, again whenever a source changes (the profile, a route param); a request, which a newer one
- * replaced, is aborted and its answer ignored. A page kept alive (KeepAlive) loads again when it is shown again,
- * keeping the data on screen meanwhile.
+ * replaced, is aborted and its answer ignored. A page kept alive (KeepAlive) is shown again as it was left; it loads
+ * again only when the API accepted a write since its last load (`dataVersion`), keeping the data on screen meanwhile.
  */
 export function useLoader<T>(fetcher: (signal: AbortSignal) => Promise<T>, sources: WatchSource[] = []): Loader<T> {
     const data = ref(null) as Ref<T | null>;
@@ -18,9 +19,11 @@ export function useLoader<T>(fetcher: (signal: AbortSignal) => Promise<T>, sourc
     const loading = ref(true);
 
     let controller: AbortController | null = null;
+    let loadedVersion = dataVersion.value;
 
     async function reload(): Promise<void> {
         controller?.abort();
+        loadedVersion = dataVersion.value;
 
         const own = (controller = new AbortController());
 
@@ -51,7 +54,7 @@ export function useLoader<T>(fetcher: (signal: AbortSignal) => Promise<T>, sourc
     let activations = 0;
 
     onActivated(() => {
-        if (activations++ > 0) {
+        if (activations++ > 0 && dataVersion.value !== loadedVersion) {
             void reload();
         }
     });

@@ -12,7 +12,8 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 `storage/handoff/prytax-minimal-handoff/` (`screens/png/NNN-M-*.png` by board number, `screens/html/M-*.html`,
 `source/`). Its second handoff (2026-10-25, afternoon: Податки as one tax ledger) is `storage/handoff/latest/`
 (`MINIMAL_DELTA_2026-10-25.md`, `CHAT_LOG_DELTA.md`), extracted in `storage/handoff/prytax-minimal-handoff-2/`; the
-specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–9 are next). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
+specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 are built on branch
+`feat/tax-ledger` (see "Tax ledger"). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
 ## Where things stand
@@ -28,6 +29,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–
 | 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
+| 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Built on `feat/tax-ledger`** (2026-10-25), not merged, not pushed; see "Tax ledger" |
 
 - **Branches:** `main` = `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English +
   translation keys + the invoice settings and styles (pushed on 2026-10-24). **`dev`** (checked out) = that + the
@@ -41,9 +43,9 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
-- `php8.5 artisan test --compact`: **406 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
+- `php8.5 artisan test --compact`: **413 tests**, all passing on 2026-10-25 on `feat/tax-ledger` (about 130 s, on MySQL `prytax_test`). Run
   it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
-  not run it). The frontend: `npm test` (Vitest, **529 tests**, incl. the translation guard
+  not run it). The frontend: `npm test` (Vitest, **560 tests**, incl. the translation guard
   `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
 - **PHP and Node:** the system `php` is 8.4 (set for another project; leave it), but PryTax's vendor needs 8.5: run
   the server, artisan and tests with `php8.5`. The system `node` is 18, which can't run Vite/Vitest: prefix
@@ -56,9 +58,9 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–
 
 ### First steps of the next session
 
-1. Ask the user whether to push `dev` and fast-forward `main` (and delete the merged `feat/minimal`); don't push
-   unasked. Next to build: design.md §14 step 8 (Податки as the tax ledger, `TaxLedger`, the second handoff) and step 9
-   (the English UI keeps ЄП, ВЗ, ЄСВ and ФОП untranslated; the owner, 2026-10-25). Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
+1. Ask the user whether to merge `feat/tax-ledger` into `dev`, push `dev` and fast-forward `main` (and delete the
+   merged branches); don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether to undo it.
+   Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
    remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a
    package, so approval), pixel polish against the boards, `SheetImporter`.
 2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with
@@ -71,6 +73,37 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–
    `set AREA PATH UK EN`, values as TS literals), `i18n-prune.sh` (removes the keys the guard reports unused, then
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
+
+## Tax ledger (2026-10-25, branch `feat/tax-ledger`)
+
+The second Minimal handoff (`storage/handoff/latest/`, extracted in `storage/handoff/prytax-minimal-handoff-2/`) and
+the owner's note that English keeps ЄП, ВЗ, ЄСВ and ФОП: specs first (design.md §8.5, §16.2, §16.5, §13, §14 steps
+8–9), then the build, one commit per part, all on `feat/tax-ledger` from `dev` (not merged, not pushed).
+- **Backend:** `Services/Taxes/TaxLedger` (obligations computed: a receipt's ЄП/ВЗ while it has no payment that
+  didn't fail; ЄСВ per due month of every started quarter, the months ahead included, minus its non-failed payments;
+  merged with the tax payments; the summary by the tax's quarter, the months by placement); `GET
+  taxes/{year}/ledger?quarter=&tax_type=&status=` (lists as arrays or comma-separated; `TaxLedgerRequest`).
+- **SPA:** `TaxesPage` rewritten (three badges, `TaxFilterSheet`, `TaxSummaryCard` with `TaxBar` / `TaxFigures`,
+  `TaxLedgerMonth` / `TaxLedgerRow`); `utils/taxLedger.ts` (quarter-range taps, multi-selects, badges, URL
+  `year`/`quarters=2-4|4|all`/`taxes`/`statuses`); new colour tokens (`sent-bar`, `tick`, `tick-on-ink`,
+  `positive-on-ink`, `accent-line`, `accent-faint`); `TaxAccrualView`, `TaxHistoryView`, `amountsToPay` and
+  `PeriodFilterSheet`'s `yearOnly` removed; old `?quarter=` links still open that quarter.
+- **Decisions while building:** a receipt's ЄП/ВЗ is paid only by a payment that didn't fail (`receiptTaxPayment`):
+  after a failed attempt the card and the receipt page show it unpaid, and the form records a new payment instead of
+  opening the failed one (a fix, its own commit). ЄСВ rows read their quarter's deadline (19.01.2027), not the
+  board's monthly ones. A payment without a date sits in the month its tax belongs to. Future quarters stay tappable
+  in the drawer (the board has none disabled).
+- **Step 9:** the English dictionaries, the API's English source strings (notifications, CSV headers, one validation
+  message; `uk.json` re-keyed) and two tests write ЄП, ВЗ, ЄСВ and ФОП; «FOPs» became «ФОП» or «ФОП profiles». The
+  guard allows these four words only, and fails on «single tax», «military levy», «SSC» or «FOP» in English. The
+  invoice PDF keeps «Individual Entrepreneur».
+- **Checks:** PHP suite 413 tests, `npm test` 560, `npm run typecheck`, `npm run build`; Податки and its drawer driven
+  in headless Chrome in English (the signed-in user's saved language is `en`, and the dev database holds the user's
+  records, so it wasn't switched to check Ukrainian).
+- **ngrok (2026-10-25, the user asked, to test from a phone):** `ngrok http 8010` runs in the background
+  (`https://23dd-91-247-39-213.ngrok-free.app`); `.env` got `ASSET_URL` = that URL and the host appended to
+  `SANCTUM_STATEFUL_DOMAINS` (the backup is in that session's scratchpad). While `ASSET_URL` is set, localhost loads
+  its assets through the tunnel too: remove both when the tunnel stops.
 
 ## Minimal (2026-10-25, branch `feat/minimal`)
 
@@ -102,8 +135,7 @@ remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md 
   stop it before any request); Головна also lists drafts without an issue date by their period's end.
 - **Checks:** PHP suite (404 tests), `npm test` (529), `npm run typecheck`, `npm run build`, and every screen driven in
   the browser against its board. The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys and on
-  Cyrillic in English texts (English names the taxes "single tax", "military levy", "SSC"; the owner wants ЄП, ВЗ,
-  ЄСВ and ФОП kept as they are, design.md §14 step 9): run
+  Cyrillic in English texts, but for ЄП, ВЗ, ЄСВ and ФОП, which English keeps as they are (since step 9): run
   `storage/handoff/tools/i18n-prune.sh` after removing UI.
 
 ## QA of Minimal (2026-10-25, branch `feat/minimal`)

@@ -1,20 +1,23 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-25: the «Minimal» redesign (design.md v4) is built on branch `feat/minimal` (from `dev`, not
-merged, not pushed); see "Minimal". Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
-decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys
-(merged on 2026-10-24, the user asked), and the invoice settings cascade with the 13 invoice styles (`feat/invoice-v2`,
-fast-forwarded and pushed on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`,
-`docs/specs/design.md` (§16 is the phase-1 UI scope; `docs/specs/invoice.md` is the invoice PDF as built) and `storage/handoff/prytax-simplified-design-handoff.md` (the
-design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). The handoff is kept out of git
-(`.gitignore`), on disk only.
+Status as of the end of 2026-10-25: the «Minimal» redesign (design.md v4) is **built and committed on branch
+`feat/minimal`** (checked out; from `dev`; not merged, not pushed; the working tree is clean); see "Minimal". Before
+it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
+decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
+and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
+`docs/specs/design.md` (v4: §14 is the Minimal phase, §16 its screens; `docs/specs/invoice.md` is the invoice PDF as
+built; `docs/specs/suggestions.md` what is deferred or hidden). The current design handoff is «Minimal»:
+`storage/handoff/MINIMAL_APP.md`, `storage/handoff/CHAT_LOG.md`, and the boards extracted in
+`storage/handoff/prytax-minimal-handoff/` (`screens/png/NNN-M-*.png` by board number, `screens/html/M-*.html`,
+`source/`). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
+`storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
 ## Where things stand
 
 | Phase | State |
 |---|---|
 | 1. Backend: migrations, models, services, API, tests | **Done and audited**, fast-forwarded into `main` |
-| 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built** on branch `dev` (not merged) |
+| 2. Frontend: Vue screens of the "Simplified" design | **All 34 screens built**, merged into `dev` |
 | 3. QA: specs review + browser flows per role | **Done and merged** (2026-10-21); see "QA pass" |
 | 4. Follow-ups: decisions, frontend gaps, Ukrainian API, remember me | **Done and merged into `dev`** (2026-10-24); see "Follow-ups" |
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
@@ -24,8 +27,9 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 
 - **Branches:** `main` and `dev` = backend + frontend + QA pass + follow-ups + English + translation keys + the
   invoice settings and styles (fast-forwarded and pushed on 2026-10-24, the user asked; the merged branches were
-  deleted, except the local `feat/invoice-v2`), `dev` checked out. The `docs/specs` commits that followed are on
-  `dev` only, not pushed. The remote
+  deleted, except the local `feat/invoice-v2`). The `docs/specs` commits that followed are on `dev` only, not pushed.
+  **`feat/minimal`** (checked out) = `dev` + the Minimal phase's commits (`git log --oneline dev..feat/minimal`:
+  specs, backend, SPA, demo, notes); not merged, not pushed. The remote
   `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
   only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
@@ -33,25 +37,34 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
-- `php artisan test --compact`: **300 tests**, all passing on 2026-10-21 (about 90 s, on MySQL `prytax_test`). Run it
-  in the foreground with a generous timeout; two runs at once deadlock each other (so parallel agents must not run
-  it). The frontend: `npm test` (Vitest, 28 tests of `resources/js/utils/*.test.ts`), `npm run typecheck`,
-  `npm run build`.
-- The dev database `prytax` was rebuilt with the demo data at the end of 2026-10-21 (after the QA flows). NBU rates
-  get cached by previews (writes on read). `migrate:fresh` leaves old seeds' files in `storage/app/private/files`
-  (orphans; harmless).
+- `php8.5 artisan test --compact`: **404 tests**, all passing on 2026-10-25 (about 130 s, on MySQL `prytax_test`). Run
+  it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
+  not run it). The frontend: `npm test` (Vitest, **529 tests**, incl. the translation guard
+  `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
+- **PHP and Node:** the system `php` is 8.4 (set for another project; leave it), but PryTax's vendor needs 8.5: run
+  the server, artisan and tests with `php8.5`. The system `node` is 18, which can't run Vite/Vitest: prefix
+  `PATH=~/.nvm/versions/node/v24.21.0/bin:$PATH` for `npm test`, `npm run typecheck`, `npm run build` and the browser
+  scripts.
+- The dev database `prytax` was rebuilt with the Minimal demo data on 2026-10-25 (`migrate:fresh --seed` + the
+  `DemoSeeder`), and the roles seeder ran after the new `issue` permission. NBU rates get cached by previews (writes
+  on read). `migrate:fresh` leaves old seeds' files in `storage/app/private/files` (orphans; harmless).
 - The user asked for commits in logical parts, and (2026-10-24) for no `Co-Authored-By` Claude trailer in them.
 
 ### First steps of the next session
 
-1. Ask the user to review `feat/minimal` and whether to merge it into `dev` (and push). Then what is left:
-   docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX
-   exports and the yearly PDF summary (need a package, so approval), pixel polish against the boards, `SheetImporter`.
-2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
-   end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
-   dev`), sign in as `olena@example.com` / `password`; start Chrome only to check the UI (under "Checking the UI").
-   Leave port 8000 (`php artisan serve` of `/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers
-   alone.
+1. Ask the user to review `feat/minimal` and whether to merge it into `dev` (and push); don't merge or push unasked.
+   Then what is left: docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5,
+   golden PDFs), XLSX exports and the yearly PDF summary (need a package, so approval), pixel polish against the
+   boards, `SheetImporter`.
+2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with
+   `ss -ltnp | grep -E ':8010|:9223'` and start them if they're gone (commands under "Frontend" and "Checking the UI").
+   `npm run build` after SPA changes; sign in as `olena@example.com` / `password` (the UI language is Ukrainian).
+   Leave port 8000 (`/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers alone.
+3. Helper scripts kept on disk in `storage/handoff/tools/` (git-ignored): `act.mjs` (the browser step runner, see
+   "Checking the UI"), `i18n.py` (edits `i18n/uk` and `i18n/en` together: `rm AREA PATH`, `add AREA PARENT KEY UK EN`,
+   `set AREA PATH UK EN`, values as TS literals), `i18n-prune.sh` (removes the keys the guard reports unused, then
+   reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
+   storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
 
 ## Minimal (2026-10-25, branch `feat/minimal`)
 
@@ -66,7 +79,8 @@ remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md 
   (`invoices.source = virtual`, `VirtualInvoices`, `POST payments` with `virtual_invoice`, `POST invoices/{id}/issue`,
   the status filter `virtual`); tax payments: ЄП/ВЗ only per receipt at its amounts (one per tax), ЄСВ by month,
   `original_amount/original_currency` from a foreign-currency account; ЄСВ exempt marking removed.
-- **SPA:** the static top bar and sticky root headers (filter badges, `PeriodFilterSheet`), hidden screens redirect;
+- **SPA:** the static top bar and sticky root headers (filter badges, `PeriodFilterSheet`); removed (their routes
+  redirect, names kept): the ФОП switcher sheet, Огляд практики, ЄСВ, Книга доходів and the declaration page;
   accordion forms (`AccordionGroup`, `ReadRow`, `Dimmable`, `SwitchCard`; one group open, each saving its own fields)
   for Документ інвойсу, Рахунок, Клієнт, the invoice editor (the draft saves per group), Профіль, Нумерація,
   Податки й сповіщення (payment accounts with routes) and Договір; Інвойс для надходження, the receipt form without
@@ -74,9 +88,16 @@ remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md 
   quarter's summary, receipts by month / invoice / none, fees on demand); Податки (Нарахування | Історія сплат);
   Сплата ЄП / ВЗ (`tax-payment(-new)`) and Сплата ЄСВ (`esv-payment(-new)`); Головна (two quarters, every status);
   the transfer form's tappable balance. The refund action is gone from the receipt page.
-- **Checks:** PHP suite (404 tests), `npm test` (529), `npm run typecheck`, `npm run build`, browser checks of every screen
-  (scratchpad `tools/act.mjs`). The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys: prune
-  them after removing UI.
+- **Decisions made while building** (beyond the specs): the receipt form without an invoice hides the client's fee;
+  «Прив’язати» offers the record's client's issued invoices only (noted in design.md §4.2); a tax payment's form is
+  `tax-payment-new?payment=&tax=` / `tax-payment/{id}` for ЄП/ВЗ and `esv-payment-new?year=&month=|quarter=` /
+  `esv-payment/{id}` for ЄСВ; Податки in «Історія сплат» lists the payments by `paid_at` (`?mode=history`); Облік
+  keeps its CSV exports (no XLSX: a package needs approval); the opening balances save as a group (unreadable amounts
+  stop it before any request); Головна also lists drafts without an issue date by their period's end.
+- **Checks:** PHP suite (404 tests), `npm test` (529), `npm run typecheck`, `npm run build`, and every screen driven in
+  the browser against its board. The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys and on
+  Cyrillic in English texts (English names the taxes "single tax", "military levy", "SSC"): run
+  `storage/handoff/tools/i18n-prune.sh` after removing UI.
 
 ## QA pass (2026-10-21, branch `dev-qa-fixes`)
 
@@ -435,7 +456,7 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 ## Demo data
 
 ```bash
-php artisan migrate:fresh --seed && php artisan db:seed --class=DemoSeeder   # about 16 s; drops the dev data
+php8.5 artisan migrate:fresh --seed && php8.5 artisan db:seed --class=DemoSeeder   # about 30 s; drops the dev data
 ```
 
 Organization "Практика Коваленко" with `olena@example.com` (owner), `maria@example.com` (accountant) and
@@ -459,13 +480,13 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
 
 - **Stack (approved 2026-10-20):** Vue 3.5, vue-router 5, TypeScript 6.0 (not 7: vue-tsc needs the JS API), vue-tsc,
   `@vitejs/plugin-vue`; Tailwind 4; HTTP through `fetch`, no axios, no Pinia (module-level composables). No other
-  packages may be added without asking. `npm run typecheck` (vue-tsc), `npm run build`, `npm run dev`. **Node 22 is
-  required** (Vite 8); the system's `node` is 18: use nvm (`.nvmrc`), e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH`.
+  packages may be added without asking. `npm run typecheck` (vue-tsc), `npm run build`, `npm run dev`. **Node 22+ is
+  required** (Vite 8); the system's `node` is 18: use nvm, now `PATH=~/.nvm/versions/node/v24.21.0/bin:$PATH`.
 - **Served by Laravel:** `routes/web.php` answers every path outside `api/`, `sanctum/` and `up` with
   `resources/views/app.blade.php`, which only hosts `#app` (no data passed, so a Capacitor build can reuse the app).
   `SpaRouteTest` covers it; `TestCase` calls `withoutVite()`.
 - **Dev server:** port 8000 on this machine is another project (`/var/www/count-api`) — leave it alone. Serve PryTax
-  from `public/` on 8010 (run in the background): `cd public && PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8010
+  from `public/` on 8010 (run in the background): `cd public && PHP_CLI_SERVER_WORKERS=4 php8.5 -S 127.0.0.1:8010
   ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`. The local `.env` says 8010 now, so no
   env overrides are needed.
 - **`resources/js/`:**
@@ -499,7 +520,7 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   nowrap; override with `whitespace-normal!`). Fonts are bundled from `resources/fonts`.
 - **The design's renders don't show Geologica:** the export's `fonts.css` points at `fonts/fonts/…`, so the PNGs and
   HTML fall back to system fonts. The app uses Geologica and IBM Plex Mono as specified, so it looks a bit wider.
-- **Built (all handoff screens):** Вхід, "Забули пароль?", `/reset-password`; Головна; the ФОП switcher sheet;
+- **Built (all handoff screens of «Simplified»; «Minimal» replaced or removed several, see "Minimal"):** Вхід, "Забули пароль?", `/reset-password`; Головна; the ФОП switcher sheet;
   Сповіщення; Огляд практики; Інвойси (infinite list, filters sheet with live count, URL filters), invoice page
   (actions, receipts, PDF), editor (generated and external PDF with SHA-256 duplicate check, items sheet, adjustment,
   freeze sheet, delete draft); receipts (form with live `payments/preview`, manual rate only when the NBU has none,
@@ -518,9 +539,11 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   built (no backend; a package needs approval); (2) PNG/HTML pixel polish wasn't done screen by screen beyond the
   comparison above. The others (cross-profile links, date format, JS tests, monthly spread, remember me, scroll on
   back) were done in "Follow-ups".
-- **Checking the UI in a browser** (the scripts live in a session's scratchpad, which goes away; the latest copies,
-  `cdp.mjs`, `act.mjs`, `sweep.mjs`, were in `/tmp/claude-1000/-var-www-prytax/4e9a9efe-…/scratchpad`; run them with
-  Node 22, e.g. `PATH=~/.nvm/versions/node/v22.23.3/bin:$PATH node act.mjs steps.txt`): start
+- **Checking the UI in a browser** (the step runner is kept in `storage/handoff/tools/act.mjs`; run it with Node 24,
+  e.g. `PATH=~/.nvm/versions/node/v24.21.0/bin:$PATH SHOTS=/some/dir/ node storage/handoff/tools/act.mjs steps.txt`;
+  steps: `go /path`, `wait MS`, `click TEXT`, `dclick TEXT`, `fill LABEL => VALUE` (dates as `дд.мм.рррр`), `shot NAME`
+  (full page), `view NAME` (viewport), `text`, `expect REGEX`, `eval JS`, `scroll Y`; an accordion's «Змінити» is
+  clicked with `eval [...document.querySelectorAll('button')].filter(b => b.innerText.trim() === 'Змінити')[N].click()`): start
   `google-chrome --headless=new --remote-debugging-port=9223 --user-data-dir=<scratch dir> about:blank` in the
   background, and drive it with a small Node 22 script (built-in `WebSocket`, no packages) over the DevTools protocol:
   `Emulation.setDeviceMetricsOverride` (390 × 844, scale 2, mobile), `Page.navigate`, `Runtime.evaluate` (fill inputs

@@ -63,7 +63,8 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
    `npm run build` after SPA changes; sign in as `olena@example.com` / `password` (the UI language is Ukrainian).
    Leave port 8000 (`/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers alone.
 3. Helper scripts kept on disk in `storage/handoff/tools/` (git-ignored): `act.mjs` (the browser step runner, see
-   "Checking the UI"; it logs every API answer of 400 or more, and has `upload`, `url`, `clear-cookies`), `i18n.py` (edits `i18n/uk` and `i18n/en` together: `rm AREA PATH`, `add AREA PARENT KEY UK EN`,
+   "Checking the UI"; it logs every API answer of 400 or more, and has `upload`, `url`, `clear-cookies`, and `tap X
+   Y` for a real hit-tested tap), `i18n.py` (edits `i18n/uk` and `i18n/en` together: `rm AREA PATH`, `add AREA PARENT KEY UK EN`,
    `set AREA PATH UK EN`, values as TS literals), `i18n-prune.sh` (removes the keys the guard reports unused, then
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).

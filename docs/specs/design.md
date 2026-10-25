@@ -1185,3 +1185,7 @@ Board numbers are in brackets.
 - The currency code follows the amount (`3 892.50 USD`), and `₴` follows UAH amounts.
 - Secondary figures are one step lighter and smaller than the primary ones.
 - Invoice numbers are in mono.
+- Lists of records run from the newest to the oldest (the owner, 2026-10-25): invoices, receipts, tax payments,
+  transfers and their receipts, contracts, notifications, and the groups they fall in (months, invoices). Not
+  records, and kept in their own order: a receipt's money flow (in the order the money moved), an invoice's items,
+  and entities such as clients and accounts (by name, by kind). CSV exports stay chronological.

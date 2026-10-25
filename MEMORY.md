@@ -623,6 +623,9 @@ and no tax payment is dated after today. Verified against the mock (and by `Demo
   `ActsInProfiles` helpers; NBU rates are cached with `cacheRates()` or faked with `Http::fake()` per test.
 - An Eloquent collection's `except()` takes model ids, not keys: use `->toBase()` before keying by another column.
 - Work on a feature branch and commit in logical parts; don't push or merge without the user asking.
+- Lists of records are newest first everywhere (the user, 2026-10-25; design.md §16.5's display rules): sort by the
+  record's date descending with `-id` last (`sort: '-received_at,-id'`), and order groups (months) the same way.
+- The dev database now holds the user's own test records too (2026-10-25): don't reseed it without asking.
 - Frontend: match the screens' HTML exports (`storage/handoff/prytax-design-handoff/screens/html`) for sizes; UI
   texts through `t('area.screen.name')`, with the Ukrainian in `i18n/uk/*.ts` and the English in `i18n/en/*.ts` (see "English"); `<script setup lang="ts">` with a docblock on each component; every number in `num`; keep option arrays of
   selects/segments in the script (inline `list.map(… ({ value, label: MAP[x] }))` in a template trips vue-tsc with

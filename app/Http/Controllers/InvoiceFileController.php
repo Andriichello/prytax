@@ -19,8 +19,9 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  *
  * Files of an invoice: `profiles/{profile}/invoices/{invoice}/files`. Uploads go to the `uploaded` collection and
  * are never overwritten; with `primary=1`, the upload becomes the invoice's primary document, which suppresses the
- * generated PDF. An upload, whose contents another invoice of the profile has already, is reported as a duplicate
- * (by its SHA-256), not refused. The primary document of a frozen invoice can't be deleted.
+ * generated PDF, and an uploaded primary document it replaces is deleted. An upload, whose contents another invoice
+ * of the profile has already, is reported as a duplicate (by its SHA-256), not refused. The primary document of a
+ * frozen invoice can't be replaced or deleted; returning the invoice to its draft keeps an uploaded one.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -60,8 +61,9 @@ class InvoiceFileController extends FileController
     }
 
     /**
-     * Upload a file of the invoice, making it primary, when asked of a draft, and reporting the invoices, which have
-     * the same file already. A frozen invoice takes further files, but keeps its primary document.
+     * Upload a file of the invoice, making it primary, when asked of a draft, in place of the PDF uploaded before, and
+     * reporting the invoices, which have the same file already. A frozen invoice takes further files, but keeps its
+     * primary document.
      *
      * @param StoreRequest $request
      *
@@ -77,10 +79,15 @@ class InvoiceFileController extends FileController
         }
 
         $file = DB::transaction(function () use ($request, $invoice) {
+            $replaced = $request->boolean('primary') ? $invoice->primaryFile : null;
             $file = $invoice->attachFile($request->file('file'), $request->validated('name'), Invoice::UPLOADED_COLLECTION);
 
             if ($request->boolean('primary')) {
                 $invoice->forceFill(['primary_file_id' => $file->getKey()])->save();
+
+                if ($replaced?->collection === Invoice::UPLOADED_COLLECTION) {
+                    $replaced->delete();
+                }
             }
 
             return $file;

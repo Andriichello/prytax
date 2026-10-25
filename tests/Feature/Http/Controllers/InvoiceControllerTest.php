@@ -387,6 +387,46 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that a draft's uploaded PDF is deleted only when another one replaces it or the user deletes it: returning
+     * the frozen invoice to its draft keeps it.
+     *
+     * @return void
+     */
+    public function testDeletesTheUploadedPdfOfADraftOnlyWhenReplacedOrDeleted(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'source' => 'external', 'client_id' => $client->id, 'number' => 'NW-2026-031', 'total' => '5000.00',
+            'period_start' => '2026-09-01', 'period_end' => '2026-09-30', 'receiving_account_id' => $account->id,
+        ])->assertCreated()->json('data');
+        $upload = fn (string $name) => $this->post($this->profilePath($profile, "invoices/{$draft['id']}/files"), [
+            'file' => UploadedFile::fake()->create($name, 20, 'application/pdf'), 'primary' => '1',
+        ])->assertCreated()->json('data.id');
+
+        $first = $upload('first.pdf');
+        $second = $upload('second.pdf');
+
+        $this->assertDatabaseMissing('files', ['id' => $first]);
+        $this->assertSame($second, Invoice::query()->withoutGlobalScopes()->find($draft['id'])->primary_file_id);
+
+        $this->postJson($this->profilePath($profile, "invoices/{$draft['id']}/freeze"))->assertOk();
+        $this->postJson($this->profilePath($profile, "invoices/{$draft['id']}/unfreeze"))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.primary_file_id', $second);
+        $this->assertDatabaseHas('files', ['id' => $second]);
+
+        $this->deleteJson($this->profilePath($profile, "invoices/{$draft['id']}/files/$second"))->assertSuccessful();
+
+        $this->assertDatabaseMissing('files', ['id' => $second]);
+        $this->assertNull(Invoice::query()->withoutGlobalScopes()->find($draft['id'])->primary_file_id);
+    }
+
+    /**
      * Test that an invoice, whose receipts keep money, isn't cancelled (409), while one without receipts is.
      *
      * @return void

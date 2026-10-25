@@ -99,16 +99,19 @@ const options = (except: number | null) => accounts.value
     .filter((account) => (account.is_active || account.id === form.from_account_id || account.id === form.to_account_id) && account.id !== except)
     .map((account) => ({ value: account.id, label: accountLabel(account.name, account.currency) }));
 
-/** The kind of the account money leaves, with its balance when known. */
-const fromHint = computed(() => {
-    if (!from.value) {
-        return undefined;
+/** The kind of the account money leaves; its balance follows, as a button. */
+const fromKind = computed(() => (from.value ? ACCOUNT_KINDS[from.value.kind].label : undefined));
+
+/** Send the whole balance (design.md §16.5): what arrives is typed anew. */
+function sendBalance(): void {
+    if (from.value?.balance === undefined) {
+        return;
     }
 
-    const kind = ACCOUNT_KINDS[from.value.kind].label;
-
-    return from.value.balance !== undefined ? t('money.transferForm.kindBalance', { kind, balance: formatMoney(from.value.balance, from.value.currency) }) : kind;
-});
+    form.amount_sent = from.value.balance;
+    form.amount_received = '';
+    touchedReceived.value = true;
+}
 
 function swap(): void {
     [form.from_account_id, form.to_account_id] = [form.to_account_id, form.from_account_id];
@@ -360,9 +363,22 @@ const generalError = computed(() => {
                     :label="t('money.transferForm.from')"
                     :placeholder="t('core.common.chooseAccount')"
                     :options="options(form.to_account_id)"
-                    :hint="fromHint"
                     :error="fieldError(saveError, 'from_account_id')"
                 />
+                <span v-if="from" class="-mt-1 flex flex-wrap items-center gap-x-1 text-12 text-ink-3">
+                    {{ fromKind }}
+                    <template v-if="from.balance !== undefined">
+                        · {{ t('money.transferForm.balance') }}
+                        <button
+                            type="button"
+                            class="num min-h-8 font-semibold text-accent"
+                            :aria-label="t('money.transferForm.sendBalance', { balance: formatMoney(from.balance, from.currency) })"
+                            @click="sendBalance"
+                        >
+                            {{ formatMoney(from.balance, from.currency) }}
+                        </button>
+                    </template>
+                </span>
                 <div class="relative flex items-center justify-center py-1">
                     <span class="absolute inset-x-0 top-1/2 border-t border-divider" aria-hidden="true" />
                     <button

@@ -188,7 +188,6 @@ export default {
 
     /** Recording a transfer */
     transferForm: {
-        kindBalance: '{kind} · баланс {balance}',
         oldestFirst: 'Від найстаріших',
         exactMatch: 'Точний збіг',
         exactMatchNone: 'Точний збіг · немає',
@@ -216,6 +215,8 @@ export default {
         proposalFailed: 'Не вдалося запропонувати, які надходження переказуєте.',
         referenceNote: 'Референс або примітка',
         saveTransfer: 'Зберегти переказ',
+        balance: 'баланс',
+        sendBalance: 'Надіслати весь баланс, {balance}',
     },
 
     /** Рахунки */

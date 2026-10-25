@@ -181,7 +181,6 @@ export default {
     },
 
     transferForm: {
-        kindBalance: '{kind} · balance {balance}',
         oldestFirst: 'Oldest first',
         exactMatch: 'Exact match',
         exactMatchNone: 'Exact match · none',
@@ -209,6 +208,8 @@ export default {
         proposalFailed: 'Couldn’t suggest which receipts you’re transferring.',
         referenceNote: 'Reference or note',
         saveTransfer: 'Save transfer',
+        balance: 'balance',
+        sendBalance: 'Send the whole balance, {balance}',
     },
 
     accounts: {

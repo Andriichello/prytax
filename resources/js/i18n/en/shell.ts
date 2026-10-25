@@ -121,6 +121,18 @@ export default {
         unreadAlerts: { one: '{count} unread notification', other: '{count} unread notifications' },
     },
 
+    /** «Фільтри» of Облік and Податки (design.md §16.2) */
+    filters: {
+        title: 'Filters',
+        reset: 'Reset',
+        apply: 'Apply',
+        period: 'Period',
+        oneQuarter: 'One year and one quarter.',
+        wholeYear: 'The whole year.',
+        grouping: 'Group',
+        wholeYearBadge: '{year} · whole year',
+    },
+
     ui: {
         close: 'Close',
         loadingLabel: 'Loading',

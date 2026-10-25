@@ -43,15 +43,6 @@ export default {
         excessTaxed: 'The {excess} above the cap is taxed at {rate}: {tax}.',
     },
 
-    esv: {
-        owed: 'Owed',
-        paidOn: 'paid {date}',
-    },
-
-    incomeBook: {
-        current: 'current',
-    },
-
     fees: {
         intro: 'What the money’s way from the client to hryvnias costs: fees and FX spread.',
         noReceiptsTransfers: 'No receipts or transfers in {year}.',
@@ -72,61 +63,25 @@ export default {
     },
 
     taxes: {
-        payment: 'Payment',
         view: 'View',
-        singleTaxAndLevyDue: 'Single tax + Military levy · due {date}',
-    },
-
-    taxQuarter: {
-        taxBalance: '{tax} balance',
-        taxBalanceOn: '{tax} balance {date}',
-        asOfYearEnd: 'as of 31.12.{year}',
-        asOfToday: 'as of today',
-        ofThisDue: 'Of this, {amount} is for {quarter}, due {date}.',
-        ofThisOverdueSince: 'Of this, {amount} is for {quarter}, overdue since {date}.',
-        anotherDue: 'Another {amount} is for {quarter}, due {date}.',
-        anotherOverdueSince: 'Another {amount} is for {quarter}, overdue since {date}.',
-        restOwedDue: 'The rest is owed for {quarter}, due {date}.',
-        owedDue: 'Owed for {quarter}, due {date}.',
-        awaitsConfirmation: '{amount} awaits confirmation.',
-        openingBalance: 'Opening balance as of {date}',
-        upcoming: 'upcoming',
-        closed: 'closed',
-        dueInDays: 'due {date} · {days}',
-        balance: 'Balance',
-        pendingSent: 'Pending: {amount} sent {date}',
-        failedAmount: 'Failed: {amount}',
-        payAmount: 'Pay {amount}',
-        sscExplained: 'SSC accrues every month regardless of income. An overpayment carries over to the next quarters.',
-        owedExplained:
-            'Owed for the quarter = {tax} year to date minus {tax} through the previous quarter — the same amount as in the declaration. The balance carries over between quarters and years.',
-    },
-
-    taxMonths: {
-        title: 'Taxes by month',
-        sentAmount: '+{amount} sent',
-        forQuarter: 'for the quarter',
-        ofItForQuarter: '{amount} of it for the quarter',
-        sscEveryMonth: 'SSC is owed for every month except exempt ones.',
-        owedExplained:
-            'Owed for a month is the sum of its receipts’ hints; what’s due for the quarter is the quarter’s own accrual.',
-        spreadExplained:
-            'Payments for the quarter are spread over its months from the first: each takes what it still owes, the rest goes to the last (“for the quarter”).',
-        tickMeansClosed: 'A tick means the quarter is closed.',
-    },
-
-    taxReceipts: {
-        sentOn: 'sent {date}',
-        paid: 'paid',
-        coveredPeriodPayment: 'covered by a period payment',
-        notPaid: 'not paid',
-        payReceipt: 'Pay for this receipt',
-        paymentsPeriod: 'Payments for the period',
-        taxForPeriod: '{tax} for {period}',
-        covers: '{date} · covers {covers}',
-        reconciliation: '{quarter} reconciliation',
-        sumHints: 'Sum of hints',
-        roundingNote: 'A kopeck’s difference comes from rounding each receipt. The amount to pay is “Owed”.',
+        esv: 'SSC',
+        accrual: 'Accrued',
+        history: 'Payments',
+        forQuarter: 'Taxes of the quarter',
+        closed: 'settled',
+        dueBy: 'by {date}',
+        accrued: 'Accrued',
+        paid: 'Paid',
+        toPay: 'To pay',
+        pendingSent: '+ {amount} sent',
+        payEsvFor: 'Pay SSC for {month}',
+        byReceipt: 'By receipt',
+        noReceipts: 'No receipts in the quarter.',
+        receiptsHint: 'The single tax and the military levy are paid from a receipt: tap a tax or «Pay … of this receipt». SSC is paid monthly, with the «SSC» button.',
+        historyTitle: 'Payments, newest first',
+        forMonth: 'for {month}',
+        noTaxPayments: 'No tax payments in {year}.',
+        historyHint: '«Sent»: the payment is sent but not confirmed yet, and doesn’t lower the debt. A «Failed» one isn’t counted in the month’s total.',
     },
 
     taxPayment: {

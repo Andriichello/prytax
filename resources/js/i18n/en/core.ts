@@ -55,7 +55,6 @@ export default {
         recipient: 'Recipient',
         receipts: 'Receipts',
         receipt: 'Receipt',
-        paid: 'Paid',
     },
 
     invoiceStatus: {
@@ -132,6 +131,7 @@ export default {
         contracts: { one: '{count} contract', other: '{count} contracts' },
         days: { one: '{count} day', other: '{count} days' },
         transfers: { one: '{count} transfer', other: '{count} transfers' },
+        taxPayments: { one: '{count} payment', other: '{count} payments' },
     },
 
     quarters: {

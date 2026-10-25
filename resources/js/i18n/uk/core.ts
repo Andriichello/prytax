@@ -56,7 +56,6 @@ export default {
         recipient: 'Отримувач',
         receipts: 'Надходження',
         receipt: 'Надходження',
-        paid: 'Сплачено',
     },
 
     /** Statuses of invoices */
@@ -143,6 +142,7 @@ export default {
         contracts: { one: '{count} договір', few: '{count} договори', many: '{count} договорів' },
         days: { one: '{count} день', few: '{count} дні', many: '{count} днів' },
         transfers: { one: '{count} переказ', few: '{count} перекази', many: '{count} переказів' },
+        taxPayments: { one: '{count} сплата', few: '{count} сплати', many: '{count} сплат' },
     },
 
     /** Quarters, short */

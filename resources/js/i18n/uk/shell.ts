@@ -132,6 +132,18 @@ export default {
         unreadAlerts: { one: '{count} непрочитане сповіщення', few: '{count} непрочитані сповіщення', many: '{count} непрочитаних сповіщень' },
     },
 
+    /** «Фільтри» of Облік and Податки (design.md §16.2) */
+    filters: {
+        title: 'Фільтри',
+        reset: 'Скинути',
+        apply: 'Застосувати',
+        period: 'Період',
+        oneQuarter: 'Один рік і один квартал.',
+        wholeYear: 'Увесь рік.',
+        grouping: 'Групувати',
+        wholeYearBadge: '{year} · увесь рік',
+    },
+
     /** Sheets, loading and failures, copying a requisite, stepping through periods */
     ui: {
         close: 'Закрити',

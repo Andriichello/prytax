@@ -10,13 +10,15 @@ import { TAX_TYPES } from '@/utils/statuses';
 /**
  * A receipt card (design.md §16.4): the head, which links to the receipt, then its ЄП and ВЗ, each with its amount and
  * its payment's status, opening that payment (the recorded one, or a new one). With `payRow`, «Сплатити ЄП і ВЗ за
- * цим надходженням» shows while either is unpaid, and opens the first unpaid one.
+ * цим надходженням» shows while either is unpaid, and opens the first unpaid one. Inside a month card it is `flat`,
+ * without its own border.
  */
 type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
-const { payment, payRow = false } = defineProps<{
+const { payment, payRow = false, flat = false } = defineProps<{
     payment: Payment;
     payRow?: boolean;
+    flat?: boolean;
 }>();
 
 const taxes = computed(() => (['single_tax', 'military_levy'] as ReceiptTax[]).map((type) => {
@@ -40,7 +42,7 @@ const payLabel = computed(() => (unpaid.value.length === 2
 </script>
 
 <template>
-    <article class="flex flex-col rounded-card border border-line bg-surface">
+    <article class="flex flex-col bg-surface" :class="flat ? '' : 'rounded-card border border-line'">
         <ReceiptHeader :payment="payment" :to="{ name: 'payment', params: { id: payment.id } }" class="px-4 pt-3.5 pb-3" />
         <div class="mx-4 flex flex-col divide-y divide-divider border-t border-dashed border-line-input">
             <RouterLink
@@ -53,7 +55,7 @@ const payLabel = computed(() => (unpaid.value.length === 2
                 <span class="num flex-1 text-15 font-semibold" :class="tax.taxPayment?.status === 'failed' ? 'text-ink-3 line-through' : ''">
                     {{ formatAmount(tax.amount) }}
                 </span>
-                <TaxPaymentBadge :status="tax.taxPayment?.status ?? null" :paid-at="tax.taxPayment?.paid_at" dated />
+                <TaxPaymentBadge :status="tax.taxPayment?.status ?? null" :paid-at="tax.taxPayment?.paid_at" short />
             </RouterLink>
         </div>
         <RouterLink

@@ -45,17 +45,6 @@ export default {
         excessTaxed: 'Перевищення ліміту {excess} оподатковується за {rate}: {tax}.',
     },
 
-    /** Облік, ЄСВ */
-    esv: {
-        owed: 'Нараховано',
-        paidOn: 'сплачено {date}',
-    },
-
-    /** Облік, Книга доходів */
-    incomeBook: {
-        current: 'поточний',
-    },
-
     /** Комісії */
     fees: {
         intro: 'Скільки коштує шлях грошей від клієнта до гривні: комісії й курсовий спред.',
@@ -78,65 +67,25 @@ export default {
 
     /** Податки */
     taxes: {
-        payment: 'Сплата',
         view: 'Подання',
-        singleTaxAndLevyDue: 'ЄП + ВЗ · до {date}',
-    },
-
-    /** Податки by quarter */
-    taxQuarter: {
-        taxBalance: 'Сальдо {tax}',
-        taxBalanceOn: 'Сальдо {tax} {date}',
-        asOfYearEnd: 'на 31.12.{year}',
-        asOfToday: 'на сьогодні',
-        ofThisDue: 'З них {amount} за {quarter} — до {date}.',
-        ofThisOverdueSince: 'З них {amount} за {quarter} — прострочено з {date}.',
-        anotherDue: 'Ще {amount} за {quarter} — до {date}.',
-        anotherOverdueSince: 'Ще {amount} за {quarter} — прострочено з {date}.',
-        restOwedDue: 'Решта — нараховане за {quarter}, строк {date}.',
-        owedDue: 'Нараховане за {quarter}, строк {date}.',
-        awaitsConfirmation: 'Очікує підтвердження {amount}.',
-        openingBalance: 'Вхідне сальдо на {date}',
-        upcoming: 'майбутній',
+        esv: 'ЄСВ',
+        accrual: 'Нарахування',
+        history: 'Історія сплат',
+        forQuarter: 'Податки за квартал',
         closed: 'закрито',
-        dueInDays: 'до {date} · {days}',
-        balance: 'Сальдо',
-        pendingSent: 'Очікує: {amount} надіслано {date}',
-        failedAmount: 'Не пройшло: {amount}',
-        payAmount: 'Сплатити {amount}',
-        sscExplained: 'ЄСВ нараховується щомісяця незалежно від доходу. Переплата переноситься в наступні квартали.',
-        owedExplained:
-            'Нараховано за квартал = {tax} з початку року мінус {tax} попереднього кварталу — та сама сума, що в декларації. Сальдо переноситься між кварталами й роками.',
-    },
-
-    /** Податки by month */
-    taxMonths: {
-        title: 'Податки за місяцями',
-        sentAmount: '+{amount} надісл.',
-        forQuarter: 'за кв.',
-        ofItForQuarter: 'з них за кв. {amount}',
-        sscEveryMonth: 'ЄСВ — за кожен місяць, крім звільнених.',
-        owedExplained:
-            'Нараховано за місяць — сума підказок його надходжень; до сплати за квартал береться його нарахування.',
-        spreadExplained:
-            'Сплати за квартал розносяться по місяцях з першого: кожен бере те, що ще винен, решта — останньому («за кв.»).',
-        tickMeansClosed: 'Галочка — квартал закрито.',
-    },
-
-    /** Податки by receipt */
-    taxReceipts: {
-        sentOn: 'надіслано {date}',
-        paid: 'сплачено',
-        coveredPeriodPayment: 'покрито сплатою періоду',
-        notPaid: 'не сплачено',
-        payReceipt: 'Сплатити за цим надходженням',
-        paymentsPeriod: 'Сплати за період',
-        taxForPeriod: '{tax} за {period}',
-        covers: '{date} · покриває {covers}',
-        reconciliation: 'Звірка {quarter}',
-        sumHints: 'Сума підказок',
-        roundingNote:
-            'Різниця в копійку — наслідок округлення по кожному надходженню. До сплати береться «Нараховано».',
+        dueBy: 'до {date}',
+        accrued: 'Нараховано',
+        paid: 'Сплачено',
+        toPay: 'До сплати',
+        pendingSent: '+ {amount} надіслано',
+        payEsvFor: 'Сплатити ЄСВ за {month}',
+        byReceipt: 'По надходженнях',
+        noReceipts: 'Надходжень у кварталі немає.',
+        receiptsHint: 'ЄП і ВЗ сплачуються з надходження: натисніть податок або «Сплатити за цим надходженням». ЄСВ — щомісяця, кнопкою «ЄСВ».',
+        historyTitle: 'Сплати — від нових до старих',
+        forMonth: 'за {month}',
+        noTaxPayments: 'Сплат податків у {year} немає.',
+        historyHint: '«Надіслано» — платіж відправлено, але ще не підтверджено; борг не зменшує. «Не пройшов» не враховується в сумі місяця.',
     },
 
     /** Сплата податку */

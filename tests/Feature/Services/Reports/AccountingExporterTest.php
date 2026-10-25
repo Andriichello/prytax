@@ -99,8 +99,8 @@ class AccountingExporterTest extends TestCase
         $rows = $this->rows($this->inProfile($profile, fn () => app(AccountingExporter::class)->quarter($profile, 2026, 4)));
 
         $this->assertSame(['Date', 'Document', 'Client / description'], array_slice($rows[0], 0, 3));
-        $this->assertSame(['Single tax', 'Military levy', 'Fees', 'Net'], array_slice($rows[0], 7, 4));
-        $this->assertContains(['Single tax owed, ₴', '2050.00', 'standalone', '2050.00', 'by receipts', '2050.00'], $rows);
+        $this->assertSame(['ЄП', 'ВЗ', 'Fees', 'Net'], array_slice($rows[0], 7, 4));
+        $this->assertContains(['ЄП owed, ₴', '2050.00', 'standalone', '2050.00', 'by receipts', '2050.00'], $rows);
     }
 
     /**

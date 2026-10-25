@@ -205,7 +205,7 @@ class AlertSyncTest extends TestCase
 
         $this->assertSame('warning', $alerts->get('esv:ЄСВ за III кв. 2026')->severity->value);
         $this->assertSame('До сплати 17' . "\u{202F}" . '121.06 ₴ — строк минув 19.10.2026.', $alerts->get('esv:ЄСВ за III кв. 2026')->body);
-        $this->assertSame('SSC for Q3 2026', $alerts->get('esv:ЄСВ за III кв. 2026')->texts['en']['title']);
+        $this->assertSame('ЄСВ for Q3 2026', $alerts->get('esv:ЄСВ за III кв. 2026')->texts['en']['title']);
         $this->assertSame('Due 17' . "\u{202F}" . '121.06 ₴ — the deadline passed on 19.10.2026.', $alerts->get('esv:ЄСВ за III кв. 2026')->texts['en']['body']);
         $this->assertSame('error', $alerts->get('tax:ЄП і ВЗ за II кв. 2026')->severity->value);
         $this->assertCount(1, $alerts->filter(fn (Alert $alert) => $alert->payload['kind'] === 'esv'));

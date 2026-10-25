@@ -187,7 +187,7 @@ class AlertCollector
             if ($taxDebt->isPositive() && $period->is($lastTaxDue)) {
                 $alerts["deadline:{$period->id}:tax"] = $this->deadline(
                     $period->tax_due_at,
-                    fn () => __('Single tax and military levy for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                    fn () => __('ЄП and ВЗ for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
                     fn () => __('Due :amount', ['amount' => $this->money->money($taxDebt, 'UAH')]),
                     "/taxes?year={$period->year}",
                     fn () => __('Pay'),
@@ -201,10 +201,10 @@ class AlertCollector
                 // An unpaid month of ЄСВ is a warning, also past its deadline (design.md §9)
                 $alerts["deadline:{$period->id}:esv"] = $this->deadline(
                     $period->esv_due_at,
-                    fn () => __('SSC for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
+                    fn () => __('ЄСВ for :quarter', ['quarter' => $this->quarterLabel($period->year, $period->quarter)]),
                     fn () => __('Due :amount', ['amount' => $this->money->money($esvBalance->negated(), 'UAH')]),
                     "/accounting/esv?year={$period->year}",
-                    fn () => __('Pay SSC'),
+                    fn () => __('Pay ЄСВ'),
                     ['tax_period_id' => $period->id, 'kind' => 'esv', 'amount' => Decimal::money($esvBalance->negated())],
                     AlertSeverity::Warning,
                 );
@@ -328,8 +328,8 @@ class AlertCollector
                     'texts' => fn () => [
                         'title' => __('Money left on the platform past the deadline'),
                         'body' => $replace['invoice'] !== null
-                            ? __(':amount of the receipt of :date for invoice :invoice is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% military levy).', $replace)
-                            : __(':amount of the receipt of :date is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% military levy).', $replace),
+                            ? __(':amount of the receipt of :date for invoice :invoice is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% ВЗ).', $replace)
+                            : __(':amount of the receipt of :date is still on :account. The tax service may treat it as personal income (18% personal income tax + 5% ВЗ).', $replace),
                         'action_label' => __('Create a transfer'),
                         'context' => __('Repatriation · since :date', ['date' => $since]),
                     ],
@@ -668,7 +668,7 @@ class AlertCollector
             'severity' => AlertSeverity::Warning,
             'texts' => fn () => [
                 'title' => __('The tax rules of :year aren’t added yet', ['year' => $next]),
-                'body' => __('The minimum wage, SSC and the income cap of :year aren’t in PryTax yet. Without them, receipts of :year won’t be accepted and SSC won’t be charged. Add them by updating the app.', ['year' => $next]),
+                'body' => __('The minimum wage, ЄСВ and the income cap of :year aren’t in PryTax yet. Without them, receipts of :year won’t be accepted and ЄСВ won’t be charged. Add them by updating the app.', ['year' => $next]),
                 'action_label' => null,
                 'context' => __('Tax rules'),
             ],

@@ -193,9 +193,9 @@ class AccountingExporter
         return [
             [__('Quarter income, ₴'), $summary['quarter_income']],
             [__('Year-to-date income, ₴'), $summary['ytd_income']],
-            [__('Single tax owed, ₴'), $summary['single_tax']['owed'], ...$checks('single_tax')],
-            [__('Military levy owed, ₴'), $summary['military_levy']['owed'], ...$checks('military_levy')],
-            [__('SSC, ₴'), $summary['esv']['owed']],
+            [__('ЄП owed, ₴'), $summary['single_tax']['owed'], ...$checks('single_tax')],
+            [__('ВЗ owed, ₴'), $summary['military_levy']['owed'], ...$checks('military_levy')],
+            [__('ЄСВ, ₴'), $summary['esv']['owed']],
             [__('Income cap, %'), $summary['cap']['percent']],
         ];
     }
@@ -210,9 +210,9 @@ class AccountingExporter
     protected function taxName(string $type): string
     {
         return match ($type) {
-            'single_tax' => __('Single tax'),
-            'military_levy' => __('Military levy'),
-            default => __('SSC'),
+            'single_tax' => __('ЄП'),
+            'military_levy' => __('ВЗ'),
+            default => __('ЄСВ'),
         };
     }
 

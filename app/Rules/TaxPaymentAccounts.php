@@ -60,7 +60,7 @@ class TaxPaymentAccounts implements ValidationRule
             ->count();
 
         if ($payable !== count($ids)) {
-            $fail(__('Taxes are paid from active accounts in UAH, or from active FOP accounts in another currency.'));
+            $fail(__('Taxes are paid from active accounts in UAH, or from active ФОП accounts in another currency.'));
         }
     }
 }

@@ -72,7 +72,7 @@ function accountOf(payment: TaxPayment): string {
 <template>
     <LoadState :loading="loading && !payments" :error="error" @retry="reload">
         <section class="flex flex-col gap-2.5">
-            <SectionTitle>{{ t('accounting.taxes.historyTitle') }}</SectionTitle>
+            <SectionTitle rule>{{ t('accounting.taxes.historyTitle') }}</SectionTitle>
             <MonthCard
                 v-for="month in months"
                 :key="month.month"

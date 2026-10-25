@@ -93,7 +93,7 @@ const receiptMonths = computed(() => {
     <LoadState :loading="loading && !data" :error="error" @retry="reload">
         <template v-if="data">
             <section class="flex flex-col gap-2.5">
-                <SectionTitle>{{ t('accounting.taxes.forQuarter') }}</SectionTitle>
+                <SectionTitle rule>{{ t('accounting.taxes.forQuarter') }}</SectionTitle>
                 <p v-if="!tracked" class="m-0 rounded-card border border-line bg-surface px-4 py-3.5 text-14 text-ink-2">{{ t('accounting.taxes.notTracked') }}</p>
                 <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <div v-for="row in rows" :key="row.type" class="flex flex-col gap-2 py-3.5">
@@ -135,7 +135,7 @@ const receiptMonths = computed(() => {
             </section>
 
             <section class="flex flex-col gap-2.5">
-                <SectionTitle>{{ t('accounting.taxes.byReceipt') }}</SectionTitle>
+                <SectionTitle rule>{{ t('accounting.taxes.byReceipt') }}</SectionTitle>
                 <MonthCard
                     v-for="month in receiptMonths"
                     :key="month.month"

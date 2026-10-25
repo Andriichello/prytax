@@ -179,12 +179,12 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="data">
                 <section v-if="data.card" class="flex flex-col gap-2.5">
-                    <SectionTitle>{{ t('accounting.quarters.summary') }}</SectionTitle>
+                    <SectionTitle rule>{{ t('accounting.quarters.summary') }}</SectionTitle>
                     <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" />
                 </section>
 
                 <section class="flex flex-col gap-2.5">
-                    <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
+                    <SectionTitle rule>{{ t('core.common.receipts') }}</SectionTitle>
                     <div class="grid grid-cols-2 gap-2">
                         <SwitchTile v-model="showTaxes" :label="t('shell.nav.taxes')" />
                         <SwitchTile v-model="showFees" :label="t('accounting.quarters.feesNet')" />

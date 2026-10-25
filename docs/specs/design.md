@@ -1065,6 +1065,7 @@ Added by v4 («Minimal»):
     (months for ЄСВ, quarters for the others), green and amber only above zero;
   - navigation: an unpaid ЄП/ВЗ row opens the receipt's payment prefilled, an unpaid ЄСВ row that month; no pay row on
     any receipt card.
+- **Translations:** the guard accepts ЄП, ВЗ, ЄСВ and ФОП in English texts and still rejects any other Cyrillic.
 - **Acceptance:** every screen (boards 001–044) and edit state (045–085) matches its PNG at 390 px within font
   rendering, and so do the second handoff's Податки renders (its eight summary states included); hidden features are
   unreachable; the PHP and frontend suites, Pint, the type check and the build pass.
@@ -1098,8 +1099,10 @@ demo data reseeded.
    - `TaxLedger` and `taxes/{year}/ledger`, with the receipt page and the receipt cards reading it;
    - the screen: three filters, the summary and the month cards (§16.2, §16.5);
    - «Нарахування», «Історія сплат», «+ ЄСВ» and their receipt cards leave Податки.
+9. **Untranslated names** (§16.5): the English dictionaries write ЄП, ВЗ, ЄСВ and ФОП as the Ukrainian ones do, and
+   the translation guard allows them.
 
-Steps 1–7 are built (2026-10-25); step 8 is next.
+Steps 1–7 are built (2026-10-25); steps 8 and 9 are next.
 
 Later: `SheetImporter` for the 2025 sheet (`--profile=`, `--dry-run`: external invoices, payments, transfers, tax
 payments, ЄСВ months paid or exempt; totals must reconcile to the sheet within the rounding policy), XLSX exports and
@@ -1326,6 +1329,11 @@ Board numbers are in brackets.
 - The currency code follows the amount (`3 892.50 USD`), and `₴` follows UAH amounts.
 - Secondary figures are one step lighter and smaller than the primary ones.
 - Invoice numbers are in mono.
+- **ЄП, ВЗ, ЄСВ and ФОП are never translated** (the owner, 2026-10-25). The English UI writes them as the Ukrainian
+  one does («ЄСВ for October», «ФОП profile»), never «single tax», «military levy», «SSC» or «sole proprietor».
+  - The translation guard (`resources/js/i18n/i18n.test.ts`) allows these four words, and only these, in English
+    texts.
+  - The invoice PDF is the client's document and keeps its English wording («Individual Entrepreneur», `invoice.md`).
 - Plain section headers (uppercase captions on the page, without a background) separate a period's parts with « · »:
   «IV квартал · 2026», «IV кв. · Жовтень · 2026», «Жовтень · 2026» (the owner, 2026-10-25).
 - Lists of records run from the newest to the oldest (the owner, 2026-10-25): invoices, receipts, tax payments,

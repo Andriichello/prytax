@@ -151,5 +151,11 @@ export default {
         notBefore: 'No earlier than {date}',
         notAfter: 'No later than {date}',
         calendar: '{label}: calendar',
+        today: 'Today',
+        chooseMonth: 'Choose the month and year',
+        previousMonth: 'Previous month',
+        nextMonth: 'Next month',
+        previousYear: 'Previous year',
+        nextYear: 'Next year',
     },
 } satisfies Translation<typeof uk>;

@@ -164,5 +164,11 @@ export default {
         notBefore: 'Не раніше {date}',
         notAfter: 'Не пізніше {date}',
         calendar: '{label}: календар',
+        today: 'Сьогодні',
+        chooseMonth: 'Обрати місяць і рік',
+        previousMonth: 'Попередній місяць',
+        nextMonth: 'Наступний місяць',
+        previousYear: 'Попередній рік',
+        nextYear: 'Наступний рік',
     },
 } satisfies Messages;

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import { api } from '@/api/client';
 import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
 import OpenInvoiceRow from '@/components/invoice/OpenInvoiceRow.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
-import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
@@ -19,7 +18,7 @@ import { formatMoney } from '@/utils/money';
  * Головна: the open invoices (ready and sent) by month of their period's end, newest month first, and within a month
  * by the period's start, the latest first (design §16, ordered as the mock).
  */
-const { profile, profileId, path, loadProfiles } = useCurrentProfile();
+const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
@@ -33,9 +32,6 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 
     return { invoices, outstanding: outstanding.data };
 }, [profileId]);
-
-// The bell's count: notifications come and go with every write and the nightly check
-onMounted(() => void loadProfiles().catch(() => undefined));
 
 const months = computed(() => {
     const groups = new Map<string, { key: string; title: string; invoices: Invoice[] }>();
@@ -64,27 +60,10 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
     .map((total) => formatMoney(total.remaining, total.currency))
     .join(' + '));
 
-const unread = computed(() => profile.value?.unread_alerts_count ?? 0);
 </script>
 
 <template>
     <TabScreen :title="t('shell.nav.home')">
-        <template #action>
-            <RouterLink
-                :to="{ name: 'alerts' }"
-                :aria-label="unread ? t('invoices.home.notificationsUnread', { count: unread }) : t('shell.alerts.notifications')"
-                class="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
-            >
-                <Icon name="bell" :size="22" />
-                <span
-                    v-if="unread"
-                    class="absolute -top-0.5 -right-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-negative px-1 text-11 font-semibold text-white"
-                >
-                    {{ unread }}
-                </span>
-            </RouterLink>
-        </template>
-
         <template #subtitle>
             <p v-if="data" class="m-0 text-14 text-ink-3">
                 <Translated v-if="toPay" :text="t('invoices.home.openInvoicesOutstanding')">

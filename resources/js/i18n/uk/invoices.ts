@@ -6,7 +6,6 @@ import type { Messages } from '@/i18n/types';
 export default {
     /** Головна and its open invoices */
     home: {
-        notificationsUnread: 'Сповіщення, непрочитаних: {count}',
         openInvoicesOutstanding: 'Відкриті інвойси · {amount} до оплати',
         openInvoices: 'Відкриті інвойси',
         noOpenInvoices: 'Відкритих інвойсів немає: усі оплачені або ще в чернетках.',
@@ -20,7 +19,6 @@ export default {
     list: {
         clientsCount: 'Клієнти · {count}',
         statusCount: 'Статус · {count}',
-        uploadExternalInvoice: 'Завантажити зовнішній інвойс',
         filters: 'Фільтри',
         reset: 'Скинути',
         noInvoicesMatch: 'За цими фільтрами інвойсів немає.',

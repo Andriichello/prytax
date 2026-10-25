@@ -1,8 +1,8 @@
 import type { Messages } from '@/i18n/types';
 
 /**
- * Ukrainian texts of the app's frame: start-up, sign-in and passwords, navigation, Ще, the ФОП switcher,
- * notifications, the practice overview and the shared components.
+ * Ukrainian texts of the app's frame: start-up, sign-in and passwords, navigation, Ще, notifications, the quarter's
+ * summary and the shared components.
  */
 export default {
     /** The app's frame, when it can't start */
@@ -82,9 +82,8 @@ export default {
         taxes: 'Податки',
         mainNavigation: 'Основна навігація',
         back: 'Назад',
-        switchFop: '{name}, змінити ФОП',
-        chooseFop: 'Оберіть ФОП',
         fopGroup: 'ФОП · {group} група',
+        notificationsUnread: 'Сповіщення, непрочитаних: {count}',
     },
 
     /** Ще and the language switch */
@@ -99,21 +98,8 @@ export default {
         fopSettings: 'Налаштування ФОП',
         fopProfileDetails: 'Профіль і реквізити ФОП',
         organization: 'Організація',
-        overviewAllFops: 'Огляд усіх ФОП',
         usersRoles: 'Користувачі й ролі',
         signOut: 'Вийти',
-    },
-
-    /** The ФОП switcher */
-    profileSwitcher: {
-        searchFops: 'Пошук ФОП',
-        searchPlaceholder: 'Пошук за ПІБ або РНОКПП',
-        inactiveClosed: 'Неактивний · закрито {date}',
-        correctiveDeclarationNeeded: 'Потрібна уточнююча декларація',
-        taxId: 'РНОКПП {taxId} · {alerts}',
-        noNotifications: 'без сповіщень',
-        overviewAll: 'Огляд усіх',
-        addFop: 'Додати ФОП',
     },
 
     /** Сповіщення */
@@ -122,8 +108,6 @@ export default {
         notificationSettings: 'Налаштування сповіщень',
         all: 'Усі',
         unreadFilter: 'Непрочитані',
-        funds: 'Кошти',
-        deadlines: 'Терміни',
         readHint: 'Сповіщення стає прочитаним, коли ви натискаєте на нього, на його дію або на ✓.',
         noUnreadNotifications: 'Непрочитаних сповіщень немає.',
         noNotifications: 'Сповіщень немає: усе гаразд.',
@@ -135,13 +119,6 @@ export default {
 
     /** Огляд практики */
     overview: {
-        titleCount: 'Практика · {count}',
-        activeFops: { one: '{count} активний ФОП', few: '{count} активні ФОП', many: '{count} активних ФОП' },
-        title: 'Огляд практики',
-        previousQuarter: 'Попередній квартал',
-        nextQuarter: 'Наступний квартал',
-        noActiveFops: 'У цьому кварталі немає активних ФОП.',
-        showInactive: 'Показати неактивні ({count})',
         incomeCapFor: 'Ліміт доходу {year}',
         ofTotal: 'з {total}',
         incomeIn: 'Дохід {quarter}',

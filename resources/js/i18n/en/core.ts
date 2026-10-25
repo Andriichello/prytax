@@ -124,7 +124,6 @@ export default {
     counts: {
         invoices: { one: '{count} invoice', other: '{count} invoices' },
         payments: { one: '{count} receipt', other: '{count} receipts' },
-        notifications: { one: '{count} notification', other: '{count} notifications' },
         contracts: { one: '{count} contract', other: '{count} contracts' },
         days: { one: '{count} day', other: '{count} days' },
         transfers: { one: '{count} transfer', other: '{count} transfers' },
@@ -142,31 +141,6 @@ export default {
         q2: 'Q2',
         q3: 'Q3',
         q4: 'Q4',
-    },
-
-    weekdays: {
-        sunday: 'Sunday',
-        monday: 'Monday',
-        tuesday: 'Tuesday',
-        wednesday: 'Wednesday',
-        thursday: 'Thursday',
-        friday: 'Friday',
-        saturday: 'Saturday',
-    },
-
-    shortMonths: {
-        jan: 'Jan',
-        feb: 'Feb',
-        mar: 'Mar',
-        apr: 'Apr',
-        may: 'May',
-        jun: 'Jun',
-        jul: 'Jul',
-        aug: 'Aug',
-        sep: 'Sep',
-        oct: 'Oct',
-        nov: 'Nov',
-        dec: 'Dec',
     },
 
     errors: {

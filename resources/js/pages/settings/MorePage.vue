@@ -15,7 +15,8 @@ import { t } from '@/i18n';
 import { styleName } from '@/utils/invoiceStyles';
 
 /**
- * Ще (S-More): money and counterparties, the ФОП's settings, the organization with signing out, and the language.
+ * Ще (M-More, design.md §16.5): money and counterparties, the ФОП's settings, the invoices' numbering and document,
+ * the organization with signing out, and the language. Комісії opens from Перекази.
  */
 
 /**
@@ -54,7 +55,6 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         items: [
             { label: t('money.accounts.title'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
             { label: t('shell.more.transfersFees'), icon: 'transfer', to: '/transfers' },
-            { label: t('shell.more.feesNetIncome'), icon: 'percent', to: '/fees' },
             { label: t('shell.more.clientsContracts'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
         ],
     },
@@ -63,16 +63,21 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         title: t('shell.more.fopSettings'),
         items: [
             { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
+            { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
+        ],
+    },
+    {
+        key: 'invoices',
+        title: t('shell.nav.invoices'),
+        items: [
             { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
             { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', value: styleName(settings.value?.invoice.style) },
-            { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
         ],
     },
     {
         key: 'organization',
         title: t('shell.more.organization'),
         items: [
-            { label: t('shell.more.overviewAllFops'), icon: 'overview', to: '/overview' },
             { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
         ],
     },

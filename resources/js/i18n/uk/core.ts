@@ -135,7 +135,6 @@ export default {
     counts: {
         invoices: { one: '{count} інвойс', few: '{count} інвойси', many: '{count} інвойсів' },
         payments: { one: '{count} надходження', few: '{count} надходження', many: '{count} надходжень' },
-        notifications: { one: '{count} сповіщення', few: '{count} сповіщення', many: '{count} сповіщень' },
         contracts: { one: '{count} договір', few: '{count} договори', many: '{count} договорів' },
         days: { one: '{count} день', few: '{count} дні', many: '{count} днів' },
         transfers: { one: '{count} переказ', few: '{count} перекази', many: '{count} переказів' },
@@ -155,33 +154,6 @@ export default {
         q2: 'II квартал',
         q3: 'III квартал',
         q4: 'IV квартал',
-    },
-
-    /** Days of the week, inside a sentence */
-    weekdays: {
-        sunday: 'неділя',
-        monday: 'понеділок',
-        tuesday: 'вівторок',
-        wednesday: 'середа',
-        thursday: 'четвер',
-        friday: "п'ятниця",
-        saturday: 'субота',
-    },
-
-    /** The short names of the months */
-    shortMonths: {
-        jan: 'січ',
-        feb: 'лют',
-        mar: 'бер',
-        apr: 'кві',
-        may: 'тра',
-        jun: 'чер',
-        jul: 'лип',
-        aug: 'сер',
-        sep: 'вер',
-        oct: 'жов',
-        nov: 'лис',
-        dec: 'гру',
     },
 
     /** Errors of requests, by their status */

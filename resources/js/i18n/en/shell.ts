@@ -74,9 +74,8 @@ export default {
         taxes: 'Taxes',
         mainNavigation: 'Main navigation',
         back: 'Back',
-        switchFop: '{name}, switch FOP',
-        chooseFop: 'Choose a FOP',
         fopGroup: 'FOP · group {group}',
+        notificationsUnread: 'Notifications, {count} unread',
     },
 
     more: {
@@ -90,20 +89,8 @@ export default {
         fopSettings: 'FOP settings',
         fopProfileDetails: 'FOP profile and details',
         organization: 'Organization',
-        overviewAllFops: 'Overview of all FOPs',
         usersRoles: 'Users and roles',
         signOut: 'Sign out',
-    },
-
-    profileSwitcher: {
-        searchFops: 'Search FOPs',
-        searchPlaceholder: 'Search by name or tax ID',
-        inactiveClosed: 'Inactive · closed {date}',
-        correctiveDeclarationNeeded: 'Corrective declaration needed',
-        taxId: 'Tax ID {taxId} · {alerts}',
-        noNotifications: 'no notifications',
-        overviewAll: 'Overview of all',
-        addFop: 'Add a FOP',
     },
 
     alerts: {
@@ -111,8 +98,6 @@ export default {
         notificationSettings: 'Notification settings',
         all: 'All',
         unreadFilter: 'Unread',
-        funds: 'Funds',
-        deadlines: 'Deadlines',
         readHint: 'A notification is marked as read when you tap it, its action or ✓.',
         noUnreadNotifications: 'No unread notifications.',
         noNotifications: 'No notifications: all is well.',
@@ -123,13 +108,6 @@ export default {
     },
 
     overview: {
-        titleCount: 'Practice · {count}',
-        activeFops: { one: '{count} active FOP', other: '{count} active FOPs' },
-        title: 'Practice overview',
-        previousQuarter: 'Previous quarter',
-        nextQuarter: 'Next quarter',
-        noActiveFops: 'No active FOPs in this quarter.',
-        showInactive: 'Show inactive ({count})',
         incomeCapFor: 'Income cap {year}',
         ofTotal: 'of {total}',
         incomeIn: 'Income {quarter}',

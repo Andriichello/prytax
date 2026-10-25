@@ -27,7 +27,8 @@ declare module 'vue-router' {
  * `/accounts/{id}`, `/payments/{id}`, `/transfers/{id}`, `/transfers/new?from=`, `/clients/{client}/contracts/{id}`,
  * `/taxes?year=`, `/taxes/declaration/{year}/{quarter}`, `/accounting/{year}/{quarter}`, `/accounting/esv?year=`,
  * `/reset-password`, `/accept-invitation`. Change them together with the API. Any path may name its ФОП
- * (`?profile=2`), which the app switches to.
+ * (`?profile=2`), which the app switches to. The screens, which the «Minimal» phase hides (the practice overview, ЄСВ,
+ * the income book, the declaration; design.md §16.1), redirect to Облік or Податки, so their links still lead somewhere.
  */
 const record = (resource: string) => (params: RouteParamsGeneric): string => `${resource}/${params.id}`;
 
@@ -41,7 +42,7 @@ const routes: RouteRecordRaw[] = [
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },
-    { path: '/overview', name: 'overview', component: () => import('@/pages/OverviewPage.vue') },
+    { path: '/overview', name: 'overview', redirect: { name: 'accounting' } },
 
     { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices' } },
     { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['create', 'invoices'], denied: 'invoices' } },
@@ -78,8 +79,8 @@ const routes: RouteRecordRaw[] = [
     },
 
     { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: () => import('@/pages/accounting/AccountingPage.vue'), meta: { tab: 'accounting' } },
-    { path: '/accounting/esv', name: 'accounting-esv', component: () => import('@/pages/accounting/EsvPage.vue'), meta: { tab: 'accounting' } },
-    { path: '/accounting/income-book', name: 'income-book', component: () => import('@/pages/accounting/IncomeBookPage.vue'), meta: { tab: 'accounting' } },
+    { path: '/accounting/esv', name: 'accounting-esv', redirect: (to) => ({ name: 'taxes', query: { year: to.query.year } }) },
+    { path: '/accounting/income-book', name: 'income-book', redirect: { name: 'accounting' } },
     { path: '/fees', name: 'fees', component: () => import('@/pages/accounting/FeesPage.vue') },
 
     { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes' } },
@@ -89,7 +90,11 @@ const routes: RouteRecordRaw[] = [
         redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter, view: 'receipts' } }),
     },
     { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
-    { path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])', name: 'declaration', component: () => import('@/pages/taxes/DeclarationPage.vue') },
+    {
+        path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])',
+        name: 'declaration',
+        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter } }),
+    },
 
     { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },
     { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue'), meta: { can: ['create', 'profiles'], denied: 'more' } },

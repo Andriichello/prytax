@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, apiUrl } from '@/api/client';
 import type { AccountingInvoice, AccountingQuarter, AccountingRow, ApiResponse } from '@/api/types';
-import AccountingHeader from '@/components/accounting/AccountingHeader.vue';
 import AccountingPaymentRow from '@/components/accounting/AccountingPaymentRow.vue';
 import QuarterSummary from '@/components/accounting/QuarterSummary.vue';
 import YearSelect from '@/components/accounting/YearSelect.vue';
@@ -12,16 +11,14 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import StatusBadge from '@/components/ui/StatusBadge.vue';
 import SwitchTile from '@/components/ui/SwitchTile.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useStoredState } from '@/composables/useStoredState';
 import { t } from '@/i18n';
-import { currentQuarter, formatDate, monthName, quarterLabel } from '@/utils/dates';
+import { currentQuarter, monthName, quarterLabel } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney, sumAmounts } from '@/utils/money';
-import { DECLARATION_STATUSES } from '@/utils/statuses';
 
 /**
  * Облік, Квартали (S-Accounting, handoff §7): a quarter's receipts grouped by month, by invoice or not at all, with
@@ -123,21 +120,9 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
 
 <template>
     <TabScreen :title="t('shell.nav.accounting')">
-        <template #action>
-            <a
-                :href="exportQuarter"
-                download
-                :aria-label="t('accounting.quarters.exportQuarterCsv')"
-                class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
-            >
-                <Icon name="download" :size="22" />
-            </a>
-        </template>
         <template #title-action>
             <YearSelect v-model="yearModel" />
         </template>
-
-        <AccountingHeader active="quarters" :year="year" />
 
         <SegmentedControl
             v-model="quarterModel"
@@ -145,21 +130,6 @@ const isPaid = (invoice: AccountingInvoice): boolean => invoice.status === 'paid
             :options="[1, 2, 3, 4].map((value) => ({ value, label: quarterLabel(value) }))"
         />
 
-        <RouterLink
-            v-if="data"
-            :to="{ name: 'declaration', params: { year, quarter } }"
-            class="flex min-h-12 items-center gap-2.5 rounded-control border border-line bg-surface px-3.5 text-14 text-ink no-underline hover:text-ink"
-        >
-            <template v-if="data.period.id === null">
-                <StatusBadge :label="t('accounting.quarters.notTracked')" tone="neutral" />
-                <span class="flex-1">{{ t('accounting.quarters.outsideRecords') }}</span>
-            </template>
-            <template v-else>
-                <StatusBadge v-bind="DECLARATION_STATUSES[data.period.declaration_status]" />
-                <span class="flex-1"><Translated :text="t('accounting.quarters.declarationDue')"><template #date><span class="num">{{ formatDate(data.period.declaration_due_at) }}</span></template></Translated></span>
-            </template>
-            <Icon name="chevronRight" :size="18" class="text-ink-3" />
-        </RouterLink>
 
         <div class="flex items-center justify-between gap-2">
             <span id="grouping" class="text-13 text-ink-3">{{ t('accounting.quarters.groupBy') }}</span>

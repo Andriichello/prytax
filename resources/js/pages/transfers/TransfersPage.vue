@@ -108,6 +108,10 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
             <p v-if="stats.unknown_fees_count" class="m-0 text-12 text-ink-3">
                 {{ t('money.transfers.feesWithoutRate', { count: stats.unknown_fees_count }) }}
             </p>
+            <RouterLink :to="{ name: 'fees', query: { year } }" class="flex min-h-11 items-center gap-1 self-start text-14 font-medium no-underline">
+                {{ t('shell.more.feesNetIncome') }}
+                <Icon name="chevronRight" :size="16" />
+            </RouterLink>
         </section>
 
         <LoadState :loading="list.loading.value && list.items.value.length === 0" :error="list.error.value" @retry="list.reload">

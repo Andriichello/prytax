@@ -5,16 +5,8 @@ import type uk from '@/i18n/uk/accounting';
  * The English of `i18n/uk/accounting.ts`.
  */
 export default {
-    tabs: {
-        incomeBook: 'Income book',
-        sections: 'Accounting sections',
-    },
 
     quarters: {
-        exportQuarterCsv: 'Export the quarter to CSV',
-        notTracked: 'Not tracked',
-        outsideRecords: 'Quarter outside this FOP’s records',
-        declarationDue: 'Declaration due {date}',
         groupBy: 'Group by',
         none: 'None',
         showList: 'Show in the list',
@@ -53,36 +45,11 @@ export default {
 
     esv: {
         owed: 'Owed',
-        overpaid: 'Overpaid',
-        monthlyMinimum:
-            '{percent} % of the minimum wage ({minWage}) = {monthly} a month. Accrues regardless of income.',
-        sscByMonth: 'SSC by month',
-        quarterDue: '{quarter} · due {date}',
         paidOn: 'paid {date}',
-        annualDeclarationAppendix: 'annual declaration, appendix 1',
-        exempt: 'exempt',
-        notTracked: 'not tracked',
-        notPaid: 'Not paid',
-        paySsc: 'Pay SSC for {quarter}',
-        payAboveMinimum:
-            'You can pay more than the minimum (up to 15 minimum wages): the overpayment counts towards the next quarters.',
-        tapToExempt: 'Tap a month to mark it exempt from payment.',
-        sscForMonth: 'SSC · {month} {year}',
-        exemptPayment: 'Exempt from payment',
-        reason: 'Reason',
-        reasonPlaceholder: 'E.g., martial law, 2022–2024',
-        exemptMonthOwes: 'An exempt month owes nothing.',
     },
 
     incomeBook: {
-        intro:
-            'Income records in free form (Tax Code, cl. 296.1). A month’s total is made of already rounded receipts; refunds to clients reduce the income of the month of the refund.',
-        incomeUah: 'Income, ₴',
-        ytd: 'YTD',
         current: 'current',
-        export: 'Export',
-        yearRecords: 'Income book for the year',
-        allReceiptsTaxes: 'All receipts and taxes',
     },
 
     fees: {
@@ -105,7 +72,6 @@ export default {
     },
 
     taxes: {
-        declarationFor: 'Declaration for {quarter} {year}',
         payment: 'Payment',
         view: 'View',
         singleTaxAndLevyDue: 'Single tax + Military levy · due {date}',
@@ -184,39 +150,4 @@ export default {
         savePayment: 'Save payment',
     },
 
-    declaration: {
-        taxPeriod: 'Tax period',
-        annualDeclaration: 'Annual declaration for {quarter} {year}',
-        filedOn: 'filed {date}',
-        declarationStatus: 'Declaration status',
-        correctiveFiled: 'Corrective filed',
-        incomeChangedAfterFiling:
-            'This year’s income or taxes changed after the declaration was filed. File a corrective declaration and mark it as filed.',
-        deadlines: 'Deadlines',
-        fileDeclaration: 'File the declaration',
-        correctiveDeclarationNeeded: 'corrective declaration needed',
-        filed: 'filed',
-        weekdayIn: '{weekday} · in {days}',
-        weekdayToday: '{weekday} · today',
-        dueDatePassed: 'due date passed {date}',
-        paySingleTax: 'Pay single tax and military levy',
-        paySsc: 'Pay SSC',
-        figures: 'Figures for the declaration',
-        incomeYearToDate: 'Income year to date from 01.01',
-        singleTax: 'Single tax',
-        militaryLevy: 'Military levy',
-        owedYearToDate: 'Owed year to date',
-        declaredFor: 'Declared for {quarter}',
-        declaredEarlier: 'Declared earlier',
-        owedFor: 'Owed for {quarter}',
-        sscAppendix1: 'SSC, appendix 1',
-        lockedOnceFiled:
-            'Once marked “Filed”, the quarter is locked. Changes to it will need a note and will mark this and the following quarters of the year as “correction needed”.',
-        notes: 'Notes',
-        acknowledgmentNumberComment: 'Acknowledgment number, comment',
-        quarterNotTracked: 'This quarter isn’t tracked, so the declaration status doesn’t change.',
-        fileAfterQuarterEnds: 'You can file once the quarter has ended.',
-        markFiled: 'Mark as filed',
-        filedAgain: 'Filed again',
-    },
 } satisfies Translation<typeof uk>;

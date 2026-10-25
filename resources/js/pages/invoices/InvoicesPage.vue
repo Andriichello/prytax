@@ -106,17 +106,6 @@ const chipClass = (active: boolean): string => (active
 
 <template>
     <TabScreen :title="t('shell.nav.invoices')">
-        <template #action>
-            <RouterLink
-                v-if="can('create', 'invoices')"
-                :to="{ name: 'invoice-new', query: { source: 'external' } }"
-                :aria-label="t('invoices.list.uploadExternalInvoice')"
-                class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
-            >
-                <Icon name="upload" :size="22" />
-            </RouterLink>
-        </template>
-
         <template #title-action>
             <RouterLink
                 v-if="can('create', 'invoices')"

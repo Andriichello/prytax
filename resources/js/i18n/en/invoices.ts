@@ -6,7 +6,6 @@ import type uk from '@/i18n/uk/invoices';
  */
 export default {
     home: {
-        notificationsUnread: 'Notifications, {count} unread',
         openInvoicesOutstanding: 'Open invoices · {amount} outstanding',
         openInvoices: 'Open invoices',
         noOpenInvoices: 'No open invoices: all are paid or still drafts.',
@@ -19,7 +18,6 @@ export default {
     list: {
         clientsCount: 'Clients · {count}',
         statusCount: 'Status · {count}',
-        uploadExternalInvoice: 'Upload an external invoice',
         filters: 'Filters',
         reset: 'Reset',
         noInvoicesMatch: 'No invoices match these filters.',

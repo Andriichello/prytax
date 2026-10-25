@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { Alert, AlertCategory, AlertCounts, ApiResponse, Paginated } from '@/api/types';
+import type { Alert, AlertCounts, ApiResponse, Paginated } from '@/api/types';
 import AlertCard from '@/components/alert/AlertCard.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import Chip from '@/components/ui/Chip.vue';
@@ -15,16 +15,10 @@ import { t } from '@/i18n';
 import { errorMessage } from '@/utils/errors';
 
 /**
- * Сповіщення: the profile's notifications, newest first, filtered by category or unread. Opening or scrolling the
- * list marks nothing read.
+ * Сповіщення (M-Alerts): the profile's notifications, newest first, all or the unread ones, under a sticky header.
+ * Opening or scrolling the list marks nothing read.
  */
-type Shown = 'all' | 'unread' | AlertCategory;
-
-const CATEGORIES: { value: AlertCategory; label: string }[] = [
-    { value: 'funds', get label() { return t('shell.alerts.funds'); } },
-    { value: 'invoices', get label() { return t('shell.nav.invoices'); } },
-    { value: 'deadlines', get label() { return t('shell.alerts.deadlines'); } },
-];
+type Shown = 'all' | 'unread';
 
 const route = useRoute();
 const router = useRouter();
@@ -33,7 +27,7 @@ const { profileId, path, markOneRead, setUnreadCount } = useCurrentProfile();
 const shown = computed<Shown>(() => {
     const value = route.query.show;
 
-    return value === 'unread' || CATEGORIES.some((category) => category.value === value) ? (value as Shown) : 'all';
+    return value === 'unread' ? 'unread' : 'all';
 });
 
 const alerts = ref<Alert[]>([]);
@@ -44,7 +38,6 @@ const actionError = ref<unknown>(null);
 function query(page: number) {
     return {
         filter: {
-            category: CATEGORIES.some((category) => category.value === shown.value) ? shown.value : undefined,
             unread: shown.value === 'unread' ? true : undefined,
         },
         page: { number: page, size: 30 },
@@ -132,11 +125,6 @@ const chips = computed(() => {
     return [
         { value: 'all' as Shown, label: t('shell.alerts.all'), count: all?.all ?? 0 },
         { value: 'unread' as Shown, label: t('shell.alerts.unreadFilter'), count: all?.unread ?? 0 },
-        ...CATEGORIES.map((category) => ({
-            value: category.value as Shown,
-            label: category.label,
-            count: all?.categories[category.value]?.all ?? 0,
-        })),
     ];
 });
 </script>
@@ -153,11 +141,13 @@ const chips = computed(() => {
             </RouterLink>
         </template>
 
-        <div class="flex flex-wrap gap-2">
-            <Chip v-for="chip in chips" :key="chip.value" :selected="shown === chip.value" @click="show(chip.value)">
-                {{ chip.label }}<template v-if="chip.count"> · {{ chip.count }}</template>
-            </Chip>
-        </div>
+        <template #toolbar>
+            <div role="group" :aria-label="t('invoices.list.filters')" class="flex gap-2">
+                <Chip v-for="chip in chips" :key="chip.value" :selected="shown === chip.value" @click="show(chip.value)">
+                    {{ chip.label }}<template v-if="chip.count"> · {{ chip.count }}</template>
+                </Chip>
+            </div>
+        </template>
         <p class="m-0 text-13 leading-[1.45] text-ink-3">
             {{ t('shell.alerts.readHint') }}
         </p>

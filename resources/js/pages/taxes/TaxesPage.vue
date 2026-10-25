@@ -73,21 +73,10 @@ const { data: reconciliation, error, loading, reload } = useLoader(async (signal
 
 const dueOfQuarter = computed(() => reconciliation.value?.quarters.find((item) => item.quarter === quarter.value)?.due_at ?? null);
 
-/** The declaration to open: the last quarter, which has ended. */
-const declaration = computed(() => (now.quarter > 1 ? { year: now.year, quarter: now.quarter - 1 } : { year: now.year - 1, quarter: 4 }));
 </script>
 
 <template>
     <TabScreen :title="t('shell.nav.taxes')">
-        <template #action>
-            <RouterLink
-                :to="{ name: 'declaration', params: declaration }"
-                :aria-label="t('accounting.taxes.declarationFor', { quarter: quarterLabel(declaration.quarter), year: declaration.year })"
-                class="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
-            >
-                <Icon name="calendar" :size="22" />
-            </RouterLink>
-        </template>
         <template #title-action>
             <RouterLink
                 v-if="can('create', 'tax-payments')"

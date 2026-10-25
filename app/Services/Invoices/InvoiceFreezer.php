@@ -268,8 +268,8 @@ class InvoiceFreezer
                 'payment_purpose' => $this->purposes->forInvoice($invoice, $settings),
                 'act_note' => $settings['act_note_enabled'] ? $settings['act_note'] : null,
                 'show_contract' => (bool) $settings['show_contract'],
-                'note' => $settings['note_enabled'] && filled($settings['note']) ? $settings['note'] : null,
-                'note_kind' => $settings['note_kind'],
+                'payment_note' => $settings['payment_note_enabled'] && filled($settings['payment_note']) ? $settings['payment_note'] : null,
+                'other_note' => $settings['other_note_enabled'] && filled($settings['other_note']) ? $settings['other_note'] : null,
             ],
             'account' => [
                 'name' => $account->name,

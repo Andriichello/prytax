@@ -3,7 +3,6 @@
 namespace PryTax\Services\Invoices;
 
 use PryTax\Enums\InvoiceLocale;
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\DocumentDate;
 use PryTax\Models\Invoice;
@@ -13,7 +12,7 @@ use PryTax\Models\Invoice;
  *
  * Makes a demo invoice, which is never saved, for a preview of a style where there is no invoice to show it on, and
  * for the thumbnails of the style picker: the fixture of the handoff's references (BRIT-2026-10-31-2 to Bring IT LLC,
- * three items in dollars through Payoneer), with the contract, the act of acceptance and another note, frozen into a
+ * three items in dollars through Payoneer), with the contract, the act of acceptance and both notes, frozen into a
  * snapshot of version 3 in the style and language. Its ФОП is Myrchuk Mykola, or Prykhodko Andrii in the Andriichello
  * styles, as in the references. It reads nothing from the database.
  *
@@ -102,8 +101,10 @@ class PreviewInvoiceFactory
                 'payment_purpose' => str_replace(':date', DocumentDate::format('2026-10-31', $locale->value), $purpose),
                 'act_note' => trans('invoice.defaults.act_note', [], $locale->value),
                 'show_contract' => true,
-                'note' => 'Some small note for Bring IT LLC.',
-                'note_kind' => InvoiceNoteKind::Other->value,
+                'payment_note' => $uk
+                    ? 'Вкажіть номер інвойсу в призначенні платежу.'
+                    : 'Please quote the invoice number in the transfer reference.',
+                'other_note' => 'Some small note for Bring IT LLC.',
             ],
             'account' => [
                 'name' => 'Payoneer USD',

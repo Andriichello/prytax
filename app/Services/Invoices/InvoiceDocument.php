@@ -2,7 +2,6 @@
 
 namespace PryTax\Services\Invoices;
 
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceStyle;
 
 /**
@@ -43,8 +42,8 @@ readonly class InvoiceDocument
      * @param float $kvKeyWidth Content width of the names of the payment details (and of the purpose) in pt.
      * @param string $paymentPurpose
      * @param string|null $actNote
-     * @param string|null $note
-     * @param InvoiceNoteKind $noteKind Where the note prints: under the payment details, or on the right.
+     * @param string|null $paymentNote The note, which prints under the payment details.
+     * @param string|null $otherNote The note, which prints on the right of the payment card, under the act.
      * @param array{banded: bool, wrapped: bool, ruleUnderHead: bool, ruleHead: bool, ruleDouble: bool, boxed: bool, mark: bool, frame: array<int, string>, layer: string|null} $layout The style's structure.
      * @param string|null $signature A data URI of the signature image.
      */
@@ -70,31 +69,11 @@ readonly class InvoiceDocument
         public float $kvKeyWidth,
         public string $paymentPurpose,
         public ?string $actNote,
-        public ?string $note,
-        public InvoiceNoteKind $noteKind,
+        public ?string $paymentNote,
+        public ?string $otherNote,
         public array $layout,
         public ?string $signature
     ) {}
-
-    /**
-     * Get the note, which prints under the payment details, or null.
-     *
-     * @return string|null
-     */
-    public function paymentNote(): ?string
-    {
-        return $this->noteKind === InvoiceNoteKind::Payment ? $this->note : null;
-    }
-
-    /**
-     * Get the note, which prints on the right of the payment card, under the act, or null.
-     *
-     * @return string|null
-     */
-    public function otherNote(): ?string
-    {
-        return $this->noteKind === InvoiceNoteKind::Other ? $this->note : null;
-    }
 
     /**
      * Determine if the payment card has its right side: the act of acceptance or another note.
@@ -103,6 +82,6 @@ readonly class InvoiceDocument
      */
     public function hasCardRight(): bool
     {
-        return $this->actNote !== null || $this->otherNote() !== null;
+        return $this->actNote !== null || $this->otherNote !== null;
     }
 }

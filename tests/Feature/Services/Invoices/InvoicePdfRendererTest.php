@@ -20,7 +20,7 @@ use Tests\TestCase;
  * The invoice's document is rendered from its snapshot only (design.md §4, §10): in the money format, which was in
  * force when it was frozen, so a later change of the setting, of the profile or of the account renders the same. A
  * snapshot of version 1 keeps template v1; a newer one takes template v3 (docs/specs/invoice.md), in its language and
- * style, with its contract section, payment purpose, act note and note as they were resolved on freeze. A snapshot of
+ * style, with its contract section, payment purpose, act note and notes as they were resolved on freeze. A snapshot of
  * version 2, which never left development, renders with v3 as `outlined`.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
@@ -169,16 +169,16 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that a snapshot of version 2 renders as `outlined`, with its footer note as another note on the right of the
-     * payment card.
+     * Test that a snapshot of version 2 renders as `outlined`, with its footer note as the other note on the right of
+     * the payment card.
      *
      * @return void
      */
-    public function testRendersASnapshotOfVersion2AsOutlinedWithItsFooterNoteAsAnotherNote(): void
+    public function testRendersASnapshotOfVersion2AsOutlinedWithItsFooterNoteAsTheOtherNote(): void
     {
         $snapshot = $this->snapshot();
         $snapshot['schema_version'] = 2;
-        unset($snapshot['presentation']['style'], $snapshot['presentation']['note'], $snapshot['presentation']['note_kind']);
+        unset($snapshot['presentation']['style'], $snapshot['presentation']['payment_note'], $snapshot['presentation']['other_note']);
         $snapshot['footer_note'] = 'Some small note for Bring IT LLC.';
 
         $html = $this->html(replace: $snapshot);
@@ -264,13 +264,13 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that a note about the payment prints under the payment details, and no other notes.
+     * Test that the payment note prints under the payment details, and no other notes without the other note.
      *
      * @return void
      */
-    public function testPrintsANoteAboutThePaymentUnderThePaymentDetails(): void
+    public function testPrintsThePaymentNoteUnderThePaymentDetails(): void
     {
-        $html = $this->html(['presentation' => ['note_kind' => 'payment', 'note' => 'Quote the invoice number.']]);
+        $html = $this->html(['presentation' => ['payment_note' => 'Quote the invoice number.', 'other_note' => null]]);
 
         $details = substr($html, (int) strpos($html, '<td class="details'), (int) strpos($html, '<td class="purpose act"') - (int) strpos($html, '<td class="details'));
         $this->assertStringContainsString('<div class="lbl">Payment note</div>', $details);
@@ -279,13 +279,14 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that another note prints on the right of the card, under the act of acceptance, and no payment note.
+     * Test that the other note prints on the right of the card, under the act of acceptance, and no payment note
+     * without one.
      *
      * @return void
      */
-    public function testPrintsAnotherNoteUnderTheActOfAcceptance(): void
+    public function testPrintsTheOtherNoteUnderTheActOfAcceptance(): void
     {
-        $html = $this->html(['presentation' => ['note_kind' => 'other', 'note' => 'Some small note for Bring IT LLC.']]);
+        $html = $this->html(['presentation' => ['other_note' => 'Some small note for Bring IT LLC.']]);
 
         $right = substr($html, (int) strpos($html, '<td class="purpose act"'));
         $this->assertMatchesRegularExpression('#Act of acceptance.*<div class="card-section">\s*<div class="lbl">Other notes</div>#s', $right);
@@ -294,11 +295,28 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that another note alone on the right of the card isn't set apart by a rule, when the act note is off.
+     * Test that both notes print at once, each in its place.
      *
      * @return void
      */
-    public function testPrintsAnotherNoteAloneOnTheRightWhenTheActNoteIsOff(): void
+    public function testPrintsBothNotesEachInItsPlace(): void
+    {
+        $html = $this->html(['presentation' => ['payment_note' => 'Quote the invoice number.', 'other_note' => 'Thank you.']]);
+
+        $start = (int) strpos($html, '<td class="details');
+        $details = substr($html, $start, (int) strpos($html, '<td class="purpose act"') - $start);
+        $right = substr($html, (int) strpos($html, '<td class="purpose act"'));
+        $this->assertStringContainsString('Quote the invoice number.', $details);
+        $this->assertStringContainsString('Thank you.', $right);
+        $this->assertStringNotContainsString('Thank you.', $details);
+    }
+
+    /**
+     * Test that the other note alone on the right of the card isn't set apart by a rule, when the act note is off.
+     *
+     * @return void
+     */
+    public function testPrintsTheOtherNoteAloneOnTheRightWhenTheActNoteIsOff(): void
     {
         $html = $this->html(['presentation' => ['act_note' => null]]);
 
@@ -308,14 +326,14 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that the payment details take the card's width, when it has neither the act of acceptance nor another
+     * Test that the payment details take the card's width, when it has neither the act of acceptance nor the other
      * note.
      *
      * @return void
      */
     public function testGivesThePaymentDetailsTheCardsWidthWithoutItsRightSide(): void
     {
-        $html = $this->html(['presentation' => ['act_note' => null, 'note' => null]]);
+        $html = $this->html(['presentation' => ['act_note' => null, 'other_note' => null]]);
 
         $this->assertStringContainsString('<td class="details full" style="width: 100%">', $html);
         $this->assertStringNotContainsString('<td class="purpose act"', $html);
@@ -433,7 +451,7 @@ class InvoicePdfRendererTest extends TestCase
 
     /**
      * A snapshot of version 3 of the invoice BRIT-2026-10-31-2: three items, 5213.00 USD, paid to Payoneer, in
-     * Outlined, with the act of acceptance and another note.
+     * Outlined, with the act of acceptance and the other note.
      *
      * @return array
      */
@@ -463,8 +481,8 @@ class InvoicePdfRendererTest extends TestCase
                 'show_contract' => true,
                 'payment_purpose' => 'Payment for IT services by the invoice No. BRIT-2026-10-31-2 from Oct 31, 2026',
                 'act_note' => 'Payment of this invoice confirms the successful delivery of services and serves as the Act of Acceptance.',
-                'note' => 'Some small note for Bring IT LLC.',
-                'note_kind' => 'other',
+                'payment_note' => null,
+                'other_note' => 'Some small note for Bring IT LLC.',
             ],
             'account' => [
                 'currency' => 'USD', 'holder_name' => 'Myrchuk Mykola', 'bank_name' => 'Payoneer', 'iban' => null,

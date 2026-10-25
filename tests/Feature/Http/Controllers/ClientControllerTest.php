@@ -47,12 +47,12 @@ class ClientControllerTest extends TestCase
     {
         return [
             'an unknown style' => [['invoice_style' => 'glitter'], 'invoice_style', 'The selected invoice style is invalid.'],
-            'a note on without its text' => [['invoice_note_enabled' => true, 'invoice_note' => ''], 'invoice_note', 'Enter the note text.'],
-            'an unknown kind of note' => [['invoice_note_kind' => 'footer'], 'invoice_note_kind', 'The selected invoice note kind is invalid.'],
+            'a payment note on without its text' => [['payment_note_enabled' => true, 'payment_note' => ''], 'payment_note', 'Enter the note text.'],
+            'another note on without its text' => [['other_note_enabled' => true, 'other_note' => ' '], 'other_note', 'Enter the note text.'],
             'a note over 500 characters' => [
-                ['invoice_note_enabled' => true, 'invoice_note' => str_repeat('a', 501)],
-                'invoice_note',
-                'The invoice note field must not be greater than 500 characters.',
+                ['other_note_enabled' => true, 'other_note' => str_repeat('a', 501)],
+                'other_note',
+                'The other note field must not be greater than 500 characters.',
             ],
         ];
     }
@@ -217,7 +217,7 @@ class ClientControllerTest extends TestCase
     }
 
     /**
-     * Test that a client's style and note are saved with its Ukrainian name, and shown with the levels they come from.
+     * Test that a client's style and notes are saved with its Ukrainian name, and shown with the levels they come from.
      *
      * @return void
      */
@@ -230,20 +230,20 @@ class ClientControllerTest extends TestCase
         $response = $this->patchJson($this->profilePath($profile, "clients/{$client->id}?append=effective_settings"), [
             'legal_name_uk' => 'ТОВ «Брайтлайн»',
             'invoice_style' => 'colored',
-            'invoice_note_enabled' => true,
-            'invoice_note' => 'Quote the invoice number.',
-            'invoice_note_kind' => 'payment',
+            'payment_note_enabled' => true,
+            'payment_note' => 'Quote the invoice number.',
+            'other_note_enabled' => false,
         ]);
 
         $response->assertOk()
             ->assertJsonPath('data.legal_name_uk', 'ТОВ «Брайтлайн»')
             ->assertJsonPath('data.effective_settings.style', ['value' => 'colored', 'source' => 'client', 'inherited' => ['value' => 'outlined', 'source' => 'default']])
-            ->assertJsonPath('data.effective_settings.note.value', 'Quote the invoice number.')
-            ->assertJsonPath('data.effective_settings.note_kind.value', 'payment');
+            ->assertJsonPath('data.effective_settings.payment_note.value', 'Quote the invoice number.')
+            ->assertJsonPath('data.effective_settings.other_note_enabled', ['value' => false, 'source' => 'client', 'inherited' => ['value' => false, 'source' => 'default']]);
     }
 
     /**
-     * Test that an unknown style, a note switched on without its text, an unknown kind of note and a note over 500
+     * Test that an unknown style, a note switched on without its text and a note over 500
      * characters are refused with 422.
      *
      * @param array<string, mixed> $data

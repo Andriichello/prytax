@@ -36,8 +36,8 @@ class NoteTextRequired implements DataAwareRule, ValidationRule
     /**
      * NoteTextRequired constructor.
      *
-     * @param string $enabledField Path of the field, which switches the note on: `note_enabled`, `invoice_note_enabled`
-     *                             or `invoice.note_enabled`.
+     * @param string $enabledField Path of the field, which switches the note on: `payment_note_enabled`,
+     *                             `other_note_enabled` or `invoice.payment_note_enabled`, `invoice.other_note_enabled`.
      */
     public function __construct(protected string $enabledField) {}
 

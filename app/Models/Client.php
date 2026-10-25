@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PryTax\Enums\InvoiceLocale;
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
@@ -24,7 +23,8 @@ use PryTax\Services\Invoices\InvoiceSettingsResolver;
  * A counterparty of invoices (an accountant's ФОПs are always profiles, never clients). Clients are deactivated,
  * never deleted, so their invoice history stays. Its abbreviation, unique within the profile, prefixes its invoice
  * numbers (design.md §5). Under a client live its contracts, projects and charge types. Its invoice settings (language,
- * payment purpose, act note, contract section, style and note) are null to take the profile's (design.md §4.1).
+ * payment purpose, act note, contract section, style and the two notes) are null to take the profile's (design.md
+ * §4.1).
  *
  * @property int $id
  * @property int $profile_id
@@ -46,9 +46,10 @@ use PryTax\Services\Invoices\InvoiceSettingsResolver;
  * @property string|null $act_note
  * @property bool|null $show_contract
  * @property string|null $invoice_style A key of InvoiceStyle; a removed style's key stays as stored.
- * @property bool|null $invoice_note_enabled Whether the client has a note of its own (true) or none (false).
- * @property string|null $invoice_note
- * @property InvoiceNoteKind|null $invoice_note_kind
+ * @property bool|null $payment_note_enabled Whether the client has a payment note of its own (true) or none (false).
+ * @property string|null $payment_note
+ * @property bool|null $other_note_enabled Whether the client has another note of its own (true) or none (false).
+ * @property string|null $other_note
  * @property string|null $notes
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -93,9 +94,10 @@ class Client extends BaseModel
         'act_note',
         'show_contract',
         'invoice_style',
-        'invoice_note_enabled',
-        'invoice_note',
-        'invoice_note_kind',
+        'payment_note_enabled',
+        'payment_note',
+        'other_note_enabled',
+        'other_note',
         'notes',
         'is_active',
     ];
@@ -119,8 +121,8 @@ class Client extends BaseModel
         'invoice_locale' => InvoiceLocale::class,
         'act_note_enabled' => 'boolean',
         'show_contract' => 'boolean',
-        'invoice_note_enabled' => 'boolean',
-        'invoice_note_kind' => InvoiceNoteKind::class,
+        'payment_note_enabled' => 'boolean',
+        'other_note_enabled' => 'boolean',
         'is_active' => 'boolean',
     ];
 

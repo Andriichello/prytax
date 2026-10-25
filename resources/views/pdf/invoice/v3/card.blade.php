@@ -1,6 +1,6 @@
 {{--
-    The payment card: the payment details with the purpose, and a note about the payment under them; on the right, the
-    act of acceptance and another note. Without either, the details take the card's width.
+    The payment card: the payment details with the purpose, and the payment note under them; on the right, the act of
+    acceptance and the other note. Without either of those, the details take the card's width. Both notes may print.
 --}}
 <div class="card">
     <table class="card-cols">
@@ -19,10 +19,10 @@
                         <td class="v">{{ $doc->paymentPurpose }}</td>
                     </tr>
                 </table>
-                @if ($doc->paymentNote() !== null)
+                @if ($doc->paymentNote !== null)
                     <div class="card-section">
                         <div class="lbl">{{ $t('payment_note') }}</div>
-                        <div class="purpose-text">{!! nl2br(e($doc->paymentNote())) !!}</div>
+                        <div class="purpose-text">{!! nl2br(e($doc->paymentNote)) !!}</div>
                     </div>
                 @endif
             </td>
@@ -34,10 +34,10 @@
                             <div class="purpose-text">{!! nl2br(e($doc->actNote)) !!}</div>
                         </div>
                     @endif
-                    @if ($doc->otherNote() !== null)
+                    @if ($doc->otherNote !== null)
                         <div @class(['card-section' => $doc->actNote !== null])>
                             <div class="lbl">{{ $t('other_notes') }}</div>
-                            <div class="purpose-text">{!! nl2br(e($doc->otherNote())) !!}</div>
+                            <div class="purpose-text">{!! nl2br(e($doc->otherNote)) !!}</div>
                         </div>
                     @endif
                 </td>

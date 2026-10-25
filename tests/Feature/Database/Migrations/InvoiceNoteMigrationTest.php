@@ -11,9 +11,10 @@ use Tests\TestCase;
 /**
  * Class InvoiceNoteMigrationTest.
  *
- * The migration of the invoice note (design.md §4.1) turns a ФОП's footer note, which printed under every invoice of
- * a client without its own one, into the ФОП's own note: switched on, of the kind `other`. A blank one is dropped.
- * (The clients' footer notes move the same way in its column update, which needs the DDL around it.)
+ * The migrations of the invoice note (design.md §4.1): the first turns a ФОП's footer note, which printed under every
+ * invoice of a client without its own one, into the ФОП's own note: switched on, of the kind `other`. A blank one is
+ * dropped. The second splits the note into the payment note and the other note by its kind, with its switch. (The
+ * clients' and the invoices' notes move the same way in column updates, which need the DDL around them.)
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Database\Migrations
@@ -47,6 +48,35 @@ class InvoiceNoteMigrationTest extends TestCase
             'invoice.note_kind' => 'other',
         ], $this->settingsOf($noted->id));
         $this->assertSame([], $this->settingsOf($blank->id));
+    }
+
+    /**
+     * Test that a profile's note becomes its payment note, when its kind was `payment`, or its other note, with its
+     * switch, and the old settings go.
+     *
+     * @return void
+     */
+    public function testMovesAProfilesNoteIntoTheNoteOfItsKind(): void
+    {
+        $payment = $this->createProfile();
+        $other = $this->createProfile();
+        $morph = $payment->getMorphClass();
+
+        DB::table('settings')->insert([
+            ['model_type' => $morph, 'model_id' => $payment->id, 'key' => 'invoice.note_enabled', 'value' => 'true'],
+            ['model_type' => $morph, 'model_id' => $payment->id, 'key' => 'invoice.note', 'value' => json_encode('Quote the number.')],
+            ['model_type' => $morph, 'model_id' => $payment->id, 'key' => 'invoice.note_kind', 'value' => json_encode('payment')],
+            ['model_type' => $morph, 'model_id' => $other->id, 'key' => 'invoice.note_enabled', 'value' => 'false'],
+        ]);
+
+        $migration = require database_path('migrations/2026_10_25_103001_split_the_invoice_note_into_the_payment_and_the_other_note.php');
+        (new ReflectionMethod($migration, 'moveSettings'))->invoke($migration);
+
+        $this->assertSame([
+            'invoice.payment_note' => 'Quote the number.',
+            'invoice.payment_note_enabled' => true,
+        ], $this->settingsOf($payment->id));
+        $this->assertSame(['invoice.other_note_enabled' => false], $this->settingsOf($other->id));
     }
 
     /**

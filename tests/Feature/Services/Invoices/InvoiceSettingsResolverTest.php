@@ -48,9 +48,10 @@ class InvoiceSettingsResolverTest extends TestCase
             ],
             'show_contract' => ['value' => true, 'source' => 'default'],
             'style' => ['value' => 'outlined', 'source' => 'default'],
-            'note_enabled' => ['value' => false, 'source' => 'default'],
-            'note' => ['value' => null, 'source' => 'default'],
-            'note_kind' => ['value' => 'other', 'source' => 'default'],
+            'payment_note_enabled' => ['value' => false, 'source' => 'default'],
+            'payment_note' => ['value' => null, 'source' => 'default'],
+            'other_note_enabled' => ['value' => false, 'source' => 'default'],
+            'other_note' => ['value' => null, 'source' => 'default'],
         ], $settings);
     }
 
@@ -69,9 +70,10 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note' => 'Paid means accepted.',
             'show_contract' => false,
             'style' => 'colored',
-            'note_enabled' => true,
-            'note' => 'Quote the number.',
-            'note_kind' => 'payment',
+            'payment_note_enabled' => true,
+            'payment_note' => 'Quote the number.',
+            'other_note_enabled' => true,
+            'other_note' => 'Thank you.',
         ]]));
 
         $settings = $this->inProfile($profile, fn () => $this->levels(app(InvoiceSettingsResolver::class)->forClient($client->refresh())));
@@ -83,9 +85,10 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note' => ['value' => 'Paid means accepted.', 'source' => 'profile'],
             'show_contract' => ['value' => false, 'source' => 'profile'],
             'style' => ['value' => 'colored', 'source' => 'profile'],
-            'note_enabled' => ['value' => true, 'source' => 'profile'],
-            'note' => ['value' => 'Quote the number.', 'source' => 'profile'],
-            'note_kind' => ['value' => 'payment', 'source' => 'profile'],
+            'payment_note_enabled' => ['value' => true, 'source' => 'profile'],
+            'payment_note' => ['value' => 'Quote the number.', 'source' => 'profile'],
+            'other_note_enabled' => ['value' => true, 'source' => 'profile'],
+            'other_note' => ['value' => 'Thank you.', 'source' => 'profile'],
         ], $settings);
     }
 
@@ -130,8 +133,8 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note' => 'Client note.',
             'show_contract' => true,
             'invoice_style' => 'vivid',
-            'invoice_note_enabled' => true,
-            'invoice_note' => 'Client note.',
+            'payment_note_enabled' => true,
+            'payment_note' => 'Client note.',
         ]);
         $invoice = new Invoice;
         $invoice->forceFill([
@@ -142,7 +145,7 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note' => 'Invoice note.',
             'show_contract' => false,
             'style' => 'andriichello',
-            'note_enabled' => false,
+            'payment_note_enabled' => false,
         ]);
 
         $settings = $this->inProfile($profile, fn () => $this->levels(app(InvoiceSettingsResolver::class)->forInvoice($invoice)));
@@ -154,38 +157,42 @@ class InvoiceSettingsResolverTest extends TestCase
             'act_note' => ['value' => 'Invoice note.', 'source' => 'invoice'],
             'show_contract' => ['value' => false, 'source' => 'invoice'],
             'style' => ['value' => 'andriichello', 'source' => 'invoice'],
-            'note_enabled' => ['value' => false, 'source' => 'invoice'],
-            'note' => ['value' => null, 'source' => 'invoice'],
-            'note_kind' => ['value' => 'other', 'source' => 'invoice'],
+            'payment_note_enabled' => ['value' => false, 'source' => 'invoice'],
+            'payment_note' => ['value' => null, 'source' => 'invoice'],
+            'other_note_enabled' => ['value' => false, 'source' => 'default'],
+            'other_note' => ['value' => null, 'source' => 'default'],
         ], $settings);
     }
 
     /**
-     * Test that the level, which switches the note on or off, gives its text and kind too: a client's note without a
-     * kind is `other`, never the profile's kind, and the client's style is its own over the profile's.
+     * Test that the level, which switches a note on or off, gives its text too, and that the two notes resolve
+     * independently: the client's other note doesn't hide the profile's payment note. The client's style is its own
+     * over the profile's.
      *
      * @return void
      */
-    public function testReadsTheNoteWholeFromTheLevelWhichSwitchesIt(): void
+    public function testReadsEachNoteWholeFromTheLevelWhichSwitchesIt(): void
     {
         $profile = $this->createProfile();
         [$client] = $this->createClientWithContract($profile, [
             'invoice_style' => 'sakura_removed_later',
-            'invoice_note_enabled' => true,
-            'invoice_note' => 'Reverse charge.',
+            'other_note_enabled' => true,
+            'other_note' => 'Reverse charge.',
+            'payment_note' => 'Not switched on, so not the client\'s.',
         ]);
         $this->inProfile($profile, fn () => $profile->updateSettings(['invoice' => [
             'style' => 'colored',
-            'note_enabled' => true,
-            'note' => 'Quote the number.',
-            'note_kind' => 'payment',
+            'payment_note_enabled' => true,
+            'payment_note' => 'Quote the number.',
+            'other_note_enabled' => false,
         ]]));
 
         $settings = $this->inProfile($profile, fn () => app(InvoiceSettingsResolver::class)->forClient($client->refresh()));
 
-        $this->assertSame(['value' => true, 'source' => 'client', 'inherited' => ['value' => true, 'source' => 'profile']], $settings['note_enabled']);
-        $this->assertSame(['value' => 'Reverse charge.', 'source' => 'client', 'inherited' => ['value' => 'Quote the number.', 'source' => 'profile']], $settings['note']);
-        $this->assertSame(['value' => 'other', 'source' => 'client', 'inherited' => ['value' => 'payment', 'source' => 'profile']], $settings['note_kind']);
+        $this->assertSame(['value' => true, 'source' => 'client', 'inherited' => ['value' => false, 'source' => 'profile']], $settings['other_note_enabled']);
+        $this->assertSame(['value' => 'Reverse charge.', 'source' => 'client', 'inherited' => ['value' => null, 'source' => 'profile']], $settings['other_note']);
+        $this->assertSame(['value' => true, 'source' => 'profile', 'inherited' => ['value' => true, 'source' => 'profile']], $settings['payment_note_enabled']);
+        $this->assertSame(['value' => 'Quote the number.', 'source' => 'profile', 'inherited' => ['value' => 'Quote the number.', 'source' => 'profile']], $settings['payment_note']);
         $this->assertSame(['value' => 'sakura_removed_later', 'source' => 'client', 'inherited' => ['value' => 'colored', 'source' => 'profile']], $settings['style']);
     }
 

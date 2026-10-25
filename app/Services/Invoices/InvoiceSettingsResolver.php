@@ -3,7 +3,6 @@
 namespace PryTax\Services\Invoices;
 
 use PryTax\Enums\InvoiceLocale;
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\SettingSource;
 use PryTax\Models\Client;
@@ -15,10 +14,10 @@ use PryTax\Models\Profile;
  * Class InvoiceSettingsResolver.
  *
  * Resolves the settings of an invoice's document (design.md §4.1): its language, payment purpose template, act note
- * (on or off, and its text), contract section, style and note. Each is the invoice's own, else the client's, else the
- * profile's, else the built-in one; null at a level takes the next. The note is one setting of three fields: the level,
- * which switches it on or off, owns its text and kind too, so a note never mixes the text of one level with the kind
- * of another. Each tells the level it comes from, and the value the levels below give it, which a form shows beside
+ * (on or off, and its text), contract section, style, payment note and other note. Each is the invoice's own, else the
+ * client's, else the profile's, else the built-in one; null at a level takes the next. A note is one setting of two
+ * fields: the level, which switches it on or off, owns its text too, so a note never mixes the switch of one level with
+ * the text of another, and the two notes resolve independently. Each tells the level it comes from, and the value the levels below give it, which a form shows beside
  * its own one. The profile's language is its document language
  * (`profiles.locale`); the others are its `invoice.*` settings. The built-in texts are in the resolved language. A
  * draft reads them live; the freeze writes them into the snapshot, so a later change never alters an issued document.
@@ -174,37 +173,42 @@ class InvoiceSettingsResolver
                 $profile->setting('invoice.style'),
                 InvoiceStyle::Outlined->value,
             ]),
-            ...$this->note($own, [
-                $invoice ? [$invoice->note_enabled, $invoice->note, $invoice->note_kind?->value] : null,
-                $client ? [$client->invoice_note_enabled, $client->invoice_note, $client->invoice_note_kind?->value] : null,
-                [$profile->setting('invoice.note_enabled'), $profile->setting('invoice.note'), $profile->setting('invoice.note_kind')],
-                [false, null, InvoiceNoteKind::Other->value],
+            ...$this->note($own, 'payment_note', [
+                $invoice ? [$invoice->payment_note_enabled, $invoice->payment_note] : null,
+                $client ? [$client->payment_note_enabled, $client->payment_note] : null,
+                [$profile->setting('invoice.payment_note_enabled'), $profile->setting('invoice.payment_note')],
+                [false, null],
+            ]),
+            ...$this->note($own, 'other_note', [
+                $invoice ? [$invoice->other_note_enabled, $invoice->other_note] : null,
+                $client ? [$client->other_note_enabled, $client->other_note] : null,
+                [$profile->setting('invoice.other_note_enabled'), $profile->setting('invoice.other_note')],
+                [false, null],
             ]),
         ];
     }
 
     /**
-     * Resolve the note: the first level, which switches it on or off, gives its switch, text and kind (a kind it
-     * doesn't set is `other`), each with that level; the inherited one is the owner below the given level.
+     * Resolve a note (the payment note or the other note, each on its own): the first level, which switches it on or
+     * off, gives its switch and text, each with that level; the inherited one is the owner below the given level.
      *
      * @param SettingSource $own
-     * @param array<int, array{0: bool|null, 1: string|null, 2: string|null}|null> $levels The invoice's, client's,
-     *                                                                                     profile's and built-in switch, text and kind.
+     * @param string $name `payment_note` or `other_note`.
+     * @param array<int, array{0: bool|null, 1: string|null}|null> $levels The invoice's, client's, profile's and
+     *                                                                     built-in switch and text.
      *
-     * @return array{note_enabled: array, note: array, note_kind: array}
+     * @return array<string, array>
      */
-    protected function note(SettingSource $own, array $levels): array
+    protected function note(SettingSource $own, string $name, array $levels): array
     {
         $owners = array_map(
-            fn (?array $level) => $level !== null && $level[0] !== null
-                ? [(bool) $level[0], $level[1], $level[2] ?? InvoiceNoteKind::Other->value]
-                : null,
+            fn (?array $level) => $level !== null && $level[0] !== null ? [(bool) $level[0], $level[1]] : null,
             $levels,
         );
 
         $resolved = [];
 
-        foreach (['note_enabled', 'note', 'note_kind'] as $index => $field) {
+        foreach (["{$name}_enabled", $name] as $index => $field) {
             $resolved[$field] = $this->pick($own, array_map(
                 fn (?array $owner) => $owner === null ? null : ['value' => $owner[$index]],
                 $owners,

@@ -96,25 +96,32 @@ class ProfileSettingControllerTest extends TestCase
     }
 
     /**
-     * Test that the ФОП's style and note are saved, while a note switched on without its text is refused with 422.
+     * Test that the ФОП's style and both notes are saved, while a note switched on without its text is refused with
+     * 422.
      *
      * @return void
      */
-    public function testSavesTheStyleAndNoteButNotANoteWithoutItsText(): void
+    public function testSavesTheStyleAndNotesButNotANoteWithoutItsText(): void
     {
         $profile = $this->createProfile();
         $this->actAs($profile, 'accountant');
         $path = $this->profilePath($profile, 'settings');
 
-        $saved = $this->patchJson($path, ['invoice' => ['style' => 'andriichello_sakura', 'note_enabled' => true, 'note' => 'Thank you!', 'note_kind' => 'other']]);
-        $refused = $this->patchJson($path, ['invoice' => ['note_enabled' => true, 'note' => null]]);
+        $saved = $this->patchJson($path, ['invoice' => [
+            'style' => 'andriichello_sakura',
+            'payment_note_enabled' => true,
+            'payment_note' => 'Quote the number.',
+            'other_note_enabled' => true,
+            'other_note' => 'Thank you!',
+        ]]);
+        $refused = $this->patchJson($path, ['invoice' => ['other_note_enabled' => true, 'other_note' => null]]);
 
         $saved->assertOk()
             ->assertJsonPath('data.invoice.style', 'andriichello_sakura')
-            ->assertJsonPath('data.invoice.note_enabled', true)
-            ->assertJsonPath('data.invoice.note', 'Thank you!')
-            ->assertJsonPath('data.invoice.note_kind', 'other');
-        $refused->assertUnprocessable()->assertJsonValidationErrors(['invoice.note' => 'Enter the note text.']);
+            ->assertJsonPath('data.invoice.payment_note', 'Quote the number.')
+            ->assertJsonPath('data.invoice.other_note_enabled', true)
+            ->assertJsonPath('data.invoice.other_note', 'Thank you!');
+        $refused->assertUnprocessable()->assertJsonValidationErrors(['invoice.other_note' => 'Enter the note text.']);
     }
 
     /**

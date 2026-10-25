@@ -497,7 +497,7 @@ class InvoiceControllerTest extends TestCase
         $this->createAccount($profile);
         [$client, $contract] = $this->createClientWithContract($profile, [
             'abbreviation' => 'BL', 'invoice_locale' => 'uk', 'act_note_enabled' => false, 'invoice_style' => 'vivid',
-            'invoice_note_enabled' => true, 'invoice_note' => 'Вкажіть номер інвойсу.', 'invoice_note_kind' => 'payment',
+            'payment_note_enabled' => true, 'payment_note' => 'Вкажіть номер інвойсу.', 'other_note_enabled' => true, 'other_note' => 'Дякуємо.',
         ]);
         $draft = fn () => $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'contract_id' => $contract->id,
@@ -519,8 +519,8 @@ class InvoiceControllerTest extends TestCase
                 'payment_purpose' => 'Оплата за послуги згідно з інвойсом № BL-2026-10-14-1 від 14 жовтня 2026',
                 'act_note' => null,
                 'show_contract' => true,
-                'note' => 'Вкажіть номер інвойсу.',
-                'note_kind' => 'payment',
+                'payment_note' => 'Вкажіть номер інвойсу.',
+                'other_note' => 'Дякуємо.',
             ])
             ->json('data.snapshot');
         $this->assertArrayNotHasKey('footer_note', $snapshot);
@@ -569,12 +569,12 @@ class InvoiceControllerTest extends TestCase
 
         $response = $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-14',
-            'style' => 'glitter', 'note_enabled' => true, 'note' => '  ',
+            'style' => 'glitter', 'payment_note_enabled' => true, 'payment_note' => '  ',
         ]);
 
         $response->assertUnprocessable()->assertJsonValidationErrors([
             'style' => 'The selected style is invalid.',
-            'note' => 'Enter the note text.',
+            'payment_note' => 'Enter the note text.',
         ]);
         $this->assertDatabaseCount('invoices', 0);
     }

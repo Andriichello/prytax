@@ -22,7 +22,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\FxGainPolicy;
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\MoneyFormat;
 use PryTax\Enums\NumberingDateSource;
@@ -239,24 +238,29 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'rules' => 'nullable|boolean',
                 'cast' => 'bool',
             ],
-            // The style (null takes the built-in one) and the note: its text and kind are read from the level, which
-            // switches it on or off, so the ФОП's note is whole here
+            // The style (null takes the built-in one) and the two notes: a note's text is read from the level, which
+            // switches it on or off, so the ФОП's notes are whole here
             'invoice.style' => [
                 'default' => null,
                 'rules' => ['nullable', Rule::enum(InvoiceStyle::class)],
             ],
-            'invoice.note_enabled' => [
+            'invoice.payment_note_enabled' => [
                 'default' => null,
                 'rules' => 'nullable|boolean',
                 'cast' => 'bool',
             ],
-            'invoice.note' => [
+            'invoice.payment_note' => [
                 'default' => null,
-                'rules' => ['nullable', 'string', 'max:500', new NoteTextRequired('invoice.note_enabled')],
+                'rules' => ['nullable', 'string', 'max:500', new NoteTextRequired('invoice.payment_note_enabled')],
             ],
-            'invoice.note_kind' => [
+            'invoice.other_note_enabled' => [
                 'default' => null,
-                'rules' => ['nullable', Rule::enum(InvoiceNoteKind::class)],
+                'rules' => 'nullable|boolean',
+                'cast' => 'bool',
+            ],
+            'invoice.other_note' => [
+                'default' => null,
+                'rules' => ['nullable', 'string', 'max:500', new NoteTextRequired('invoice.other_note_enabled')],
             ],
             'invoice.money_format' => [
                 'default' => MoneyFormat::PlainDot->value,

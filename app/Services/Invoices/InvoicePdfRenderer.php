@@ -10,7 +10,6 @@ use Dompdf\FontMetrics;
 use FontLib\Font;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use PryTax\Enums\InvoiceNoteKind;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\DocumentDate;
 use PryTax\Helpers\MoneyFormatter;
@@ -218,8 +217,9 @@ class InvoicePdfRenderer
         $paymentDetails = $this->paymentDetails($account, $currency, $label);
         $keys = [...array_column($paymentDetails, 'label'), $label('purpose_short')];
 
-        // A schema 2 snapshot has a footer note instead of the note and its kind
-        $note = array_key_exists('note', $presentation) ? $presentation['note'] : ($snapshot['footer_note'] ?? null);
+        // A schema 2 snapshot has a footer note instead of the notes, which prints as the other note
+        $otherNote = array_key_exists('other_note', $presentation) ? $presentation['other_note'] : ($snapshot['footer_note'] ?? null);
+        $paymentNote = $presentation['payment_note'] ?? null;
 
         return new InvoiceDocument(
             style: $style,
@@ -264,8 +264,8 @@ class InvoicePdfRenderer
             kvKeyWidth: $this->ceil(max(array_map(fn (string $key) => $this->textWidth($key, 'DejaVu Sans', 'normal', 7.5), $keys))),
             paymentPurpose: (string) ($presentation['payment_purpose'] ?? ''),
             actNote: ($presentation['act_note'] ?? null) ?: null,
-            note: filled($note) ? (string) $note : null,
-            noteKind: InvoiceNoteKind::tryFrom((string) ($presentation['note_kind'] ?? '')) ?? InvoiceNoteKind::Other,
+            paymentNote: filled($paymentNote) ? (string) $paymentNote : null,
+            otherNote: filled($otherNote) ? (string) $otherNote : null,
             layout: $this->layout($style),
             signature: $signature,
         );

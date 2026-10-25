@@ -10,7 +10,9 @@ and the invoice settings cascade with the 13 invoice styles. Read this file firs
 built; `docs/specs/suggestions.md` what is deferred or hidden). The current design handoff is «Minimal»:
 `storage/handoff/MINIMAL_APP.md`, `storage/handoff/CHAT_LOG.md`, and the boards extracted in
 `storage/handoff/prytax-minimal-handoff/` (`screens/png/NNN-M-*.png` by board number, `screens/html/M-*.html`,
-`source/`). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
+`source/`). Its second handoff (2026-10-25, afternoon: Податки as one tax ledger) is `storage/handoff/latest/`
+(`MINIMAL_DELTA_2026-10-25.md`, `CHAT_LOG_DELTA.md`), extracted in `storage/handoff/prytax-minimal-handoff-2/`; the
+specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5; §14 steps 8–9 are next). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
 ## Where things stand
@@ -55,7 +57,8 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 ### First steps of the next session
 
 1. Ask the user whether to push `dev` and fast-forward `main` (and delete the merged `feat/minimal`); don't push
-   unasked. Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
+   unasked. Next to build: design.md §14 step 8 (Податки as the tax ledger, `TaxLedger`, the second handoff) and step 9
+   (the English UI keeps ЄП, ВЗ, ЄСВ and ФОП untranslated; the owner, 2026-10-25). Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
    remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a
    package, so approval), pixel polish against the boards, `SheetImporter`.
 2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with
@@ -99,7 +102,8 @@ remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md 
   stop it before any request); Головна also lists drafts without an issue date by their period's end.
 - **Checks:** PHP suite (404 tests), `npm test` (529), `npm run typecheck`, `npm run build`, and every screen driven in
   the browser against its board. The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys and on
-  Cyrillic in English texts (English names the taxes "single tax", "military levy", "SSC"): run
+  Cyrillic in English texts (English names the taxes "single tax", "military levy", "SSC"; the owner wants ЄП, ВЗ,
+  ЄСВ and ФОП kept as they are, design.md §14 step 9): run
   `storage/handoff/tools/i18n-prune.sh` after removing UI.
 
 ## QA of Minimal (2026-10-25, branch `feat/minimal`)

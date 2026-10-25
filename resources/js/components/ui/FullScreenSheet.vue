@@ -24,7 +24,7 @@ function close(): void {
     open.value = false;
 }
 
-useOverlay(open, close, screen);
+const { layer } = useOverlay(open, close, screen);
 </script>
 
 <template>
@@ -42,7 +42,8 @@ useOverlay(open, close, screen);
                 aria-modal="true"
                 :aria-labelledby="titleId"
                 tabindex="-1"
-                class="fixed inset-0 z-50 flex flex-col bg-paper outline-none"
+                class="fixed inset-0 flex flex-col bg-paper outline-none"
+                :style="{ zIndex: 50 + layer * 10 }"
             >
                 <div class="mx-auto flex w-full max-w-120 min-h-0 flex-1 flex-col">
                     <header class="flex items-center gap-1 px-2 pt-2">

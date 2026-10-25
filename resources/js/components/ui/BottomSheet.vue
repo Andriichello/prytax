@@ -7,7 +7,8 @@ import { t } from '@/i18n';
 /**
  * A sheet that slides up over the page: a handle, a title with a close button (or the `action` slot), its content,
  * and an optional sticky `footer` for its buttons. Escape, the close button and a tap on the dimmed page close it.
- * The page behind is inert while it is open, and a sheet over another one closes first.
+ * The page behind is inert while it is open, and a sheet over another one closes first: it and its backdrop lie
+ * over the sheet under it, which a tap outside the top sheet doesn't reach.
  */
 const { title } = defineProps<{ title: string }>();
 const open = defineModel<boolean>('open', { required: true });
@@ -19,7 +20,7 @@ function close(): void {
     open.value = false;
 }
 
-useOverlay(open, close, sheet);
+const { layer } = useOverlay(open, close, sheet);
 </script>
 
 <template>
@@ -30,7 +31,7 @@ useOverlay(open, close, sheet);
             enter-active-class="transition-opacity duration-200"
             leave-active-class="transition-opacity duration-150"
         >
-            <div v-if="open" class="fixed inset-0 z-40 bg-overlay" aria-hidden="true" @click="close" />
+            <div v-if="open" class="fixed inset-0 bg-overlay" :style="{ zIndex: 40 + layer * 10 }" aria-hidden="true" @click="close" />
         </Transition>
         <Transition
             enter-from-class="translate-y-full"
@@ -45,7 +46,8 @@ useOverlay(open, close, sheet);
                 aria-modal="true"
                 :aria-labelledby="titleId"
                 tabindex="-1"
-                class="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-120 flex-col overflow-hidden rounded-t-3xl bg-paper outline-none"
+                class="fixed inset-x-0 bottom-0 mx-auto flex max-h-[90dvh] w-full max-w-120 flex-col overflow-hidden rounded-t-3xl bg-paper outline-none"
+                :style="{ zIndex: 50 + layer * 10 }"
             >
                 <div
                     class="flex flex-col gap-3.5 overflow-y-auto px-4 pt-2.5"

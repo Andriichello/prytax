@@ -56,7 +56,7 @@ const sections = computed(() => quarters.map(({ year, quarter }) => {
 
     return {
         key: `${year}-${quarter}`,
-        title: `${quarterName(quarter)} ${year}`,
+        title: `${quarterName(quarter)} · ${year}`,
         count: hasVirtual ? t('core.counts.records', { count: invoices.length }) : t('core.counts.invoices', { count: invoices.length }),
         invoices,
     };

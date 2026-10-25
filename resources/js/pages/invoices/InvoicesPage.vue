@@ -16,10 +16,10 @@ import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { dateParts, formatMonthYear, monthNameGenitive, quarterLabel, quarterOf } from '@/utils/dates';
+import { dateParts, monthName, monthNameGenitive, quarterLabel, quarterOf } from '@/utils/dates';
 
 /**
- * Інвойси: every invoice, newest first, grouped by the month of issue («IV кв. · Жовтень 2026») with its count («N інвойсів», or «N записи» with
+ * Інвойси: every invoice, newest first, grouped by the month of issue («IV кв. · Жовтень · 2026») with its count («N інвойсів», or «N записи» with
  * a payment without an invoice among them), in the rows of Головна, loading further as the list scrolls. The last
  * month on screen shows its count once it is loaded whole. Filters (no free-text search) live in the URL and open the
  * filters sheet. App keeps it alive behind an opened invoice.
@@ -56,7 +56,7 @@ const months = computed(() => {
         if (last?.key === key) {
             last.invoices.push(invoice);
         } else {
-            groups.push({ key, title: `${quarterLabel(quarterOf(month))} · ${formatMonthYear(year, month)}`, invoices: [invoice] });
+            groups.push({ key, title: `${quarterLabel(quarterOf(month))} · ${monthName(month)} · ${year}`, invoices: [invoice] });
         }
     }
 

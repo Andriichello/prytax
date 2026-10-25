@@ -15,7 +15,7 @@ import { usePagedList } from '@/composables/usePagedList';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { accountLabel } from '@/utils/accounts';
-import { currentQuarter, dateParts, formatMonthYear } from '@/utils/dates';
+import { currentQuarter, dateParts, monthName } from '@/utils/dates';
 import { formatMoney } from '@/utils/money';
 
 /**
@@ -52,7 +52,7 @@ const months = computed(() => {
         if (last?.key === key) {
             last.transfers.push(transfer);
         } else {
-            groups.push({ key, title: formatMonthYear(groupYear, month), transfers: [transfer] });
+            groups.push({ key, title: `${monthName(month)} · ${groupYear}`, transfers: [transfer] });
         }
     }
 

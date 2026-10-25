@@ -1994,6 +1994,70 @@ export interface QuarterTaxPayments {
     };
 }
 
+/** A status of the tax ledger: an obligation is `unpaid`, a payment has its own status. */
+export type TaxLedgerStatus = 'unpaid' | TaxPaymentStatus;
+
+/** The receipt, for whose ЄП or ВЗ a ledger item is owed or paid. */
+export interface TaxLedgerReceipt {
+    id: number;
+    invoice_id: number | null;
+    /** Null on a virtual invoice («Без інвойсу»). */
+    invoice_number: string | null;
+    invoice_source: InvoiceSource | null;
+    client_name: string | null;
+    description: string | null;
+    received_at: DateString;
+}
+
+/** An item of the tax ledger: what is still owed (an obligation) or a tax payment. */
+export interface TaxLedgerItem {
+    kind: 'obligation' | 'payment';
+    tax_type: TaxType;
+    amount: Amount;
+    status: TaxLedgerStatus;
+    tax_payment_id: number | null;
+    /** ЄП and ВЗ: the receipt. */
+    receipt: TaxLedgerReceipt | null;
+    /** ЄСВ: the month it is for. */
+    period_month: number | null;
+    paid_at: DateString | null;
+    account: { id: number; name: string; currency: string } | null;
+    /** The quarter's deadline of the tax. */
+    due_at: DateString;
+    /** The quarter the tax belongs to, by which the summary counts it. */
+    quarter: { year: number; quarter: number };
+    /** The month it is listed in: `2026-10`. */
+    month: string;
+}
+
+/** A tax of the ledger's summary. */
+export interface TaxLedgerSummaryRow {
+    tax_type: TaxType;
+    accrued: Amount;
+    sent: Amount;
+    paid: Amount;
+    /** Failed payments of the period, in no other sum. */
+    failed: Amount;
+    /** The earliest deadline of what isn't paid yet; null when it is all paid. */
+    due_at: DateString | null;
+}
+
+/** What a set of ledger items accrued (all but the failed payments), sent and paid. */
+export interface TaxLedgerFigures {
+    accrued: Amount;
+    sent: Amount;
+    paid: Amount;
+}
+
+/** `GET profiles/{profile}/taxes/{year}/ledger`: Податки of a period (design.md §8.5). */
+export interface TaxLedger {
+    year: number;
+    quarters: number[];
+    summary: { total: TaxLedgerFigures; rows: TaxLedgerSummaryRow[] };
+    /** Newest first. */
+    months: (TaxLedgerFigures & { month: string; items: TaxLedgerItem[] })[];
+}
+
 /** The quarter's period in `Declaration`. */
 export interface DeclarationPeriod {
     /** Null for a quarter, which isn't tracked (before the books start, after closure, past the next quarter). */

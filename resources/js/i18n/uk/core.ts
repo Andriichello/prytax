@@ -141,7 +141,6 @@ export default {
         contracts: { one: '{count} договір', few: '{count} договори', many: '{count} договорів' },
         days: { one: '{count} день', few: '{count} дні', many: '{count} днів' },
         transfers: { one: '{count} переказ', few: '{count} перекази', many: '{count} переказів' },
-        taxPayments: { one: '{count} сплата', few: '{count} сплати', many: '{count} сплат' },
         records: { one: '{count} запис', few: '{count} записи', many: '{count} записів' },
     },
 
@@ -160,6 +159,15 @@ export default {
         q3: 'III квартал',
         q4: 'IV квартал',
     },
+
+    /** A quarter's number in a range: «II–IV кв.» */
+    quarterNumerals: {
+        q1: 'I',
+        q2: 'II',
+        q3: 'III',
+        q4: 'IV',
+    },
+    quarterRange: '{first}–{last} кв.',
 
     /** Errors of requests, by their status */
     errors: {

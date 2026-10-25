@@ -137,9 +137,10 @@ export default {
         apply: 'Застосувати',
         period: 'Період',
         oneQuarter: 'Один рік і один квартал.',
-        wholeYear: 'Увесь рік.',
         grouping: 'Групувати',
         wholeYearBadge: '{year} · увесь рік',
+        wholeYearHint: 'Увесь рік. Натисніть квартал, щоб обрати лише його.',
+        rangeHint: 'Обрано {range}. Інший квартал розширює діапазон; обраний — прибирає його. Прибрати єдиний — увесь рік.',
     },
 
     /** Sheets, loading and failures, copying a requisite, stepping through periods */

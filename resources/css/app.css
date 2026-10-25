@@ -34,11 +34,17 @@
     --color-line-input: #d5d3cb;
     --color-divider: #eeede8;
     --color-divider-ink: #33363e;
+    /* The period splits of Податки's bars (design.md §16.5), on white and on ink */
+    --color-tick: #8a8e98;
+    --color-tick-on-ink: #6b6f7a;
 
     /* Action */
     --color-accent: #2b45b8;
     --color-accent-hover: #1f338c;
     --color-accent-soft: #e9edfb;
+    /* Quarters included in a whole year, not chosen one by one (Податки's period) */
+    --color-accent-line: #9aa8e0;
+    --color-accent-faint: #f1f3fc;
     --color-switch-off: #b9b6ac;
     --color-handle: #c9c6bc;
     --color-rail: #dad8d0;
@@ -47,11 +53,14 @@
     /* Meaning */
     --color-positive: #17683f;
     --color-positive-soft: #e3f2e9;
+    --color-positive-on-ink: #7fd3a0;
     --color-warning: #6e3b00;
     --color-warning-text: #8a4b00;
     --color-warning-soft: #fcefd9;
     --color-warning-bar: #c27a12;
     --color-warning-on-ink: #f2b66b;
+    /* What is sent, not confirmed yet, on Податки's bars */
+    --color-sent-bar: #e9b44c;
     --color-negative: #a61b1b;
     --color-negative-soft: #fbe9e7;
     --color-neutral-soft: #eeede8;

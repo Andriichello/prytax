@@ -126,9 +126,10 @@ export default {
         apply: 'Apply',
         period: 'Period',
         oneQuarter: 'One year and one quarter.',
-        wholeYear: 'The whole year.',
         grouping: 'Group',
         wholeYearBadge: '{year} · whole year',
+        wholeYearHint: 'The whole year. Tap a quarter to choose it alone.',
+        rangeHint: '{range} chosen. Another quarter stretches the range; a chosen one removes it. Removing the only one gives the whole year.',
     },
 
     ui: {

@@ -130,7 +130,6 @@ export default {
         contracts: { one: '{count} contract', other: '{count} contracts' },
         days: { one: '{count} day', other: '{count} days' },
         transfers: { one: '{count} transfer', other: '{count} transfers' },
-        taxPayments: { one: '{count} payment', other: '{count} payments' },
         records: { one: '{count} record', other: '{count} records' },
     },
 
@@ -147,6 +146,15 @@ export default {
         q3: 'Q3',
         q4: 'Q4',
     },
+
+    /** A quarter's number in a range: «Q2–Q4» */
+    quarterNumerals: {
+        q1: '1',
+        q2: '2',
+        q3: '3',
+        q4: '4',
+    },
+    quarterRange: 'Q{first}–Q{last}',
 
     errors: {
         sessionEnded: 'Your session has ended. Sign in again.',

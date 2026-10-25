@@ -88,7 +88,7 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments',
         name: 'taxes-by-payment',
-        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter, view: 'receipts' } }),
+        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarters: to.params.quarter } }),
     },
     { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
     { path: '/taxes/payments/:id(\\d+)', name: 'tax-payment', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { record: record('tax-payments') } },
@@ -97,7 +97,7 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])',
         name: 'declaration',
-        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter } }),
+        redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarters: to.params.quarter } }),
     },
 
     { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },

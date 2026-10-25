@@ -9,8 +9,8 @@ import { t } from '@/i18n';
 import { currentQuarter, dateParts, quarterLabel } from '@/utils/dates';
 
 /**
- * «Фільтри» of Облік and Податки (design.md §16.2): one year (‹ 2026 ›, from the profile's first year, at most six
- * back, to now) and one quarter, unless `yearOnly`; with `groupings`, «Групувати» too. The drawer edits a draft:
+ * «Фільтри» of Облік (design.md §16.2): one year (‹ 2026 ›, from the profile's first year, at most six back, to now)
+ * and one quarter; with `groupings`, «Групувати» too. The drawer edits a draft:
  * «Застосувати» commits it, «Скинути» returns it to the current period, and closing it discards it.
  */
 export interface PeriodFilter {
@@ -19,9 +19,8 @@ export interface PeriodFilter {
     grouping?: string;
 }
 
-const { value, yearOnly = false, groupings = [] } = defineProps<{
+const { value, groupings = [] } = defineProps<{
     value: PeriodFilter;
-    yearOnly?: boolean;
     groupings?: { value: string; label: string }[];
 }>();
 
@@ -96,7 +95,7 @@ function apply(): void {
                     <Icon name="chevronRight" :size="20" />
                 </button>
             </div>
-            <div v-if="!yearOnly" role="radiogroup" :aria-label="t('core.common.quarter')" class="grid grid-cols-4 gap-2">
+            <div role="radiogroup" :aria-label="t('core.common.quarter')" class="grid grid-cols-4 gap-2">
                 <button
                     v-for="quarter in 4"
                     :key="quarter"
@@ -111,7 +110,7 @@ function apply(): void {
                     {{ quarterLabel(quarter) }}
                 </button>
             </div>
-            <span class="text-14 text-ink-3">{{ yearOnly ? t('shell.filters.wholeYear') : t('shell.filters.oneQuarter') }}</span>
+            <span class="text-14 text-ink-3">{{ t('shell.filters.oneQuarter') }}</span>
         </section>
 
         <section v-if="groupings.length" class="flex flex-col gap-3">

@@ -1,91 +1,94 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { api } from '@/api/client';
+import type { ApiResponse, TaxLedger } from '@/api/types';
 import TabScreen from '@/components/layout/TabScreen.vue';
-import TaxAccrualView from '@/components/taxes/TaxAccrualView.vue';
-import TaxHistoryView from '@/components/taxes/TaxHistoryView.vue';
+import TaxFilterSheet from '@/components/taxes/TaxFilterSheet.vue';
+import TaxLedgerMonth from '@/components/taxes/TaxLedgerMonth.vue';
+import TaxSummaryCard from '@/components/taxes/TaxSummaryCard.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import FilterBadge from '@/components/ui/FilterBadge.vue';
-import Icon from '@/components/ui/Icon.vue';
-import PeriodFilterSheet, { type PeriodFilter } from '@/components/ui/PeriodFilterSheet.vue';
-import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import LoadState from '@/components/ui/LoadState.vue';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
+import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { currentQuarter, quarterLabel } from '@/utils/dates';
+import { currentQuarter } from '@/utils/dates';
+import {
+    filterFromQuery,
+    LEDGER_STATUSES,
+    LEDGER_TAXES,
+    periodBadge,
+    queryOfFilter,
+    statusesBadge,
+    type TaxLedgerFilter,
+    taxesBadge,
+} from '@/utils/taxLedger';
 
 /**
- * Податки (M-Taxes, M-TaxesHistory, design.md §16.5): «Нарахування» of one quarter (the taxes, then the receipts with
- * their ЄП and ВЗ), or «Історія сплат» of one year (`?mode=history`). The year and quarter live in the URL; the period
- * badge opens «Фільтри», and «+ ЄСВ» opens Сплата ЄСВ on the quarter's earliest month not fully paid.
+ * Податки (M-Taxes, design.md §8.5, §16.5): one ledger of the period. «Підсумок за період» sums each tax by the
+ * quarter it belongs to; «Податки за місяцями» lists, newest first, what is still owed (a receipt's ЄП and ВЗ in its
+ * month, ЄСВ in its own month) and every payment in the month it was made. The three badges (the period, the taxes,
+ * the statuses) open one «Фільтри» drawer, and the filter lives in the URL. Each row opens its payment; ЄСВ is paid
+ * from its rows, ahead too.
  */
-type Mode = 'accrual' | 'history';
-
 const route = useRoute();
 const router = useRouter();
+const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 
 const now = currentQuarter();
-const mode = computed<Mode>(() => (route.query.mode === 'history' ? 'history' : 'accrual'));
-const year = computed(() => Number(route.query.year) || now.year);
-const quarter = computed(() => {
-    const value = Number(route.query.quarter);
-
-    return value >= 1 && value <= 4 ? value : year.value === now.year ? now.quarter : 4;
-});
-
-function update(changes: Record<string, string | number | undefined>): void {
-    const query = Object.fromEntries(Object.entries({ ...route.query, ...changes }).filter(([, value]) => value !== undefined));
-
-    void router.replace({ query });
-}
-
-const modeOptions = computed<{ value: Mode; label: string }[]>(() => [
-    { value: 'accrual', label: t('accounting.taxes.accrual') },
-    { value: 'history', label: t('accounting.taxes.history') },
-]);
-const modeModel = computed({
-    get: () => mode.value,
-    set: (value: Mode) => update({ mode: value === 'history' ? 'history' : undefined }),
-});
-
+const filter = computed(() => filterFromQuery(route.query, now));
 const filterOpen = ref(false);
-const periodLabel = computed(() => (mode.value === 'history'
-    ? t('shell.filters.wholeYearBadge', { year: year.value })
-    : `${quarterLabel(quarter.value)} ${year.value}`));
 
-function applyFilter(filter: PeriodFilter): void {
-    update({ year: filter.year, quarter: mode.value === 'history' ? route.query.quarter as string | undefined : filter.quarter });
+function applyFilter(next: TaxLedgerFilter): void {
+    void router.replace({ query: { ...route.query, quarter: undefined, mode: undefined, view: undefined, ...queryOfFilter(next) } });
 }
+
+const { data: ledger, error, loading, reload } = useLoader(async (signal) => {
+    const { year, quarters, taxes, statuses } = filter.value;
+    const response = await api.get<ApiResponse<TaxLedger>>(path(`taxes/${year}/ledger`), {
+        quarter: quarters,
+        tax_type: taxes.length === LEDGER_TAXES.length ? undefined : taxes,
+        status: statuses.length === LEDGER_STATUSES.length ? undefined : statuses,
+    }, signal);
+
+    return response.data;
+}, [profileId, () => JSON.stringify(filter.value)]);
+
+const canPay = computed(() => can('create', 'tax-payments'));
+const isEmpty = computed(() => ledger.value !== null && ledger.value.summary.rows.length === 0 && ledger.value.months.length === 0);
 </script>
 
 <template>
     <TabScreen :title="t('shell.nav.taxes')">
-        <template #title-action>
-            <RouterLink
-                v-if="can('create', 'tax-payments')"
-                :to="{ name: 'esv-payment-new', query: { year, quarter } }"
-                class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
-            >
-                <Icon name="plus" :size="20" />
-                {{ t('accounting.taxes.esv') }}
-            </RouterLink>
-        </template>
-        <template #switcher>
-            <SegmentedControl v-model="modeModel" :label="t('accounting.taxes.view')" size="lg" :options="modeOptions" />
-        </template>
         <template #filters>
             <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
-                <FilterBadge :label="periodLabel" period @click="filterOpen = true" />
+                <FilterBadge :label="periodBadge(filter)" period @click="filterOpen = true" />
+                <FilterBadge :label="taxesBadge(filter.taxes)" @click="filterOpen = true" />
+                <FilterBadge :label="statusesBadge(filter.statuses)" @click="filterOpen = true" />
             </div>
         </template>
 
-        <TaxAccrualView v-if="mode === 'accrual'" :year="year" :quarter="quarter" />
-        <TaxHistoryView v-else :year="year" />
+        <LoadState :loading="loading && !ledger" :error="error" @retry="reload">
+            <template v-if="ledger">
+                <EmptyState v-if="isEmpty" :text="t('accounting.taxes.empty')" />
+                <template v-else>
+                    <section v-if="ledger.summary.rows.length > 0" class="flex flex-col gap-2.5">
+                        <SectionTitle rule>{{ t('accounting.taxes.summaryTitle') }}</SectionTitle>
+                        <TaxSummaryCard :summary="ledger.summary" :quarters="filter.quarters.length || 4" />
+                    </section>
+                    <section v-if="ledger.months.length > 0" class="flex flex-col gap-2.5">
+                        <SectionTitle rule>{{ t('accounting.taxes.byMonth') }}</SectionTitle>
+                        <TaxLedgerMonth v-for="month in ledger.months" :key="month.month" :month="month" :can-pay="canPay" />
+                        <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('accounting.taxes.footnote') }}</p>
+                    </section>
+                </template>
+            </template>
+        </LoadState>
 
-        <PeriodFilterSheet
-            v-model:open="filterOpen"
-            :value="{ year, quarter }"
-            :year-only="mode === 'history'"
-            @apply="applyFilter"
-        />
+        <TaxFilterSheet v-model:open="filterOpen" :value="filter" @apply="applyFilter" />
     </TabScreen>
 </template>

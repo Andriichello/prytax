@@ -148,9 +148,23 @@ function open(): void {
 
     lastNumbers.value = Object.fromEntries(counters.value.map((counter) => [counter.scope_key, String(counter.last_number)]));
     saveError.value = null;
+    counterBack.value = null;
 }
 
+/** A counter moved below its last issued number, which the screen tells in its own terms before asking the API. */
+const counterBack = ref<string | null>(null);
+
 async function saveGroup(group: 'format' | 'counter' | 'current'): Promise<void> {
+    const back = group === 'current'
+        ? counters.value.find((counter) => Number(lastNumbers.value[counter.scope_key]) < counter.last_number)
+        : undefined;
+
+    counterBack.value = back ? t('settings.numbering.counterBack', { name: counterName(back), last: back.last_number }) : null;
+
+    if (back) {
+        return;
+    }
+
     saving.value = true;
     saveError.value = null;
 
@@ -183,7 +197,8 @@ async function saveGroup(group: 'format' | 'counter' | 'current'): Promise<void>
 }
 
 const countersValid = computed(() => Object.values(lastNumbers.value).every((value) => /^\d+$/.test(value)));
-const generalError = computed(() => (saveError.value ? fieldError(saveError.value, 'next_number') ?? errorMessage(saveError.value) : null));
+const generalError = computed(() => counterBack.value
+    ?? (saveError.value ? fieldError(saveError.value, 'next_number') ?? errorMessage(saveError.value) : null));
 </script>
 
 <template>

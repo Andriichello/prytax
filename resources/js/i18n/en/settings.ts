@@ -83,6 +83,7 @@ export default {
         resetShort: 'Reset',
         lastIssuedHint: 'The last number issued; the client’s next invoice gets +1. A number can only grow.',
         notesLink: 'Notes on invoices',
+        counterBack: 'The last number issued for {name} is {last}; a lower one can’t be entered.',
     },
 
     document: {

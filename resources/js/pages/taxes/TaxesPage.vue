@@ -17,9 +17,10 @@ import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { currentQuarter } from '@/utils/dates';
 import {
+    choosesAll,
     filterFromQuery,
-    isEveryTax,
     LEDGER_STATUSES,
+    LEDGER_TAXES,
     periodBadge,
     queryOfFilter,
     statusesBadge,
@@ -65,8 +66,8 @@ const { data: ledger, error, loading, reload } = useLoader(async (signal) => {
     const { year, quarters, taxes, statuses } = filter.value;
     const response = await api.get<ApiResponse<TaxLedger>>(path(`taxes/${year}/ledger`), {
         quarter: quarters,
-        tax_type: isEveryTax(taxes) ? undefined : taxes,
-        status: statuses.length === LEDGER_STATUSES.length ? undefined : statuses,
+        tax_type: choosesAll(taxes, LEDGER_TAXES) ? undefined : taxes,
+        status: choosesAll(statuses, LEDGER_STATUSES) ? undefined : statuses,
     }, signal);
 
     return response.data;

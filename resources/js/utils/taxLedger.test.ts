@@ -10,7 +10,6 @@ import {
     tapQuarter,
     taxesBadge,
     toggleChoice,
-    toggleOption,
 } from '@/utils/taxLedger';
 
 const now = { year: 2026, quarter: 4 };
@@ -29,20 +28,14 @@ describe('tapQuarter', () => {
     });
 });
 
-describe('toggleOption', () => {
-    it('adds an option in the order of all of them, and removes a chosen one', () => {
-        expect(toggleOption(['military_levy'], 'single_tax', LEDGER_TAXES)).toEqual(['single_tax', 'military_levy']);
-        expect(toggleOption(['single_tax', 'military_levy'], 'single_tax', LEDGER_TAXES)).toEqual(['military_levy']);
-    });
-
-    it('chooses all of them again, when the last one is removed', () => {
-        expect(toggleOption(['failed'], 'failed', LEDGER_STATUSES)).toEqual([...LEDGER_STATUSES]);
-    });
-});
-
 describe('toggleChoice', () => {
-    it('leaves none chosen, when the last one is removed, and adds in the order of all of them', () => {
+    it('removes a chosen one, the last one too, leaving none chosen', () => {
+        expect(toggleChoice(['single_tax', 'military_levy'], 'single_tax', LEDGER_TAXES)).toEqual(['military_levy']);
         expect(toggleChoice(['military_levy'], 'military_levy', LEDGER_TAXES)).toEqual([]);
+        expect(toggleChoice(['failed'], 'failed', LEDGER_STATUSES)).toEqual([]);
+    });
+
+    it('adds one in the order of all of them', () => {
         expect(toggleChoice([], 'social_contribution', LEDGER_TAXES)).toEqual(['social_contribution']);
         expect(toggleChoice(['social_contribution'], 'single_tax', LEDGER_TAXES)).toEqual(['single_tax', 'social_contribution']);
     });
@@ -61,6 +54,7 @@ describe('the badges', () => {
         expect(taxesBadge([])).toBe('Усі податки');
         expect(taxesBadge(['single_tax', 'military_levy'])).toBe('ЄП, ВЗ');
         expect(statusesBadge([...LEDGER_STATUSES])).toBe('Усі статуси');
+        expect(statusesBadge([])).toBe('Усі статуси');
         expect(statusesBadge(['failed', 'sent'])).toBe('Не пройшов, Надіслано');
 
         locale.value = 'en';
@@ -70,11 +64,12 @@ describe('the badges', () => {
 });
 
 describe('the URL of the filter', () => {
-    it('keeps a range, the whole year, the taxes (none chosen too) and the statuses', () => {
+    it('keeps a range, the whole year, the taxes and the statuses, none chosen too', () => {
         for (const filter of [
             { year: 2025, quarters: [2, 3, 4], taxes: ['social_contribution' as const], statuses: ['unpaid' as const, 'failed' as const] },
             { year: 2026, quarters: [], taxes: [...LEDGER_TAXES], statuses: [...LEDGER_STATUSES] },
             { year: 2026, quarters: [4], taxes: [], statuses: [...LEDGER_STATUSES] },
+            { year: 2026, quarters: [4], taxes: ['single_tax' as const], statuses: [] },
         ]) {
             expect(filterFromQuery(queryOfFilter(filter), now)).toEqual(filter);
         }

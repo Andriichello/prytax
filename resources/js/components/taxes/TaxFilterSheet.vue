@@ -17,15 +17,13 @@ import {
     tapQuarter,
     type TaxLedgerFilter,
     toggleChoice,
-    toggleOption,
 } from '@/utils/taxLedger';
 
 /**
  * «Фільтри» of Податки (design.md §16.2): one year (‹ 2026 ›, from the profile's first year, at most six back, to
  * now; a change keeps the quarters) with a range of its quarters, none being the whole year (drawn as all four
- * included); the taxes, several at once, where none chosen means all, as all chosen does; the statuses, several at
- * once, where removing the last one chooses all again. The drawer edits a draft: «Застосувати» commits it,
- * «Скинути» returns it to the defaults, and closing it discards it.
+ * included); the taxes and the statuses, several at once, where none chosen means all, as all chosen does. The
+ * drawer edits a draft: «Застосувати» commits it, «Скинути» returns it to the defaults, and closing it discards it.
  */
 const { value } = defineProps<{ value: TaxLedgerFilter }>();
 
@@ -160,7 +158,7 @@ const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium tex
                     :aria-pressed="draft.statuses.includes(status) ? 'true' : 'false'"
                     class="flex h-11 items-center rounded-full px-4 text-15"
                     :class="chipClass(draft.statuses.includes(status))"
-                    @click="draft.statuses = toggleOption(draft.statuses, status, LEDGER_STATUSES)"
+                    @click="draft.statuses = toggleChoice(draft.statuses, status, LEDGER_STATUSES)"
                 >
                     {{ ledgerStatusLabel(status) }}
                 </button>

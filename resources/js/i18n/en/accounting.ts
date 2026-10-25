@@ -55,7 +55,7 @@ export default {
         filterTaxes: 'Taxes',
         filterStatuses: 'Status',
         taxesHint: 'Choose one or more. With none chosen, all are shown.',
-        statusesHint: 'The summary counts the chosen statuses only. Removing the last one chooses all again.',
+        statusesHint: 'The summary counts the chosen statuses only. With none chosen, all are shown.',
     },
 
     taxPayment: {

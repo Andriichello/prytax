@@ -297,7 +297,6 @@ export default {
         placeholderContractDate: 'Дата договору',
         placeholderClientName: 'Клієнт',
         placeholderProfileName: 'ФОП',
-        note: 'Примітка в інвойсі',
         noNote: 'без примітки',
         paymentNote: 'примітка щодо оплати',
         otherNote: 'інша примітка',

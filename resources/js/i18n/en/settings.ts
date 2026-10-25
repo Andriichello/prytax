@@ -79,9 +79,10 @@ export default {
         explained:
             'The number is assigned when the invoice is frozen. If the date or the client’s abbreviation changed after it went back to draft, only they are updated; the sequence number stays. Issued numbers keep their abbreviation. A number typed by hand doesn’t change. Gaps after cancellations are normal.',
         noteMoved: 'Now in “Invoice document”',
-        lastNumber: '{name}: the last number is {number}.',
-        nextNumberHint:
-            'The next one can only be increased — for example, to continue the numbering of a previous system.',
+        datePattern: 'YYYY-MM-DD',
+        resetShort: 'Reset',
+        lastIssuedHint: 'The last number issued; the client’s next invoice gets +1. A number can only grow.',
+        notesLink: 'Notes on invoices',
     },
 
     document: {

@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, Client, InvoiceCounter, NumberingDateSource, NumberingPrefix, NumberingReset, NumberingScope, NumberingStrategy, NumberPreview, Paginated, ProfileSettings } from '@/api/types';
-import TextField from '@/components/form/TextField.vue';
+import AccordionGroup from '@/components/form/AccordionGroup.vue';
+import Dimmable from '@/components/form/Dimmable.vue';
+import ReadRow from '@/components/form/ReadRow.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
-import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
-import PrimaryButton from '@/components/ui/PrimaryButton.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
-import Translated from '@/components/ui/Translated.vue';
+import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -20,13 +18,15 @@ import { dateParts, formatDayMonth, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Нумерація інвойсів (S-NumberingSettings): the client's abbreviation in front of numbers or none, the format of
- * numbers, the date in them, one counter per ФОП or per client, its yearly reset, the current counters (which move
- * forward only), and a link to the invoices' note, which moved to Документ інвойсу.
+ * Нумерація інвойсів (M-NumberingSettings, design.md §5, §16.5): the dark «Наступний номер» card, which never dims,
+ * then the groups: «Формат номера» (the client's abbreviation in front or none, date and number or the number only,
+ * the date in it), «Лічильник» (one per ФОП or per client, its yearly reset) and «Поточні лічильники» (the last number
+ * of each, which moves forward only; read-only, they show as disabled fields). Then the rules and a link to the
+ * invoices' notes, which moved to Документ інвойсу.
  */
-const router = useRouter();
 const { can } = useSession();
 const { profileId, path, loadSettings } = useCurrentProfile();
+const accordion = provideAccordion();
 
 const form = reactive({
     prefix: 'client_abbreviation' as NumberingPrefix,
@@ -37,6 +37,8 @@ const form = reactive({
 });
 
 const counters = ref<InvoiceCounter[]>([]);
+/** The last numbers of the counters, by scope, as «Поточні лічильники» edits them. */
+const lastNumbers = ref<Record<string, string>>({});
 const sampleClient = ref<Client | null>(null);
 
 /** The saved numbering, which the preview of the next number follows until the form is saved. */
@@ -52,20 +54,11 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
     Object.assign(form, settings.data.invoice.numbering);
     saved.value = settings.data.invoice.numbering;
     counters.value = list.data;
+    lastNumbers.value = Object.fromEntries(list.data.map((counter) => [counter.scope_key, String(counter.last_number)]));
     sampleClient.value = clients.data[0] ?? null;
 
     return true;
 }, [profileId]);
-
-/**
- * Load the counters and the next number again (after moving a counter), keeping the unsaved form.
- */
-async function reloadCounters(): Promise<void> {
-    const list = await api.get<ApiResponse<InvoiceCounter[]>>(path('invoices/counters'));
-
-    counters.value = list.data;
-    await reloadPreview();
-}
 
 const periodEnd = computed(() => {
     const { year, month } = dateParts(today());
@@ -115,6 +108,13 @@ const resetOptions = computed<{ value: NumberingReset; label: string }[]>(() => 
     { value: 'yearly', label: t('settings.numbering.yearly') },
 ]);
 
+/** «АБР-РРРР-ММ-ДД-n», «АБР-n»: the pattern of the saved format. */
+const savedPattern = computed(() => {
+    const prefix = saved.value?.prefix === 'client_abbreviation' ? t('settings.numbering.abbreviationSample') : '';
+
+    return saved.value?.strategy === 'sequence' ? `${prefix}n` : `${prefix}${t('settings.numbering.datePattern')}-n`;
+});
+
 /** What the saved numbering is made of, under the next number. */
 const savedSummary = computed(() => (saved.value
     ? [
@@ -137,66 +137,58 @@ function counterName(counter: InvoiceCounter | null): string {
     return [counter.client_abbreviation, counter.client_name].filter(Boolean).join(' · ');
 }
 
-/* Moving a counter forward */
-const editing = ref<InvoiceCounter | null>(null);
-const counterOpen = ref(false);
-const nextNumber = ref('');
-const counterError = ref<unknown>(null);
-const movingCounter = ref(false);
-
-function openCounter(counter: InvoiceCounter): void {
-    editing.value = counter;
-    nextNumber.value = String(counter.last_number + 1);
-    counterError.value = null;
-    counterOpen.value = true;
-}
-
-async function moveCounter(): Promise<void> {
-    if (!editing.value) {
-        return;
-    }
-
-    movingCounter.value = true;
-    counterError.value = null;
-
-    try {
-        await api.patch(path('invoices/counters'), { scope_key: editing.value.scope_key, next_number: Number(nextNumber.value) });
-        counterOpen.value = false;
-        await reloadCounters();
-    } catch (caught) {
-        counterError.value = caught;
-    } finally {
-        movingCounter.value = false;
-    }
-}
-
-/* Saving */
+/* Saving a group: the format and the counter are settings, the current counters move forward */
 const saving = ref(false);
 const saveError = ref<unknown>(null);
 
-async function save(): Promise<void> {
+function open(): void {
+    if (saved.value) {
+        Object.assign(form, saved.value);
+    }
+
+    lastNumbers.value = Object.fromEntries(counters.value.map((counter) => [counter.scope_key, String(counter.last_number)]));
+    saveError.value = null;
+}
+
+async function saveGroup(group: 'format' | 'counter' | 'current'): Promise<void> {
     saving.value = true;
     saveError.value = null;
 
     try {
-        await api.patch(path('settings'), {
-            invoice: {
-                numbering: { prefix: form.prefix, strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
-            },
-        });
-        await loadSettings();
-        await router.replace({ name: 'more' });
+        if (group === 'current') {
+            for (const counter of counters.value) {
+                const last = Number(lastNumbers.value[counter.scope_key]);
+
+                if (last !== counter.last_number) {
+                    await api.patch(path('invoices/counters'), { scope_key: counter.scope_key, next_number: last + 1 });
+                }
+            }
+        } else {
+            await api.patch(path('settings'), {
+                invoice: {
+                    numbering: { prefix: form.prefix, strategy: form.strategy, date_source: form.date_source, scope: form.scope, reset: form.reset },
+                },
+            });
+            await loadSettings();
+        }
+
+        await reload();
+        await reloadPreview();
+        accordion.open.value = null;
     } catch (caught) {
         saveError.value = caught;
     } finally {
         saving.value = false;
     }
 }
+
+const countersValid = computed(() => Object.values(lastNumbers.value).every((value) => /^\d+$/.test(value)));
+const generalError = computed(() => (saveError.value ? fieldError(saveError.value, 'next_number') ?? errorMessage(saveError.value) : null));
 </script>
 
 <template>
     <SubScreen :title="t('settings.numbering.title')" :back="{ name: 'more' }">
-        <LoadState :loading="loading" :error="loadError" @retry="reload">
+        <LoadState :loading="loading && !saved" :error="loadError" @retry="reload">
             <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-ink p-4 text-white">
                 <span class="text-14 text-on-ink-2">
                     {{ t('settings.numbering.nextNumber') }}<template v-if="sampleClient"> · {{ t('settings.numbering.periodEnding', { client: sampleClient.name, date: formatDayMonth(periodEnd) }) }}</template>
@@ -206,110 +198,141 @@ async function save(): Promise<void> {
                 <span class="text-12 text-on-ink-3">{{ t('settings.numbering.shownSavedSettings') }}</span>
             </section>
 
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.prefix') }}</SectionTitle>
-                <SegmentedControl v-model="form.prefix" :label="t('settings.numbering.prefix')" size="lg" :disabled="!canConfigure" :options="prefixOptions" />
-                <p class="m-0 text-13 leading-normal text-ink-3">{{ t('settings.numbering.abbreviationHint') }}</p>
-            </section>
+            <template v-if="saved">
+                <AccordionGroup
+                    id="format"
+                    :title="t('settings.numbering.numberFormat')"
+                    :editable="canConfigure"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="open"
+                    @save="saveGroup('format')"
+                >
+                    <ReadRow :label="t('settings.numbering.prefix')" :value="prefixOptions.find((option) => option.value === saved!.prefix)?.label" />
+                    <ReadRow :label="t('settings.numbering.format')">
+                        {{ formatOptions.find((option) => option.value === saved!.strategy)?.title }}
+                        <span class="num mt-0.5 block text-13 text-ink-3">{{ savedPattern }}</span>
+                    </ReadRow>
+                    <ReadRow
+                        v-if="saved.strategy === 'date_sequence'"
+                        :label="t('settings.numbering.dateInNumber')"
+                        :value="dateSourceOptions.find((option) => option.value === saved!.date_source)?.label"
+                    />
+                    <template #edit>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.numbering.prefix') }}</span>
+                            <SegmentedControl v-model="form.prefix" :label="t('settings.numbering.prefix')" size="lg" :options="prefixOptions" />
+                            <span class="text-12 leading-normal text-ink-3">{{ t('settings.numbering.abbreviationHint') }}</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.numbering.format') }}</span>
+                            <div role="radiogroup" :aria-label="t('settings.numbering.numberFormat')" class="flex flex-col gap-2">
+                                <button
+                                    v-for="option in formatOptions"
+                                    :key="option.value"
+                                    type="button"
+                                    role="radio"
+                                    :aria-checked="form.strategy === option.value ? 'true' : 'false'"
+                                    class="flex items-start gap-3 rounded-control bg-surface p-3.5 text-left"
+                                    :class="form.strategy === option.value ? 'border-2 border-accent' : 'border border-line-input'"
+                                    @click="form.strategy = option.value"
+                                >
+                                    <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2" :class="form.strategy === option.value ? 'border-accent' : 'border-switch-off'">
+                                        <span v-if="form.strategy === option.value" class="size-2.5 rounded-full bg-accent" />
+                                    </span>
+                                    <span class="flex flex-col gap-0.5">
+                                        <span class="text-16 font-semibold">{{ option.title }}</span>
+                                        <span class="num text-13 text-ink-2">{{ option.example }}</span>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="form.strategy === 'date_sequence'" class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.numbering.dateInNumber') }}</span>
+                            <SegmentedControl v-model="form.date_source" :label="t('settings.numbering.dateInNumber')" size="lg" :options="dateSourceOptions" />
+                        </div>
+                    </template>
+                </AccordionGroup>
 
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.format') }}</SectionTitle>
-                <div role="radiogroup" :aria-label="t('settings.numbering.numberFormat')" class="flex flex-col gap-2">
-                    <button
-                        v-for="option in formatOptions"
-                        :key="option.value"
-                        type="button"
-                        role="radio"
-                        :aria-checked="form.strategy === option.value ? 'true' : 'false'"
-                        :disabled="!canConfigure"
-                        class="flex items-start gap-3 rounded-control bg-surface p-3.5 text-left"
-                        :class="form.strategy === option.value ? 'border-2 border-accent' : 'border border-line-input'"
-                        @click="form.strategy = option.value"
-                    >
-                        <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2" :class="form.strategy === option.value ? 'border-accent' : 'border-switch-off'">
-                            <span v-if="form.strategy === option.value" class="size-2.5 rounded-full bg-accent" />
-                        </span>
-                        <span class="flex flex-col gap-0.5">
-                            <span class="text-16 font-semibold">{{ option.title }}</span>
-                            <span class="num text-13 text-ink-2">{{ option.example }}</span>
-                        </span>
-                    </button>
-                </div>
-            </section>
+                <AccordionGroup
+                    id="counter"
+                    :title="t('settings.numbering.counter')"
+                    :editable="canConfigure"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="open"
+                    @save="saveGroup('counter')"
+                >
+                    <ReadRow :label="t('settings.numbering.counter')" :value="scopeOptions.find((option) => option.value === saved!.scope)?.label" />
+                    <ReadRow :label="t('settings.numbering.resetShort')" :value="resetOptions.find((option) => option.value === saved!.reset)?.label" />
+                    <template #edit>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.numbering.counter') }}</span>
+                            <SegmentedControl v-model="form.scope" :label="t('settings.numbering.counter')" size="lg" :options="scopeOptions" />
+                            <span v-if="mayCollide" class="text-12 leading-normal text-warning-text" role="status">{{ t('settings.numbering.noPrefixWarning') }}</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.numbering.counterReset') }}</span>
+                            <SegmentedControl v-model="form.reset" :label="t('settings.numbering.counterReset')" size="lg" :options="resetOptions" />
+                        </div>
+                    </template>
+                </AccordionGroup>
 
-            <section v-if="form.strategy === 'date_sequence'" class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.dateInNumber') }}</SectionTitle>
-                <SegmentedControl v-model="form.date_source" :label="t('settings.numbering.dateInNumber')" size="lg" :disabled="!canConfigure" :options="dateSourceOptions" />
-            </section>
-
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.counter') }}</SectionTitle>
-                <SegmentedControl v-model="form.scope" :label="t('settings.numbering.counter')" size="lg" :disabled="!canConfigure" :options="scopeOptions" />
-                <p v-if="mayCollide" class="m-0 text-13 leading-normal text-warning-text" role="status">
-                    {{ t('settings.numbering.noPrefixWarning') }}
-                </p>
-            </section>
-
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.counterReset') }}</SectionTitle>
-                <SegmentedControl v-model="form.reset" :label="t('settings.numbering.counterReset')" size="lg" :disabled="!canConfigure" :options="resetOptions" />
-            </section>
-
-            <section class="flex flex-col gap-2">
-                <SectionTitle>{{ t('settings.numbering.currentCounters') }}</SectionTitle>
-                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                    <button
-                        v-for="counter in counters"
-                        :key="counter.scope_key"
-                        type="button"
-                        class="flex min-h-13 items-center justify-between gap-3 text-left"
-                        :disabled="!canConfigure"
-                        @click="openCounter(counter)"
-                    >
-                        <span class="text-15">
+                <AccordionGroup
+                    id="current"
+                    :title="t('settings.numbering.currentCounters')"
+                    :editable="canConfigure && counters.length > 0"
+                    :saving="saving"
+                    :error="generalError"
+                    :rows="false"
+                    @open="open"
+                    @save="countersValid && saveGroup('current')"
+                >
+                    <div v-for="counter in counters" :key="counter.scope_key" class="flex items-center gap-3">
+                        <span class="min-w-0 flex-1 text-15">
                             {{ counterName(counter) }}
                             <span v-if="/:\d{4}$/.test(counter.scope_key)" class="num text-13 text-ink-3">{{ counter.scope_key.slice(-4) }}</span>
                         </span>
-                        <span class="num text-16 font-semibold">{{ counter.last_number }}</span>
-                    </button>
-                    <p v-if="counters.length === 0" class="m-0 py-3.5 text-14 text-ink-3">{{ t('settings.numbering.noCountersYet') }}</p>
-                </div>
-                <p class="m-0 text-13 leading-normal text-ink-3">
-                    {{ t('settings.numbering.explained') }}
-                </p>
-            </section>
+                        <input
+                            :value="counter.last_number"
+                            disabled
+                            :aria-label="counterName(counter)"
+                            class="num h-11 w-20 rounded-control border border-line bg-muted text-center text-16 text-ink-2"
+                        >
+                    </div>
+                    <span v-if="counters.length === 0" class="text-14 text-ink-3">{{ t('settings.numbering.noCountersYet') }}</span>
+                    <template #edit>
+                        <div v-for="counter in counters" :key="counter.scope_key" class="flex items-center gap-3">
+                            <span class="min-w-0 flex-1 text-15">
+                                {{ counterName(counter) }}
+                                <span v-if="/:\d{4}$/.test(counter.scope_key)" class="num text-13 text-ink-3">{{ counter.scope_key.slice(-4) }}</span>
+                            </span>
+                            <input
+                                v-model="lastNumbers[counter.scope_key]"
+                                inputmode="numeric"
+                                :aria-label="counterName(counter)"
+                                class="num h-11 w-20 rounded-control border border-line-input bg-surface text-center text-16"
+                            >
+                        </div>
+                        <span class="text-12 text-ink-3">{{ t('settings.numbering.lastIssuedHint') }}</span>
+                    </template>
+                </AccordionGroup>
 
-            <RouterLink
-                :to="{ name: 'settings-invoice-document' }"
-                class="flex min-h-15 items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 text-ink no-underline hover:text-ink"
-            >
-                <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span class="text-16">{{ t('invoices.document.note') }}</span>
-                    <span class="text-13 text-ink-3">{{ t('settings.numbering.noteMoved') }}</span>
-                </span>
-                <Icon name="chevronRight" :size="18" class="text-ink-2" />
-            </RouterLink>
-
-            <p v-if="saveError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(saveError) }}</p>
-        </LoadState>
-
-        <template v-if="canConfigure" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading" @click="save">{{ t('core.common.save') }}</PrimaryButton>
-        </template>
-
-        <BottomSheet v-model:open="counterOpen" :title="t('settings.numbering.counter')">
-            <p class="m-0 text-15 leading-normal text-ink-2">
-                <Translated :text="t('settings.numbering.lastNumber')">
-                    <template #name>{{ counterName(editing) }}</template>
-                    <template #number><span class="num font-semibold text-ink">{{ editing?.last_number }}</span></template>
-                </Translated>
-                {{ t('settings.numbering.nextNumberHint') }}
-            </p>
-            <TextField v-model="nextNumber" :label="t('settings.numbering.nextNumber')" inputmode="numeric" class="num" :error="fieldError(counterError, 'next_number')" />
-            <p v-if="counterError && !fieldError(counterError, 'next_number')" class="m-0 text-14 text-negative">{{ errorMessage(counterError) }}</p>
-            <template #footer>
-                <PrimaryButton :busy="movingCounter" :disabled="!/^\d+$/.test(nextNumber)" @click="moveCounter">{{ t('core.common.save') }}</PrimaryButton>
+                <Dimmable class="flex flex-col gap-3">
+                    <p class="m-0 text-13 leading-normal text-ink-3">{{ t('settings.numbering.explained') }}</p>
+                    <RouterLink
+                        :to="{ name: 'settings-invoice-document' }"
+                        class="flex min-h-15 items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 text-ink no-underline hover:text-ink"
+                    >
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <span class="text-16">{{ t('settings.numbering.notesLink') }}</span>
+                            <span class="text-13 text-ink-3">{{ t('settings.numbering.noteMoved') }}</span>
+                        </span>
+                        <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                    </RouterLink>
+                    <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('core.accordion.oneAtATime') }}</p>
+                </Dimmable>
             </template>
-        </BottomSheet>
+        </LoadState>
     </SubScreen>
 </template>

@@ -287,7 +287,6 @@ export default {
         placeholderContractDate: 'Contract date',
         placeholderClientName: 'Client',
         placeholderProfileName: 'FOP',
-        note: 'Invoice note',
         noNote: 'no note',
         paymentNote: 'payment note',
         otherNote: 'other note',

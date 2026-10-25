@@ -262,7 +262,8 @@ class PaymentRecorder
 
     /**
      * Get the paid invoice, which saving an update of the receipt would return to unpaid: its own one, which a
-     * reduced amount leaves uncovered, or the one it leaves for another invoice or none.
+     * reduced amount leaves uncovered, or the one it leaves for another invoice or none. A virtual invoice never
+     * returns to unpaid: it follows its receipt's amount, and is deleted when the receipt moves to an invoice.
      *
      * @param Payment|null $existing
      * @param Invoice|null $invoice
@@ -274,7 +275,7 @@ class PaymentRecorder
     {
         $previous = $existing?->invoice;
 
-        if ($previous?->status !== InvoiceStatus::Paid) {
+        if ($previous?->status !== InvoiceStatus::Paid || $previous->isVirtual()) {
             return null;
         }
 

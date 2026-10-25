@@ -440,6 +440,42 @@ class PaymentControllerTest extends TestCase
     }
 
     /**
+     * Test that the preview of an edited payment without an invoice tells no coverage and no invoice to reopen: its
+     * virtual invoice follows the receipt's amount, and is deleted, not reopened, when the receipt moves to an invoice.
+     *
+     * @return void
+     */
+    public function testPreviewsAnEditOfAPaymentWithoutAnInvoice(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-05' => '42.2297', '2026-10-24' => '42.0510']]);
+        $receipt = ['received_to_account_id' => $wise->id, 'received_at' => '2026-10-24'];
+
+        $payment = $this->postJson($this->profilePath($profile, 'payments'), [...$this->withoutInvoice($profile), ...$receipt, 'amount' => '500.00'])
+            ->assertCreated()
+            ->json('data');
+        $id = $payment['id'];
+
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [
+            ...$receipt, 'payment_id' => $id, 'invoice_id' => $payment['invoice_id'], 'amount' => '600.00',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.uah_amount', '25230.60')
+            ->assertJsonPath('data.invoice', null)
+            ->assertJsonPath('data.reopens_invoice', null);
+
+        $invoice = $this->createFrozenInvoice($profile, $wise);
+
+        $this->postJson($this->profilePath($profile, 'payments/preview'), [...$receipt, 'payment_id' => $id, 'invoice_id' => $invoice->id, 'amount' => '500.00'])
+            ->assertOk()
+            ->assertJsonPath('data.invoice.paid_amount', '500.00')
+            ->assertJsonPath('data.reopens_invoice', null);
+    }
+
+    /**
      * Test that a payment without an invoice needs a contract of its client and a period, and can't name an invoice
      * too (422).
      *

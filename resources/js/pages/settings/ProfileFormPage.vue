@@ -1,124 +1,74 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, apiUrl } from '@/api/client';
-import type { ApiResponse, MoneyFormat, Paginated, Profile, ProfileSettings, StoredFile } from '@/api/types';
+import type { ApiResponse, Paginated, Profile, ProfileSettings, StoredFile } from '@/api/types';
+import AccordionGroup from '@/components/form/AccordionGroup.vue';
 import DateField from '@/components/form/DateField.vue';
-import SelectField from '@/components/form/SelectField.vue';
-import TextAreaField from '@/components/form/TextAreaField.vue';
-import TextField from '@/components/form/TextField.vue';
+import Dimmable from '@/components/form/Dimmable.vue';
+import ReadRow from '@/components/form/ReadRow.vue';
+import SwitchCard from '@/components/form/SwitchCard.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
+import ProfileContactFields from '@/components/profile/ProfileContactFields.vue';
+import ProfileFormatFields from '@/components/profile/ProfileFormatFields.vue';
+import { DOCUMENT_LOCALES, profileFields, profileForm, type ProfileForm, type ProfileGroup } from '@/components/profile/ProfileFormModel';
+import ProfileInvoiceFields from '@/components/profile/ProfileInvoiceFields.vue';
+import ProfilePersonFields from '@/components/profile/ProfilePersonFields.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
-import SectionTitle from '@/components/ui/SectionTitle.vue';
-import Translated from '@/components/ui/Translated.vue';
+import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { LOCALE_NAMES, t } from '@/i18n';
+import { t } from '@/i18n';
+import { formatDate, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
-import { today } from '@/utils/dates';
 import { formatAmount, setMoneyFormat } from '@/utils/money';
 
 /**
- * Профіль ФОП (S-ProfileEdit), and a new ФОП: the taxpayer (owners change it; the РНОКПП is stored encrypted), the
- * addresses and contacts printed on invoices, the invoices' currency and language, the PDF signature, the money
- * formats of the app and of invoices, and whether the ФОП is active (with the date it closed: its taxes are tracked
- * until then).
+ * Профіль ФОП (M-ProfileEdit, design.md §16.5), and a new ФОП. The static banner of the 3rd group, then the groups:
+ * «Податкова особа» (the РНОКПП is stored encrypted, owners change it), «Адреса й контакти», «Інвойси» (the currency,
+ * the document's language and the PDF signature, which uploads at once) and «Формат сум» (settings); then the
+ * «Активний ФОП» switch, which saves at once, with the date an inactive ФОП closed (its taxes are tracked until then).
+ * A new ФОП is one form, which creates it and goes on to its taxes.
  */
-const FORMATS: { value: MoneyFormat; label: string }[] = [
-    { value: 'space_dot', label: '2 851.99' },
-    { value: 'plain_dot', label: '2851.99' },
-    { value: 'comma_dot', label: '2,851.99' },
-    { value: 'plain_comma', label: '2851,99' },
-    { value: 'space_comma', label: '2 851,99' },
-    { value: 'dot_comma', label: '2.851,99' },
-];
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];
-
-/** The languages of invoices, each named in itself. */
-const DOCUMENT_LOCALES = [
-    { value: 'en', label: LOCALE_NAMES.en },
-    { value: 'uk', label: LOCALE_NAMES.uk },
-];
-
 const route = useRoute();
 const router = useRouter();
 const { can } = useSession();
 const { profileId, path, loadProfiles, loadSettings, select } = useCurrentProfile();
+const accordion = provideAccordion();
 
 const isNew = computed(() => route.name === 'profile-new');
 const canEditIdentity = computed(() => (isNew.value ? can('create', 'profiles') : can('update', 'profiles')));
 const canConfigure = computed(() => isNew.value || can('configure', 'profiles'));
 
-const form = reactive({
-    full_name: '',
-    full_name_en: '',
-    tax_id: '',
-    passport: false,
-    registered_at: '',
-    address: '',
-    address_en: '',
-    email: '',
-    phone: '',
-    default_currency: 'USD',
-    locale: 'en',
-    is_active: true,
-    closed_at: '',
-    display_format: 'space_dot' as MoneyFormat,
-    invoice_format: 'plain_dot' as MoneyFormat,
-});
-
+const profile = ref<Profile | null>(null);
+const settings = ref<ProfileSettings | null>(null);
 const signature = ref<StoredFile | null>(null);
+/** The saved profile, which the closed groups show, and the open group's copy. */
+const saved = ref<ProfileForm>(profileForm(null, null));
+const form = ref<ProfileForm>(profileForm(null, null));
 
-const { data: existing, error: loadError, loading, reload } = useLoader(async (signal) => {
+const { error: loadError, loading, reload } = useLoader(async (signal) => {
     if (isNew.value) {
         return null;
     }
 
-    const [profile, settings, signatures] = await Promise.all([
+    const [loaded, loadedSettings, signatures] = await Promise.all([
         api.get<ApiResponse<Profile>>(`profiles/${profileId.value}`, undefined, signal),
         api.get<ApiResponse<ProfileSettings>>(path('settings'), undefined, signal),
         api.get<Paginated<StoredFile>>(path('signatures'), { page: { size: 10 } }, signal).catch(() => null),
     ]);
 
-    Object.assign(form, {
-        full_name: profile.data.full_name,
-        full_name_en: profile.data.full_name_en ?? '',
-        tax_id: profile.data.tax_id ?? '',
-        passport: profile.data.tax_id_kind === 'passport',
-        registered_at: profile.data.registered_at ?? '',
-        address: profile.data.address ?? '',
-        address_en: profile.data.address_en ?? '',
-        email: profile.data.email ?? '',
-        phone: profile.data.phone ?? '',
-        default_currency: profile.data.default_currency,
-        locale: profile.data.locale,
-        is_active: profile.data.is_active,
-        closed_at: profile.data.closed_at ?? '',
-        display_format: settings.data.display.money_format,
-        invoice_format: settings.data.invoice.money_format,
-    });
+    profile.value = loaded.data;
+    settings.value = loadedSettings.data;
     signature.value = signatures?.data[signatures.data.length - 1] ?? null;
+    saved.value = profileForm(loaded.data, loadedSettings.data);
+    form.value = profileForm(loaded.data, loadedSettings.data);
 
-    return profile.data;
+    return loaded.data;
 }, [profileId, isNew]);
-
-/**
- * A ФОП switched off closes today unless another date is chosen; switched on again, it is open.
- */
-function onActiveChange(): void {
-    form.closed_at = form.is_active ? '' : form.closed_at || today();
-}
-
-const sample = (format: MoneyFormat, amount: string) => formatAmount(amount, { format });
-
-/** The money formats of the app, the default one marked. */
-const displayFormats = computed(() => FORMATS.map((format) => ({
-    value: format.value,
-    label: format.value === 'space_dot' ? t('settings.profile.defaultFormat', { format: format.label }) : format.label,
-})));
 
 /* The PDF signature: a PNG, which replaces the previous one */
 const uploading = ref(false);
@@ -154,66 +104,34 @@ async function uploadSignature(event: Event): Promise<void> {
     }
 }
 
-/* Saving the profile, then its settings */
+/* Saving a group */
 const saving = ref(false);
 const saveError = ref<unknown>(null);
 
-/** A new ФОП, which was created although saving its settings failed: trying again updates it, not another one. */
-let createdId: number | null = null;
+function open(): void {
+    form.value = { ...saved.value };
+    saveError.value = null;
+}
 
-async function save(): Promise<void> {
+async function saveGroup(group: ProfileGroup): Promise<void> {
     saving.value = true;
     saveError.value = null;
 
-    const identity = {
-        full_name: form.full_name.trim(),
-        full_name_en: form.full_name_en.trim() || null,
-        ...(form.tax_id && !form.tax_id.includes('•') ? { tax_id: form.tax_id.replace(/\s/g, '').toUpperCase() } : {}),
-        tax_id_kind: form.passport ? 'passport' : 'rnokpp',
-        registered_at: form.registered_at || null,
-        address: form.address.trim() || null,
-        address_en: form.address_en.trim() || null,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        default_currency: form.default_currency,
-        locale: form.locale,
-        is_active: form.is_active,
-        closed_at: form.is_active ? null : form.closed_at || null,
-    };
-
     try {
-        let id = profileId.value;
-
-        if (isNew.value && createdId === null) {
-            const { data } = await api.post<ApiResponse<Profile>>('profiles', identity);
-
-            id = createdId = data.id;
-        } else if (isNew.value) {
-            id = createdId;
-            await api.patch(`profiles/${id}`, identity);
-        } else if (canEditIdentity.value) {
-            await api.patch(`profiles/${id}`, identity);
-        }
-
-        if (canConfigure.value) {
-            await api.patch(`profiles/${id}/settings`, {
-                display: { money_format: form.display_format },
-                invoice: { money_format: form.invoice_format },
+        if (group === 'formats') {
+            await api.patch(path('settings'), {
+                display: { money_format: form.value.display_format },
+                invoice: { money_format: form.value.invoice_format },
             });
+            await loadSettings();
+            setMoneyFormat(form.value.display_format);
+        } else {
+            await api.patch(`profiles/${profileId.value}`, profileFields(form.value, group));
+            await loadProfiles();
         }
 
-        await loadProfiles();
-
-        if (isNew.value && id !== null) {
-            await select(id);
-            await router.replace({ name: 'settings-taxes' });
-
-            return;
-        }
-
-        await loadSettings();
-        setMoneyFormat(form.display_format);
-        await router.replace({ name: 'more' });
+        await reload();
+        accordion.open.value = null;
     } catch (caught) {
         saveError.value = caught;
     } finally {
@@ -221,126 +139,182 @@ async function save(): Promise<void> {
     }
 }
 
-const generalError = computed(() => {
-    const fields = ['full_name', 'full_name_en', 'tax_id', 'tax_id_kind', 'registered_at', 'email', 'phone', 'address', 'address_en', 'closed_at'];
+/* «Активний ФОП»: switched off, the ФОП closes today; switched on again, it is open */
+const switching = ref(false);
+const switchError = ref<string | null>(null);
 
-    return saveError.value && !fields.some((field) => fieldError(saveError.value, field)) ? errorMessage(saveError.value) : null;
-});
+async function saveActive(changes: { is_active?: boolean; closed_at?: string }): Promise<void> {
+    switching.value = true;
+    switchError.value = null;
+
+    try {
+        const isActive = changes.is_active ?? profile.value?.is_active ?? true;
+
+        await api.patch(`profiles/${profileId.value}`, {
+            is_active: isActive,
+            closed_at: isActive ? null : changes.closed_at ?? profile.value?.closed_at ?? today(),
+        });
+        await loadProfiles();
+        await reload();
+    } catch (caught) {
+        switchError.value = errorMessage(caught);
+    } finally {
+        switching.value = false;
+    }
+}
+
+/* A new ФОП: one form, its profile, then its settings */
+const creating = ref(false);
+
+/** A new ФОП, which was created although saving its settings failed: trying again updates it, not another one. */
+let createdId: number | null = null;
+
+async function create(): Promise<void> {
+    creating.value = true;
+    saveError.value = null;
+
+    try {
+        const fields = { ...profileFields(form.value, 'all'), is_active: true };
+
+        if (createdId === null) {
+            const { data } = await api.post<ApiResponse<Profile>>('profiles', fields);
+
+            createdId = data.id;
+        } else {
+            await api.patch(`profiles/${createdId}`, fields);
+        }
+
+        await api.patch(`profiles/${createdId}/settings`, {
+            display: { money_format: form.value.display_format },
+            invoice: { money_format: form.value.invoice_format },
+        });
+        await loadProfiles();
+        await select(createdId);
+        await router.replace({ name: 'settings-taxes' });
+    } catch (caught) {
+        saveError.value = caught;
+    } finally {
+        creating.value = false;
+    }
+}
+
+const errors = computed(() => Object.fromEntries(
+    ['full_name', 'full_name_en', 'tax_id', 'registered_at', 'address', 'address_en', 'email', 'phone']
+        .map((field) => [field, fieldError(saveError.value, field)]),
+));
+const generalError = computed(() => (saveError.value && !Object.values(errors.value).some(Boolean) ? errorMessage(saveError.value) : null));
+
+const sample = (format: ProfileForm['display_format'], amount: string): string => formatAmount(amount, { format });
 </script>
 
 <template>
     <SubScreen :title="isNew ? t('settings.profile.newFop') : t('settings.profile.fopProfile')" :back="{ name: 'more' }">
-        <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <div class="flex items-start gap-3 rounded-control border border-line bg-surface px-3.5 py-3 text-13 text-ink-2">
-                <span class="text-14 leading-tight font-semibold text-ink"><Translated :text="t('settings.profile.groupBadge')"><template #br><br></template></Translated></span>
-                <span>{{ t('settings.profile.taxSystem') }}</span>
-            </div>
+        <LoadState :loading="loading && !isNew && !profile" :error="loadError" @retry="reload">
+            <Dimmable>
+                <p class="m-0 rounded-control border border-line bg-surface px-3.5 py-3 text-14 font-medium">{{ t('settings.profile.groupBanner') }}</p>
+            </Dimmable>
 
-            <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('settings.profile.taxpayer') }}</SectionTitle>
-                <TextField v-model="form.full_name" :label="t('settings.profile.fullName')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name')" />
-                <TextField v-model="form.full_name_en" :label="t('settings.profile.fullNameLatinHint')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'full_name_en')" />
-                <div class="grid grid-cols-2 gap-2.5">
-                    <TextField
-                        v-model="form.tax_id"
-                        :label="form.passport ? t('settings.profile.passport') : t('settings.profile.taxId')"
-                        class="num"
-                        :placeholder="existing?.tax_id_masked ?? ''"
-                        :disabled="!canEditIdentity"
-                        :error="fieldError(saveError, 'tax_id')"
+            <template v-if="isNew">
+                <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
+                    <h2 class="m-0 text-16 font-semibold">{{ t('settings.profile.taxpayer') }}</h2>
+                    <ProfilePersonFields v-model="form" :errors="errors" />
+                </section>
+                <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
+                    <h2 class="m-0 text-16 font-semibold">{{ t('settings.profile.addressContacts') }}</h2>
+                    <ProfileContactFields v-model="form" :errors="errors" />
+                </section>
+                <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
+                    <h2 class="m-0 text-16 font-semibold">{{ t('shell.nav.invoices') }}</h2>
+                    <ProfileInvoiceFields v-model="form" />
+                </section>
+                <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
+                    <h2 class="m-0 text-16 font-semibold">{{ t('settings.profile.moneyFormat') }}</h2>
+                    <ProfileFormatFields v-model="form" />
+                </section>
+                <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
+            </template>
+
+            <template v-else-if="profile">
+                <AccordionGroup id="person" :title="t('settings.profile.taxpayer')" :editable="canEditIdentity" :saving="saving" :error="generalError" @open="open" @save="saveGroup('person')">
+                    <ReadRow :label="t('settings.profile.fullNameShort')" :value="saved.full_name" />
+                    <ReadRow :label="t('settings.profile.latinShort')" :value="saved.full_name_en || '—'" />
+                    <ReadRow :label="saved.passport ? t('settings.profile.passport') : t('settings.profile.taxId')"><span class="num">{{ profile.tax_id_masked ?? '—' }}</span></ReadRow>
+                    <ReadRow :label="t('settings.profile.registrationShort')"><span class="num">{{ saved.registered_at ? formatDate(saved.registered_at) : '—' }}</span></ReadRow>
+                    <template #edit>
+                        <ProfilePersonFields v-model="form" :masked-tax-id="profile.tax_id_masked ?? ''" :errors="errors" />
+                    </template>
+                </AccordionGroup>
+
+                <AccordionGroup id="contacts" :title="t('settings.profile.addressContacts')" :editable="canEditIdentity" :saving="saving" :error="generalError" @open="open" @save="saveGroup('contacts')">
+                    <ReadRow :label="t('core.common.address')" :value="saved.address || '—'" />
+                    <ReadRow :label="t('settings.profile.englishShort')" :value="saved.address_en || '—'" />
+                    <ReadRow label="Email" :value="saved.email || '—'" />
+                    <ReadRow :label="t('settings.profile.phone')" :value="saved.phone || '—'" />
+                    <template #edit>
+                        <ProfileContactFields v-model="form" :errors="errors" />
+                    </template>
+                </AccordionGroup>
+
+                <AccordionGroup id="invoices" :title="t('shell.nav.invoices')" :editable="canEditIdentity" :saving="saving" :error="generalError" @open="open" @save="saveGroup('invoices')">
+                    <ReadRow :label="t('core.common.currency')" :value="saved.default_currency" />
+                    <ReadRow :label="t('settings.profile.languageShort')" :value="DOCUMENT_LOCALES.find((locale) => locale.value === saved.locale)?.label ?? saved.locale" />
+                    <ReadRow :label="t('settings.profile.signaturePdfs')">
+                        <img v-if="signature" :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-8 max-w-32 object-contain">
+                        <span v-else class="text-ink-3">{{ t('settings.profile.noSignature') }}</span>
+                    </ReadRow>
+                    <template #edit>
+                        <ProfileInvoiceFields v-model="form" />
+                        <div v-if="canConfigure" class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>
+                            <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">
+                                <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-10 max-w-32 object-contain">
+                                <span class="min-w-0 flex-1 truncate text-14 text-ink-2">{{ signature.name }}</span>
+                            </div>
+                            <label class="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
+                                <Icon :name="uploading ? 'spinner' : 'upload'" :size="20" :class="uploading ? 'animate-spin' : ''" />
+                                {{ signature ? t('settings.profile.replaceSignaturePng') : t('settings.profile.uploadSignaturePng') }}
+                                <input type="file" accept="image/png" class="sr-only" @change="uploadSignature">
+                            </label>
+                            <span v-if="signatureError" class="text-12 text-negative">{{ errorMessage(signatureError) }}</span>
+                        </div>
+                    </template>
+                </AccordionGroup>
+
+                <AccordionGroup id="formats" :title="t('settings.profile.moneyFormat')" :editable="canConfigure" :saving="saving" :error="generalError" @open="open" @save="saveGroup('formats')">
+                    <ReadRow :label="t('settings.profile.inApp')"><span class="num">{{ sample(saved.display_format, '1840135.05') }} ₴</span></ReadRow>
+                    <ReadRow :label="t('settings.profile.onInvoicesShort')"><span class="num">{{ sample(saved.invoice_format, '3892.50') }} {{ saved.default_currency }}</span></ReadRow>
+                    <template #edit>
+                        <ProfileFormatFields v-model="form" />
+                    </template>
+                </AccordionGroup>
+
+                <Dimmable class="flex flex-col gap-2">
+                    <SwitchCard
+                        :model-value="profile.is_active"
+                        :title="t('settings.profile.activeFop')"
+                        :sub="t('settings.profile.inactiveHint')"
+                        :disabled="!canEditIdentity || switching"
+                        @update:model-value="saveActive({ is_active: $event })"
                     />
-                    <DateField v-model="form.registered_at" :label="t('settings.profile.registrationDate')" :disabled="!canEditIdentity" :error="fieldError(saveError, 'registered_at')" />
-                </div>
-                <label class="flex min-h-11 items-center gap-3 text-15 text-ink-2">
-                    <input v-model="form.passport" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity">
-                    {{ t('settings.profile.passportHint') }}
-                </label>
-                <span class="-mt-2 text-12 text-ink-3">{{ t('settings.profile.taxIdHint') }}</span>
-            </section>
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('settings.profile.addressContacts') }}</SectionTitle>
-                <TextAreaField v-model="form.address" :label="t('core.common.address')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address')" />
-                <TextAreaField v-model="form.address_en" :label="t('settings.profile.addressEnglish')" :rows="2" :disabled="!canEditIdentity" :error="fieldError(saveError, 'address_en')" />
-                <TextField v-model="form.email" label="Email" type="email" :disabled="!canEditIdentity" :error="fieldError(saveError, 'email')" />
-                <TextField v-model="form.phone" :label="t('settings.profile.phone')" type="tel" placeholder="+380" :disabled="!canEditIdentity" :error="fieldError(saveError, 'phone')" />
-            </section>
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('shell.nav.invoices') }}</SectionTitle>
-                <div class="grid grid-cols-2 gap-2.5">
-                    <SelectField v-model="form.default_currency" :label="t('core.common.currency')" :disabled="!canEditIdentity" :options="CURRENCIES.map((currency) => ({ value: currency, label: currency }))" />
-                    <SelectField
-                        v-model="form.locale"
-                        :label="t('settings.profile.documentLanguage')"
-                        :hint="t('settings.profile.documentLanguageHint')"
-                        :disabled="!canEditIdentity"
-                        :options="DOCUMENT_LOCALES"
+                    <DateField
+                        v-if="!profile.is_active"
+                        :model-value="profile.closed_at ?? ''"
+                        :label="t('settings.profile.closingDate')"
+                        :hint="t('settings.profile.closingDateHint')"
+                        :max="today()"
+                        :disabled="!canEditIdentity || switching"
+                        @update:model-value="$event && saveActive({ closed_at: $event })"
                     />
-                </div>
-                <div v-if="!isNew" class="flex flex-col gap-1.5">
-                    <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>
-                    <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">
-                        <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-10 max-w-32 object-contain">
-                        <span class="min-w-0 flex-1 truncate text-14 text-ink-2">{{ signature.name }}</span>
-                    </div>
-                    <label
-                        v-if="canConfigure"
-                        class="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
-                    >
-                        <Icon :name="uploading ? 'spinner' : 'upload'" :size="20" :class="uploading ? 'animate-spin' : ''" />
-                        {{ signature ? t('settings.profile.replaceSignaturePng') : t('settings.profile.uploadSignaturePng') }}
-                        <input type="file" accept="image/png" class="sr-only" @change="uploadSignature">
-                    </label>
-                    <span v-if="signatureError" class="text-12 text-negative">{{ errorMessage(signatureError) }}</span>
-                </div>
-            </section>
-
-            <section class="flex flex-col gap-3">
-                <SectionTitle>{{ t('settings.profile.moneyFormat') }}</SectionTitle>
-                <SelectField
-                    v-model="form.display_format"
-                    :label="t('settings.profile.inApp')"
-                    :disabled="!canConfigure"
-                    :options="displayFormats"
-                />
-                <SelectField
-                    v-model="form.invoice_format"
-                    :label="t('settings.profile.onInvoices')"
-                    :disabled="!canConfigure"
-                    :options="FORMATS.map((format) => ({ value: format.value, label: format.label }))"
-                />
-                <div class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-14 text-ink-2">
-                    <span class="flex justify-between gap-3">{{ t('settings.profile.appLabel') }} <span class="num font-semibold text-ink">{{ sample(form.display_format, '1840135.05') }} ₴</span></span>
-                    <span class="flex justify-between gap-3">{{ t('settings.profile.invoiceLabel') }} <span class="num font-semibold text-ink">{{ sample(form.invoice_format, '3892.50') }} {{ form.default_currency }}</span></span>
-                </div>
-                <span class="text-12 text-ink-3">{{ t('settings.profile.moneyFormatHint') }}</span>
-            </section>
-
-            <label class="flex min-h-14 items-center justify-between gap-3 rounded-control border border-line bg-surface px-4">
-                <span class="flex flex-col gap-0.5">
-                    <span class="text-15">{{ t('settings.profile.activeFop') }}</span>
-                    <span class="text-12 text-ink-3">{{ t('settings.profile.inactiveHint') }}</span>
-                </span>
-                <input v-model="form.is_active" type="checkbox" class="size-5 accent-accent" :disabled="!canEditIdentity" @change="onActiveChange">
-            </label>
-            <DateField
-                v-if="!form.is_active"
-                v-model="form.closed_at"
-                :label="t('settings.profile.closingDate')"
-                :hint="t('settings.profile.closingDateHint')"
-                :max="today()"
-                :disabled="!canEditIdentity"
-                :error="fieldError(saveError, 'closed_at')"
-            />
-
-            <p v-if="!canEditIdentity && !isNew" class="m-0 text-13 text-ink-3">{{ t('settings.profile.ownerEditsIdentity') }}</p>
-            <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
+                    <p v-if="switchError" class="m-0 text-14 text-negative" role="alert">{{ switchError }}</p>
+                    <p v-if="!canEditIdentity" class="m-0 text-13 text-ink-3">{{ t('settings.profile.ownerEditsIdentity') }}</p>
+                    <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('core.accordion.oneAtATime') }}</p>
+                </Dimmable>
+            </template>
         </LoadState>
 
-        <template v-if="canEditIdentity || canConfigure" #footer>
-            <PrimaryButton :busy="saving" :disabled="loading || !form.full_name.trim() || (isNew && !form.tax_id.trim())" @click="save">
-                {{ isNew ? t('settings.profile.createFop') : t('core.common.save') }}
+        <template v-if="isNew && canEditIdentity" #footer>
+            <PrimaryButton :busy="creating" :disabled="!form.full_name.trim() || !form.tax_id.trim()" @click="create">
+                {{ t('settings.profile.createFop') }}
             </PrimaryButton>
         </template>
     </SubScreen>

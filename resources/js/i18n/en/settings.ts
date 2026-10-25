@@ -9,8 +9,6 @@ export default {
         defaultFormat: '{format} — default',
         newFop: 'New FOP',
         fopProfile: 'FOP profile',
-        groupBadge: 'Group{br}3',
-        taxSystem: '· simplified tax system · no VAT · no employees',
         taxpayer: 'Taxpayer',
         fullName: 'Full name',
         fullNameLatinHint: 'Full name in Latin letters — for invoices',
@@ -41,6 +39,14 @@ export default {
         ownerEditsIdentity:
             'The organization’s owner changes the taxpayer’s details, address, contacts and document language.',
         createFop: 'Create FOP',
+        groupBanner: 'Group 3 · simplified system · no VAT · no employees',
+        fullNameShort: 'Full name',
+        latinShort: 'In Latin',
+        registrationShort: 'Registered',
+        englishShort: 'In English',
+        languageShort: 'Language',
+        noSignature: 'Not uploaded',
+        onInvoicesShort: 'On invoices',
     },
 
     numbering: {

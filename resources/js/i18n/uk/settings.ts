@@ -9,8 +9,6 @@ export default {
         defaultFormat: '{format} — за замовчуванням',
         newFop: 'Новий ФОП',
         fopProfile: 'Профіль ФОП',
-        groupBadge: '3{br}група',
-        taxSystem: '· спрощена система · без ПДВ · без працівників',
         taxpayer: 'Податкова особа',
         fullName: 'ПІБ',
         fullNameLatinHint: 'ПІБ латиницею — для інвойсів',
@@ -40,6 +38,14 @@ export default {
         closingDateHint: 'Податки й ЄСВ відстежуються до цієї дати',
         ownerEditsIdentity: 'Дані податкової особи, адресу, контакти й мову документів змінює власник організації.',
         createFop: 'Створити ФОП',
+        groupBanner: '3 група · спрощена система · без ПДВ · без працівників',
+        fullNameShort: 'ПІБ',
+        latinShort: 'Латиницею',
+        registrationShort: 'Реєстрація',
+        englishShort: 'Англійською',
+        languageShort: 'Мова',
+        noSignature: 'Не завантажено',
+        onInvoicesShort: 'В інвойсах',
     },
 
     /** Нумерація інвойсів */

@@ -4,8 +4,12 @@ import { useRoute } from 'vue-router';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
 import { t } from '@/i18n';
-import type { TabName } from '@/router';
+import { type TabName, tabPaths } from '@/router';
 
+/**
+ * The bottom tab bar: each tab returns to its screen as it was left (`tabPaths`: the filters, and for a page kept
+ * alive its scroll), or opens it fresh the first time.
+ */
 const TABS: { name: TabName; label: string; icon: IconName; to: string }[] = [
     { name: 'home', get label() { return t('shell.nav.home'); }, icon: 'home', to: '/' },
     { name: 'invoices', get label() { return t('shell.nav.invoices'); }, icon: 'invoice', to: '/invoices' },
@@ -26,7 +30,7 @@ const active = computed(() => route.meta.tab);
         <RouterLink
             v-for="tab in TABS"
             :key="tab.name"
-            :to="tab.to"
+            :to="tabPaths[tab.name] ?? tab.to"
             :aria-current="active === tab.name ? 'page' : undefined"
             class="flex min-h-13 flex-1 flex-col items-center justify-center gap-[3px] text-11 no-underline"
             :class="active === tab.name ? 'font-semibold text-accent hover:text-accent' : 'font-medium text-ink-3 hover:text-ink'"

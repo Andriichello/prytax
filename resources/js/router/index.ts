@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { START_LOCATION, createRouter, createWebHistory, type RouteParamsGeneric, type RouteRecordRaw } from 'vue-router';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
@@ -9,6 +9,8 @@ declare module 'vue-router' {
     interface RouteMeta {
         /** The tab of the bottom bar, which a top-level screen belongs to. */
         tab?: TabName;
+        /** Kept alive by App (its component is in `KEPT_ALIVE`), so a tab coming back to it restores its scroll. */
+        keepAlive?: boolean;
         /** Pages for signed-out people only (signing in): a signed-in user goes home. */
         guest?: boolean;
         /** Pages for anyone (the reset link, "not found"). */
@@ -32,6 +34,12 @@ declare module 'vue-router' {
  */
 const record = (resource: string) => (params: RouteParamsGeneric): string => `${resource}/${params.id}`;
 
+/**
+ * Where the pages kept alive were scrolled when left, by route name, with the address they had: a tab, which comes
+ * back to the same address, comes back to the same place (going back restores it through the history anyway).
+ */
+const keptScroll = new Map<string, { path: string; top: number }>();
+
 const routes: RouteRecordRaw[] = [
     { path: '/login', name: 'login', component: () => import('@/pages/auth/LoginPage.vue'), meta: { guest: true } },
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/auth/ForgotPasswordPage.vue'), meta: { guest: true } },
@@ -44,7 +52,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },
     { path: '/overview', name: 'overview', redirect: { name: 'accounting' } },
 
-    { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices' } },
+    { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices', keepAlive: true } },
     { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['create', 'invoices'], denied: 'invoices' } },
     { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue'), meta: { record: record('invoices') } },
     { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice', record: record('invoices') } },
@@ -53,7 +61,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home' } },
     { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue'), meta: { record: record('payments') } },
     { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment', record: record('payments') } },
-    { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue') },
+    { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue'), meta: { keepAlive: true } },
     { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['create', 'account-transfers'], denied: 'transfers' } },
     { path: '/transfers/:id(\\d+)', name: 'transfer', component: () => import('@/pages/transfers/TransferDetailPage.vue'), meta: { record: record('transfers') } },
     { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['update', 'account-transfers'], denied: 'transfer', record: record('transfers') } },
@@ -84,7 +92,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/accounting/income-book', name: 'income-book', redirect: { name: 'accounting' } },
     { path: '/fees', name: 'fees', component: () => import('@/pages/accounting/FeesPage.vue') },
 
-    { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes' } },
+    { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes', keepAlive: true } },
     {
         path: '/taxes/:year(\\d{4})/:quarter([1-4])/payments',
         name: 'taxes-by-payment',
@@ -114,7 +122,40 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
     history: createWebHistory(),
     routes,
-    scrollBehavior: (_to, _from, savedPosition) => savedPosition ?? { top: 0 },
+    scrollBehavior: (to, _from, savedPosition) => {
+        if (savedPosition) {
+            return savedPosition;
+        }
+
+        const kept = to.meta.keepAlive ? keptScroll.get(String(to.name)) : undefined;
+
+        return kept && kept.path === to.fullPath ? { top: kept.top } : { top: 0 };
+    },
+});
+
+/**
+ * Where each tab's own screen was left (its address with the filters), so the tab bar returns to it as it was: the
+ * route of a tab's screen is named after the tab. Signing in starts afresh.
+ */
+export const tabPaths = reactive<Partial<Record<TabName, string>>>({});
+
+router.beforeEach((_to, from) => {
+    if (from.meta.keepAlive) {
+        keptScroll.set(String(from.name), { path: from.fullPath, top: window.scrollY });
+    }
+});
+
+router.afterEach((to, _from, failure) => {
+    if (failure) {
+        return;
+    }
+
+    if (to.meta.guest) {
+        keptScroll.clear();
+        (Object.keys(tabPaths) as TabName[]).forEach((tab) => delete tabPaths[tab]);
+    } else if (to.meta.tab && to.name === to.meta.tab) {
+        tabPaths[to.meta.tab] = to.fullPath;
+    }
 });
 
 /** Why the app couldn't start (the session or the profiles didn't load): App shows it with a retry. */

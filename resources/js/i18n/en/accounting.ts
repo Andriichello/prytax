@@ -7,40 +7,14 @@ import type uk from '@/i18n/uk/accounting';
 export default {
 
     quarters: {
-        groupBy: 'Group by',
-        none: 'None',
-        showList: 'Show in the list',
         feesNet: 'Fees and net',
         noReceipts: 'No receipts in {quarter} {year}.',
-        countOldestFirst: '{count} · oldest first',
-        noInvoice: 'No invoice',
-        paidInFull: 'Paid in full · {total}',
-        advancesOtherIncome: 'Advances and other income',
         quarterCsv: 'Quarter CSV',
         yearCsv: 'Year CSV',
-    },
-
-    paymentRow: {
-        refund: 'Refund',
-        toAccount: 'to {account}',
-        net: 'Net',
-    },
-
-    summary: {
-        quarterSummary: 'Quarter summary',
-        incomeFor: 'Income for {quarter} {year}',
-        incomeYearToDate: 'Income year to date',
-        taxOwed: '{tax} owed',
-        ytdMinusPrevious: '{ytd} YTD − {previousYtd} through {quarter}',
-        ytdMinusYearStart: '{ytd} YTD − {previousYtd} at the start of the year',
-        crossCheckRate: 'Cross-check: {rate} of the quarter’s income',
-        rateAboveCap: '{rate}, {excessRate} above the cap,',
-        crossCheckSum: 'Cross-check: sum over the receipts',
-        singleTaxYtd: 'Single tax YTD',
-        militaryLevyYtd: 'Military levy YTD',
-        sscYtd: 'SSC YTD',
-        incomeCap: 'Income cap',
-        excessTaxed: 'The {excess} above the cap is taxed at {rate}: {tax}.',
+        byMonth: 'By month',
+        byInvoice: 'By invoice',
+        ungrouped: 'Ungrouped',
+        summary: 'The quarter',
     },
 
     fees: {

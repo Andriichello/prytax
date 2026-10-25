@@ -122,14 +122,12 @@ export default {
         incomeCapFor: 'Ліміт доходу {year}',
         ofTotal: 'з {total}',
         incomeIn: 'Дохід {quarter}',
-        receivedOfInvoiced: 'отримано {received} з {invoiced} · {percent}',
         noInvoicesQuarter: 'Інвойсів за квартал немає.',
         taxableIncome: 'Дохід для податків: {amount}',
         taxesIn: 'Податки {quarter}',
         paidAmount: 'сплачено {amount}',
         sentAmount: 'надіслано {amount}',
-        noNotifications: 'Немає сповіщень',
-        unreadAlerts: { one: '{count} непрочитане сповіщення', few: '{count} непрочитані сповіщення', many: '{count} непрочитаних сповіщень' },
+        receivedOf: 'отримано {received} з {invoiced}',
     },
 
     /** «Фільтри» of Облік and Податки (design.md §16.2) */

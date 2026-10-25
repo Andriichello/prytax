@@ -6,8 +6,6 @@ import type uk from '@/i18n/uk/money';
  */
 export default {
     payment: {
-        advance: 'Advance',
-        otherIncome: 'Other income',
         markPaidFailed:
             'The receipt is saved, but invoice {number} couldn’t be marked paid. Do it on the invoice’s page.',
         incomeDate: 'Income date',
@@ -128,6 +126,8 @@ export default {
     receiptCard: {
         payBoth: 'Pay the single tax and the military levy of this receipt',
         payOne: 'Pay the {tax} of this receipt',
+        feesShort: 'Fees',
+        netShort: 'Net',
     },
 
     flow: {

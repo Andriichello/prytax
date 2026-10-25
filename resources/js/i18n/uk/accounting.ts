@@ -7,42 +7,14 @@ export default {
 
     /** Облік, Квартали */
     quarters: {
-        groupBy: 'Групувати',
-        none: 'Ні',
-        showList: 'Показувати в списку',
         feesNet: 'Комісії й чисто',
         noReceipts: 'У {quarter} {year} надходжень немає.',
-        countOldestFirst: '{count} · від старших',
-        noInvoice: 'Без інвойсу',
-        paidInFull: 'Оплачено повністю · {total}',
-        advancesOtherIncome: 'Аванси й інший дохід',
         quarterCsv: 'CSV кварталу',
         yearCsv: 'CSV за рік',
-    },
-
-    /** A receipt of Облік */
-    paymentRow: {
-        refund: 'Повернення',
-        toAccount: 'на {account}',
-        net: 'Чисто',
-    },
-
-    /** The summary of a quarter */
-    summary: {
-        quarterSummary: 'Підсумок кварталу',
-        incomeFor: 'Дохід за {quarter} {year}',
-        incomeYearToDate: 'Дохід з початку року',
-        taxOwed: '{tax} до сплати',
-        ytdMinusPrevious: '{ytd} за рік − {previousYtd} за {quarter}',
-        ytdMinusYearStart: '{ytd} за рік − {previousYtd} на початок року',
-        crossCheckRate: 'Перевірка: {rate} від доходу кварталу',
-        rateAboveCap: '{rate}, понад ліміт {excessRate},',
-        crossCheckSum: 'Перевірка: сума по надходженнях',
-        singleTaxYtd: 'ЄП за рік',
-        militaryLevyYtd: 'ВЗ за рік',
-        sscYtd: 'ЄСВ за рік',
-        incomeCap: 'Ліміт доходу',
-        excessTaxed: 'Перевищення ліміту {excess} оподатковується за {rate}: {tax}.',
+        byMonth: 'По місяцях',
+        byInvoice: 'По інвойсах',
+        ungrouped: 'Без групування',
+        summary: 'Підсумок кварталу',
     },
 
     /** Комісії */

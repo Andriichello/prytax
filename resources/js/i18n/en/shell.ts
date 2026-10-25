@@ -111,14 +111,12 @@ export default {
         incomeCapFor: 'Income cap {year}',
         ofTotal: 'of {total}',
         incomeIn: 'Income {quarter}',
-        receivedOfInvoiced: 'received {received} of {invoiced} · {percent}',
         noInvoicesQuarter: 'No invoices this quarter.',
         taxableIncome: 'Taxable income: {amount}',
         taxesIn: 'Taxes {quarter}',
         paidAmount: 'paid {amount}',
         sentAmount: 'sent {amount}',
-        noNotifications: 'No notifications',
-        unreadAlerts: { one: '{count} unread notification', other: '{count} unread notifications' },
+        receivedOf: 'received {received} of {invoiced}',
     },
 
     /** «Фільтри» of Облік and Податки (design.md §16.2) */

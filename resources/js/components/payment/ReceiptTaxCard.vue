@@ -4,21 +4,25 @@ import type { Payment, TaxType } from '@/api/types';
 import ReceiptHeader from '@/components/payment/ReceiptHeader.vue';
 import TaxPaymentBadge from '@/components/taxes/TaxPaymentBadge.vue';
 import { t } from '@/i18n';
-import { formatAmount } from '@/utils/money';
+import { formatAmount, formatCompact } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
 
 /**
  * A receipt card (design.md §16.4): the head, which links to the receipt, then its ЄП and ВЗ, each with its amount and
  * its payment's status, opening that payment (the recorded one, or a new one). With `payRow`, «Сплатити ЄП і ВЗ за
- * цим надходженням» shows while either is unpaid, and opens the first unpaid one. Inside a month card it is `flat`,
- * without its own border.
+ * цим надходженням» shows while either is unpaid, and opens the first unpaid one. Облік's switches hide the taxes
+ * (`taxes`) and add the fees and what is left net (`fees`: «Ком.», «Чисто»). Inside a month card it is `flat`, without
+ * its own border.
  */
 type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
-const { payment, payRow = false, flat = false } = defineProps<{
+const { payment, payRow = false, flat = false, taxes: showTaxes = true, fees = null } = defineProps<{
     payment: Payment;
     payRow?: boolean;
     flat?: boolean;
+    taxes?: boolean;
+    /** The receipt's fees and net income, in its currency. */
+    fees?: { fees: string | null; net: string | null } | null;
 }>();
 
 const taxes = computed(() => (['single_tax', 'military_levy'] as ReceiptTax[]).map((type) => {
@@ -44,9 +48,9 @@ const payLabel = computed(() => (unpaid.value.length === 2
 <template>
     <article class="flex flex-col bg-surface" :class="flat ? '' : 'rounded-card border border-line'">
         <ReceiptHeader :payment="payment" :to="{ name: 'payment', params: { id: payment.id } }" class="px-4 pt-3.5 pb-3" />
-        <div class="mx-4 flex flex-col divide-y divide-divider border-t border-dashed border-line-input">
+        <div v-if="showTaxes || fees" class="mx-4 flex flex-col divide-y divide-divider border-t border-dashed border-line-input">
             <RouterLink
-                v-for="tax in taxes"
+                v-for="tax in showTaxes ? taxes : []"
                 :key="tax.type"
                 :to="tax.to"
                 class="flex items-center gap-2 py-2.5 text-ink no-underline hover:text-ink"
@@ -57,6 +61,16 @@ const payLabel = computed(() => (unpaid.value.length === 2
                 </span>
                 <TaxPaymentBadge :status="tax.taxPayment?.status ?? null" :paid-at="tax.taxPayment?.paid_at" short />
             </RouterLink>
+            <template v-if="fees">
+                <span class="flex items-center gap-2 py-2.5">
+                    <span class="w-11 shrink-0 text-14 font-semibold">{{ t('money.receiptCard.feesShort') }}</span>
+                    <span class="num flex-1 text-15 font-semibold">{{ fees.fees !== null ? formatCompact(fees.fees, payment.currency) : '—' }}</span>
+                </span>
+                <span class="flex items-center gap-2 py-2.5">
+                    <span class="w-11 shrink-0 text-14 font-semibold">{{ t('money.receiptCard.netShort') }}</span>
+                    <span class="num flex-1 text-15 font-semibold text-positive">{{ fees.net !== null ? formatCompact(fees.net, payment.currency) : '—' }}</span>
+                </span>
+            </template>
         </div>
         <RouterLink
             v-if="payRow && unpaid.length"

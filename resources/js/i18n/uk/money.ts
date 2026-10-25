@@ -6,8 +6,6 @@ import type { Messages } from '@/i18n/types';
 export default {
     /** A receipt's page */
     payment: {
-        advance: 'Аванс',
-        otherIncome: 'Інший дохід',
         markPaidFailed:
             'Надходження збережено, але позначити оплаченим інвойс {number} не вдалося. Зробіть це на сторінці інвойсу.',
         incomeDate: 'Дата доходу',
@@ -130,6 +128,8 @@ export default {
     receiptCard: {
         payBoth: 'Сплатити ЄП і ВЗ за цим надходженням',
         payOne: 'Сплатити {tax} за цим надходженням',
+        feesShort: 'Ком.',
+        netShort: 'Чисто',
     },
 
     /** A receipt's money flow */

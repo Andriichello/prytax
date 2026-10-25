@@ -61,9 +61,8 @@ const documentSummary = computed(() => {
 
     const own = [
         client.value.payment_purpose_template !== null ? t('invoices.document.ownPurpose') : null,
-        client.value.invoice_note_enabled
-            ? (client.value.invoice_note_kind === 'payment' ? t('invoices.document.paymentNote') : t('invoices.document.otherNote'))
-            : null,
+        client.value.payment_note_enabled ? t('invoices.document.paymentNote') : null,
+        client.value.other_note_enabled ? t('invoices.document.otherNote') : null,
     ].filter(Boolean);
     const currency = client.value.currency
         ?? (profile.value ? t('invoices.document.currencyAsProfile', { currency: profile.value.default_currency }) : null);

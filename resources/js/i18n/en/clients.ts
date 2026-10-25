@@ -71,10 +71,16 @@ export default {
         city: 'City',
         stateRegion: 'State / region',
         postalCode: 'Postal code',
-        taxDetails: 'Tax details',
+        taxDetails: 'Tax details and email',
         invoiceDefaults: 'Invoice defaults',
         currencyHint: 'The currency of the client’s new contracts and invoices',
         notPrinted: 'Not printed',
+        mainGroup: 'Main',
+        lookGroup: 'Currency, language, contract and style',
+        withSource: '{value} · {source}',
+        sourceProfile: 'as the FOP’s',
+        sourceOwn: 'own',
+        noteEmpty: 'Empty · not printed',
     },
 
     contract: {

@@ -115,38 +115,39 @@ const chipClass = (active: boolean): string => (active
                 {{ t('core.common.new') }}
             </RouterLink>
         </template>
-
-        <nav :aria-label="t('invoices.list.filters')" class="-mx-4 -mt-0.5 flex gap-2 overflow-x-auto px-4 pb-0.5">
-            <button
-                type="button"
-                class="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
-                :class="chipClass(periodSummary !== null)"
-                @click="filtering = true"
-            >
-                <Icon name="calendar" :size="16" />
-                <span :class="periodSummary && /^\d/.test(periodSummary) ? 'num' : ''">{{ periodSummary ?? t('core.common.period') }}</span>
-                <Icon name="chevronDown" :size="16" />
-            </button>
-            <button
-                v-for="chip in chips"
-                :key="chip.key"
-                type="button"
-                class="flex min-h-11 max-w-56 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
-                :class="chipClass(chip.active)"
-                @click="filtering = true"
-            >
-                <span class="truncate">{{ chip.label }}</span>
-                <Icon name="chevronDown" :size="16" />
-            </button>
-            <button
-                v-if="countFilters(filters) > 0"
-                type="button"
-                class="flex min-h-11 shrink-0 items-center px-2 text-14 font-medium text-accent"
-                @click="apply(emptyFilters())"
-            >
-                {{ t('invoices.list.reset') }}
-            </button>
-        </nav>
+        <template #filters>
+            <nav :aria-label="t('invoices.list.filters')" class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
+                <button
+                    type="button"
+                    class="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
+                    :class="chipClass(periodSummary !== null)"
+                    @click="filtering = true"
+                >
+                    <Icon name="calendar" :size="16" />
+                    <span :class="periodSummary && /^\d/.test(periodSummary) ? 'num' : ''">{{ periodSummary ?? t('core.common.period') }}</span>
+                    <Icon name="chevronDown" :size="16" />
+                </button>
+                <button
+                    v-for="chip in chips"
+                    :key="chip.key"
+                    type="button"
+                    class="flex min-h-11 max-w-56 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
+                    :class="chipClass(chip.active)"
+                    @click="filtering = true"
+                >
+                    <span class="truncate">{{ chip.label }}</span>
+                    <Icon name="chevronDown" :size="16" />
+                </button>
+                <button
+                    v-if="countFilters(filters) > 0"
+                    type="button"
+                    class="flex min-h-11 shrink-0 items-center px-2 text-14 font-medium text-accent"
+                    @click="apply(emptyFilters())"
+                >
+                    {{ t('invoices.list.reset') }}
+                </button>
+            </nav>
+        </template>
 
         <LoadState :loading="list.loading.value && list.items.value.length === 0" :error="list.error.value" @retry="list.reload">
             <EmptyState

@@ -1061,7 +1061,8 @@ Added by v4 («Minimal»):
   the typed original amount.
 - **Податки (SPA):**
   - the quarter range: every rule of §16.2, and a change of year keeping the range;
-  - the multi-selects: removing the last option selects all; the badge labels;
+  - the multi-selects: removing the last tax leaves none, which shows all; removing the last status selects all; the
+    badge labels;
   - the summary: the band only for two taxes or more, the bar widths (`paid / accrued`, `sent / accrued`), the ticks
     (months for ЄСВ, quarters for the others), green and amber only above zero;
   - navigation: an unpaid ЄП/ВЗ row opens the receipt's payment prefilled, an unpaid ЄСВ row that month; no pay row on
@@ -1217,14 +1218,14 @@ the Ukrainian one.
 
     - **The hint** under the quarters: «Увесь рік. Натисніть квартал, щоб обрати лише його.» for the whole year, else
       «Обрано II–IV кв. Інший квартал розширює діапазон; обраний — прибирає його. Прибрати єдиний — увесь рік.»
-  - **Податки:** ЄП · ВЗ · ЄСВ, several at once, all of them by default. Removing the last one selects all again. The
-    badge reads «Усі податки» or the chosen ones («ЄП, ВЗ»). The hint is «Можна обрати кілька. Прибрати останній —
-    знову всі.»
-  - **Статус:** Не сплачено · Не пройшов · Надіслано · Сплачено, with the same rules. The badge reads «Усі статуси» or
-    the chosen ones («Не пройшов, Надіслано»). The hint is «Підсумок рахує лише обрані статуси. Прибрати останній —
-    знову всі.»
+  - **Податки:** ЄП · ВЗ · ЄСВ, several at once, all of them by default. None chosen means all, as all chosen does
+    (the owner, 2026-10-25): removing the last one leaves none chosen. The badge reads «Усі податки» for both, or the
+    chosen ones («ЄП, ВЗ»). The hint is «Можна обрати кілька. Не обрано жодного — показуються всі.»
+  - **Статус:** Не сплачено · Не пройшов · Надіслано · Сплачено, several at once, all of them by default. Removing the
+    last one selects all again. The badge reads «Усі статуси» or the chosen ones («Не пройшов, Надіслано»). The hint is
+    «Підсумок рахує лише обрані статуси. Прибрати останній — знову всі.»
   - **The URL** mirrors the filters (§10): `year`, `quarters` (`2-4`, `4`, or `all` for the whole year), `taxes` and
-    `statuses` (comma-separated, left out when all are chosen). A link without `quarters` opens the current quarter
+    `statuses` (comma-separated, left out when all are chosen; `taxes=` empty when no tax is). A link without `quarters` opens the current quarter
     of the current year, or a whole other year; an old link's `quarter` names one quarter. The first handoff's
     `?mode=` is gone.
 - **Інвойси** keeps its filters (years, quarters, months or a range; clients; statuses; currencies; the live count),

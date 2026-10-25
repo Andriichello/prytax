@@ -77,6 +77,7 @@ class AllocationProposer
                 'payment_id' => $holding['payment']->getKey(),
                 'received_at' => $holding['payment']->received_at->toDateString(),
                 'invoice_number' => $holding['payment']->invoice?->number,
+                'invoice_source' => $holding['payment']->invoice?->source?->value,
                 'client_name' => $holding['payment']->invoice?->client?->name,
                 'description' => $holding['payment']->description,
                 'holding' => Decimal::money($holding['amount']),

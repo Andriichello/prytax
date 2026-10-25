@@ -4,6 +4,8 @@ namespace Tests\Feature\Services\Reports;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
+use PryTax\Models\Client;
+use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Services\Reports\AccountingExporter;
@@ -26,7 +28,8 @@ class AccountingExporterTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Create a profile with a receipt of 1 000 USD at 41.0000 on 05.10.2026, of which 985 landed.
+     * Create a profile with a payment without an invoice from Kestrel Studio: 1 000 USD at 41.0000 on 05.10.2026, of
+     * which 985 landed.
      *
      * @param string $moneyFormat
      *
@@ -37,9 +40,14 @@ class AccountingExporterTest extends TestCase
         $profile = $this->createProfile();
         $this->inProfile($profile, function () use ($profile, $moneyFormat) {
             $profile->updateSettings(['display.money_format' => $moneyFormat]);
+            $client = Client::factory()->create(['profile_id' => $profile->id, 'name' => 'Kestrel Studio']);
+            $account = $this->createAccount($profile);
             Payment::factory()->create([
-                'profile_id' => $profile->id, 'received_to_account_id' => $this->createAccount($profile)->id,
-                'received_amount' => '985.00', 'description' => 'Бонус платформи',
+                'profile_id' => $profile->id, 'received_to_account_id' => $account->id, 'received_amount' => '985.00',
+                'invoice_id' => Invoice::factory()->virtual()->create([
+                    'profile_id' => $profile->id, 'client_id' => $client->id, 'receiving_account_id' => $account->id,
+                    'issued_at' => '2026-10-05', 'total' => '1000.00',
+                ])->id,
             ]);
         });
 
@@ -74,7 +82,7 @@ class AccountingExporterTest extends TestCase
         $rows = $this->rows($this->inProfile($profile, fn () => app(AccountingExporter::class)->quarter($profile, 2026, 4)));
 
         $this->assertSame(['Комісії', 'Чисто'], array_slice($rows[0], 9, 2));
-        $this->assertSame(['2026-10-05', '', 'Бонус платформи', 'USD', '1000.00', '41.0000', '41000.00', '2050.00', '410.00', '15.00', '925.00'], array_slice($rows[1], 0, 11));
+        $this->assertSame(['2026-10-05', 'Без інвойсу', 'Kestrel Studio', 'USD', '1000.00', '41.0000', '41000.00', '2050.00', '410.00', '15.00', '925.00'], array_slice($rows[1], 0, 11));
         $this->assertContains(['ЄП до сплати, ₴', '2050.00', 'окремо', '2050.00', 'за надходженнями', '2050.00'], $rows);
     }
 
@@ -107,7 +115,7 @@ class AccountingExporterTest extends TestCase
 
         $rows = $this->rows($this->inProfile($profile, fn () => app(AccountingExporter::class)->incomeBook($profile, 2026)));
 
-        $this->assertContains(['2026-10-05', '', 'Бонус платформи', 'USD', '1000.00', '41.0000', '41000.00', '', ''], $rows);
+        $this->assertContains(['2026-10-05', 'Без інвойсу', 'Kestrel Studio', 'USD', '1000.00', '41.0000', '41000.00', '', ''], $rows);
         $this->assertContains(['2026-10', 'Підсумок місяця', '', '', '', '', '', '41000.00', '41000.00'], $rows);
         $this->assertSame(['Рік', 'Підсумок року', '', '', '', '', '', '41000.00', '41000.00'], end($rows));
     }
@@ -123,6 +131,6 @@ class AccountingExporterTest extends TestCase
 
         $rows = $this->rows($this->inProfile($profile, fn () => app(AccountingExporter::class)->year($profile, 2026)), ';');
 
-        $this->assertContains(['2026-10-05', '', 'Бонус платформи', 'USD', '1000,00', '41,0000', '41000,00', '2050,00', '410,00', '15,00', '925,00', 'Wise USD'], $rows);
+        $this->assertContains(['2026-10-05', 'Without an invoice', 'Kestrel Studio', 'USD', '1000,00', '41,0000', '41000,00', '2050,00', '410,00', '15,00', '925,00', 'Wise USD'], $rows);
     }
 }

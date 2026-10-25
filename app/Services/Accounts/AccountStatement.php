@@ -96,6 +96,7 @@ class AccountStatement
                 'received_at' => $payment->received_at->toDateString(),
                 'invoice_id' => $payment->invoice_id,
                 'invoice_number' => $payment->invoice?->number,
+                'invoice_source' => $payment->invoice?->source?->value,
                 'client_name' => $payment->invoice?->client?->name,
                 'description' => $payment->description,
                 'amount' => Decimal::money($holding['amount']),
@@ -153,6 +154,7 @@ class AccountStatement
                     : null,
                 'payment_id' => $payment->getKey(),
                 'invoice_number' => $payment->invoice?->number,
+                'invoice_source' => $payment->invoice?->source?->value,
                 'title' => $payment->invoice?->client?->name ?? $payment->description,
             ]));
 

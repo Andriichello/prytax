@@ -2,6 +2,7 @@
 
 namespace PryTax\Services\Reports;
 
+use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\MoneyFormat;
 use PryTax\Models\Profile;
 use PryTax\Models\TaxPayment;
@@ -114,7 +115,7 @@ class AccountingExporter
             foreach ($documents->get($month['month'], []) as $row) {
                 $rows[] = [
                     $row['date'],
-                    $row['invoice_number'] ?? ($row['type'] === 'refund' ? __('Refund') : ''),
+                    $this->document($row),
                     $row['client_name'] ?? $row['description'] ?? '',
                     $row['currency'],
                     $row['amount'],
@@ -163,7 +164,7 @@ class AccountingExporter
     {
         return $this->accounting->rows($year, $quarter)->map(fn (array $row) => [
             $row['date'],
-            $row['invoice_number'] ?? ($row['type'] === 'refund' ? __('Refund') : ''),
+            $this->document($row),
             $row['client_name'] ?? $row['description'] ?? '',
             $row['currency'],
             $row['amount'],
@@ -213,6 +214,22 @@ class AccountingExporter
             'military_levy' => __('Military levy'),
             default => __('SSC'),
         };
+    }
+
+    /**
+     * Get the document of a row: the invoice's number, «Без інвойсу» for a payment without an invoice, or the refund.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return string
+     */
+    protected function document(array $row): string
+    {
+        if (($row['invoice_source'] ?? null) === InvoiceSource::Virtual->value) {
+            return $row['type'] === 'refund' ? __('Refund') : __('Without an invoice');
+        }
+
+        return $row['invoice_number'] ?? ($row['type'] === 'refund' ? __('Refund') : '');
     }
 
     /**

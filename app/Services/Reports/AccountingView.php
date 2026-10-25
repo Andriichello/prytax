@@ -65,6 +65,7 @@ class AccountingView
             ->map(fn (Invoice $invoice) => [
                 'id' => $invoice->id,
                 'number' => $invoice->number,
+                'source' => $invoice->source->value,
                 'status' => $invoice->status->value,
                 'client_id' => $invoice->client_id,
                 'client_name' => $invoice->client->name,
@@ -119,6 +120,7 @@ class AccountingView
                     'month' => $payment->period_month,
                     'invoice_id' => $payment->invoice_id,
                     'invoice_number' => $payment->invoice?->number,
+                    'invoice_source' => $payment->invoice?->source?->value,
                     'client_name' => $payment->invoice?->client?->name,
                     'description' => $payment->description,
                     'currency' => $payment->currency,
@@ -149,6 +151,7 @@ class AccountingView
                 'month' => $refund->period_month,
                 'invoice_id' => $refund->payment?->invoice_id,
                 'invoice_number' => $refund->payment?->invoice?->number,
+                'invoice_source' => $refund->payment?->invoice?->source?->value,
                 'client_name' => $refund->payment?->invoice?->client?->name,
                 'description' => $refund->reason,
                 'currency' => $refund->currency,

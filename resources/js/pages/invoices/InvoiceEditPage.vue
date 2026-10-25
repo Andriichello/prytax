@@ -30,7 +30,7 @@ import TextField from '@/components/form/TextField.vue';
 import FreezeSheet from '@/components/invoice/FreezeSheet.vue';
 import InvoiceDocumentLook from '@/components/invoice/InvoiceDocumentLook.vue';
 import InvoiceDocumentTexts from '@/components/invoice/InvoiceDocumentTexts.vue';
-import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
+import InvoiceItemCard, { type ItemView } from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceItemSheet, { type ItemDraft } from '@/components/invoice/InvoiceItemSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
@@ -522,6 +522,18 @@ const itemAmounts = computed(() => form.items.map((item) => {
     return quantity !== null && price !== null ? multiplyAmounts(quantity, price) : null;
 }));
 const subtotal = computed(() => sumAmounts(...itemAmounts.value));
+
+/** An item as its card shows it: the typed quantity and price as amounts, with its project's code and work type. */
+function itemView(item: ItemDraft, index: number): ItemView {
+    return {
+        ...item,
+        quantity: parseAmount(item.quantity) ?? item.quantity,
+        unit_price: parseAmount(item.unit_price) ?? (item.unit_price || null),
+        project_code: projects.value.find((project) => project.id === item.project_id)?.code ?? null,
+        charge_type: chargeTypes.value.find((type) => type.id === item.charge_type_id)?.name ?? null,
+        amount: itemAmounts.value[index] ?? null,
+    };
+}
 const adjustment = computed(() => parseAmount(form.adjustment_amount) ?? '0.00');
 const total = computed(() => (form.source === 'external' ? parseAmount(form.total) ?? '0.00' : sumAmounts(subtotal.value, adjustment.value)));
 
@@ -1115,12 +1127,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                     </SectionTitle>
                     <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
                         <InvoiceItemCard
-                            :item="{
-                                ...item,
-                                project_code: projects.find((project) => project.id === item.project_id)?.code ?? null,
-                                charge_type: chargeTypes.find((type) => type.id === item.charge_type_id)?.name ?? null,
-                                amount: itemAmounts[index] ?? null,
-                            }"
+                            :item="itemView(item, index)"
                             editable
                             @open="openItem(item)"
                         />
@@ -1306,12 +1313,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                     </SectionTitle>
                     <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
                         <InvoiceItemCard
-                            :item="{
-                                ...item,
-                                project_code: projects.find((project) => project.id === item.project_id)?.code ?? null,
-                                charge_type: chargeTypes.find((type) => type.id === item.charge_type_id)?.name ?? null,
-                                amount: itemAmounts[index] ?? null,
-                            }"
+                            :item="itemView(item, index)"
                             editable
                             @open="openItem(item)"
                         />

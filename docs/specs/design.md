@@ -1349,3 +1349,5 @@ Board numbers are in brackets.
 - Going back to Інвойси, Перекази or Податки from a record opened there returns to the same place, scroll and filters
   kept, without loading again (the owner, 2026-10-25). Only when something was saved meanwhile do they read their data
   again, quietly, keeping the place.
+- A tab returns to its screen as it was left: its filters, and on Інвойси and Податки its scroll too, without loading
+  again (the owner, 2026-10-25). The first visit opens it fresh, and signing in starts afresh.

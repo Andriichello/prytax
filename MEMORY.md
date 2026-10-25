@@ -106,6 +106,12 @@ the owner's note that English keeps ЄП, ВЗ, ЄСВ and ФОП: specs first (
   again on return only when `dataVersion` (`api/client.ts`: accepted writes, but `…/preview` and `…/propose`) moved.
   Checked over ngrok with 600 ms latency: no API calls on return, scroll kept; `composables/useLoader.test.ts` mounts
   a KeepAlive with an in-memory renderer (no DOM package). Інвойси's lost scroll didn't reproduce in desktop Chrome.
+- **Switching tabs (the user's report, 2026-10-25):** it lagged and showed the wrong page. Cause: `App.vue` had the
+  `v-if` on the page inside `KeepAlive`; a `v-if` gives the key 0, KeepAlive caches by key, so every kept page shared
+  one cache entry (`parentComponent.ctx.deactivate is not a function`). The `v-if` now sits on the `KeepAlive`. Tabs
+  also return to their screen as left: `tabPaths` (router `afterEach`, the route named after the tab) feeds `TabBar`,
+  and `scrollBehavior` restores a kept page's scroll (`meta.keepAlive`, saved in a `beforeEach`) when the address is
+  the same. Checked over ngrok: no errors, no API calls, filters and scroll kept.
 - **No zoom on phones and tablets (the user's request, 2026-10-25):** the viewport's `maximum-scale=1,
   user-scalable=no`, `touch-action: manipulation` on `html`, and `app.ts` cancels iOS Safari's `gesture*` events.
   Headless Chrome can't pinch, so only the settings were checked there; the style preview can't be pinched either.

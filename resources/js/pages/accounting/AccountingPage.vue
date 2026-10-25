@@ -170,7 +170,7 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
             </RouterLink>
         </template>
         <template #filters>
-            <div class="-mx-4 flex gap-2 overflow-x-auto px-4">
+            <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
                 <FilterBadge :label="`${quarterLabel(quarter)} ${year}`" period @click="filterOpen = true" />
                 <FilterBadge :label="groupingOptions.find((option) => option.value === grouping)?.label ?? ''" @click="filterOpen = true" />
             </div>

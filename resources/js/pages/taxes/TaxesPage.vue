@@ -73,7 +73,7 @@ function applyFilter(filter: PeriodFilter): void {
             <SegmentedControl v-model="modeModel" :label="t('accounting.taxes.view')" size="lg" :options="modeOptions" />
         </template>
         <template #filters>
-            <div class="-mx-4 flex gap-2 overflow-x-auto px-4">
+            <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
                 <FilterBadge :label="periodLabel" period @click="filterOpen = true" />
             </div>
         </template>

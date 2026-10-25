@@ -595,7 +595,7 @@ global scope, because the books must see them.
   `paid`. The issue date stays the payment date, and the period stays as entered. The invoice gets one `fixed` item
   for the whole amount, its description expanded from the contract's `description_template`.
 - **«Прив’язати до виставленого інвойсу»** (`PATCH payments/{payment} {invoice_id}`): the receipt moves to a `ready`,
-  `sent` or `paid` invoice in its currency (the existing receipt move, with its coverage and paid/reopen rules), and
+  `sent` or `paid` invoice in its currency (the screen offers the client's ones) (the existing receipt move, with its coverage and paid/reopen rules), and
   the virtual invoice is deleted in the same transaction. No other receipt can join a virtual invoice.
 
 **Screens** (§16.5): «Інвойс для надходження» (board 041), «Нове надходження» without an invoice (042), the list rows

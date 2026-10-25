@@ -1,6 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-24: `main` = `dev` has everything: backend, frontend, the QA pass, its follow-ups (the user's
+Status as of 2026-10-25: the «Minimal» redesign (design.md v4) is built on branch `feat/minimal` (from `dev`, not
+merged, not pushed); see "Minimal". Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys
 (merged on 2026-10-24, the user asked), and the invoice settings cascade with the 13 invoice styles (`feat/invoice-v2`,
 fast-forwarded and pushed on 2026-10-24, the user asked). Read this file first when resuming, then `CLAUDE.md`,
@@ -19,6 +20,7 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 | 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done, merged and pushed** (2026-10-24); see "Invoice document" |
 | 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
+| 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Built on `feat/minimal`** (2026-10-25), not merged; see "Minimal" |
 
 - **Branches:** `main` and `dev` = backend + frontend + QA pass + follow-ups + English + translation keys + the
   invoice settings and styles (fast-forwarded and pushed on 2026-10-24, the user asked; the merged branches were
@@ -42,13 +44,39 @@ design handoff; the screens are in `storage/handoff/prytax-design-handoff/`). Th
 
 ### First steps of the next session
 
-1. What is left: XLSX exports and the yearly PDF summary (need a package, so approval), pixel polish against the
-   mocks, design.md's "pending" items (Appendix A, B2, B5), `SheetImporter`.
+1. Ask the user to review `feat/minimal` and whether to merge it into `dev` (and push). Then what is left:
+   docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX
+   exports and the yearly PDF summary (need a package, so approval), pixel polish against the boards, `SheetImporter`.
 2. Nothing of PryTax runs between sessions: the dev server (8010) and the headless Chrome (9223) were stopped at the
    end of 2026-10-21. Start the dev server on port 8010 (command under "Frontend"), `npm run build` (or `npm run
    dev`), sign in as `olena@example.com` / `password`; start Chrome only to check the UI (under "Checking the UI").
    Leave port 8000 (`php artisan serve` of `/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers
    alone.
+
+## Minimal (2026-10-25, branch `feat/minimal`)
+
+Claude Design's «Minimal» handoff (`storage/handoff/prytax-minimal-handoff.zip`, `MINIMAL_APP.md`, `CHAT_LOG.md`, out
+of git) became design.md v4 (§14 lists the phase, §16 the screens) with the owner's answers of 2026-10-25 (no real
+data, so options were dropped and the demo reseeded; ЄСВ due with its quarter; no ЄСВ exempt marking; tax payments
+from a USD account carry a hand-typed original amount; one ФОП at a time, accountants switch by links; kopeck
+remainders of per-receipt ЄП/ВЗ skipped for now). docs/specs/suggestions.md was rewritten (§1 deferred, §2 hidden).
+
+- **Backend:** options removed (`accounts.limit_window/limit_counts`, `income.taxable_base`, `taxes.default_grouping`),
+  `taxes.payment_account_ids`; two notes (payment and other) instead of one; virtual invoices
+  (`invoices.source = virtual`, `VirtualInvoices`, `POST payments` with `virtual_invoice`, `POST invoices/{id}/issue`,
+  the status filter `virtual`); tax payments: ЄП/ВЗ only per receipt at its amounts (one per tax), ЄСВ by month,
+  `original_amount/original_currency` from a foreign-currency account; ЄСВ exempt marking removed.
+- **SPA:** the static top bar and sticky root headers (filter badges, `PeriodFilterSheet`), hidden screens redirect;
+  accordion forms (`AccordionGroup`, `ReadRow`, `Dimmable`, `SwitchCard`; one group open, each saving its own fields)
+  for Документ інвойсу, Рахунок, Клієнт, the invoice editor (the draft saves per group), Профіль, Нумерація,
+  Податки й сповіщення (payment accounts with routes) and Договір; Інвойс для надходження, the receipt form without
+  an invoice, the «Без інвойсу» record (issue or attach); receipt cards (`ReceiptTaxCard`, `MonthCard`); Облік (the
+  quarter's summary, receipts by month / invoice / none, fees on demand); Податки (Нарахування | Історія сплат);
+  Сплата ЄП / ВЗ (`tax-payment(-new)`) and Сплата ЄСВ (`esv-payment(-new)`); Головна (two quarters, every status);
+  the transfer form's tappable balance. The refund action is gone from the receipt page.
+- **Checks:** PHP suite (404 tests), `npm test` (529), `npm run typecheck`, `npm run build`, browser checks of every screen
+  (scratchpad `tools/act.mjs`). The translation guard (`resources/js/i18n/i18n.test.ts`) fails on unused keys: prune
+  them after removing UI.
 
 ## QA pass (2026-10-21, branch `dev-qa-fixes`)
 
@@ -417,9 +445,12 @@ Organization "Практика Коваленко" with `olena@example.com` (own
 and no tax payment is dated after today. Verified against the mock (and by `DemoSeederTest`):
 
 - III кв.: 503 118.73 ₴, YTD 1 487 175.04, ЄП 25 155.93 = 74 358.75 − 49 202.82, checks 25 155.94 (Δ −0.01), ВЗ 5 031.19.
-- IV кв.: 352 960.01 ₴, YTD 1 840 135.05, ЄП 17 648.00 (hints 17 648.01), ВЗ 3 529.60, ЄСВ year 22 828.08, limit 18.2 %.
-- ЄП balance today −18 413.69 (III кв. −765.69, IV кв. 8 218.96 pending); all monthly totals of the income book.
-- Balances: Wise USD 8 217.50, Wise EUR 1 540.00, Payoneer 312.40, ПриватБанк UAH 286 410.37, ПриватБанк USD 2 650.00.
+- IV кв. (with Kestrel's advance of 500 USD without an invoice, 19.10): 373 967.51 ₴, YTD 1 861 142.55, ЄП 18 698.38
+  (hints 18 698.39), ВЗ 3 739.68, limit 18.4 %.
+- Taxes (Minimal): ЄП and ВЗ paid per receipt (Nordwave's external invoice from ПриватБанк USD at the bank's 41.20, so
+  19.82 + 3.96 USD left it), ЄСВ by month on the 19th of the next one; no quarter allocations. ЄП balance today
+  −18 647.36 (III кв. +51.02, the opening +51.00 and kopeck remainders; IV кв. 8 218.96 pending).
+- Balances: Wise USD 8 717.50, Wise EUR 1 540.00, Payoneer 312.40, ПриватБанк UAH 286 410.37, ПриватБанк USD 2 626.22.
 - Receipt of 05.10.2026: 164 379.11 ₴, ЄП 8 218.96, ВЗ 1 643.79 (fees and net income are tested in `PaymentFlowTest`).
 - Known differences from the mock: Payoneer's limit is at 76 % (mock 84 %), so no limit notice; the overview's IV кв.
   income per currency follows the spec (invoices issued in the quarter), so it differs from the mock's figures.

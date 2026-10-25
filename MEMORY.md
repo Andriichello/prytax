@@ -106,6 +106,9 @@ the owner's note that English keeps ЄП, ВЗ, ЄСВ and ФОП: specs first (
   again on return only when `dataVersion` (`api/client.ts`: accepted writes, but `…/preview` and `…/propose`) moved.
   Checked over ngrok with 600 ms latency: no API calls on return, scroll kept; `composables/useLoader.test.ts` mounts
   a KeepAlive with an in-memory renderer (no DOM package). Інвойси's lost scroll didn't reproduce in desktop Chrome.
+- **No zoom on phones and tablets (the user's request, 2026-10-25):** the viewport's `maximum-scale=1,
+  user-scalable=no`, `touch-action: manipulation` on `html`, and `app.ts` cancels iOS Safari's `gesture*` events.
+  Headless Chrome can't pinch, so only the settings were checked there; the style preview can't be pinched either.
 - **ngrok (2026-10-25, the user asked, to test from a phone):** `ngrok http 8010` runs in the background
   (`https://23dd-91-247-39-213.ngrok-free.app`); `.env` got `ASSET_URL` = that URL and the host appended to
   `SANCTUM_STATEFUL_DOMAINS` (the backup is in that session's scratchpad). While `ASSET_URL` is set, localhost loads

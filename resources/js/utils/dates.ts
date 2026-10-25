@@ -47,13 +47,58 @@ export function parseDisplayDate(text: string): string | null {
     }
 
     const [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > daysInMonth) {
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
         return null;
     }
 
+    return dateOf(year, month, day);
+}
+
+/** The days of a month (1–12) of a year. */
+export function daysInMonth(year: number, month: number): number {
+    return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** The `YYYY-MM-DD` of a day. */
+export function dateOf(year: number, month: number, day: number): string {
     return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+/**
+ * The weeks of a month as a calendar shows them, Monday first: rows of seven days, `null` before the 1st and after
+ * the last day.
+ */
+export function calendarWeeks(year: number, month: number): (string | null)[][] {
+    const offset = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+    const days: (string | null)[] = [
+        ...Array.from({ length: offset }, () => null),
+        ...Array.from({ length: daysInMonth(year, month) }, (_, index) => dateOf(year, month, index + 1)),
+    ];
+
+    while (days.length % 7) {
+        days.push(null);
+    }
+
+    return Array.from({ length: days.length / 7 }, (_, week) => days.slice(week * 7, week * 7 + 7));
+}
+
+const weekdayFormats = new Map<string, Intl.DateTimeFormat>();
+
+/** "Пн" … "Нд", "Mon" … "Sun": the short names of the weekdays in the screens' language, Monday first. */
+export function weekdayNames(): string[] {
+    if (!weekdayFormats.has(locale.value)) {
+        weekdayFormats.set(locale.value, new Intl.DateTimeFormat(locale.value, { weekday: 'short', timeZone: 'UTC' }));
+    }
+
+    const format = weekdayFormats.get(locale.value)!;
+
+    // 5 January 2026 is a Monday
+    return Array.from({ length: 7 }, (_, index) => {
+        const name = format.format(new Date(Date.UTC(2026, 0, 5 + index)));
+
+        return name.charAt(0).toLocaleUpperCase(locale.value) + name.slice(1);
+    });
 }
 
 /** "14.10" */

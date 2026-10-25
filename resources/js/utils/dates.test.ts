@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { daysBetween, formatDate, formatPeriod, parseDisplayDate, quarterLabel, quarterOf } from '@/utils/dates';
+import {
+    calendarWeeks,
+    daysBetween,
+    daysInMonth,
+    formatDate,
+    formatPeriod,
+    parseDisplayDate,
+    quarterLabel,
+    quarterOf,
+    weekdayNames,
+} from '@/utils/dates';
 
 describe('parseDisplayDate', () => {
     it('reads dates typed the Ukrainian way', () => {
@@ -47,5 +57,32 @@ describe('calendar helpers', () => {
     it('writes the year of a period once, unless it spans two', () => {
         expect(formatPeriod('2026-10-01', '2026-10-14')).toBe('01.10 – 14.10.2026');
         expect(formatPeriod('2025-12-16', '2026-01-15')).toBe('16.12.2025 – 15.01.2026');
+    });
+});
+
+describe('calendarWeeks', () => {
+    it('starts the weeks on Monday, with blanks around the month', () => {
+        const weeks = calendarWeeks(2026, 10);
+
+        expect(weeks).toHaveLength(5);
+        expect(weeks[0]).toEqual([null, null, null, '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04']);
+        expect(weeks[4]).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', null]);
+    });
+
+    it('fills exact weeks without blanks, and a month starting on Sunday spans six', () => {
+        expect(calendarWeeks(2027, 2)).toHaveLength(4);
+        expect(calendarWeeks(2027, 2)[0]![0]).toBe('2027-02-01');
+        expect(calendarWeeks(2026, 3)).toHaveLength(6);
+        expect(calendarWeeks(2026, 3)[0]![6]).toBe('2026-03-01');
+    });
+
+    it('counts the leap day', () => {
+        expect(daysInMonth(2028, 2)).toBe(29);
+        expect(daysInMonth(2026, 2)).toBe(28);
+        expect(calendarWeeks(2028, 2).flat()).toContain('2028-02-29');
+    });
+
+    it('names the weekdays, Monday first', () => {
+        expect(weekdayNames()).toEqual(['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']);
     });
 });

@@ -20,12 +20,16 @@ import type {
     Project,
     StoredFile,
 } from '@/api/types';
+import AccordionGroup from '@/components/form/AccordionGroup.vue';
 import DateField from '@/components/form/DateField.vue';
+import Dimmable from '@/components/form/Dimmable.vue';
+import ReadRow from '@/components/form/ReadRow.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
 import FreezeSheet from '@/components/invoice/FreezeSheet.vue';
-import InvoiceDocumentFields from '@/components/invoice/InvoiceDocumentFields.vue';
+import InvoiceDocumentLook from '@/components/invoice/InvoiceDocumentLook.vue';
+import InvoiceDocumentTexts from '@/components/invoice/InvoiceDocumentTexts.vue';
 import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceItemSheet, { type ItemDraft } from '@/components/invoice/InvoiceItemSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
@@ -38,21 +42,25 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import Translated from '@/components/ui/Translated.vue';
+import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useInvoiceDocument } from '@/composables/useInvoiceDocument';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, t } from '@/i18n';
-import { dateParts, formatDate, today } from '@/utils/dates';
+import { dateParts, formatDate, formatPeriod, monthName, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { type PurposeSample, purposeValues, purposeWarnings, renderPurpose } from '@/utils/invoiceDocument';
-import { DEFAULT_INVOICE_STYLE, styleName, styleThumbnail } from '@/utils/invoiceStyles';
+import { DEFAULT_INVOICE_STYLE, styleName } from '@/utils/invoiceStyles';
 import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } from '@/utils/money';
 
 /**
- * Новий інвойс / чернетка (S-InvoiceEdit, S-InvoiceExternal): an invoice made in PryTax from items, or an external
- * PDF with its total typed in. "Зберегти" keeps the draft; "Зафіксувати" saves it and asks before freezing. Leaving
- * with unsaved changes asks first. A generated one has its document settings (language, payment purpose, act note,
- * contract section) in a collapsed "Документ" block, each the client's unless the invoice has its own.
+ * Новий інвойс / чернетка (M-InvoiceEdit, M-InvoiceExternal, design.md §16.5): an invoice made in PryTax, or an
+ * external PDF with its total typed in. One made in PryTax shows the number its freeze will give, then accordion
+ * groups — Клієнт і договір, Період і дати, Отримання коштів, Документ (its style, language, contract section, payment
+ * purpose, act note and the two notes, each the client's unless the invoice has its own) and Внутрішня примітка —
+ * and its items, which aren't a group. The draft is saved after each group and each item; «Зафіксувати» asks before
+ * freezing. An external one stays one form with «Зберегти». Leaving an open group with changes asks first.
  */
 const route = useRoute();
 const router = useRouter();
@@ -61,6 +69,7 @@ const { profileId, path, settings, profile } = useCurrentProfile();
 
 const invoiceId = computed(() => (route.params.id ? Number(route.params.id) : null));
 const isNew = computed(() => invoiceId.value === null);
+const accordion = provideAccordion();
 
 const existing = ref<Invoice | null>(null);
 const clients = ref<Client[]>([]);
@@ -97,9 +106,10 @@ const form = reactive({
         act_note: null,
         show_contract: null,
         style: null,
-        note_enabled: null,
-        note: null,
-        note_kind: null,
+        payment_note_enabled: null,
+        payment_note: null,
+        other_note_enabled: null,
+        other_note: null,
     } as InvoiceDocumentSettings,
 });
 
@@ -149,9 +159,10 @@ function fill(invoice: Invoice): void {
             act_note: invoice.act_note,
             show_contract: invoice.show_contract,
             style: invoice.style,
-            note_enabled: invoice.note_enabled,
-            note: invoice.note,
-            note_kind: invoice.note_kind,
+            payment_note_enabled: invoice.payment_note_enabled,
+            payment_note: invoice.payment_note,
+            other_note_enabled: invoice.other_note_enabled,
+            other_note: invoice.other_note,
         },
         items: (invoice.items ?? []).map((item) => ({
             key: nextKey++,
@@ -347,7 +358,6 @@ watch(() => form.source, (source) => {
 const contract = computed(() => contracts.value.find((item) => item.id === form.contract_id) ?? null);
 
 /* The document: its settings over the client's, and the payment purpose, which the form's invoice would print */
-const documentOpen = ref(false);
 
 /** The invoice of the form, on which the payment purpose is previewed. */
 const purposeSample = computed<PurposeSample>(() => ({
@@ -364,19 +374,29 @@ const purposeSample = computed<PurposeSample>(() => ({
 const documentStyle = computed(() => form.document.style ?? defaults.value?.effective_settings.style.value ?? DEFAULT_INVOICE_STYLE);
 const documentLocale = computed(() => form.document.locale ?? defaults.value?.effective_settings.locale.value ?? 'en');
 
-/** What the invoice prints, in short, the style first: "Colored · English · з приміткою «акт» · з договором". */
-const documentSummary = computed(() => {
-    const inherited = defaults.value?.effective_settings;
-    const act = form.document.act_note_enabled ?? inherited?.act_note_enabled.value ?? true;
-    const shown = form.document.show_contract ?? inherited?.show_contract.value ?? true;
-
-    return [
-        styleName(documentStyle.value),
-        LOCALE_NAMES[documentLocale.value],
-        act ? t('invoices.document.withActNote') : t('invoices.document.withoutActNote'),
-        shown ? t('invoices.document.withContract') : t('invoices.document.withoutContract'),
-    ].join(' · ');
+/** What the document settings components know besides the invoice's own values. */
+const documentContext = computed(() => ({
+    inherited: defaults.value?.effective_settings ?? null,
+    texts: texts.value,
+    sample: purposeSample.value,
+    currency: form.currency,
+    level: 'invoice' as const,
+}));
+const documentModel = computed({
+    get: () => form.document,
+    set: (value: InvoiceDocumentSettings) => {
+        form.document = value;
+    },
 });
+const shownDocument = useInvoiceDocument(documentModel, () => documentContext.value);
+
+/** What the invoice's texts print, in short: «без примітки «акт» · примітки щодо оплати й інша». */
+const textsSummary = computed(() => [
+    shownDocument.actEnabled.value ? t('invoices.document.withActNote') : t('invoices.document.withoutActNote'),
+    ...(['payment_note', 'other_note'] as const)
+        .filter((name) => shownDocument.noteEnabled(name))
+        .map((name) => (name === 'payment_note' ? t('invoices.document.paymentNote') : t('invoices.document.otherNote'))),
+].join(' · '));
 
 /** Whether the payment purpose, which the invoice would print, can't go through SWIFT as it is. */
 const purposeWarned = computed(() => {
@@ -532,11 +552,21 @@ function saveItem(item: ItemDraft): void {
     } else {
         form.items[index] = item;
     }
+
+    keepDraft();
 }
 
 function removeItem(key: number): void {
     dirty.value = true;
     form.items = form.items.filter((item) => item.key !== key);
+    keepDraft();
+}
+
+/** A draft made in PryTax is saved after each change of its items; an external one waits for «Зберегти». */
+function keepDraft(): void {
+    if (form.source === 'generated') {
+        void save();
+    }
 }
 
 const editingPosition = computed(() => {
@@ -631,9 +661,10 @@ function payload(): Record<string, unknown> {
         act_note: form.document.act_note?.trim() || null,
         show_contract: form.document.show_contract,
         style: form.document.style,
-        note_enabled: form.document.note_enabled,
-        note: form.document.note?.trim() || null,
-        note_kind: form.document.note_kind,
+        payment_note_enabled: form.document.payment_note_enabled,
+        payment_note: form.document.payment_note?.trim() || null,
+        other_note_enabled: form.document.other_note_enabled,
+        other_note: form.document.other_note?.trim() || null,
         ...(external || form.customNumber
             ? { number: form.number.trim() || null }
             // Back to the generator: clear a number typed before
@@ -721,7 +752,9 @@ async function save(): Promise<Invoice | null> {
 
 /* Leaving with unsaved changes asks first (saving, freezing and deleting leave without asking) */
 onBeforeRouteLeave((to) => {
-    if (!dirty.value || to.name === 'invoice-edit') {
+    const unsaved = form.source === 'generated' ? accordion.open.value !== null && dirty.value : dirty.value;
+
+    if (!unsaved || to.name === 'invoice-edit') {
         return true;
     }
 
@@ -783,6 +816,55 @@ async function remove(): Promise<void> {
     }
 }
 
+/* The accordion groups: each edits the form, which «Скасувати» restores and «Зберегти» saves as the draft */
+let backup: string | null = null;
+
+function openGroup(): void {
+    backup = JSON.stringify({ form, touched });
+    saveError.value = null;
+    dirty.value = false;
+}
+
+function cancelGroup(): void {
+    if (backup) {
+        const restored = JSON.parse(backup) as { form: typeof form; touched: typeof touched };
+
+        Object.assign(form, restored.form);
+        Object.assign(touched, restored.touched);
+    }
+
+    saveError.value = null;
+    dirty.value = false;
+}
+
+async function saveGroup(): Promise<void> {
+    if (await save()) {
+        accordion.open.value = null;
+    }
+}
+
+/** The quick periods of the month the period starts in: its halves and the whole month. */
+const quickPeriods = computed(() => {
+    const { year, month } = dateParts(form.period_start || today());
+    const first = `${year}-${String(month).padStart(2, '0')}-01`;
+    const end = endOfMonth(first);
+    const half = `${first.slice(0, 8)}14`;
+    const pad = (day: string) => `${day}.${String(month).padStart(2, '0')}`;
+
+    return [
+        { label: `01–${pad('14')}`, start: first, end: half },
+        { label: `15–${pad(end.slice(8))}`, start: `${first.slice(0, 8)}15`, end },
+        { label: monthName(month), start: first, end },
+    ];
+});
+
+function pickPeriod(start: string, end: string): void {
+    form.period_start = start;
+    form.period_end = end;
+    touched.period = true;
+    dirty.value = true;
+}
+
 const generalError = computed(() => {
     if (!saveError.value) {
         return null;
@@ -810,228 +892,216 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
             <StatusBadge :label="t('core.invoiceStatus.draft')" class="mr-3" />
         </template>
 
-        <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <div class="contents" @input="dirty = true" @change="dirty = true">
-                <SegmentedControl
-                    v-if="isNew"
-                    v-model="form.source"
-                    :label="t('invoices.editor.invoiceSource')"
-                    :options="sourceOptions"
-                />
+        <LoadState :loading="loading && !existing && clients.length === 0" :error="loadError" @retry="reload">
+            <Dimmable v-if="isNew">
+                <SegmentedControl v-model="form.source" :label="t('invoices.editor.invoiceSource')" :options="sourceOptions" />
+            </Dimmable>
 
-                <!-- Generated: the number the freeze will give -->
-                <section v-if="form.source === 'generated'" class="flex flex-col gap-2.5 rounded-card border border-line bg-surface p-4">
+            <!-- Made in PryTax: the number the freeze will give, then the groups, which save the draft one by one -->
+            <template v-if="form.source === 'generated'">
+                <section class="flex flex-col gap-2 rounded-card bg-ink px-4 py-3.5 text-on-ink">
                     <div class="flex items-center justify-between">
-                        <span class="text-13 font-medium text-ink-2">{{ t('core.common.number') }}</span>
-                        <button
-                            type="button"
-                            class="min-h-9 text-14 font-medium text-accent"
-                            @click="form.customNumber = !form.customNumber"
-                        >
+                        <span class="text-13 text-on-ink-2">{{ t('invoices.editor.numberPreviewTitle') }}</span>
+                        <button type="button" class="min-h-9 text-14 font-medium text-on-ink" @click="form.customNumber = !form.customNumber">
                             {{ form.customNumber ? t('invoices.editor.automatic') : t('invoices.editor.enterOwn') }}
                         </button>
                     </div>
-                    <TextField
-                        v-if="form.customNumber"
-                        v-model="form.number"
-                        :label="t('invoices.editor.customNumber')"
-                        class="num"
-                        :error="fieldError(saveError, 'number')"
-                    />
+                    <div v-if="form.customNumber" class="flex flex-col gap-2 rounded-control bg-surface p-3 text-ink">
+                        <TextField
+                            v-model="form.number"
+                            :label="t('invoices.editor.customNumber')"
+                            class="num"
+                            :error="fieldError(saveError, 'number')"
+                            @change="keepDraft"
+                        />
+                    </div>
                     <template v-else>
-                        <div class="flex items-baseline gap-2.5">
-                            <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
-                            <span class="text-12 text-ink-3">{{ t('invoices.editor.preview') }}</span>
-                        </div>
-                        <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ numberHint }}</p>
+                        <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
+                        <p class="m-0 text-13 leading-[1.45] text-on-ink-2">{{ numberHint }}</p>
                     </template>
                 </section>
 
-                <!-- External: the uploaded PDF -->
-                <template v-else>
-                    <p class="m-0 text-15 leading-normal text-ink-2">
-                        {{ t('invoices.editor.externalExplained') }}
-                    </p>
-                    <div v-if="fileName" class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
-                        <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
-                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span class="truncate text-15">{{ fileName }}</span>
-                            <span v-if="checkingFile" class="text-12 text-ink-3">{{ t('invoices.editor.checkingDuplicates') }}</span>
-                            <span v-else-if="duplicates.length" class="text-12 text-warning-text">
-                                <Translated :text="t('invoices.editor.duplicateFile')">
-                                    <template #invoices>
-                                        <template v-for="(duplicate, index) in duplicates" :key="duplicate.invoice_id">
-                                            {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? t('invoices.editor.draft') }}</RouterLink>
-                                        </template>
-                                    </template>
+                <AccordionGroup
+                    id="client"
+                    :title="t('invoices.editor.clientContract')"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="openGroup"
+                    @cancel="cancelGroup"
+                    @save="saveGroup"
+                >
+                    <ReadRow :label="t('core.common.client')" :value="clients.find((client) => client.id === form.client_id)?.name" />
+                    <ReadRow :label="t('core.common.contract')" :value="contract ? `${contract.name} · ${formatDate(contract.started_at)}` : t('invoices.editor.noContract')" />
+                    <ReadRow v-if="contract" :label="t('invoices.editor.terms')" :value="contractHint" />
+                    <template #edit>
+                        <div class="contents" @input="dirty = true" @change="dirty = true">
+                            <SelectField
+                                v-model="form.client_id"
+                                :label="t('core.common.client')"
+                                :placeholder="t('invoices.editor.chooseClient')"
+                                :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
+                                :error="fieldError(saveError, 'client_id')"
+                            />
+                            <SelectField
+                                :model-value="form.contract_id ?? 0"
+                                :label="t('core.common.contract')"
+                                :options="contractOptions"
+                                :hint="contractHint"
+                                :error="fieldError(saveError, 'contract_id')"
+                                @update:model-value="form.contract_id = $event || null"
+                            />
+                        </div>
+                    </template>
+                </AccordionGroup>
+
+                <AccordionGroup
+                    id="dates"
+                    :title="t('invoices.editor.periodDates')"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="openGroup"
+                    @cancel="cancelGroup"
+                    @save="saveGroup"
+                >
+                    <ReadRow :label="t('core.common.period')"><span class="num">{{ formatPeriod(form.period_start, form.period_end) }}</span></ReadRow>
+                    <ReadRow :label="t('invoices.detail.issued')"><span class="num">{{ form.issued_at ? formatDate(form.issued_at) : '—' }}</span></ReadRow>
+                    <ReadRow :label="t('invoices.detail.dueDate')"><span class="num">{{ form.due_at ? formatDate(form.due_at) : '—' }}</span></ReadRow>
+                    <template #edit>
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-13 font-medium text-ink-2">{{ t('invoices.editor.quick') }}</span>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="quick in quickPeriods"
+                                    :key="quick.label"
+                                    type="button"
+                                    class="flex min-h-10 items-center rounded-full border px-3.5 text-14"
+                                    :class="form.period_start === quick.start && form.period_end === quick.end
+                                        ? 'border-ink bg-ink font-medium text-white'
+                                        : 'border-line-input bg-surface text-ink'"
+                                    @click="pickPeriod(quick.start, quick.end)"
+                                >
+                                    <span class="num">{{ quick.label }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5" @input="dirty = true" @change="dirty = true">
+                            <DateField
+                                v-model="form.period_start"
+                                :label="t('invoices.editor.periodFrom')"
+                                :error="fieldError(saveError, 'period_start')"
+                                @update:model-value="touched.period = true"
+                            />
+                            <DateField
+                                v-model="form.period_end"
+                                :label="t('invoices.filters.through')"
+                                :min="form.period_start || undefined"
+                                :error="fieldError(saveError, 'period_end')"
+                                @update:model-value="touched.period = true"
+                            />
+                            <DateField
+                                v-model="form.issued_at"
+                                :label="t('invoices.detail.issued')"
+                                :error="fieldError(saveError, 'issued_at')"
+                                @update:model-value="touched.issued_at = true"
+                            />
+                            <DateField
+                                v-model="form.due_at"
+                                :label="t('invoices.detail.dueDate')"
+                                :error="fieldError(saveError, 'due_at')"
+                                @update:model-value="touched.due_at = true"
+                            />
+                        </div>
+                        <p class="m-0 text-12 text-ink-3">{{ t('invoices.editor.datesHint') }}</p>
+                    </template>
+                </AccordionGroup>
+
+                <AccordionGroup
+                    id="pay"
+                    :title="t('invoices.editor.gettingPaid')"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="openGroup"
+                    @cancel="cancelGroup"
+                    @save="saveGroup"
+                >
+                    <ReadRow :label="t('money.account.account')" :value="account?.name" />
+                    <ReadRow v-if="account" :label="t('core.common.recipient')">
+                        {{ account.holder_name ?? '' }}<template v-if="requisites.length"> · <span class="num">{{ requisites[0]!.value }}</span></template>
+                    </ReadRow>
+                    <template #edit>
+                        <SelectField
+                            v-model="form.receiving_account_id"
+                            :label="t('invoices.editor.accountPayInto')"
+                            :placeholder="t('core.common.chooseAccount')"
+                            :options="accountOptions"
+                            :hint="t('invoices.editor.accountHint', { currency: form.currency })"
+                            :error="fieldError(saveError, 'receiving_account_id')"
+                            @update:model-value="touched.receiving_account_id = true; dirty = true"
+                        />
+                        <div v-if="account" class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2">
+                            <span v-if="account.holder_name">
+                                <Translated :text="t('invoices.editor.recipientHolder')">
+                                    <template #holder><span class="text-ink">{{ account.holder_name }}</span></template>
                                 </Translated>
                             </span>
-                            <span v-else-if="pendingFile && isChecked" class="text-12 text-positive">{{ t('invoices.editor.readyNoDuplicates') }}</span>
-                            <span v-else-if="pendingFile" class="text-12 text-ink-3">{{ t('invoices.editor.readyServerChecks') }}</span>
-                            <span v-else class="text-12 text-positive">{{ t('invoices.editor.uploadedMainDocument') }}</span>
-                        </span>
-                        <button v-if="pendingFile" type="button" :aria-label="t('invoices.editor.removeFile')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
-                            <Icon name="close" :size="20" />
-                        </button>
-                    </div>
-                    <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
-                        <Icon name="upload" :size="20" />
-                        {{ fileName ? t('invoices.editor.replacePdf') : t('invoices.editor.choosePdf') }}
-                        <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="sr-only" @change="chooseFile">
-                    </label>
-                    <TextField
-                        v-model="form.number"
-                        :label="t('invoices.editor.invoiceNumber')"
-                        :hint="t('invoices.editor.customNumberHint')"
-                        :error="fieldError(saveError, 'number')"
-                    />
-                </template>
-
-                <section class="flex flex-col gap-3">
-                    <SectionTitle>{{ form.source === 'generated' ? t('invoices.editor.clientContract') : t('core.common.client') }}</SectionTitle>
-                    <SelectField
-                        v-model="form.client_id"
-                        :label="t('core.common.client')"
-                        :placeholder="t('invoices.editor.chooseClient')"
-                        :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
-                        :error="fieldError(saveError, 'client_id')"
-                    />
-                    <SelectField
-                        v-if="form.source === 'generated'"
-                        :model-value="form.contract_id ?? 0"
-                        :label="t('core.common.contract')"
-                        :options="contractOptions"
-                        :hint="contractHint"
-                        :error="fieldError(saveError, 'contract_id')"
-                        @update:model-value="form.contract_id = $event || null"
-                    />
-                </section>
-
-                <section class="flex flex-col gap-3">
-                    <SectionTitle>{{ t('invoices.editor.periodDates') }}</SectionTitle>
-                    <div class="grid grid-cols-2 gap-2.5">
-                        <DateField
-                            v-model="form.period_start"
-                            :label="t('invoices.editor.periodFrom')"
-                            :error="fieldError(saveError, 'period_start')"
-                            @update:model-value="touched.period = true"
-                        />
-                        <DateField
-                            v-model="form.period_end"
-                            :label="t('invoices.filters.through')"
-                            :min="form.period_start || undefined"
-                            :error="fieldError(saveError, 'period_end')"
-                            @update:model-value="touched.period = true"
-                        />
-                        <DateField
-                            v-model="form.issued_at"
-                            :label="form.source === 'generated' ? t('invoices.editor.issueDate') : t('invoices.detail.issued')"
-                            :error="fieldError(saveError, 'issued_at')"
-                            @update:model-value="touched.issued_at = true"
-                        />
-                        <DateField
-                            v-if="form.source === 'generated'"
-                            v-model="form.due_at"
-                            :label="t('invoices.detail.dueDate')"
-                            :error="fieldError(saveError, 'due_at')"
-                            @update:model-value="touched.due_at = true"
-                        />
-                        <SelectField
-                            v-else
-                            v-model="form.currency"
-                            :label="t('core.common.currency')"
-                            :options="currencies"
-                            @update:model-value="touched.currency = true"
-                        />
-                    </div>
-                </section>
-
-                <TextField
-                    v-if="form.source === 'external'"
-                    v-model="form.total"
-                    :label="t('invoices.editor.invoiceAmount')"
-                    numeric
-                    class="text-18 font-bold"
-                    :error="fieldError(saveError, 'total')"
-                />
-
-                <section class="flex flex-col gap-3">
-                    <SectionTitle v-if="form.source === 'generated'">{{ t('invoices.editor.gettingPaid') }}</SectionTitle>
-                    <SelectField
-                        v-model="form.receiving_account_id"
-                        :label="form.source === 'generated' ? t('invoices.editor.accountPayInto') : t('invoices.detail.receivingAccount')"
-                        :placeholder="t('core.common.chooseAccount')"
-                        :options="accountOptions"
-                        :hint="t('invoices.editor.accountHint', { currency: form.currency })"
-                        :error="fieldError(saveError, 'receiving_account_id')"
-                        @update:model-value="touched.receiving_account_id = true"
-                    />
-                    <div
-                        v-if="form.source === 'generated' && account"
-                        class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2"
-                    >
-                        <span v-if="account.holder_name">
-                            <Translated :text="t('invoices.editor.recipientHolder')">
-                                <template #holder><span class="text-ink">{{ account.holder_name }}</span></template>
-                            </Translated>
-                        </span>
-                        <span v-if="requisites.length">
-                            <template v-for="(requisite, index) in requisites" :key="requisite.label">
-                                {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
-                            </template>
-                        </span>
-                        <span>{{ t('invoices.editor.paymentDetailsHint') }}</span>
-                    </div>
-                    <p v-if="form.source === 'generated' && contract && contract.currency !== form.currency" class="m-0 text-13 leading-normal text-warning-text" role="status">
-                        {{ t('invoices.document.currencyDiffers') }}
-                    </p>
-                </section>
-
-                <section v-if="form.source === 'generated'" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-                    <button
-                        type="button"
-                        class="flex min-h-11 items-center justify-between gap-3 text-left"
-                        :aria-expanded="documentOpen ? 'true' : 'false'"
-                        @click="documentOpen = !documentOpen"
-                    >
-                        <img
-                            :src="styleThumbnail(documentStyle, documentLocale)"
-                            alt=""
-                            class="h-12.75 w-9 shrink-0 rounded-[3px] border border-line bg-white object-cover"
-                        >
-                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <span class="text-16 font-semibold">{{ t('invoices.document.title') }}</span>
-                            <span class="text-13 text-ink-3">{{ documentSummary }}</span>
-                            <span v-if="purposeWarned" class="flex items-center gap-1 text-13 text-warning-text">
-                                <Icon name="info" :size="16" />
-                                {{ t('invoices.document.checkPurpose') }}
+                            <span v-if="requisites.length">
+                                <template v-for="(requisite, index) in requisites" :key="requisite.label">
+                                    {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
+                                </template>
                             </span>
-                        </span>
-                        <Icon name="chevronDown" :size="20" class="shrink-0 text-ink-2 transition-transform" :class="{ 'rotate-180': documentOpen }" />
-                    </button>
-                    <InvoiceDocumentFields
-                        v-if="documentOpen"
-                        v-model="form.document"
-                        level="invoice"
-                        :inherited="defaults?.effective_settings ?? null"
-                        :texts="texts"
-                        :sample="purposeSample"
-                        :currency="form.currency"
-                        :subtitle="t('invoices.document.invoiceNumbered', { number: purposeSample.number ?? '' })"
-                        :target="{ invoice_id: existing?.id ?? null, client_id: form.client_id }"
-                        :errors="{
-                            locale: fieldError(saveError, 'locale'),
-                            payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
-                            act_note: fieldError(saveError, 'act_note'),
-                            style: fieldError(saveError, 'style'),
-                            note: fieldError(saveError, 'note'),
-                        }"
-                    />
-                </section>
+                            <span>{{ t('invoices.editor.paymentDetailsHint') }}</span>
+                        </div>
+                    </template>
+                </AccordionGroup>
+                <Dimmable v-if="contract && contract.currency !== form.currency">
+                    <p class="m-0 text-13 leading-normal text-warning-text" role="status">{{ t('invoices.document.currencyDiffers') }}</p>
+                </Dimmable>
 
-                <section class="flex flex-col gap-3">
+                <AccordionGroup
+                    id="document"
+                    :title="t('invoices.document.title')"
+                    :saving="saving"
+                    :error="generalError"
+                    @open="openGroup"
+                    @cancel="cancelGroup"
+                    @save="saveGroup"
+                >
+                    <ReadRow :label="t('invoices.document.styleShort')" :value="`${styleName(documentStyle)} · ${LOCALE_NAMES[documentLocale]}`" />
+                    <ReadRow
+                        :label="t('invoices.document.contractShort')"
+                        :value="shownDocument.showContract.value ? t('invoices.document.showShort') : t('invoices.document.hideShort')"
+                    />
+                    <ReadRow :label="t('invoices.editor.textsShort')">
+                        {{ textsSummary }}
+                        <span v-if="purposeWarned" class="mt-1 flex items-center gap-1 text-13 text-warning-text">
+                            <Icon name="info" :size="16" />
+                            {{ t('invoices.document.checkPurpose') }}
+                        </span>
+                    </ReadRow>
+                    <template #edit>
+                        <InvoiceDocumentLook
+                            v-model="documentModel"
+                            :context="documentContext"
+                            :subtitle="t('invoices.document.invoiceNumbered', { number: purposeSample.number ?? '' })"
+                            :target="{ invoice_id: existing?.id ?? null, client_id: form.client_id }"
+                            :errors="{ locale: fieldError(saveError, 'locale'), style: fieldError(saveError, 'style') }"
+                        />
+                        <InvoiceDocumentTexts
+                            v-model="documentModel"
+                            :context="documentContext"
+                            :errors="{
+                                payment_purpose_template: fieldError(saveError, 'payment_purpose_template'),
+                                act_note: fieldError(saveError, 'act_note'),
+                                payment_note: fieldError(saveError, 'payment_note'),
+                                other_note: fieldError(saveError, 'other_note'),
+                            }"
+                        />
+                    </template>
+                </AccordionGroup>
+
+                <Dimmable class="flex flex-col gap-3">
                     <SectionTitle>
-                        {{ form.source === 'external' ? t('invoices.editor.itemsOptional') : t('invoices.detail.items') }}
+                        {{ t('invoices.detail.items') }}
                         <template #aside><span class="num">{{ form.currency }}</span></template>
                     </SectionTitle>
                     <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
@@ -1057,66 +1127,219 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         {{ t('invoices.editor.addItem') }}
                     </button>
                     <p v-if="fieldError(saveError, 'items')" class="m-0 text-12 text-negative">{{ fieldError(saveError, 'items') }}</p>
-
-                    <template v-if="form.source === 'generated'">
-                        <button
-                            v-if="!form.showAdjustment"
-                            type="button"
-                            class="flex min-h-11 items-center self-start text-14 font-medium text-accent"
-                            @click="form.showAdjustment = true"
-                        >
-                            {{ t('invoices.editor.discountAdjustment') }}
-                        </button>
-                        <div v-else class="grid grid-cols-[2fr_1fr] gap-2.5">
-                            <TextField v-model="form.adjustment_label" :label="t('invoices.detail.adjustment')" :placeholder="t('invoices.editor.discount')" />
-                            <TextField
-                                v-model="form.adjustment_amount"
-                                :label="t('invoices.editor.adjustmentAmount')"
-                                numeric
-                                placeholder="-100.00"
-                                :error="fieldError(saveError, 'adjustment_amount')"
-                            />
+                    <button
+                        v-if="!form.showAdjustment"
+                        type="button"
+                        class="flex min-h-11 items-center self-start text-14 font-medium text-accent"
+                        @click="form.showAdjustment = true"
+                    >
+                        {{ t('invoices.editor.discountAdjustment') }}
+                    </button>
+                    <div v-else class="grid grid-cols-[2fr_1fr] gap-2.5" @change="keepDraft">
+                        <TextField v-model="form.adjustment_label" :label="t('invoices.detail.adjustment')" :placeholder="t('invoices.editor.discount')" />
+                        <TextField
+                            v-model="form.adjustment_amount"
+                            :label="t('invoices.editor.adjustmentAmount')"
+                            numeric
+                            placeholder="-100.00"
+                            :error="fieldError(saveError, 'adjustment_amount')"
+                        />
+                    </div>
+                    <section class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('invoices.editor.summary')">
+                        <div class="flex justify-between text-14 text-ink-2">
+                            <span>{{ t('invoices.editor.subtotal') }}</span>
+                            <span class="num">{{ formatAmount(subtotal) }}</span>
                         </div>
+                        <div class="flex justify-between text-14 text-ink-2">
+                            <span>{{ form.adjustment_label || t('invoices.detail.adjustment') }}</span>
+                            <span class="num">{{ formatAmount(adjustment) }}</span>
+                        </div>
+                        <div class="flex items-baseline justify-between border-t border-divider pt-2.5">
+                            <span class="text-16 font-semibold">{{ t('core.common.total') }}</span>
+                            <span class="num text-22 font-semibold">{{ formatMoney(total, form.currency) }}</span>
+                        </div>
+                    </section>
+                </Dimmable>
+
+                <AccordionGroup
+                    id="internal"
+                    :title="t('invoices.editor.internalNote')"
+                    :saving="saving"
+                    :error="generalError"
+                    :rows="false"
+                    @open="openGroup"
+                    @cancel="cancelGroup"
+                    @save="saveGroup"
+                >
+                    <span class="text-15 leading-[1.4] whitespace-pre-line" :class="form.notes ? '' : 'text-ink-3'">{{ form.notes || t('clients.form.noteEmpty') }}</span>
+                    <template #edit>
+                        <TextAreaField
+                            v-model="form.notes"
+                            :label="t('invoices.editor.internalNote')"
+                            hide-label
+                            autogrow
+                            :placeholder="t('invoices.detail.notPrintedInvoice')"
+                            @input="dirty = true"
+                        />
                     </template>
-                </section>
+                </AccordionGroup>
 
-                <section v-if="form.source === 'generated'" class="flex flex-col gap-2 rounded-card border border-line bg-surface p-4" :aria-label="t('invoices.editor.summary')">
-                    <div class="flex justify-between text-14 text-ink-2">
-                        <span>{{ t('invoices.editor.subtotal') }}</span>
-                        <span class="num">{{ formatAmount(subtotal) }}</span>
-                    </div>
-                    <div class="flex justify-between text-14 text-ink-2">
-                        <span>{{ form.adjustment_label || t('invoices.detail.adjustment') }}</span>
-                        <span class="num">{{ formatAmount(adjustment) }}</span>
-                    </div>
-                    <div class="flex items-baseline justify-between border-t border-divider pt-2.5">
-                        <span class="text-16 font-semibold">{{ t('core.common.total') }}</span>
-                        <span class="num text-22 font-semibold">{{ formatMoney(total, form.currency) }}</span>
-                    </div>
-                </section>
+                <Dimmable class="flex flex-col gap-2">
+                    <p v-if="generalError && !accordion.open.value" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
+                    <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">
+                        <Translated :text="t('invoices.editor.draftSaved')">
+                            <template #time><span class="num">{{ savedAt }}</span></template>
+                        </Translated>
+                    </p>
+                    <button
+                        v-if="existing && can('delete', 'invoices')"
+                        type="button"
+                        class="flex min-h-11 items-center self-center text-15 font-medium text-negative"
+                        @click="deleteOpen = true"
+                    >
+                        {{ t('invoices.editor.deleteDraft') }}
+                    </button>
+                </Dimmable>
+            </template>
 
-                <TextAreaField v-model="form.notes" :label="t('invoices.editor.internalNote')" :placeholder="t('invoices.detail.notPrintedInvoice')" />
-
-                <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
-                <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">
-                    <Translated :text="t('invoices.editor.draftSaved')">
-                        <template #time><span class="num">{{ savedAt }}</span></template>
-                    </Translated>
+            <!-- External: the uploaded PDF, as one form -->
+            <div v-else class="contents" @input="dirty = true" @change="dirty = true">
+                <p class="m-0 text-15 leading-normal text-ink-2">
+                    {{ t('invoices.editor.externalExplained') }}
                 </p>
+                <div v-if="fileName" class="flex items-center gap-3 rounded-card border border-line bg-surface p-3">
+                    <span class="flex h-12 w-10 shrink-0 items-end justify-center rounded-md bg-negative-soft pb-1.5 text-11 font-bold text-negative">PDF</span>
+                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span class="truncate text-15">{{ fileName }}</span>
+                        <span v-if="checkingFile" class="text-12 text-ink-3">{{ t('invoices.editor.checkingDuplicates') }}</span>
+                        <span v-else-if="duplicates.length" class="text-12 text-warning-text">
+                            <Translated :text="t('invoices.editor.duplicateFile')">
+                                <template #invoices>
+                                    <template v-for="(duplicate, index) in duplicates" :key="duplicate.invoice_id">
+                                        {{ index ? ', ' : '' }}<RouterLink :to="{ name: 'invoice', params: { id: duplicate.invoice_id } }" class="num">{{ duplicate.number ?? t('invoices.editor.draft') }}</RouterLink>
+                                    </template>
+                                </template>
+                            </Translated>
+                        </span>
+                        <span v-else-if="pendingFile && isChecked" class="text-12 text-positive">{{ t('invoices.editor.readyNoDuplicates') }}</span>
+                        <span v-else-if="pendingFile" class="text-12 text-ink-3">{{ t('invoices.editor.readyServerChecks') }}</span>
+                        <span v-else class="text-12 text-positive">{{ t('invoices.editor.uploadedMainDocument') }}</span>
+                    </span>
+                    <button v-if="pendingFile" type="button" :aria-label="t('invoices.editor.removeFile')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
+                        <Icon name="close" :size="20" />
+                    </button>
+                </div>
+                <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
+                    <Icon name="upload" :size="20" />
+                    {{ fileName ? t('invoices.editor.replacePdf') : t('invoices.editor.choosePdf') }}
+                    <input ref="fileInput" type="file" accept="application/pdf,.pdf" class="sr-only" @change="chooseFile">
+                </label>
+                <TextField
+                    v-model="form.number"
+                    :label="t('invoices.editor.invoiceNumber')"
+                    :hint="t('invoices.editor.customNumberHint')"
+                    :error="fieldError(saveError, 'number')"
+                />
+                <SelectField
+                    v-model="form.client_id"
+                    :label="t('core.common.client')"
+                    :placeholder="t('invoices.editor.chooseClient')"
+                    :options="clients.filter((client) => client.is_active || client.id === form.client_id).map((client) => ({ value: client.id, label: client.name }))"
+                    :error="fieldError(saveError, 'client_id')"
+                />
+                <div class="grid grid-cols-2 gap-2.5">
+                    <DateField
+                        v-model="form.period_start"
+                        :label="t('invoices.editor.periodFrom')"
+                        :error="fieldError(saveError, 'period_start')"
+                        @update:model-value="touched.period = true"
+                    />
+                    <DateField
+                        v-model="form.period_end"
+                        :label="t('invoices.filters.through')"
+                        :min="form.period_start || undefined"
+                        :error="fieldError(saveError, 'period_end')"
+                        @update:model-value="touched.period = true"
+                    />
+                    <DateField
+                        v-model="form.issued_at"
+                        :label="t('invoices.detail.issued')"
+                        :error="fieldError(saveError, 'issued_at')"
+                        @update:model-value="touched.issued_at = true"
+                    />
+                    <SelectField
+                        v-model="form.currency"
+                        :label="t('core.common.currency')"
+                        :options="currencies"
+                        @update:model-value="touched.currency = true"
+                    />
+                </div>
+                <TextField
+                    v-model="form.total"
+                    :label="t('invoices.editor.invoiceAmount')"
+                    numeric
+                    class="text-18 font-bold"
+                    :error="fieldError(saveError, 'total')"
+                />
+                <SelectField
+                    v-model="form.receiving_account_id"
+                    :label="t('invoices.detail.receivingAccount')"
+                    :placeholder="t('core.common.chooseAccount')"
+                    :options="accountOptions"
+                    :hint="t('invoices.editor.accountHint', { currency: form.currency })"
+                    :error="fieldError(saveError, 'receiving_account_id')"
+                    @update:model-value="touched.receiving_account_id = true"
+                />
+                <section class="flex flex-col gap-3">
+                    <SectionTitle>
+                        {{ t('invoices.editor.itemsOptional') }}
+                        <template #aside><span class="num">{{ form.currency }}</span></template>
+                    </SectionTitle>
+                    <div v-for="(item, index) in form.items" :key="item.key" class="flex flex-col gap-1">
+                        <InvoiceItemCard
+                            :item="{
+                                ...item,
+                                project_code: projects.find((project) => project.id === item.project_id)?.code ?? null,
+                                charge_type: chargeTypes.find((type) => type.id === item.charge_type_id)?.name ?? null,
+                                amount: itemAmounts[index] ?? null,
+                            }"
+                            editable
+                            @open="openItem(item)"
+                        />
+                        <p v-if="itemErrors[index]" class="m-0 px-1 text-12 text-negative">{{ itemErrors[index] }}</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="flex h-12 items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent"
+                        :disabled="form.client_id === null"
+                        @click="newItem"
+                    >
+                        <Icon name="plus" :size="20" />
+                        {{ t('invoices.editor.addItem') }}
+                    </button>
+                </section>
+                <TextAreaField v-model="form.notes" :label="t('invoices.editor.internalNote')" :placeholder="t('invoices.detail.notPrintedInvoice')" />
+                <p v-if="generalError" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
+                <button
+                    v-if="existing && can('delete', 'invoices')"
+                    type="button"
+                    class="flex min-h-11 items-center self-center text-15 font-medium text-negative"
+                    @click="deleteOpen = true"
+                >
+                    {{ t('invoices.editor.deleteDraft') }}
+                </button>
             </div>
-
-            <button
-                v-if="existing && can('delete', 'invoices')"
-                type="button"
-                class="flex min-h-11 items-center self-center text-15 font-medium text-negative"
-                @click="deleteOpen = true"
-            >
-                {{ t('invoices.editor.deleteDraft') }}
-            </button>
         </LoadState>
 
         <template v-if="can(isNew ? 'create' : 'update', 'invoices')" #footer>
-            <div class="grid grid-cols-[1fr_1.4fr] gap-2.5">
+            <Dimmable v-if="form.source === 'generated'" class="flex flex-col gap-2">
+                <p class="m-0 text-center text-12 text-ink-3">{{ t('invoices.editor.savesPerGroup') }}</p>
+                <PrimaryButton :disabled="loading || saving || form.client_id === null" @click="askFreeze">
+                    <Icon name="lock" :size="20" />
+                    {{ t('invoices.editor.freeze') }}
+                </PrimaryButton>
+            </Dimmable>
+            <div v-else class="grid grid-cols-[1fr_1.4fr] gap-2.5">
                 <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || form.client_id === null" @click="save">{{ t('core.common.save') }}</SecondaryButton>
                 <PrimaryButton :disabled="loading || saving || form.client_id === null" @click="askFreeze">
                     <Icon name="lock" :size="20" />

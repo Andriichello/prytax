@@ -72,7 +72,6 @@ export default {
         stateRegion: 'State / region',
         postalCode: 'Postal code',
         taxDetails: 'Tax details and email',
-        invoiceDefaults: 'Invoice defaults',
         currencyHint: 'The currency of the client’s new contracts and invoices',
         notPrinted: 'Not printed',
         mainGroup: 'Main',

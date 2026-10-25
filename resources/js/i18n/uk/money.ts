@@ -266,7 +266,6 @@ export default {
         removeField: 'Прибрати поле',
         addField: '+ Додати поле',
         limit: 'Ліміт',
-        on: 'Увімкнено',
         enterLimitAmount: 'Вкажіть суму ліміту або вимкніть його.',
         limitPeriod: 'Період ліміту',
         openingBalance: 'Залишок на дату',

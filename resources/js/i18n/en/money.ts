@@ -258,7 +258,6 @@ export default {
         removeField: 'Remove field',
         addField: '+ Add field',
         limit: 'Limit',
-        on: 'On',
         enterLimitAmount: 'Enter the limit amount or turn the limit off.',
         limitPeriod: 'Limit period',
         openingBalance: 'Opening balance',

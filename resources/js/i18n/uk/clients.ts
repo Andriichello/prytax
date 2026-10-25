@@ -75,7 +75,6 @@ export default {
         stateRegion: 'Штат / регіон',
         postalCode: 'Поштовий індекс',
         taxDetails: 'Податкові дані й пошта',
-        invoiceDefaults: 'Інвойси за замовчуванням',
         currencyHint: 'Валюта нових договорів та інвойсів клієнта',
         notPrinted: 'Не друкується',
         mainGroup: 'Основне',

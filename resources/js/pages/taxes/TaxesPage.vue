@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, TaxLedger } from '@/api/types';
@@ -32,15 +32,29 @@ import {
  * quarter it belongs to; «Податки за місяцями» lists, newest first, what is still owed (a receipt's ЄП and ВЗ in its
  * month, ЄСВ in its own month) and every payment in the month it was made. The three badges (the period, the taxes,
  * the statuses) open one «Фільтри» drawer, and the filter lives in the URL. Each row opens its payment; ЄСВ is paid
- * from its rows, ahead too.
+ * from its rows, ahead too. App keeps it alive behind an opened payment, so going back keeps the place.
  */
+defineOptions({ name: 'TaxesPage' });
+
 const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 
 const now = currentQuarter();
-const filter = computed(() => filterFromQuery(route.query, now));
+
+// The filter follows the URL only while Податки is shown: kept alive behind a payment, it keeps its own
+const ledgerRoute = route.name;
+const filter = ref(filterFromQuery(route.query, now));
+
+watch(() => route.query, (query) => {
+    const next = filterFromQuery(query, now);
+
+    if (route.name === ledgerRoute && JSON.stringify(next) !== JSON.stringify(filter.value)) {
+        filter.value = next;
+    }
+});
+
 const filterOpen = ref(false);
 
 function applyFilter(next: TaxLedgerFilter): void {

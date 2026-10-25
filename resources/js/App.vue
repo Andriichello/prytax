@@ -9,12 +9,13 @@ import { errorMessage } from '@/utils/errors';
 
 /**
  * The app's frame: one centred column, at most 480 px wide (the designs are drawn at 390 px). When the app can't
- * start (no connection, the server failed), it says so with a retry instead of a blank page. The infinite lists stay
- * alive behind the records opened from them, so going back returns to the same place; another user starts afresh.
+ * start (no connection, the server failed), it says so with a retry instead of a blank page. The infinite lists and
+ * Податки stay alive behind the records opened from them, so going back returns to the same place, without loading
+ * again unless something was saved meanwhile (`dataVersion`); another user starts afresh.
  * A screen for signed-in users shows only while someone is: signing out (or a lapsed session) leaves it before the
  * router reaches Вхід, rather than mounting it once more without a user, whose loaders would fail.
  */
-const KEPT_ALIVE = ['InvoicesPage', 'TransfersPage'];
+const KEPT_ALIVE = ['InvoicesPage', 'TransfersPage', 'TaxesPage'];
 
 const { user } = useSession();
 const sessionKey = computed(() => user.value?.id ?? 'guest');

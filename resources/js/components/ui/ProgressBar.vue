@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 
 /**
- * A progress or limit bar: cobalt, amber from the warning threshold (80 % for limits) upward.
+ * A progress or limit bar: cobalt, amber from the warning threshold (80 % for limits) upward. It fills the width of
+ * a row (beside its figures) or of a column, where its minimum height keeps it from collapsing.
  */
 const { percent, warnFrom = null, height = 6 } = defineProps<{
     /** 0–100; values above 100 fill the bar. */
@@ -19,7 +20,7 @@ const warns = computed(() => warnFrom !== null && percent >= warnFrom);
 <template>
     <span
         class="flex flex-1 overflow-hidden rounded-full bg-muted"
-        :style="{ height: `${height}px` }"
+        :style="{ height: `${height}px`, minHeight: `${height}px` }"
         role="progressbar"
         :aria-valuenow="Math.round(percent)"
         aria-valuemin="0"

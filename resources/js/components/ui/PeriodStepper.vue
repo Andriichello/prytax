@@ -3,10 +3,12 @@ import Icon from '@/components/ui/Icon.vue';
 import { t } from '@/i18n';
 
 /**
- * ‹ IV квартал 2026 › — steps through periods like a calendar; a side, which can't go further, is disabled.
+ * ‹ IV квартал 2026 › — steps through periods like a calendar; a side, which can't go further, is disabled. A
+ * `sublabel` (such as the deadline) shows under the period.
  */
-const { label, canPrevious = true, canNext = true, previousLabel = undefined, nextLabel = undefined } = defineProps<{
+const { label, sublabel = undefined, canPrevious = true, canNext = true, previousLabel = undefined, nextLabel = undefined } = defineProps<{
     label: string;
+    sublabel?: string;
     canPrevious?: boolean;
     canNext?: boolean;
     previousLabel?: string;
@@ -27,7 +29,10 @@ const emit = defineEmits<{ previous: []; next: [] }>();
         >
             <Icon name="chevronLeft" :size="22" />
         </button>
-        <span class="flex-1 text-center text-16 font-semibold" aria-live="polite">{{ label }}</span>
+        <span class="flex flex-1 flex-col items-center" aria-live="polite">
+            <span class="text-16 font-semibold">{{ label }}</span>
+            <span v-if="sublabel" class="text-13 text-ink-2">{{ sublabel }}</span>
+        </span>
         <button
             type="button"
             :aria-label="nextLabel ?? t('shell.ui.next')"

@@ -91,6 +91,9 @@ const routes: RouteRecordRaw[] = [
         redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarter: to.params.quarter, view: 'receipts' } }),
     },
     { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
+    { path: '/taxes/payments/:id(\\d+)', name: 'tax-payment', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { record: record('tax-payments') } },
+    { path: '/taxes/esv/new', name: 'esv-payment-new', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
+    { path: '/taxes/esv/:id(\\d+)', name: 'esv-payment', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { record: record('tax-payments') } },
     {
         path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])',
         name: 'declaration',

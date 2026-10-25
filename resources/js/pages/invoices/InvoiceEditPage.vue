@@ -654,6 +654,33 @@ function dropFile(): void {
 
 const fileName = computed(() => pendingFile.value?.name ?? existing.value?.primaryFile?.name ?? null);
 
+/* The PDF uploaded before: it stays through a return to the draft, and goes only when replaced or deleted here */
+const fileDeleteOpen = ref(false);
+const deletingFile = ref(false);
+const fileDeleteError = ref<string | null>(null);
+
+async function deleteUploadedFile(): Promise<void> {
+    const invoice = existing.value;
+
+    if (!invoice?.primary_file_id) {
+        return;
+    }
+
+    deletingFile.value = true;
+    fileDeleteError.value = null;
+
+    try {
+        await api.delete(path(`invoices/${invoice.id}/files/${invoice.primary_file_id}`));
+        existing.value = await fetchInvoice(invoice.id);
+        duplicates.value = [];
+        fileDeleteOpen.value = false;
+    } catch (caught) {
+        fileDeleteError.value = errorMessage(caught);
+    } finally {
+        deletingFile.value = false;
+    }
+}
+
 /* Saving, freezing and deleting */
 const saving = ref(false);
 const saveError = ref<unknown>(null);
@@ -1244,6 +1271,15 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                     <button v-if="pendingFile" type="button" :aria-label="t('invoices.editor.removeFile')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
                         <Icon name="close" :size="20" />
                     </button>
+                    <button
+                        v-else-if="existing?.primary_file_id"
+                        type="button"
+                        :aria-label="t('invoices.editor.removeFile')"
+                        class="flex size-11 items-center justify-center text-ink-2"
+                        @click="fileDeleteOpen = true"
+                    >
+                        <Icon name="close" :size="20" />
+                    </button>
                 </div>
                 <label class="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">
                     <Icon name="upload" :size="20" />
@@ -1394,6 +1430,18 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
             @confirm="remove"
         >
             <p class="m-0">{{ t('invoices.editor.deleteDraftExplained') }}</p>
+        </ConfirmSheet>
+
+        <ConfirmSheet
+            v-model:open="fileDeleteOpen"
+            :title="t('invoices.editor.deletePdfQuestion')"
+            :confirm-label="t('core.common.delete')"
+            destructive
+            :busy="deletingFile"
+            :error="fileDeleteError"
+            @confirm="deleteUploadedFile"
+        >
+            <p class="m-0">{{ t('invoices.editor.deletePdfExplained') }}</p>
         </ConfirmSheet>
     </SubScreen>
 </template>

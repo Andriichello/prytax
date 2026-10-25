@@ -103,6 +103,7 @@ export default {
         fixed: 'фікс.',
         pcs: 'шт',
         noDescription: 'Без опису',
+        unfreezeKeepsUpload: 'Номер і завантажений PDF залишаться, знімок буде видалено. Інвойс можна буде змінити й зафіксувати знову.',
     },
 
     /** Новий інвойс and the draft's editor */
@@ -166,6 +167,8 @@ export default {
         datesHint: 'Виставлено — кінець періоду; оплата — за договором.',
         savesPerGroup: 'Чернетка зберігається після кожної групи',
         textsShort: 'Тексти',
+        deletePdfQuestion: 'Видалити PDF?',
+        deletePdfExplained: 'Завантажений PDF буде видалено з чернетки. Інший можна завантажити будь-коли до фіксації.',
     },
 
     /** A payment without an invoice («Без інвойсу», design.md §4.2) */

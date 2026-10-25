@@ -177,7 +177,7 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
     unfreeze: {
         title: t('invoices.detail.returnToDraftQuestion'),
         label: t('invoices.detail.return'),
-        text: t('invoices.detail.unfreezeExplained'),
+        text: invoice.value?.primaryFile?.collection === 'uploaded' ? t('invoices.detail.unfreezeKeepsUpload') : t('invoices.detail.unfreezeExplained'),
     },
     cancel: {
         title: t('invoices.detail.cancelQuestion'),

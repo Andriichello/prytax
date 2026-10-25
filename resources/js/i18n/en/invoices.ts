@@ -100,6 +100,7 @@ export default {
         fixed: 'fixed',
         pcs: 'pcs',
         noDescription: 'No description',
+        unfreezeKeepsUpload: 'The number and the uploaded PDF are kept; the snapshot will be deleted. You can then edit the invoice and freeze it again.',
     },
 
     editor: {
@@ -162,6 +163,8 @@ export default {
         datesHint: 'Issued on the period’s end; due by the contract’s terms.',
         savesPerGroup: 'The draft is saved after each group',
         textsShort: 'Texts',
+        deletePdfQuestion: 'Delete the PDF?',
+        deletePdfExplained: 'The uploaded PDF will be deleted from the draft. You can upload another one any time before freezing.',
     },
 
     /** A payment without an invoice («Без інвойсу», design.md §4.2) */

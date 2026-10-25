@@ -1344,6 +1344,8 @@ Board numbers are in brackets.
   transfers and their receipts, contracts, notifications, and the groups they fall in (months, invoices). Not
   records, and kept in their own order: a receipt's money flow (in the order the money moved), an invoice's items,
   and entities such as clients and accounts (by name, by kind). CSV exports stay chronological.
+- The app doesn't zoom on phones and tablets (the owner, 2026-10-25): neither a pinch nor a double tap, nor a focused
+  field. Downloaded PDFs open in the device's viewer, which zooms.
 - Going back to Інвойси, Перекази or Податки from a record opened there returns to the same place, scroll and filters
   kept, without loading again (the owner, 2026-10-25). Only when something was saved meanwhile do they read their data
   again, quietly, keeping the place.

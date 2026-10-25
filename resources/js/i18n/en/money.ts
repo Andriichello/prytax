@@ -205,9 +205,6 @@ export default {
         receiptsPerMonth: 'Receipts per month',
         receiptsPerQuarter: 'Receipts per quarter',
         receiptsPerYear: 'Receipts per year',
-        allIncomingPerMonth: 'All incoming money per month',
-        allIncomingPerQuarter: 'All incoming money per quarter',
-        allIncomingPerYear: 'All incoming money per year',
         afterQuartersEnd: 'after the quarter’s end',
         longerThanDays: { one: 'for over {count} day', other: 'for over {count} days' },
         inactiveHistoryKept: 'Inactive · history kept',
@@ -245,12 +242,6 @@ export default {
     },
 
     accountForm: {
-        calendar: 'Calendar',
-        rolling: 'Rolling',
-        onlyReceiptsClients: 'Only receipts from clients',
-        calendarHint: 'Like Payoneer’s yearly limit',
-        allIncomingMoney: 'All incoming money',
-        allIncomingHint: 'Your own transfers included — for bank limits',
         newAccount: 'New account',
         namePlaceholder: 'E.g., Wise USD',
         type: 'Type',
@@ -270,13 +261,15 @@ export default {
         on: 'On',
         enterLimitAmount: 'Enter the limit amount or turn the limit off.',
         limitPeriod: 'Limit period',
-        window: 'Window',
-        limitWindow: 'Limit window',
-        whatCount: 'What to count',
         openingBalance: 'Opening balance',
         balanceNotSaved: 'The account is created, but the balance wasn’t saved: {error} Add it again.',
         openingBalanceHint:
             'If the account was opened before your records in PryTax began. The balance is counted from the latest one.',
+        mainGroup: 'Main',
+        limitEnabled: 'Limit on',
+        limitEnabledHint: 'A warning, when the receipts near the amount',
+        noLimit: 'No limit',
+        inactiveHint: 'An inactive one isn’t offered for new invoices',
     },
 
     movement: {

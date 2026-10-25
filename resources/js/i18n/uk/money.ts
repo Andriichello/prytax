@@ -211,9 +211,6 @@ export default {
         receiptsPerMonth: 'Надходження за місяць',
         receiptsPerQuarter: 'Надходження за квартал',
         receiptsPerYear: 'Надходження за рік',
-        allIncomingPerMonth: 'Усі зарахування за місяць',
-        allIncomingPerQuarter: 'Усі зарахування за квартал',
-        allIncomingPerYear: 'Усі зарахування за рік',
         afterQuartersEnd: 'після кінця кварталу',
         longerThanDays: { one: 'довше {count} дня', few: 'довше {count} днів', many: 'довше {count} днів' },
         inactiveHistoryKept: 'Неактивний · історія збережена',
@@ -253,12 +250,6 @@ export default {
 
     /** A new account, and editing one */
     accountForm: {
-        calendar: 'Календарне',
-        rolling: 'Ковзне',
-        onlyReceiptsClients: 'Лише надходження від клієнтів',
-        calendarHint: 'Як річний ліміт Payoneer',
-        allIncomingMoney: 'Усі зарахування',
-        allIncomingHint: 'Разом із вашими переказами — для лімітів банку',
         newAccount: 'Новий рахунок',
         namePlaceholder: 'Напр., Wise USD',
         type: 'Тип',
@@ -278,13 +269,15 @@ export default {
         on: 'Увімкнено',
         enterLimitAmount: 'Вкажіть суму ліміту або вимкніть його.',
         limitPeriod: 'Період ліміту',
-        window: 'Вікно',
-        limitWindow: 'Вікно ліміту',
-        whatCount: 'Що рахувати',
         openingBalance: 'Залишок на дату',
         balanceNotSaved: 'Рахунок створено, але залишок не збережено: {error} Додайте його ще раз.',
         openingBalanceHint:
             'Якщо рахунок відкрито до початку обліку в PryTax. Баланс рахується від останнього залишку.',
+        mainGroup: 'Основне',
+        limitEnabled: 'Ліміт увімкнено',
+        limitEnabledHint: 'Попередження, коли надходження наближаються до суми',
+        noLimit: 'Без ліміту',
+        inactiveHint: 'Неактивний не пропонується в нових інвойсах',
     },
 
     /** A movement of an account */

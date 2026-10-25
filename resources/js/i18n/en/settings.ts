@@ -80,8 +80,7 @@ export default {
 
     document: {
         title: 'Invoice document',
-        explained:
-            'Style, language, payment purpose, notes and contract on the FOP’s invoices. A client or a single invoice can have their own; an empty field takes the default.',
+        explained: 'The FOP’s invoice defaults. A client or a single invoice may have its own.',
         languageHint: 'This is the “Document language” of the FOP’s profile. The organization’s owner changes it.',
     },
 

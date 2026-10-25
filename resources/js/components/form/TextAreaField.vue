@@ -2,7 +2,8 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 
 /**
- * A labelled multi-line text, with an optional note on the label's right ("з шаблону договору") and a hint under it.
+ * A labelled multi-line text, with an optional note on the label's right ("з шаблону договору") and a hint under it;
+ * `hideLabel` keeps the label for screen readers only, where a card's title already names the text.
  * One that grows (`autogrow`) is as high as its text, or its placeholder while it is empty, from 2 rows up to 8, and
  * scrolls past them.
  */
@@ -16,6 +17,7 @@ const {
     disabled = false,
     autogrow = false,
     maxlength = undefined,
+    hideLabel = false,
 } = defineProps<{
     label: string;
     rows?: number;
@@ -26,6 +28,7 @@ const {
     disabled?: boolean;
     autogrow?: boolean;
     maxlength?: number;
+    hideLabel?: boolean;
 }>();
 
 const model = defineModel<string>({ default: '' });
@@ -93,7 +96,7 @@ onBeforeUnmount(() => observer?.disconnect());
 
 <template>
     <div class="flex flex-col gap-1.5">
-        <div class="flex items-baseline justify-between gap-2">
+        <div class="flex items-baseline justify-between gap-2" :class="{ 'sr-only': hideLabel }">
             <label :for="id" class="text-13 font-medium text-ink-2">{{ label }}</label>
             <span v-if="aside" class="text-12 text-ink-3">{{ aside }}</span>
         </div>

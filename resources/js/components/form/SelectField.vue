@@ -12,6 +12,7 @@ interface SelectOption<V> {
  * A labelled native select (the phone's own picker), 52 px tall with a chevron. A value, which isn't among the
  * options (an account of another currency, left from before), shows as nothing chosen rather than as the first
  * option, so picking that option still changes the value. With `clearable`, the placeholder chooses nothing (null).
+ * `aside` puts a note on the label's line, such as where an inherited value comes from (design.md §16.3).
  */
 const {
     label,
@@ -20,6 +21,7 @@ const {
     clearable = false,
     error = undefined,
     hint = undefined,
+    aside = undefined,
     disabled = false,
 } = defineProps<{
     label: string;
@@ -28,6 +30,7 @@ const {
     clearable?: boolean;
     error?: string;
     hint?: string;
+    aside?: string;
     disabled?: boolean;
 }>();
 
@@ -49,7 +52,10 @@ function onChange(event: Event): void {
 
 <template>
     <div class="flex flex-col gap-1.5">
-        <label :for="id" class="text-13 font-medium text-ink-2">{{ label }}</label>
+        <div class="flex items-baseline justify-between gap-2">
+            <label :for="id" class="text-13 font-medium text-ink-2">{{ label }}</label>
+            <span v-if="aside" class="text-12 text-ink-3">{{ aside }}</span>
+        </div>
         <div class="relative">
             <select
                 :id="id"

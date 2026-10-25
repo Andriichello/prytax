@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { api } from '@/api/client';
-import type { Account, AccountKind, LimitCounts, LimitPeriod } from '@/api/types';
+import type { Account, AccountKind, LimitPeriod } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -22,15 +22,16 @@ import { formatAmount, formatMoney } from '@/utils/money';
 const KINDS: AccountKind[] = ['platform', 'fop_bank', 'foreign_bank', 'personal'];
 
 /**
- * What a limit counts over its period: "Надходження за місяць", "Усі зарахування за рік".
+ * What a limit counts over its period: the client receipts, «Надходження за місяць».
  */
-function limitText(counts: LimitCounts, period: LimitPeriod): string {
-    const texts: Record<LimitCounts, Record<LimitPeriod, string>> = {
-        receipts: { month: t('money.accounts.receiptsPerMonth'), quarter: t('money.accounts.receiptsPerQuarter'), year: t('money.accounts.receiptsPerYear') },
-        all_inbound: { month: t('money.accounts.allIncomingPerMonth'), quarter: t('money.accounts.allIncomingPerQuarter'), year: t('money.accounts.allIncomingPerYear') },
+function limitText(period: LimitPeriod): string {
+    const texts: Record<LimitPeriod, string> = {
+        month: t('money.accounts.receiptsPerMonth'),
+        quarter: t('money.accounts.receiptsPerQuarter'),
+        year: t('money.accounts.receiptsPerYear'),
     };
 
-    return texts[counts][period];
+    return texts[period];
 }
 
 const { profileId, path, settings } = useCurrentProfile();
@@ -121,7 +122,7 @@ function caption(account: Account): string {
                         <template v-if="account.limit_progress && account.is_active">
                             <ProgressBar :percent="Number(account.limit_progress.percent)" :warn-from="80" />
                             <span class="flex items-baseline justify-between gap-3 text-13 text-ink-2">
-                                <span>{{ limitText(account.limit_progress.counts, account.limit_progress.period) }}</span>
+                                <span>{{ limitText(account.limit_progress.period) }}</span>
                                 <span class="num" :class="Number(account.limit_progress.percent) >= 80 ? 'font-semibold text-warning-text' : ''">
                                     {{ formatAmount(account.limit_progress.used) }} / {{ formatAmount(account.limit_progress.limit) }} · {{ account.limit_progress.percent }} %
                                 </span>

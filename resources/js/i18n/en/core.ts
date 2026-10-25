@@ -161,4 +161,9 @@ export default {
         invitationInvalid: 'The invitation link is invalid, has expired or has been used. Ask to be invited again.',
         severalOrganizations: 'This email is used in several organizations. Contact the organization’s owner.',
     },
+
+    accordion: {
+        editing: 'Editing',
+        oneAtATime: 'One group is open at a time; the others are dimmed until you save or cancel.',
+    },
 } satisfies Translation<typeof uk>;

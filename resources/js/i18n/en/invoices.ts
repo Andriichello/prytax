@@ -29,7 +29,6 @@ export default {
         noNumber: 'no number',
         nextNumber: 'next {number}',
         external: 'external',
-        overdueSince: 'Overdue since {date}',
     },
 
     filters: {

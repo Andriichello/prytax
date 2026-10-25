@@ -19,8 +19,10 @@ import { t } from '@/i18n';
 import { dateParts, formatMonthYear, monthNameGenitive } from '@/utils/dates';
 
 /**
- * Інвойси: every invoice, newest first, grouped by the month of issue, loading further as the list scrolls. Filters
- * (no free-text search) live in the URL and open the filters sheet. App keeps it alive behind an opened invoice.
+ * Інвойси: every invoice, newest first, grouped by the month of issue with its count («N інвойсів», or «N записи» with
+ * a payment without an invoice among them), in the rows of Головна, loading further as the list scrolls. The last
+ * month on screen shows its count once it is loaded whole. Filters (no free-text search) live in the URL and open the
+ * filters sheet. App keeps it alive behind an opened invoice.
  */
 defineOptions({ name: 'InvoicesPage' });
 
@@ -58,7 +60,15 @@ const months = computed(() => {
         }
     }
 
-    return groups;
+    // The last month may go on in the next page: it counts once that has loaded
+    return groups.map((group, index) => ({
+        ...group,
+        count: index < groups.length - 1 || !list.hasMore.value
+            ? group.invoices.some((invoice) => invoice.source === 'virtual')
+                ? t('core.counts.records', { count: group.invoices.length })
+                : t('core.counts.invoices', { count: group.invoices.length })
+            : null,
+    }));
 });
 
 /** "липня 2026": the month the next page continues, for the loading line at the bottom. */
@@ -164,8 +174,11 @@ const chipClass = (active: boolean): string => (active
             </EmptyState>
 
             <section v-for="month in months" :key="month.key" class="flex flex-col gap-2" :aria-label="month.title">
-                <SectionTitle class="mt-1.5">{{ month.title }}</SectionTitle>
-                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
+                <SectionTitle class="mt-1.5">
+                    {{ month.title }}
+                    <template v-if="month.count" #aside><span class="num text-ink-2">{{ month.count }}</span></template>
+                </SectionTitle>
+                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <InvoiceRow v-for="invoice in month.invoices" :key="invoice.id" :invoice="invoice" />
                 </div>
             </section>

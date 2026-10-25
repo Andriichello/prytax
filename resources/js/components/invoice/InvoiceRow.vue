@@ -10,33 +10,35 @@ import { compareAmounts, formatAmount, formatMoney, percentOf } from '@/utils/mo
 import { datedInvoiceStatus } from '@/utils/statuses';
 
 /**
- * An invoice in Інвойси: number (a generated draft's preview with "наст."; an external one has only its own),
- * status with its date («Надіслано 15.10», «Оплачено 25.10», «Скасовано 20.08», design.md §16.2, as on Головна),
- * client and total, and one context line: the period, "Прострочено з …" while money is owed past the due date, or the
- * paid share (handoff §6.6). No "не оплачено" text. A payment without an invoice shows the «Без інвойсу» marker and
- * «Оплачено {дд.мм}», then the client and the amount, then the period.
+ * An invoice of any status, as Головна and Інвойси list it (M-Home, design.md §16.5): the number («наст. …» on a
+ * generated draft, a draft's own typed number, the «Без інвойсу» marker on a payment without an invoice) and the
+ * status with its date; the client and the total; the period with «сплатити до …», or «прострочено, до …» in red
+ * while it is unpaid past due. Only a sent invoice shows its paid bar.
  */
 const { invoice } = defineProps<{ invoice: Invoice }>();
 
 const isDraft = computed(() => invoice.status === 'draft');
 const isCancelled = computed(() => invoice.status === 'cancelled');
 const isVirtual = computed(() => invoice.source === 'virtual');
-const isOpen = computed(() => invoice.status === 'ready' || invoice.status === 'sent');
 const paid = computed(() => invoice.paid_amount ?? '0.00');
 const percent = computed(() => percentOf(paid.value, invoice.total));
-const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoice.due_at < today()
-    && compareAmounts(paid.value, invoice.total) < 0);
-const draftNumber = computed(() => {
+const isOpen = computed(() => invoice.status === 'ready' || invoice.status === 'sent');
+const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoice.due_at < today() && compareAmounts(paid.value, invoice.total) < 0);
+
+/** A draft's number: an external one's own, a number typed by hand, else the preview the freeze would give. */
+const number = computed(() => {
+    if (!isDraft.value) {
+        return invoice.number;
+    }
+
     if (invoice.source === 'external') {
         return invoice.number ?? t('invoices.list.noNumber');
     }
 
-    // A number typed by hand stays; a generated one is the preview, which follows the draft's dates
     return invoice.number !== null && invoice.sequence_number === null
         ? invoice.number
         : t('invoices.list.nextNumber', { number: invoice.number_preview ?? invoice.number ?? '…' });
 });
-const partlyPaid = computed(() => isOpen.value && compareAmounts(paid.value, '0') > 0);
 
 const to = computed(() => (isDraft.value
     ? { name: 'invoice-edit', params: { id: invoice.id } }
@@ -48,11 +50,15 @@ const to = computed(() => (isDraft.value
         <span class="flex items-center justify-between gap-2">
             <span class="flex min-w-0 items-center gap-2">
                 <VirtualMarker v-if="isVirtual" />
-                <span v-else-if="isDraft" class="truncate text-15 font-medium text-ink-3" :class="invoice.source === 'external' && !invoice.number ? '' : 'num'">
-                    {{ draftNumber }}
-                </span>
-                <span v-else class="num truncate text-15" :class="isCancelled ? 'font-medium line-through' : 'font-semibold'">
-                    {{ invoice.number }}
+                <span
+                    v-else
+                    class="truncate text-15"
+                    :class="[
+                        isDraft ? 'font-medium text-ink-3' : isCancelled ? 'font-medium line-through' : 'font-semibold',
+                        invoice.source === 'external' && isDraft && !invoice.number ? '' : 'num',
+                    ]"
+                >
+                    {{ number }}
                 </span>
                 <span
                     v-if="invoice.source === 'external'"
@@ -67,15 +73,14 @@ const to = computed(() => (isDraft.value
             <span class="min-w-0 truncate">{{ invoice.client?.name }}</span>
             <span class="num" :class="isCancelled ? '' : 'font-semibold'">{{ formatMoney(invoice.total, invoice.currency) }}</span>
         </span>
-        <span v-if="overdue" class="text-12 text-negative">
-            {{ t('invoices.list.overdueSince', { date: formatDayMonth(invoice.due_at) }) }}<template v-if="invoice.receivingAccount"> · {{ invoice.receivingAccount.name }}</template>
+        <span class="flex justify-between gap-2 text-12 text-ink-3">
+            <span>{{ t('invoices.home.periodOf', { period: formatPeriod(invoice.period_start, invoice.period_end) }) }}</span>
+            <span v-if="overdue" class="text-negative">{{ t('invoices.home.overdueBy', { date: formatDayMonth(invoice.due_at) }) }}</span>
+            <span v-else-if="invoice.due_at && !isVirtual">{{ t('invoices.home.dueBy', { date: formatDayMonth(invoice.due_at) }) }}</span>
         </span>
-        <span v-else-if="partlyPaid" class="mt-0.5 flex items-center gap-2.5">
+        <span v-if="invoice.status === 'sent'" class="flex items-center gap-2.5">
             <ProgressBar :percent="percent" />
             <span class="num text-12 text-ink-2">{{ formatAmount(paid) }} · {{ percent }} %</span>
-        </span>
-        <span v-else-if="isDraft || isOpen || isVirtual" class="text-12 text-ink-3">
-            {{ t('invoices.home.periodOf', { period: formatPeriod(invoice.period_start, invoice.period_end) }) }}<template v-if="isOpen && invoice.due_at"> · {{ t('invoices.home.dueBy', { date: formatDayMonth(invoice.due_at) }) }}</template>
         </span>
     </RouterLink>
 </template>

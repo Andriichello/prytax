@@ -30,7 +30,6 @@ export default {
         noNumber: 'без номера',
         nextNumber: 'наст. {number}',
         external: 'зовнішній',
-        overdueSince: 'Прострочено з {date}',
     },
 
     /** Фільтри інвойсів */

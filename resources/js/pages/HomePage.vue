@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { api } from '@/api/client';
 import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
-import OpenInvoiceRow from '@/components/invoice/OpenInvoiceRow.vue';
+import InvoiceRow from '@/components/invoice/InvoiceRow.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import LoadState from '@/components/ui/LoadState.vue';
@@ -88,7 +88,7 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
                     <span class="num text-13 text-ink-2">{{ section.count }}</span>
                 </div>
                 <div v-if="section.invoices.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                    <OpenInvoiceRow v-for="invoice in section.invoices" :key="invoice.id" :invoice="invoice" />
+                    <InvoiceRow v-for="invoice in section.invoices" :key="invoice.id" :invoice="invoice" />
                 </div>
                 <EmptyState v-else :text="t('invoices.home.noInvoicesQuarter')">
                     <RouterLink

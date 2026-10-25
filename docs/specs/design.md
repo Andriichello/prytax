@@ -571,8 +571,9 @@ existing `source` discriminator takes the value instead, so nothing else is rena
 - `notes` holds «За що», the user's own reminder, never printed.
 
 **Lifecycle.**
-- **Created** with its receipt in one transaction: `POST payments` takes `virtual_invoice {client_id, contract_id,
-  period_start, period_end, notes?}` instead of `invoice_id`.
+- **Created** with its receipt in one transaction: `POST payments` (and `payments/preview`) takes `virtual_invoice
+  {client_id, contract_id, period_start, period_end, notes?}` instead of `invoice_id`; `PATCH payments/{payment}`
+  takes it to change them.
 - **One receipt** per virtual invoice. Editing the receipt's amount changes the total with it. Deleting the receipt
   deletes the virtual invoice.
 - **Status `paid` from the start**, with no transition. It never takes a number from a counter.
@@ -593,9 +594,9 @@ global scope, because the books must see them.
   the client's counter by the date rule (§5, e.g. `KS-2026-11-30-8`), the snapshot and the PDF; the status stays
   `paid`. The issue date stays the payment date, and the period stays as entered. The invoice gets one `fixed` item
   for the whole amount, its description expanded from the contract's `description_template`.
-- **«Прив’язати до виставленого інвойсу»** (`POST invoices/{invoice}/attach {invoice_id}`): the receipt moves to a
-  `ready`, `sent` or `paid` invoice of the same client (the existing receipt move, with its coverage and paid/reopen
-  rules), then the virtual invoice is deleted.
+- **«Прив’язати до виставленого інвойсу»** (`PATCH payments/{payment} {invoice_id}`): the receipt moves to a `ready`,
+  `sent` or `paid` invoice in its currency (the existing receipt move, with its coverage and paid/reopen rules), and
+  the virtual invoice is deleted in the same transaction. No other receipt can join a virtual invoice.
 
 **Screens** (§16.5): «Інвойс для надходження» (board 041), «Нове надходження» without an invoice (042), the list rows
 (002, 003, 043), the record «Без інвойсу» (044).
@@ -807,7 +808,9 @@ month and by quarter and `taxes.default_grouping` are gone.
 
 ### 8.4 Tax payments (`TaxPaymentRecorder`)
 
-- **ЄП and ВЗ are paid from a receipt, never as a free amount.** `payment_id` is required and `allocation = payment`.
+- **ЄП and ВЗ are paid from a receipt, never as a free amount.** `payment_id` is required and `allocation = payment`
+  (the API sets the allocation by the tax; `TaxPaymentRecorder` still takes month and quarter allocations from code,
+  such as the demo and a future import).
   The period is copied from the receipt's `received_at`. The amount is the receipt's own `single_tax_uah` /
   `military_levy_uah`, set by the server; a typed `amount` is a 422. A saved tax payment keeps its amount when the
   receipt is edited later, and the difference shows in the reconciliation. A kopeck remainder between Σ hints and the

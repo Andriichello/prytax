@@ -26,4 +26,12 @@ onUnauthenticated(() => {
     }
 });
 
+/*
+ * No zooming on phones and tablets (design.md §16.5): the viewport forbids it, but iOS Safari pinches anyway, so its
+ * pinch gestures are cancelled.
+ */
+for (const gesture of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(gesture, (event) => event.preventDefault(), { passive: false });
+}
+
 createApp(App).use(router).mount('#app');

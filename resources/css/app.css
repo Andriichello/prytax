@@ -94,9 +94,11 @@
 }
 
 @layer base {
+    /* No zooming on phones and tablets (design.md §16.5): a double tap never zooms, the viewport forbids pinching */
     html {
         line-height: normal;
         -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
     }
 
     body {

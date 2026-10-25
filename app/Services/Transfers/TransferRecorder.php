@@ -443,7 +443,6 @@ class TransferRecorder
         $this->lock->assertOpen($profile, array_filter([$existing?->received_at, $transfer->received_at]), $correctionNote);
 
         $snapshot = $this->snapshotter->compute(
-            $profile,
             'UAH',
             Decimal::money($gain),
             Decimal::money($gain),

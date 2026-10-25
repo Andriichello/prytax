@@ -11,7 +11,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use PryTax\Enums\AccountKind;
 use PryTax\Enums\DeclarationStatus;
-use PryTax\Enums\LimitCounts;
 use PryTax\Enums\LimitPeriod;
 use PryTax\Enums\TaxType;
 use PryTax\Helpers\CurrentProfile;
@@ -191,17 +190,20 @@ class DemoSeeder extends Seeder
             $wiseEur = $this->account($profile, 'Wise EUR', AccountKind::Platform, 'EUR', ['bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX', 'sort_order' => 2]);
             $payoneer = $this->account($profile, 'Payoneer USD', AccountKind::Platform, 'USD', [
                 'bank_name' => 'Payoneer', 'account_number' => '5000000089',
-                'limit_amount' => '10000.00', 'limit_period' => LimitPeriod::Year, 'limit_counts' => LimitCounts::Receipts, 'sort_order' => 3,
+                'limit_amount' => '10000.00', 'limit_period' => LimitPeriod::Year, 'sort_order' => 3,
             ]);
             $bankUah = $this->account($profile, 'ПриватБанк ФОП', AccountKind::FopBank, 'UAH', ['bank_name' => 'АТ КБ «ПриватБанк»', 'iban' => 'UA213052990000026001234567890', 'sort_order' => 4]);
             $bankUsd = $this->account($profile, 'ПриватБанк ФОП', AccountKind::FopBank, 'USD', [
                 'bank_name' => 'JSC CB PrivatBank', 'iban' => 'UA493052990000026002234567890', 'swift' => 'PBANUA2X',
-                'limit_amount' => '50000.00', 'limit_period' => LimitPeriod::Month, 'limit_counts' => LimitCounts::AllInbound, 'sort_order' => 5,
+                'limit_amount' => '50000.00', 'limit_period' => LimitPeriod::Month, 'sort_order' => 5,
             ]);
             $this->account($profile, 'Mercury USD', AccountKind::ForeignBank, 'USD', ['bank_name' => 'Mercury', 'is_active' => false, 'sort_order' => 6]);
             $this->account($profile, 'Monobank картка', AccountKind::Personal, 'UAH', ['bank_name' => 'Monobank', 'sort_order' => 7]);
 
-            $profile->updateSettings(['taxes.default_account_id' => $bankUah->id]);
+            $profile->updateSettings([
+                'taxes.payment_account_ids' => [$bankUah->id, $bankUsd->id],
+                'taxes.default_account_id' => $bankUah->id,
+            ]);
 
             [$brightline, $brightlineContract] = $this->brightline($profile);
             [$nordwave, $nordwaveContract] = $this->client($profile, [

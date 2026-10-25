@@ -35,7 +35,7 @@ class ProfileSettingControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.display.money_format', 'space_dot')
             ->assertJsonPath('data.invoice.money_format', 'plain_dot')
-            ->assertJsonPath('data.income.taxable_base', 'invoiced')
+            ->assertJsonPath('data.taxes.payment_account_ids', [])
             ->assertJsonPath('data.alerts.deadline_days', 7);
     }
 
@@ -144,12 +144,52 @@ class ProfileSettingControllerTest extends TestCase
         $profile = $this->createProfile();
         $user = $this->actAs($profile, 'accountant');
 
-        $this->patchJson($this->profilePath($profile, 'settings'), ['income' => ['taxable_base' => 'received']])->assertOk();
+        $this->patchJson($this->profilePath($profile, 'settings'), ['income' => ['fx_gain' => 'include']])->assertOk();
 
         $entry = AuditLog::query()->where('event', 'settings_updated')->firstOrFail();
         $this->assertSame($profile->id, (int) $entry->subject_id);
         $this->assertSame($user->id, (int) $entry->causer_id);
-        $this->assertSame(['income.taxable_base' => 'invoiced'], $entry->changes['old']);
-        $this->assertSame(['income.taxable_base' => 'received'], $entry->changes['new']);
+        $this->assertSame(['income.fx_gain' => 'ignore'], $entry->changes['old']);
+        $this->assertSame(['income.fx_gain' => 'include'], $entry->changes['new']);
+    }
+
+    /**
+     * Test that taxes are paid from UAH accounts and from ФОП accounts in another currency, with a primary one.
+     *
+     * @return void
+     */
+    public function testStoresTheAccountsTaxesArePaidFrom(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $privatUah = $this->createAccount($profile, ['kind' => 'fop_bank', 'currency' => 'UAH', 'name' => 'ПриватБанк ФОП']);
+        $monoUsd = $this->createAccount($profile, ['kind' => 'fop_bank', 'currency' => 'USD', 'name' => 'Monobank ФОП']);
+
+        $this->patchJson($this->profilePath($profile, 'settings'), [
+            'taxes' => ['payment_account_ids' => [$privatUah->id, $monoUsd->id], 'default_account_id' => $monoUsd->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.taxes.payment_account_ids', [$privatUah->id, $monoUsd->id])
+            ->assertJsonPath('data.taxes.default_account_id', $monoUsd->id);
+    }
+
+    /**
+     * Test that a platform, an inactive account and a repeated one aren't accounts to pay taxes from.
+     *
+     * @return void
+     */
+    public function testReturns422ForAccountsTaxesArentPaidFrom(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $payoneer = $this->createAccount($profile, ['kind' => 'platform', 'currency' => 'USD', 'name' => 'Payoneer USD']);
+        $closed = $this->createAccount($profile, ['kind' => 'fop_bank', 'currency' => 'UAH', 'name' => 'Закритий', 'is_active' => false]);
+        $bank = $this->createAccount($profile, ['kind' => 'fop_bank', 'currency' => 'UAH', 'name' => 'ПриватБанк ФОП']);
+
+        foreach ([[$payoneer->id], [$closed->id], [$bank->id, $bank->id]] as $accounts) {
+            $this->patchJson($this->profilePath($profile, 'settings'), ['taxes' => ['payment_account_ids' => $accounts]])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('taxes.payment_account_ids');
+        }
     }
 }

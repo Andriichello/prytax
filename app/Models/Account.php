@@ -7,14 +7,13 @@ use Core\Models\BaseModel;
 use Core\Models\Traits\Audited;
 use Core\Models\Traits\TracksCreator;
 use Database\Factories\AccountFactory;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PryTax\Enums\AccountKind;
-use PryTax\Enums\LimitCounts;
 use PryTax\Enums\LimitPeriod;
-use PryTax\Enums\LimitWindow;
 use PryTax\Models\Traits\BelongsToProfile;
 use PryTax\Queries\TenantQuery;
 use PryTax\Services\Accounts\AccountBalanceCalculator;
@@ -43,8 +42,6 @@ use PryTax\Services\Accounts\AccountStatement;
  * @property array|null $details
  * @property string|null $limit_amount
  * @property LimitPeriod|null $limit_period
- * @property LimitWindow $limit_window
- * @property LimitCounts $limit_counts
  * @property bool $is_active
  * @property int $sort_order
  * @property Carbon|null $created_at
@@ -87,8 +84,6 @@ class Account extends BaseModel
         'details',
         'limit_amount',
         'limit_period',
-        'limit_window',
-        'limit_counts',
         'is_active',
         'sort_order',
     ];
@@ -99,8 +94,6 @@ class Account extends BaseModel
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'limit_window' => 'calendar',
-        'limit_counts' => 'receipts',
         'is_active' => true,
         'sort_order' => 0,
     ];
@@ -117,11 +110,24 @@ class Account extends BaseModel
         'details' => 'array',
         'limit_amount' => 'decimal:2',
         'limit_period' => LimitPeriod::class,
-        'limit_window' => LimitWindow::class,
-        'limit_counts' => LimitCounts::class,
         'is_active' => 'boolean',
         'sort_order' => 'int',
     ];
+
+    /**
+     * Limit a query of accounts to those, which taxes may be paid from (design.md §8.4): active accounts in UAH, and
+     * active ФОП accounts in another currency, whose bank sells the currency into the ФОП's UAH account and pays from
+     * there.
+     *
+     * @param Builder $query
+     *
+     * @return void
+     */
+    public static function wherePaysTaxes(Builder $query): void
+    {
+        $query->where('is_active', true)
+            ->where(fn (Builder $query) => $query->where('currency', 'UAH')->orWhere('kind', AccountKind::FopBank->value));
+    }
 
     /**
      * Opening balances of the account.

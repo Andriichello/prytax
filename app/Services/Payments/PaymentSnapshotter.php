@@ -2,13 +2,10 @@
 
 namespace PryTax\Services\Payments;
 
-use Brick\Math\BigDecimal;
 use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
-use PryTax\Enums\TaxableBase;
 use PryTax\Exceptions\ExchangeRateUnavailableException;
 use PryTax\Helpers\Decimal;
-use PryTax\Models\Profile;
 use PryTax\Services\Rates\NbuRateProvider;
 use PryTax\Services\Taxes\TaxRuleResolver;
 
@@ -39,7 +36,6 @@ class PaymentSnapshotter
     /**
      * Compute the snapshot of a receipt.
      *
-     * @param Profile $profile
      * @param string $currency Currency of the taxable amount.
      * @param string $amount The invoiced amount.
      * @param string $receivedAmount What landed on the account.
@@ -61,7 +57,6 @@ class PaymentSnapshotter
      * @throws ValidationException When neither the NBU's rate nor a manual one is available, or no tax rule is.
      */
     public function compute(
-        Profile $profile,
         string $currency,
         string $amount,
         string $receivedAmount,
@@ -72,7 +67,8 @@ class PaymentSnapshotter
         [$rate, $exchangeRateId, $isManual] = $this->rateOf($currency, $receivedAt, $manualRate);
         $rule = $this->rules->forDate($receivedAt, 'received_at');
 
-        $uah = $this->uahAmount($profile, $currency, $amount, $receivedAmount, $receivedCurrency, $rate);
+        // The invoiced amount is the taxable base, also when a bank or a platform withheld a fee on the way in
+        $uah = Decimal::times($amount, $rate);
 
         return [
             'nbu_rate' => $rate,
@@ -119,38 +115,5 @@ class PaymentSnapshotter
         }
 
         return [Decimal::rate($stored->rate), $stored->getKey(), false];
-    }
-
-    /**
-     * Get the income of a receipt in UAH: the taxable base at the rate.
-     *
-     * @param Profile $profile
-     * @param string $currency
-     * @param string $amount
-     * @param string $receivedAmount
-     * @param string $receivedCurrency
-     * @param string $rate
-     *
-     * @return BigDecimal
-     */
-    protected function uahAmount(
-        Profile $profile,
-        string $currency,
-        string $amount,
-        string $receivedAmount,
-        string $receivedCurrency,
-        string $rate
-    ): BigDecimal {
-        if ($profile->setting('income.taxable_base') === TaxableBase::Received->value) {
-            if ($receivedCurrency === 'UAH') {
-                return Decimal::round($receivedAmount);
-            }
-
-            if ($receivedCurrency === $currency) {
-                return Decimal::times($receivedAmount, $rate);
-            }
-        }
-
-        return Decimal::times($amount, $rate);
     }
 }

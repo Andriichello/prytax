@@ -11,8 +11,8 @@ use Tests\TestCase;
 /**
  * Class AccountLimitCalculatorTest.
  *
- * Progress towards an account's limit (design.md §3, accounts): a rolling window is `[today − period, today]`, and a
- * personal account, which isn't a business one, has no tracked limit.
+ * Progress towards an account's limit (design.md §3, accounts): the client receipts within the current calendar
+ * window, and none of a personal account, which isn't a business one.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Services\Accounts
@@ -23,24 +23,23 @@ class AccountLimitCalculatorTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that a rolling year counts the receipts from the same day of the previous year up to today.
+     * Test that a yearly limit counts the receipts of the calendar year only.
      *
      * @return void
      */
-    public function testCountsAReceiptOfTheFirstDayOfARollingYear(): void
+    public function testCountsTheReceiptsOfTheCalendarYear(): void
     {
         $profile = $this->createProfile();
-        $payoneer = $this->createAccount($profile, [
-            'name' => 'Payoneer USD', 'limit_amount' => '10000.00', 'limit_period' => 'year', 'limit_window' => 'rolling',
-        ]);
+        $payoneer = $this->createAccount($profile, ['name' => 'Payoneer USD', 'limit_amount' => '10000.00', 'limit_period' => 'year']);
         $this->inProfile($profile, function () use ($profile, $payoneer) {
-            Payment::factory()->create(['profile_id' => $profile->id, 'received_to_account_id' => $payoneer->id, 'received_at' => '2025-10-20']);
-            Payment::factory()->create(['profile_id' => $profile->id, 'received_to_account_id' => $payoneer->id, 'received_at' => '2025-10-19']);
+            Payment::factory()->create(['profile_id' => $profile->id, 'received_to_account_id' => $payoneer->id, 'received_at' => '2026-01-01']);
+            Payment::factory()->create(['profile_id' => $profile->id, 'received_to_account_id' => $payoneer->id, 'received_at' => '2025-12-31']);
         });
 
         $progress = $this->inProfile($profile, fn () => app(AccountLimitCalculator::class)->progress($payoneer, now()->setDate(2026, 10, 20)));
 
-        $this->assertSame('2025-10-20', $progress['from']);
+        $this->assertSame('2026-01-01', $progress['from']);
+        $this->assertSame('2026-12-31', $progress['to']);
         $this->assertSame('1000.00', $progress['used']);
         $this->assertSame('10', $progress['percent']);
     }

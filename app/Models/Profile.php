@@ -20,7 +20,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use PryTax\Enums\AccountKind;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\FxGainPolicy;
 use PryTax\Enums\InvoiceNoteKind;
@@ -31,11 +30,10 @@ use PryTax\Enums\NumberingPrefix;
 use PryTax\Enums\NumberingReset;
 use PryTax\Enums\NumberingScope;
 use PryTax\Enums\NumberingStrategy;
-use PryTax\Enums\TaxableBase;
-use PryTax\Enums\TaxGrouping;
 use PryTax\Enums\TaxIdKind;
 use PryTax\Queries\ProfileQuery;
 use PryTax\Rules\NoteTextRequired;
+use PryTax\Rules\TaxPaymentAccounts;
 use PryTax\Services\Invoices\InvoiceSettingsResolver;
 use PryTax\Services\Invoices\PaymentPurposeRenderer;
 
@@ -268,17 +266,15 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 'default' => MoneyFormat::SpaceDot->value,
                 'rules' => [Rule::in(MoneyFormat::values())],
             ],
-            'income.taxable_base' => [
-                'default' => TaxableBase::Invoiced->value,
-                'rules' => [Rule::in(TaxableBase::values())],
-            ],
             'income.fx_gain' => [
                 'default' => FxGainPolicy::Ignore->value,
                 'rules' => [Rule::in(FxGainPolicy::values())],
             ],
-            'taxes.default_grouping' => [
-                'default' => TaxGrouping::Payment->value,
-                'rules' => [Rule::in(TaxGrouping::values())],
+            // The accounts taxes are paid from (design.md §8.4), and the primary one, which a new payment starts with
+            'taxes.payment_account_ids' => [
+                'default' => [],
+                'rules' => ['array', new TaxPaymentAccounts($this->getKey())],
+                'cast' => 'array',
             ],
             'taxes.default_account_id' => [
                 'default' => null,
@@ -287,9 +283,7 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                     'integer',
                     Rule::exists('accounts', 'id')
                         ->where('profile_id', $this->getKey())
-                        ->where('kind', AccountKind::FopBank->value)
-                        ->where('currency', 'UAH')
-                        ->where('is_active', true),
+                        ->where(fn ($query) => Account::wherePaysTaxes($query)),
                 ],
                 'cast' => 'int',
             ],

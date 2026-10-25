@@ -11,7 +11,6 @@ use Illuminate\Validation\ValidationException;
 use PryTax\Enums\AccountKind;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Enums\PaymentKind;
-use PryTax\Enums\TaxableBase;
 use PryTax\Helpers\Decimal;
 use PryTax\Models\Account;
 use PryTax\Models\Invoice;
@@ -262,7 +261,7 @@ class PaymentRecorder
             return $this->lock->lockedBy($profile, $date);
         }
 
-        if (!$this->changesIncome($profile, $existing, $attributes)) {
+        if (!$this->changesIncome($existing, $attributes)) {
             return null;
         }
 
@@ -305,7 +304,7 @@ class PaymentRecorder
 
         $attributes = $this->attributes($profile, $merged, $payment);
 
-        $changesIncome = $this->changesIncome($profile, $payment, $attributes);
+        $changesIncome = $this->changesIncome($payment, $attributes);
 
         if (!$changesIncome) {
             $attributes = Arr::except($attributes, [
@@ -386,25 +385,17 @@ class PaymentRecorder
     }
 
     /**
-     * Whether the update changes the receipt's income, so its snapshot is recomputed: its amount, currency or date,
-     * its received amount when the profile taxes what was received, or a manual rate, which the NBU's or another
-     * manual one replaces. Anything else keeps the stored snapshot.
+     * Whether the update changes the receipt's income, so its snapshot is recomputed: its amount, currency or date, or
+     * a manual rate, which the NBU's or another manual one replaces. Anything else keeps the stored snapshot.
      *
-     * @param Profile $profile
      * @param Payment $payment
      * @param array<string, mixed> $attributes
      *
      * @return bool
      */
-    protected function changesIncome(Profile $profile, Payment $payment, array $attributes): bool
+    protected function changesIncome(Payment $payment, array $attributes): bool
     {
-        $fields = ['amount', 'currency', 'received_at'];
-
-        if ($profile->setting('income.taxable_base') === TaxableBase::Received->value) {
-            $fields[] = 'received_amount';
-        }
-
-        $changed = collect($fields)->contains(
+        $changed = collect(['amount', 'currency', 'received_at'])->contains(
             fn (string $field) => (string) $attributes[$field] !== (string) ($field === 'received_at'
                 ? $payment->received_at->toDateString()
                 : $payment->getAttribute($field))
@@ -595,7 +586,6 @@ class PaymentRecorder
         $receivedAt = CarbonImmutable::parse($data['received_at']);
 
         $snapshot = $this->snapshotter->compute(
-            $profile,
             $currency,
             $amount,
             $receivedAmount,

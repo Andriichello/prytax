@@ -370,8 +370,8 @@ class AlertCollector
             }
 
             $percent = $progress['percent'];
-            // A calendar window's crossing is news in each window; a rolling one's is one condition
-            $window = $progress['window'] === 'calendar' ? ":{$progress['from']}" : '';
+            // A crossing is news in each calendar window
+            $window = ":{$progress['from']}";
 
             $title = ['account' => $account->name, 'percent' => $percent];
             $body = [

@@ -4,9 +4,7 @@ namespace PryTax\Http\Requests\Accounts;
 
 use Illuminate\Validation\Rule;
 use PryTax\Enums\AccountKind;
-use PryTax\Enums\LimitCounts;
 use PryTax\Enums\LimitPeriod;
-use PryTax\Enums\LimitWindow;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
 
 /**
@@ -44,8 +42,6 @@ trait AccountRules
             'details.*.value' => ['required', 'string', 'max:255'],
             'limit_amount' => ['sometimes', 'nullable', ...$this->moneyRules()],
             'limit_period' => ['sometimes', 'nullable', 'required_with:limit_amount', Rule::enum(LimitPeriod::class)],
-            'limit_window' => ['sometimes', Rule::enum(LimitWindow::class)],
-            'limit_counts' => ['sometimes', Rule::enum(LimitCounts::class)],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:65535'],
         ];

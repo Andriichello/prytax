@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, apiUrl } from '@/api/client';
-import type { ApiResponse, Payment, PracticeOverview } from '@/api/types';
+import type { ApiResponse, Payment, PaymentMetrics, PracticeOverview } from '@/api/types';
 import QuarterSummaryCard from '@/components/accounting/QuarterSummaryCard.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import MonthCard from '@/components/payment/MonthCard.vue';
@@ -20,13 +20,14 @@ import { useSession } from '@/composables/useSession';
 import { useStoredState } from '@/composables/useStoredState';
 import { t } from '@/i18n';
 import { currentQuarter, monthName, quarterLabel } from '@/utils/dates';
+import { errorMessage } from '@/utils/errors';
 import { formatMoney, sumAmounts } from '@/utils/money';
 
 /**
  * Облік (M-Accounting, design.md §16.5): one quarter. «Підсумок кварталу» (the income limit, the income per currency,
  * the income for taxes and the taxes), then «Надходження»: the receipts by month, by invoice or in one list, each
- * with its ЄП and ВЗ, and its fees and net on demand (the switches apply at once and are remembered per user), and the
- * CSV exports. The period and grouping badges open «Фільтри»; «+ Надходження» opens Інвойс для надходження.
+ * with its ЄП and ВЗ, and its fees and net on demand (the switches apply at once and are remembered per user; the fees
+ * load apart, so the page doesn't reload), and the CSV exports. The period and grouping badges open «Фільтри»; «+ Надходження» opens Інвойс для надходження.
  */
 type Grouping = 'month' | 'invoice' | 'none';
 
@@ -52,24 +53,58 @@ const showTaxes = useStoredState('accounting.taxes', true, (value): value is boo
 const showFees = useStoredState('accounting.fees', false, (value): value is boolean => typeof value === 'boolean');
 
 /** The profile and quarter on screen: another quarter's figures are never shown while the chosen one loads. */
-const key = computed(() => `${profileId.value}:${year.value}:${quarter.value}:${showFees.value}`);
+const key = computed(() => `${profileId.value}:${year.value}:${quarter.value}`);
+
+/** The quarter's receipts, the newest first: with their invoices and tax payments, or with their fees (`metrics`). */
+const receiptsQuery = (withMetrics: boolean) => ({
+    filter: { period_year: year.value, period_quarter: quarter.value, kind: 'invoice' },
+    include: withMetrics ? [] : ['invoice.client', 'taxPayments'],
+    append: withMetrics ? ['metrics'] : [],
+    sort: '-received_at,-id',
+});
 
 const { data: loaded, error, loading, reload } = useLoader(async (signal) => {
     const own = key.value;
     const [overview, receipts] = await Promise.all([
         api.get<ApiResponse<PracticeOverview>>(`overview/${year.value}/${quarter.value}`, { with_inactive: 1 }, signal),
-        api.all<Payment>(path('payments'), {
-            filter: { period_year: year.value, period_quarter: quarter.value, kind: 'invoice' },
-            include: ['invoice.client', 'taxPayments'],
-            append: showFees.value ? ['metrics'] : [],
-            sort: '-received_at,-id',
-        }, signal),
+        api.all<Payment>(path('payments'), receiptsQuery(false), signal),
     ]);
 
     return { key: own, card: overview.data.profiles.find((entry) => entry.profile.id === profileId.value) ?? null, receipts };
 }, [key]);
 
 const data = computed(() => (loaded.value?.key === key.value ? loaded.value : null));
+
+/**
+ * The receipts' fees and net income, asked for only while «Комісії й чисто» is on, and apart from the page, which
+ * stays as it is meanwhile. They are kept for the receipts on screen (a reload of the page asks again), so switching
+ * off and on asks nothing.
+ */
+const metrics = shallowRef<{ source: object; byId: Map<number, PaymentMetrics> } | null>(null);
+const metricsError = ref<unknown>(null);
+let metricsRun = 0;
+
+watch(() => [showFees.value, data.value] as const, async ([fees, shown]) => {
+    if (!fees || !shown || metrics.value?.source === shown) {
+        return;
+    }
+
+    const run = ++metricsRun;
+
+    metricsError.value = null;
+
+    try {
+        const list = await api.all<Payment>(path('payments'), receiptsQuery(true));
+
+        if (run === metricsRun && data.value === shown) {
+            metrics.value = { source: shown, byId: new Map(list.flatMap((receipt) => (receipt.metrics ? [[receipt.id, receipt.metrics] as const] : []))) };
+        }
+    } catch (caught) {
+        if (run === metricsRun) {
+            metricsError.value = caught;
+        }
+    }
+}, { immediate: true });
 
 const groupingOptions = computed<{ value: Grouping; label: string }[]>(() => [
     { value: 'month', label: t('accounting.quarters.byMonth') },
@@ -111,9 +146,12 @@ const groups = computed<Group[]>(() => {
 
 const total = computed(() => sumAmounts(...(data.value?.receipts ?? []).map((receipt) => receipt.uah_amount)));
 
-const feesOf = (receipt: Payment): { fees: string | null; net: string | null } | null => (showFees.value
-    ? { fees: receipt.metrics?.fees ?? null, net: receipt.metrics?.net_income ?? null }
-    : null);
+/** The fee rows of a receipt: shown once its fees have loaded, while the switch is on. */
+const feesOf = (receipt: Payment): { fees: string | null; net: string | null } | null => {
+    const shown = showFees.value && metrics.value?.source === data.value ? metrics.value.byId.get(receipt.id) : undefined;
+
+    return shown ? { fees: shown.fees ?? null, net: shown.net_income ?? null } : null;
+};
 
 const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${quarter.value}/export`)));
 const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)));
@@ -151,6 +189,7 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                         <SwitchTile v-model="showTaxes" :label="t('shell.nav.taxes')" />
                         <SwitchTile v-model="showFees" :label="t('accounting.quarters.feesNet')" />
                     </div>
+                    <p v-if="showFees && metricsError" class="m-0 text-13 text-negative" role="alert">{{ errorMessage(metricsError) }}</p>
 
                     <EmptyState v-if="data.receipts.length === 0" :text="t('accounting.quarters.noReceipts', { quarter: quarterLabel(quarter), year })" />
 

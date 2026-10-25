@@ -167,6 +167,13 @@ export default {
         textsShort: 'Тексти',
     },
 
+    /** A payment without an invoice («Без інвойсу», design.md §4.2) */
+    virtual: {
+        marker: 'Без інвойсу',
+        byContract: 'Оплата за договором',
+        forBooks: 'Оплата за договором · лише для обліку',
+    },
+
     /** The parts of an invoice number, inside a sentence */
     numberParts: {
         abbreviation: 'абревіатура клієнта',

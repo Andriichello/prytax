@@ -49,6 +49,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue'), meta: { record: record('invoices') } },
     { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice', record: record('invoices') } },
 
+    { path: '/payments/pick', name: 'payment-pick', component: () => import('@/pages/payments/PaymentInvoicePickPage.vue'), meta: { can: ['create', 'payments'], denied: 'accounting' } },
     { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home' } },
     { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue'), meta: { record: record('payments') } },
     { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment', record: record('payments') } },

@@ -2,18 +2,18 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api, newIdempotencyKey } from '@/api/client';
-import type { Account, ApiResponse, Invoice, InvoiceCoverage, Payment, PaymentGroupResponse, PaymentKind, PaymentPreview, PaymentSavedResponse } from '@/api/types';
+import type { Account, ApiResponse, Client, Contract, Invoice, InvoiceCoverage, Payment, PaymentGroupResponse, PaymentPreview, PaymentSavedResponse } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
+import VirtualMarker from '@/components/invoice/VirtualMarker.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import InvoicePickerSheet from '@/components/payment/InvoicePickerSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
-import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
@@ -26,11 +26,12 @@ import { compareAmounts, formatAmount, formatMoney, parseAmount, subtractAmounts
 import { unpaidStatusOf } from '@/utils/statuses';
 
 /**
- * Нове надходження (S-PaymentNew), and its editing: income of an invoice, an advance or other income, where it
- * landed, and — before saving — what will be stored: the hryvnias at the NBU rate, ЄП and ВЗ, the quarter. One wire,
- * which covers several invoices of one currency, is recorded as one receipt of each (design.md §6.1). Editing may
- * move a receipt to another invoice of its currency (the one replacing a cancelled invoice), or link an advance to
- * its invoice.
+ * Нове надходження (M-PaymentNew, M-VPaymentNew), and its editing: income of an invoice, or of a payment without an
+ * invoice («Без інвойсу»: the client, the contract, whose currency it takes, the service period and «За що», which
+ * become its virtual invoice, design.md §4.2), where it landed, and — before saving — what will be stored: the
+ * hryvnias at the NBU rate, ЄП and ВЗ, the quarter. One wire, which covers several invoices of one currency, is
+ * recorded as one receipt of each (§6.1). Editing may move a receipt to another invoice of its currency (the one
+ * replacing a cancelled invoice, or an issued one, which a payment without an invoice is attached to).
  */
 const KIND_ACCOUNT_LABELS: Record<string, string> = {
     get platform() {
@@ -54,12 +55,19 @@ const isNew = computed(() => paymentId.value === null);
 
 const invoices = ref<Invoice[]>([]);
 const accounts = ref<Account[]>([]);
+const clients = ref<Client[]>([]);
+const contracts = ref<Contract[]>([]);
 const existing = ref<Payment | null>(null);
 
 const form = reactive({
-    kind: 'invoice' as PaymentKind,
     invoice_id: null as number | null,
-    description: '',
+    /** A payment without an invoice, whose virtual invoice the fields below describe. */
+    virtual: false,
+    client_id: null as number | null,
+    contract_id: null as number | null,
+    period_start: '',
+    period_end: '',
+    notes: '',
     amount: '',
     client_fee_amount: '',
     received_to_account_id: null as number | null,
@@ -75,30 +83,37 @@ const markPaid = ref(true);
 const extra = ref<{ invoice_id: number; amount: string }[]>([]);
 
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
-    const [open, accountList, payment] = await Promise.all([
+    const [open, accountList, clientList, payment] = await Promise.all([
         api.all<Invoice>(path('invoices'), {
             filter: { status: { in: ['ready', 'sent'] } },
             include: ['client'],
             sort: 'issued_at',
         }, signal),
         api.all<Account>(path('accounts'), {}, signal),
+        api.all<Client>(path('clients'), {}, signal),
         paymentId.value === null
             ? Promise.resolve(null)
             : api.get<ApiResponse<Payment>>(path(`payments/${paymentId.value}`), { include: ['invoice.client'] }, signal).then(({ data }) => data),
     ]);
+    const virtual = payment?.invoice?.source === 'virtual' ? payment.invoice : null;
 
     accounts.value = accountList;
+    clients.value = clientList;
     existing.value = payment;
     extra.value = [];
-    invoices.value = payment?.invoice && !open.some((invoice) => invoice.id === payment.invoice_id)
+    invoices.value = payment?.invoice && !virtual && !open.some((invoice) => invoice.id === payment.invoice_id)
         ? [payment.invoice, ...open]
         : open;
 
     if (payment) {
         Object.assign(form, {
-            kind: payment.kind,
-            invoice_id: payment.invoice_id,
-            description: payment.description ?? '',
+            invoice_id: virtual ? null : payment.invoice_id,
+            virtual: virtual !== null,
+            client_id: virtual?.client_id ?? null,
+            contract_id: virtual?.contract_id ?? null,
+            period_start: virtual?.period_start ?? '',
+            period_end: virtual?.period_end ?? '',
+            notes: virtual?.notes ?? '',
             amount: payment.amount,
             client_fee_amount: payment.client_fee_amount ?? '',
             received_to_account_id: payment.received_to_account_id,
@@ -114,7 +129,7 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
 
     const wanted = Number(route.query.invoice);
 
-    form.kind = route.query.kind === 'advance' || route.query.kind === 'other' ? route.query.kind : 'invoice';
+    form.virtual = route.query.without !== undefined;
 
     if (wanted && invoices.value.some((invoice) => invoice.id === wanted)) {
         form.invoice_id = wanted;
@@ -124,25 +139,34 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
 const invoiceOf = (id: number | null): Invoice | null => invoices.value.find((item) => item.id === id) ?? null;
 const remainingOf = (item: Invoice): string => subtractAmounts(item.total, item.paid_amount ?? '0');
 
-const invoice = computed(() => invoiceOf(form.invoice_id));
+const invoice = computed(() => (form.virtual ? null : invoiceOf(form.invoice_id)));
 const account = computed(() => accounts.value.find((item) => item.id === form.received_to_account_id) ?? null);
+const contract = computed(() => contracts.value.find((item) => item.id === form.contract_id) ?? null);
 
-/** An advance being edited, which may be linked to its invoice now. */
-const isAdvanceEdit = computed(() => !isNew.value && existing.value?.kind === 'advance');
-const linksAdvance = computed(() => isAdvanceEdit.value && form.invoice_id !== null);
-
-/** A receipt keeps its currency: the invoice's, or, for other income, the account's. */
+/** A receipt keeps its currency: its invoice's, or, without an invoice, the contract's. */
 const currency = computed(() => existing.value?.currency
-    ?? (form.kind === 'invoice' ? invoice.value?.currency : account.value?.currency)
+    ?? (form.virtual ? contract.value?.currency : invoice.value?.currency)
     ?? 'USD');
 const sameCurrency = computed(() => !account.value || account.value.currency === currency.value);
 const remaining = computed(() => (invoice.value ? remainingOf(invoice.value) : null));
 
-const kindOptions = computed<{ value: PaymentKind; label: string }[]>(() => [
-    { value: 'invoice', label: t('money.paymentForm.forInvoice') },
-    { value: 'advance', label: t('money.payment.advance') },
-    { value: 'other', label: t('money.payment.otherIncome') },
-]);
+/* Without an invoice: the client's contracts, an only active one taken at once */
+const clientOptions = computed(() => clients.value
+    .filter((client) => client.is_active || client.id === form.client_id)
+    .map((client) => ({ value: client.id, label: client.name })));
+const contractOptions = computed(() => contracts.value
+    .filter((item) => item.is_active || item.id === form.contract_id)
+    .map((item) => ({ value: item.id, label: `${item.name} · ${formatDate(item.started_at)}` })));
+
+watch(() => form.client_id, async (clientId) => {
+    contracts.value = clientId === null ? [] : await api.all<Contract>(path(`clients/${clientId}/contracts`));
+
+    if (!contracts.value.some((item) => item.id === form.contract_id)) {
+        const active = contracts.value.filter((item) => item.is_active);
+
+        form.contract_id = active.length === 1 ? active[0]!.id : null;
+    }
+});
 
 /** The name of a wire's amount field: "Сума за INV-0042". */
 function amountLabel(invoiceId: number | null): string {
@@ -152,7 +176,7 @@ function amountLabel(invoiceId: number | null): string {
 }
 
 /* One wire for several invoices */
-const isGroup = computed(() => isNew.value && form.kind === 'invoice' && extra.value.length > 0);
+const isGroup = computed(() => isNew.value && !form.virtual && extra.value.length > 0);
 const groupTotal = computed(() => sumAmounts(parseAmount(form.amount), ...extra.value.map((line) => parseAmount(line.amount))));
 const amountTotal = computed(() => (isGroup.value ? groupTotal.value : parseAmount(form.amount)));
 
@@ -209,7 +233,14 @@ function pick(chosen: Invoice): void {
         extra.value.push({ invoice_id: chosen.id, amount: remainingOf(chosen) });
     } else {
         form.invoice_id = chosen.id;
+        form.virtual = false;
     }
+}
+
+function pickWithout(): void {
+    form.virtual = true;
+    form.invoice_id = null;
+    extra.value = [];
 }
 
 /* An invoice brings its remaining amount and its receiving account, unless they were set by hand. */
@@ -227,6 +258,16 @@ watch(invoice, (chosen) => {
     }
 });
 
+/* Without an invoice, the money lands by default on the first active account in the contract's currency. */
+watch(contract, (chosen) => {
+    if (!chosen || !isNew.value || touched.account) {
+        return;
+    }
+
+    form.received_to_account_id = accounts.value
+        .find((item) => item.is_active && item.kind !== 'personal' && item.currency === chosen.currency)?.id ?? null;
+});
+
 /* What arrived follows the amount in the same currency, until it is typed; in another currency it is typed anew. */
 watch(() => [amountTotal.value, sameCurrency.value] as const, ([amount, same]) => {
     if (!touched.received_amount) {
@@ -239,13 +280,23 @@ const accountOptions = computed(() => accounts.value
     .map((item) => ({ value: item.id, label: `${accountLabel(item.name, item.currency)} · ${KIND_ACCOUNT_LABELS[item.kind] ?? item.kind}` })));
 
 /**
- * The fields of the receipt; an advance linked to an invoice becomes a receipt of the invoice.
+ * The fields of the receipt: its invoice, or, without an invoice, what its virtual invoice is made of.
  */
 function body(): Record<string, unknown> {
+    const owner = form.virtual
+        ? {
+            virtual_invoice: {
+                client_id: form.client_id,
+                contract_id: form.contract_id,
+                period_start: form.period_start,
+                period_end: form.period_end,
+                notes: form.notes.trim() || null,
+            },
+        }
+        : { invoice_id: form.invoice_id };
+
     return {
-        kind: linksAdvance.value ? 'invoice' : form.kind,
-        invoice_id: form.kind === 'invoice' || linksAdvance.value ? form.invoice_id : null,
-        description: form.kind === 'invoice' ? null : form.description.trim() || null,
+        ...owner,
         amount: parseAmount(form.amount) ?? form.amount,
         client_fee_amount: parseAmount(form.client_fee_amount),
         received_to_account_id: form.received_to_account_id,
@@ -257,11 +308,11 @@ function body(): Record<string, unknown> {
 
 /**
  * What the preview is asked about: the receipt (an edit names its id, so it isn't counted twice), or for one wire
- * its total as one income, which tells the quarter, the hryvnias and the taxes.
+ * its total as one income of its first invoice, which tells the quarter, the hryvnias and the taxes.
  */
 function previewBody(): Record<string, unknown> {
     if (isGroup.value) {
-        return { ...body(), kind: 'other', invoice_id: null, currency: currency.value, amount: groupTotal.value };
+        return { ...body(), amount: groupTotal.value };
     }
 
     return { ...body(), payment_id: existing.value?.id ?? null };
@@ -279,7 +330,9 @@ const ready = computed(() => !loading.value
     && (!isGroup.value || extra.value.every((line) => parseAmount(line.amount) !== null))
     && form.received_to_account_id !== null
     && !!form.received_at
-    && (form.kind !== 'invoice' || form.invoice_id !== null)
+    && (form.virtual
+        ? form.client_id !== null && form.contract_id !== null && !!form.period_start && !!form.period_end
+        : form.invoice_id !== null)
     && (sameCurrency.value || parseAmount(form.received_amount) !== null));
 
 watch(() => [ready.value, JSON.stringify(previewBody())], () => {
@@ -426,7 +479,10 @@ const generalError = computed(() => {
         return null;
     }
 
-    const fields = ['invoice_id', 'amount', 'client_fee_amount', 'received_to_account_id', 'received_amount', 'received_at', 'nbu_rate', 'description'];
+    const fields = [
+        'invoice_id', 'amount', 'client_fee_amount', 'received_to_account_id', 'received_amount', 'received_at', 'nbu_rate',
+        'virtual_invoice.client_id', 'virtual_invoice.contract_id', 'virtual_invoice.period_start', 'virtual_invoice.period_end', 'virtual_invoice.notes',
+    ];
 
     if (error instanceof ApiError && error.status === 422 && fields.some((field) => fieldError(error, field))) {
         return null;
@@ -437,23 +493,8 @@ const generalError = computed(() => {
 </script>
 
 <template>
-    <SubScreen :title="isNew ? t('money.paymentForm.newReceipt') : t('money.paymentForm.editReceipt')" :back="isNew ? { name: 'home' } : { name: 'payment', params: { id: paymentId } }">
+    <SubScreen :title="isNew ? t('money.paymentForm.newReceipt') : t('money.paymentForm.editReceipt')" :back="isNew ? { name: 'payment-pick' } : { name: 'payment', params: { id: paymentId } }">
         <LoadState :loading="loading" :error="loadError" @retry="reload">
-            <SegmentedControl
-                v-if="isNew"
-                v-model="form.kind"
-                :label="t('money.paymentForm.receiptType')"
-                :options="kindOptions"
-            />
-
-            <TextField
-                v-if="form.kind !== 'invoice'"
-                v-model="form.description"
-                :label="form.kind === 'advance' ? t('money.paymentForm.whoPaidWhat') : t('money.paymentForm.incomeDescription')"
-                :placeholder="form.kind === 'advance' ? t('money.paymentForm.descriptionPlaceholder') : t('money.paymentForm.otherIncomePlaceholder')"
-                :error="fieldError(shownError, 'description')"
-            />
-
             <section v-if="isGroup" class="flex flex-col gap-2" :aria-label="t('money.paymentForm.invoicesOnePayment')">
                 <SectionTitle>{{ t('money.paymentForm.invoicesPayment') }}</SectionTitle>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
@@ -498,20 +539,27 @@ const generalError = computed(() => {
                 <span v-if="fieldError(shownError, 'receipts')" class="text-12 text-negative">{{ fieldError(shownError, 'receipts') }}</span>
             </section>
 
-            <div v-else-if="form.kind === 'invoice' || isAdvanceEdit" class="flex flex-col gap-1.5">
-                <span id="payment-invoice" class="text-13 font-medium text-ink-2">{{ isAdvanceEdit ? t('money.paymentForm.advanceInvoice') : t('core.common.invoice') }}</span>
+            <div v-else class="flex flex-col gap-1.5">
+                <span id="payment-invoice" class="text-13 font-medium text-ink-2">{{ t('core.common.invoice') }}</span>
                 <button
                     type="button"
                     aria-labelledby="payment-invoice"
-                    class="flex w-full items-center gap-3 rounded-control border bg-surface px-3.5 py-3 text-left"
-                    :class="fieldError(shownError, 'invoice_id') ? 'border-negative' : 'border-line-input'"
+                    class="flex w-full items-center gap-3 rounded-control bg-surface px-3.5 py-3 text-left"
+                    :class="[
+                        fieldError(shownError, 'invoice_id') ? 'border-negative' : form.virtual ? 'border-ink-3' : 'border-line-input',
+                        form.virtual ? 'border border-dashed' : 'border',
+                    ]"
                     @click="picking = 'main'"
                 >
-                    <span v-if="invoice" class="flex min-w-0 flex-1 flex-col gap-[3px]">
+                    <span v-if="form.virtual" class="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <VirtualMarker />
+                        <span class="text-14 text-ink-2">{{ t('invoices.virtual.forBooks') }}</span>
+                    </span>
+                    <span v-else-if="invoice" class="flex min-w-0 flex-1 flex-col gap-[3px]">
                         <span class="num text-16 font-semibold text-accent">{{ invoice.number }}</span>
                         <span class="truncate text-15 font-light text-ink">{{ invoice.client?.name }}</span>
                     </span>
-                    <span v-else class="flex-1 text-16 text-ink-3">{{ isAdvanceEdit ? t('money.paymentForm.linkInvoice') : t('money.paymentForm.chooseInvoice') }}</span>
+                    <span v-else class="flex-1 text-16 text-ink-3">{{ t('money.paymentForm.chooseInvoice') }}</span>
                     <Icon name="chevronDown" :size="18" class="text-ink-2" />
                 </button>
                 <span v-if="invoice" class="text-12 text-ink-3">
@@ -520,15 +568,11 @@ const generalError = computed(() => {
                         <template #remaining><span class="num">{{ formatAmount(remaining) }}</span></template>
                     </Translated>
                 </span>
-                <span v-if="isAdvanceEdit && invoice" class="text-12 text-ink-3">
-                    {{ t('money.paymentForm.advanceWillLink') }}
-                    <button type="button" class="min-h-11 font-medium text-accent" @click="form.invoice_id = null">{{ t('money.paymentForm.dontLink') }}</button>
-                </span>
                 <span v-if="fieldError(shownError, 'invoice_id')" class="text-12 text-negative">{{ fieldError(shownError, 'invoice_id') }}</span>
             </div>
 
             <button
-                v-if="isNew && form.kind === 'invoice' && invoice"
+                v-if="isNew && !form.virtual && invoice"
                 type="button"
                 class="-mt-1 flex min-h-11 items-center gap-1.5 self-start text-14 font-medium text-accent"
                 @click="picking = 'extra'"
@@ -537,19 +581,65 @@ const generalError = computed(() => {
                 {{ isGroup ? t('money.paymentForm.addInvoice') : t('money.paymentForm.onePaymentForSeveral') }}
             </button>
 
+            <template v-if="form.virtual">
+                <SelectField
+                    v-model="form.client_id"
+                    :label="t('core.common.client')"
+                    :placeholder="t('invoices.editor.chooseClient')"
+                    :options="clientOptions"
+                    :error="fieldError(shownError, 'virtual_invoice.client_id')"
+                />
+                <SelectField
+                    v-model="form.contract_id"
+                    :label="t('core.common.contract')"
+                    :aside="contract ? `${contract.currency} · ${t('money.paymentForm.contractRequired')}` : t('money.paymentForm.contractRequired')"
+                    :placeholder="t('money.paymentForm.chooseContract')"
+                    :options="contractOptions"
+                    :disabled="form.client_id === null"
+                    :hint="form.client_id !== null && contractOptions.length === 0 ? t('money.paymentForm.noContracts') : t('money.paymentForm.contractTakes')"
+                    :error="fieldError(shownError, 'virtual_invoice.contract_id')"
+                />
+            </template>
+
             <section class="flex flex-col gap-3">
                 <SectionTitle>{{ t('money.paymentForm.income') }}</SectionTitle>
                 <TextField
                     v-if="!isGroup"
                     v-model="form.amount"
-                    :label="form.kind === 'invoice' ? t('money.paymentForm.invoiceAmountIn', { currency }) : t('core.common.amountInCurrency', { currency })"
+                    :label="form.virtual ? t('money.paymentForm.amountFromClient', { currency }) : t('money.paymentForm.invoiceAmountIn', { currency })"
                     numeric
                     class="h-14 text-20 font-semibold"
-                    :hint="t('money.paymentForm.taxBaseHint')"
+                    :hint="form.virtual ? t('money.paymentForm.amountFromClientHint') : t('money.paymentForm.taxBaseHint')"
                     :error="fieldError(shownError, 'amount')"
                     @update:model-value="touched.amount = true"
                 />
+                <template v-if="form.virtual">
+                    <TextField
+                        v-model="form.notes"
+                        :label="t('money.paymentForm.whatFor')"
+                        :placeholder="t('money.paymentForm.whatForPlaceholder')"
+                        :hint="t('money.paymentForm.whatForHint')"
+                        :error="fieldError(shownError, 'virtual_invoice.notes')"
+                    />
+                    <div class="flex flex-col gap-1.5">
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <DateField
+                                v-model="form.period_start"
+                                :label="t('invoices.editor.periodFrom')"
+                                :error="fieldError(shownError, 'virtual_invoice.period_start')"
+                            />
+                            <DateField
+                                v-model="form.period_end"
+                                :label="t('invoices.filters.through')"
+                                :min="form.period_start || undefined"
+                                :error="fieldError(shownError, 'virtual_invoice.period_end')"
+                            />
+                        </div>
+                        <span class="text-12 text-ink-3">{{ t('money.paymentForm.servicePeriodHint') }}</span>
+                    </div>
+                </template>
                 <TextField
+                    v-if="!form.virtual"
                     v-model="form.client_fee_amount"
                     :label="t('money.paymentForm.clientFeeHint')"
                     numeric
@@ -661,6 +751,19 @@ const generalError = computed(() => {
                 {{ t('money.paymentForm.amountTooHigh') }}
             </p>
 
+            <section v-if="isNew && form.virtual" class="flex flex-col gap-1.5 rounded-card bg-accent-soft p-4 text-14 leading-[1.45] text-ink">
+                <span class="flex items-center gap-2 font-semibold text-accent-hover">
+                    <Icon name="info" :size="18" />
+                    {{ t('money.paymentForm.virtualTitle') }}
+                </span>
+                <ul class="m-0 flex list-disc flex-col gap-1 pl-5">
+                    <li>{{ t('money.paymentForm.virtualNoDocument') }}</li>
+                    <li>{{ t('money.paymentForm.virtualCounter') }}</li>
+                    <li>{{ t('money.paymentForm.virtualCounted') }}</li>
+                    <li>{{ t('money.paymentForm.virtualLater') }}</li>
+                </ul>
+            </section>
+
             <p v-if="reopens" class="m-0 rounded-button bg-warning-soft p-3.5 text-14 leading-[1.45] text-warning">
                 <Translated :text="t('money.paymentForm.invoiceWillReopen', { status: reopens.status })">
                     <template #number><span class="num">{{ reopens.number }}</span></template>
@@ -684,11 +787,13 @@ const generalError = computed(() => {
             v-model:open="pickerOpen"
             :invoices="pickable"
             :selected-id="picking === 'main' ? form.invoice_id : null"
+            :without-invoice="picking === 'main' && isNew"
             :title="picking === 'extra' ? t('money.paymentForm.anotherInvoicePayment') : t('money.paymentForm.chooseInvoice')"
             :empty-text="picking === 'extra'
                 ? t('money.paymentForm.noOtherOpenInvoices', { currency })
                 : isNew ? undefined : t('money.paymentForm.noOpenInvoices', { currency })"
             @select="pick"
+            @without="pickWithout"
         />
     </SubScreen>
 </template>

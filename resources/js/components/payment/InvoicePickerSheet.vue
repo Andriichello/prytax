@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Invoice } from '@/api/types';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
+import VirtualMarker from '@/components/invoice/VirtualMarker.vue';
 import Icon from '@/components/ui/Icon.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { t } from '@/i18n';
@@ -8,22 +9,29 @@ import { formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
 
 /**
  * The open invoices to record a receipt for: the number in cobalt, the client on a light second line, and what is
- * still to be received.
+ * still to be received; with `withoutInvoice`, also «Без інвойсу», a payment under the contract (design.md §4.2).
  */
-const { invoices, selectedId, title, emptyText } = defineProps<{
+const { invoices, selectedId, title, emptyText, withoutInvoice = false } = defineProps<{
     invoices: Invoice[];
     selectedId: number | null;
     /** "Оберіть інвойс" when not given. */
     title?: string;
     /** What the sheet says without invoices; it explains which invoices take receipts when not given. */
     emptyText?: string;
+    /** Offer «Без інвойсу» after the invoices; `without` is emitted when it is chosen. */
+    withoutInvoice?: boolean;
 }>();
 
 const open = defineModel<boolean>('open', { required: true });
-const emit = defineEmits<{ select: [invoice: Invoice] }>();
+const emit = defineEmits<{ select: [invoice: Invoice]; without: [] }>();
 
 function choose(invoice: Invoice): void {
     emit('select', invoice);
+    open.value = false;
+}
+
+function chooseWithout(): void {
+    emit('without');
     open.value = false;
 }
 </script>
@@ -55,5 +63,17 @@ function choose(invoice: Invoice): void {
         <p v-else class="m-0 text-15 text-ink-2">
             {{ emptyText ?? t('money.invoicePicker.noOpenInvoices') }}
         </p>
+        <button
+            v-if="withoutInvoice"
+            type="button"
+            class="mt-3 flex w-full items-start gap-3 rounded-card border border-dashed border-ink-3 bg-surface px-3.5 py-3 text-left"
+            @click="chooseWithout"
+        >
+            <span class="flex min-w-0 flex-1 flex-col gap-1.5">
+                <VirtualMarker />
+                <span class="text-15 font-semibold text-ink">{{ t('money.invoicePicker.withoutTitle') }}</span>
+            </span>
+            <Icon name="chevronRight" :size="20" class="mt-0.5 text-ink-3" />
+        </button>
     </BottomSheet>
 </template>

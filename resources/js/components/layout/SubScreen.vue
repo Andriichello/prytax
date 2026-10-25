@@ -7,20 +7,22 @@ import SubHeader from '@/components/layout/SubHeader.vue';
  * button. With a `heading`, the header shows `title` as a context line and the page starts with a large heading. With
  * a `toolbar` (such as the filter chips of Сповіщення), the header and the toolbar stick to the top together.
  */
-const { title, back, heading, muted = false, subtitle = undefined } = defineProps<{
+const { title, back, heading, muted = false, subtitle = undefined, closable = false } = defineProps<{
     title: string;
     back?: RouteLocationRaw;
     heading?: string;
     /** Show the title as a context line, for pages that set their own heading in the content. */
     muted?: boolean;
     subtitle?: string;
+    /** A ✕ on the right instead of the back arrow. */
+    closable?: boolean;
 }>();
 </script>
 
 <template>
     <div class="flex min-h-dvh flex-col">
         <div :class="$slots.toolbar ? 'sticky top-0 z-10 flex flex-col gap-2 bg-paper pb-3' : ''">
-            <SubHeader :title="title" :back="back" :muted="muted || !!heading" :subtitle="subtitle">
+            <SubHeader :title="title" :back="back" :muted="muted || !!heading" :subtitle="subtitle" :closable="closable">
                 <template #action>
                     <slot name="action" />
                 </template>

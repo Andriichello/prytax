@@ -22,7 +22,7 @@ class TaxReportControllerTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that the ledger is narrowed to the quarters, taxes and statuses of the query.
+     * Test that the ledger is narrowed to the quarters, taxes and statuses of the query, given comma-separated.
      *
      * @return void
      */
@@ -33,7 +33,7 @@ class TaxReportControllerTest extends TestCase
         $this->inProfile($profile, fn () => Payment::factory()->create(['profile_id' => $profile->id, 'received_at' => '2026-10-05']));
         $this->actAs($profile, 'viewer');
 
-        $this->getJson($this->profilePath($profile, 'taxes/2026/ledger?quarter[]=4&tax_type[]=military_levy&status[]=unpaid'))
+        $this->getJson($this->profilePath($profile, 'taxes/2026/ledger?quarter=4&tax_type=military_levy&status=unpaid,sent'))
             ->assertOk()
             ->assertJsonPath('data.quarters', [4])
             ->assertJsonPath('data.summary.rows.0.tax_type', 'military_levy')

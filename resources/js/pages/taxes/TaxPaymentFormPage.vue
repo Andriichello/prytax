@@ -18,6 +18,7 @@ import { today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { formatAmount, parseAmount } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
+import { receiptTaxPayment } from '@/utils/taxes';
 
 /**
  * Сплата ЄП / ВЗ (M-TaxPaymentNew, design.md §8.4, §16.5): a tax of one receipt. The receipt's head, read-only; the
@@ -60,7 +61,7 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
     accounts.value = accountList;
     taxType.value = TAXES.includes(wanted as ReceiptTax) ? wanted as ReceiptTax : 'single_tax';
 
-    const paid = record === null ? receipt.data.taxPayments?.find((item) => item.tax_type === taxType.value) : undefined;
+    const paid = record === null ? receiptTaxPayment(receipt.data.taxPayments, taxType.value) : null;
 
     if (paid) {
         await router.replace({ name: 'tax-payment', params: { id: paid.id } });
@@ -89,7 +90,7 @@ function switchTax(next: ReceiptTax): void {
         return;
     }
 
-    const other = payment.value.taxPayments?.find((item) => item.tax_type === next);
+    const other = receiptTaxPayment(payment.value.taxPayments, next);
 
     void router.replace(other
         ? { name: 'tax-payment', params: { id: other.id } }

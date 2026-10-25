@@ -23,6 +23,7 @@ import { formatDate, monthNameInText, quarterLabel } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, subtractAmounts } from '@/utils/money';
 import { TAX_TYPES, unpaidStatusOf } from '@/utils/statuses';
+import { receiptTaxPayment } from '@/utils/taxes';
 
 /**
  * Надходження (M-PaymentDetail): the amount in its currency with hryvnias below, the invoice (or the «Без інвойсу»
@@ -58,7 +59,7 @@ const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding
 const landed = computed(() => flow.value?.landed_on_fop_bank.filter((holding) => compareAmounts(holding.amount, '0') > 0) ?? []);
 /** ЄП and ВЗ of the receipt: what it accrued, its payment (one per tax), and where a row leads. */
 const taxes = computed(() => (['single_tax', 'military_levy'] as const).map((type: Extract<TaxType, 'single_tax' | 'military_levy'>) => {
-    const taxPayment = payment.value?.taxPayments?.find((item) => item.tax_type === type) ?? null;
+    const taxPayment = receiptTaxPayment(payment.value?.taxPayments, type);
 
     return {
         type,

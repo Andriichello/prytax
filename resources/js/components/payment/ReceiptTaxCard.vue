@@ -8,6 +8,7 @@ import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { formatAmount, formatCompact } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
+import { receiptTaxPayment } from '@/utils/taxes';
 
 /**
  * A receipt card (design.md §16.4): the head, which links to the receipt, then its ЄП and ВЗ, each with its amount and
@@ -30,7 +31,7 @@ const { can } = useSession();
 const canPay = computed(() => can('create', 'tax-payments'));
 
 const taxes = computed(() => (['single_tax', 'military_levy'] as ReceiptTax[]).map((type) => {
-    const taxPayment = payment.taxPayments?.find((item) => item.tax_type === type) ?? null;
+    const taxPayment = receiptTaxPayment(payment.taxPayments, type);
 
     return {
         type,

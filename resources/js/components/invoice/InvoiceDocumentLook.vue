@@ -80,7 +80,7 @@ const showContract = computed({
             :label="t('invoices.document.language')"
             :aside="localeRequired || model.locale === null ? undefined : doc.localeSource.value"
             :options="localeOptions"
-            :placeholder="localeRequired ? undefined : doc.localeSource.value"
+            :placeholder="localeRequired ? undefined : doc.localeInherited.value"
             :clearable="!localeRequired"
             :hint="localeRequired ? t('invoices.document.languageHint') : undefined"
             :error="errors.locale"

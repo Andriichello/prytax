@@ -104,9 +104,11 @@ export function useInvoiceDocument(model: Ref<InvoiceDocumentSettings>, context:
     });
 
     /* The language and the contract section */
-    const localeSource = computed(() => (model.value.locale === null
-        ? inheritedNote(inherited.value?.locale.source, inherited.value ? LOCALE_NAMES[inherited.value.locale.value] : undefined)
-        : t('invoices.document.own')));
+    const localeInherited = computed(() => inheritedNote(
+        inherited.value?.locale.source,
+        inherited.value ? LOCALE_NAMES[inherited.value.locale.value] : undefined,
+    ));
+    const localeSource = computed(() => (model.value.locale === null ? localeInherited.value : t('invoices.document.own')));
 
     const showContract = computed(() => model.value.show_contract ?? inherited.value?.show_contract.value ?? true);
     const contractSource = computed(() => (model.value.show_contract === null
@@ -195,6 +197,7 @@ export function useInvoiceDocument(model: Ref<InvoiceDocumentSettings>, context:
         set,
         style,
         styleSource,
+        localeInherited,
         localeSource,
         showContract,
         contractSource,

@@ -135,7 +135,7 @@ async function attach(target: Invoice): Promise<void> {
 
         <section v-if="receipt" class="flex flex-col gap-2.5">
             <SectionTitle>{{ t('core.common.receipt') }}</SectionTitle>
-            <ReceiptTaxCard :payment="receipt" pay-row />
+            <ReceiptTaxCard :payment="receipt" />
         </section>
 
         <section class="flex flex-col gap-1.5 rounded-card bg-muted p-4 text-14 leading-[1.45]">

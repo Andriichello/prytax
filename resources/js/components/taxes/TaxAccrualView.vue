@@ -143,7 +143,7 @@ const receiptMonths = computed(() => {
                     :count="t('core.counts.payments', { count: month.receipts.length })"
                     :total="formatMoney(month.total, 'UAH')"
                 >
-                    <ReceiptTaxCard v-for="receipt in month.receipts" :key="receipt.id" :payment="receipt" pay-row flat />
+                    <ReceiptTaxCard v-for="receipt in month.receipts" :key="receipt.id" :payment="receipt" flat />
                 </MonthCard>
                 <EmptyState v-if="receiptMonths.length === 0" :text="t('accounting.taxes.noReceipts')" />
                 <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('accounting.taxes.receiptsHint') }}</p>

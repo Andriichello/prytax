@@ -127,11 +127,8 @@ export default {
 
     /** A receipt card (design.md §16.4) */
     receiptCard: {
-        payBoth: 'Сплатити ЄП і ВЗ за цим надходженням',
         feesShort: 'Ком.',
         netShort: 'Чисто',
-        paySingleTax: 'Сплатити ЄП за цим надходженням',
-        payMilitaryLevy: 'Сплатити ВЗ за цим надходженням',
     },
 
     /** A receipt's money flow */

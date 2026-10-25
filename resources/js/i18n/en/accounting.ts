@@ -51,7 +51,7 @@ export default {
         payEsvFor: 'Pay SSC for {month}',
         byReceipt: 'By receipt',
         noReceipts: 'No receipts in the quarter.',
-        receiptsHint: 'The single tax and the military levy are paid from a receipt: tap a tax or «Pay … of this receipt». SSC is paid monthly, with the «SSC» button.',
+        receiptsHint: 'The single tax and the military levy are paid from a receipt: tap either to record its payment. SSC is paid monthly, with the «SSC» button.',
         historyTitle: 'Payments, newest first',
         forMonth: 'for {month}',
         noTaxPayments: 'No tax payments in {year}.',

@@ -125,11 +125,8 @@ export default {
 
     /** A receipt card (design.md §16.4) */
     receiptCard: {
-        payBoth: 'Pay the single tax and the military levy of this receipt',
         feesShort: 'Fees',
         netShort: 'Net',
-        paySingleTax: 'Pay the single tax of this receipt',
-        payMilitaryLevy: 'Pay the military levy of this receipt',
     },
 
     flow: {

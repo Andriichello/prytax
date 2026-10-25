@@ -11,17 +11,14 @@ import { TAX_TYPES } from '@/utils/statuses';
 
 /**
  * A receipt card (design.md §16.4): the head, which links to the receipt, then its ЄП and ВЗ, each with its amount and
- * its payment's status, opening that payment (the recorded one, or a new one, for a user who can record it). With
- * `payRow`, «Сплатити ЄП і ВЗ за цим надходженням» shows to such a user while either is unpaid, and opens the first
- * unpaid one. Облік's switches hide the taxes
- * (`taxes`) and add the fees and what is left net (`fees`: «Ком.», «Чисто»). Inside a month card it is `flat`, without
- * its own border.
+ * its payment's status, opening that payment (the recorded one, or a new one, for a user who can record it): ЄП and
+ * ВЗ are paid one by one from their rows. Облік's switches hide the taxes (`taxes`) and add the fees and what is left
+ * net (`fees`: «Ком.», «Чисто»). Inside a month card it is `flat`, without its own border.
  */
 type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
-const { payment, payRow = false, flat = false, taxes: showTaxes = true, fees = null } = defineProps<{
+const { payment, flat = false, taxes: showTaxes = true, fees = null } = defineProps<{
     payment: Payment;
-    payRow?: boolean;
     flat?: boolean;
     taxes?: boolean;
     /** The receipt's fees and net income, in its currency. */
@@ -44,16 +41,6 @@ const taxes = computed(() => (['single_tax', 'military_levy'] as ReceiptTax[]).m
             : canPay.value ? { name: 'tax-payment-new', query: { payment: payment.id, tax: type } } : null,
     };
 }));
-
-/** The taxes, which aren't paid: not recorded, or recorded as failed. */
-const unpaid = computed(() => taxes.value.filter((tax) => tax.taxPayment === null || tax.taxPayment.status === 'failed'));
-const payLabel = computed(() => {
-    if (unpaid.value.length === 2) {
-        return t('money.receiptCard.payBoth');
-    }
-
-    return unpaid.value[0]?.type === 'military_levy' ? t('money.receiptCard.payMilitaryLevy') : t('money.receiptCard.paySingleTax');
-});
 </script>
 
 <template>
@@ -84,13 +71,6 @@ const payLabel = computed(() => {
                 </span>
             </template>
         </div>
-        <RouterLink
-            v-if="payRow && canPay && unpaid.length"
-            :to="unpaid[0]!.to!"
-            class="flex min-h-12 items-center justify-center border-t border-line px-4 py-2 text-center text-15 font-medium text-accent no-underline"
-        >
-            {{ payLabel }}
-        </RouterLink>
-        <div v-else class="h-1.5" />
+        <div class="h-1.5" />
     </article>
 </template>

@@ -1,8 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of the end of 2026-10-25: the «Minimal» redesign (design.md v4) is **built and committed on branch
-`feat/minimal`** (checked out; from `dev`; not merged, not pushed; the working tree is clean), and a browser QA pass
-of it fixed ten bugs on the same branch; see "Minimal" and "QA of Minimal". Before
+Status as of the end of 2026-10-25: the «Minimal» redesign (design.md v4), its browser QA pass (ten fixes) and the
+owner's decisions on it are **merged into `dev`** (fast-forward from `feat/minimal`, the user asked; `dev` is checked
+out, 47 commits ahead of `origin/dev`, **not pushed**; `main` is unchanged); see "Minimal" and "QA of Minimal". Before
 it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
 and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
@@ -24,14 +24,14 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 | 5. English, then translation keys for more languages | **Done and merged into `dev`** (2026-10-24); see "English" |
 | 6. Invoice settings cascade (design.md v3.3 §4.1) and the PDF's template v2 | **Done, merged and pushed** (2026-10-24); see "Invoice document" |
 | 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
-| 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Built on `feat/minimal`** (2026-10-25), not merged; see "Minimal" |
-| 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Done on `feat/minimal`** (2026-10-25), 10 fixes; see "QA of Minimal" |
+| 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
+| 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
 
-- **Branches:** `main` and `dev` = backend + frontend + QA pass + follow-ups + English + translation keys + the
-  invoice settings and styles (fast-forwarded and pushed on 2026-10-24, the user asked; the merged branches were
-  deleted, except the local `feat/invoice-v2`). The `docs/specs` commits that followed are on `dev` only, not pushed.
-  **`feat/minimal`** (checked out) = `dev` + the Minimal phase's commits (`git log --oneline dev..feat/minimal`:
-  specs, backend, SPA, demo, notes, the QA fixes); not merged, not pushed. The remote
+- **Branches:** `main` = `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English +
+  translation keys + the invoice settings and styles (pushed on 2026-10-24). **`dev`** (checked out) = that + the
+  Minimal phase (specs, backend, SPA, demo, notes, the QA fixes, the owner's decisions; `git log --oneline
+  origin/dev..dev`), fast-forwarded from `feat/minimal` on 2026-10-25 when the user asked; **not pushed**, and `main`
+  not updated. The local `feat/minimal` and `feat/invoice-v2` branches are merged and still there. The remote
   `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
   only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
@@ -54,8 +54,8 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 
 ### First steps of the next session
 
-1. Ask the user to review `feat/minimal` and whether to merge it into `dev` (and push); don't merge or push unasked.
-   Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
+1. Ask the user whether to push `dev` and fast-forward `main` (and delete the merged `feat/minimal`); don't push
+   unasked. Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
    remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a
    package, so approval), pixel polish against the boards, `SheetImporter`.
 2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with

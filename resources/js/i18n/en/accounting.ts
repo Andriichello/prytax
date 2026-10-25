@@ -56,6 +56,7 @@ export default {
         forMonth: 'for {month}',
         noTaxPayments: 'No tax payments in {year}.',
         historyHint: '«Sent»: the payment is sent but not confirmed yet, and doesn’t lower the debt. A «Failed» one isn’t counted in the month’s total.',
+        notTracked: 'This quarter’s taxes aren’t tracked: it is before the opening balances or outside the FOP’s registration.',
     },
 
     taxPayment: {

@@ -44,6 +44,12 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
     return { reconciliations, months: months.data.months, receipts };
 }, [profileId, () => year, () => quarter]);
 
+/**
+ * Whether the quarter's taxes are tracked (design.md §8.3, `TaxTracking`): a quarter before the opening balances or
+ * outside the registration has no figures, and isn't shown as owing nothing.
+ */
+const tracked = computed(() => (data.value?.reconciliations ?? []).some((reconciliation) => reconciliation.quarters.some((item) => item.quarter === quarter)));
+
 /** A row per tax: the quarter's figures, what is left to pay and whether it is settled. */
 const rows = computed(() => (data.value?.reconciliations ?? []).map((reconciliation) => {
     const figures = reconciliation.quarters.find((item) => item.quarter === quarter);
@@ -88,7 +94,8 @@ const receiptMonths = computed(() => {
         <template v-if="data">
             <section class="flex flex-col gap-2.5">
                 <SectionTitle>{{ t('accounting.taxes.forQuarter') }}</SectionTitle>
-                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <p v-if="!tracked" class="m-0 rounded-card border border-line bg-surface px-4 py-3.5 text-14 text-ink-2">{{ t('accounting.taxes.notTracked') }}</p>
+                <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <div v-for="row in rows" :key="row.type" class="flex flex-col gap-2 py-3.5">
                         <div class="flex items-baseline justify-between gap-3">
                             <span class="text-17 font-semibold">{{ TAX_TYPES[row.type] }}</span>

@@ -87,7 +87,7 @@ function accountOf(payment: TaxPayment): string {
                     :to="linkOf(payment) ?? undefined"
                     class="flex gap-2 bg-surface px-4 py-3 text-ink no-underline hover:text-ink"
                 >
-                    <span class="w-11 shrink-0 text-14 font-semibold">{{ TAX_TYPES[payment.tax_type] }}</span>
+                    <span class="min-w-11 shrink-0 text-14 font-semibold whitespace-nowrap">{{ TAX_TYPES[payment.tax_type] }}</span>
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span class="flex items-center justify-between gap-2">
                             <span class="num text-16 font-semibold" :class="payment.status === 'failed' ? 'text-ink-3 line-through' : ''">

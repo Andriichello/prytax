@@ -66,7 +66,7 @@ const taxes = computed(() => (['single_tax', 'military_levy'] as const).map((typ
         taxPayment,
         to: taxPayment
             ? { name: 'tax-payment', params: { id: taxPayment.id } }
-            : { name: 'tax-payment-new', query: { payment: id.value, tax: type } },
+            : can('create', 'tax-payments') ? { name: 'tax-payment-new', query: { payment: id.value, tax: type } } : null,
     };
 }));
 

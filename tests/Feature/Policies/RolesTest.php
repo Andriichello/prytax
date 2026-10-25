@@ -56,7 +56,7 @@ class RolesTest extends TestCase
             'accountant update TaxPeriod' => ['accountant', TaxPeriod::class, 'update', true],
             'viewer update TaxPeriod' => ['viewer', TaxPeriod::class, 'update', false],
             'accountant delete TaxPeriod' => ['accountant', TaxPeriod::class, 'delete', false],
-            'accountant update EsvObligation' => ['accountant', EsvObligation::class, 'update', true],
+            'accountant update EsvObligation' => ['accountant', EsvObligation::class, 'update', false],
             'viewer update EsvObligation' => ['viewer', EsvObligation::class, 'update', false],
             'accountant create ExchangeRate' => ['accountant', ExchangeRate::class, 'create', false],
             'owner create Profile' => ['owner', Profile::class, 'create', true],

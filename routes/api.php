@@ -136,7 +136,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('tax-payment-requisites/current', [TaxPaymentRequisiteController::class, 'current'])
                         ->name('tax-payment-requisites.current');
                     $crud('tax-payment-requisites', TaxPaymentRequisiteController::class, $all, 'tax-payment-requisites');
-                    $crud('esv-obligations', EsvObligationController::class, ['index', 'show', 'update'], 'esv-obligations');
+                    $crud('esv-obligations', EsvObligationController::class, ['index', 'show'], 'esv-obligations');
 
                     Route::get('alerts/counts', [AlertController::class, 'counts'])->name('alerts.counts');
                     $crud('alerts', AlertController::class, ['index', 'show'], 'alerts');

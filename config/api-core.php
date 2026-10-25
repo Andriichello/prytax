@@ -42,7 +42,7 @@ $finance = [
     TaxPayment::class => ['all'],
     TaxOpeningBalance::class => ['all'],
     TaxPaymentRequisite::class => ['all'],
-    EsvObligation::class => ['viewAny', 'view', 'update'],
+    EsvObligation::class => ['viewAny', 'view'],
     Alert::class => ['viewAny', 'view', 'read'],
     ExchangeRate::class => ['viewAny', 'view'],
 ];

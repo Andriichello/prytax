@@ -14,7 +14,8 @@ use Tests\TestCase;
  * Class DemoSeederTest.
  *
  * The sample practice matches the figures of the design's mock screens, read through the API: Облік of III and
- * IV кв. 2026, the ЄП balance, the account balances and the practice overview.
+ * IV кв. 2026 (with Kestrel's advance without an invoice), the ЄП balance of taxes paid per receipt and ЄСВ by month,
+ * the account balances and the practice overview.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Database\Seeders
@@ -49,26 +50,35 @@ class DemoSeederTest extends TestCase
             ->assertJsonCount(4, 'data.rows');
         $this->getJson("$path/accounting/2026/4")
             ->assertOk()
-            ->assertJsonPath('data.summary.quarter_income', '352960.01')
-            ->assertJsonPath('data.summary.ytd_income', '1840135.05')
-            ->assertJsonPath('data.summary.single_tax.owed', '17648.00')
-            ->assertJsonPath('data.summary.single_tax.hints_sum', '17648.01')
-            ->assertJsonPath('data.summary.military_levy.owed', '3529.60')
-            ->assertJsonPath('data.summary.cap.percent', '18.2');
+            ->assertJsonPath('data.summary.quarter_income', '373967.51')
+            ->assertJsonPath('data.summary.ytd_income', '1861142.55')
+            ->assertJsonPath('data.summary.single_tax.owed', '18698.38')
+            ->assertJsonPath('data.summary.single_tax.hints_sum', '18698.39')
+            ->assertJsonPath('data.summary.military_levy.owed', '3739.68')
+            ->assertJsonPath('data.summary.cap.percent', '18.4');
+        $this->getJson("$path/invoices?filter[status][in]=virtual")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
 
         $this->getJson("$path/taxes/2026?tax_type=single_tax")
             ->assertOk()
-            ->assertJsonPath('data.balance', '-18413.69')
-            ->assertJsonPath('data.quarters.2.balance', '-765.69')
+            ->assertJsonPath('data.balance', '-18647.36')
+            ->assertJsonPath('data.quarters.2.balance', '51.02')
             ->assertJsonPath('data.quarters.3.pending', '8218.96');
+        $this->getJson("$path/taxes/2026?tax_type=social_contribution")
+            ->assertOk()
+            ->assertJsonPath('data.quarters.2.paid', '5707.02');
+        $this->getJson("$path/tax-payments?filter[allocation]=quarter")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
 
         $balances = collect($this->getJson("$path/accounts?append=balance")->assertOk()->json('data'))
             ->mapWithKeys(fn (array $account) => ["{$account['name']} {$account['currency']}" => $account['balance']]);
-        $this->assertSame('8217.50', $balances['Wise USD USD']);
+        $this->assertSame('8717.50', $balances['Wise USD USD']);
         $this->assertSame('1540.00', $balances['Wise EUR EUR']);
         $this->assertSame('312.40', $balances['Payoneer USD USD']);
         $this->assertSame('286410.37', $balances['ПриватБанк ФОП UAH']);
-        $this->assertSame('2650.00', $balances['ПриватБанк ФОП USD']);
+        $this->assertSame('2626.22', $balances['ПриватБанк ФОП USD']);
 
         $this->getJson('/api/overview/2026/4')
             ->assertOk()

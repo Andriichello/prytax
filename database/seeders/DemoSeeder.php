@@ -260,8 +260,23 @@ class DemoSeeder extends Seeder
             app(InvoiceLifecycle::class)->cancel($profile, $cancelled, '2026-08-20');
             $this->invoice($profile, $kestrel, $kestrelContract, $payoneer, '2026-09-16', '2026-10-15', $fixed('640.00', 'Design support, September–October 2026'));
 
+            // Kestrel paid an advance for November without an invoice: a record for the books only (design.md §4.2)
+            app(PaymentRecorder::class)->record($profile, [
+                'virtual_invoice' => [
+                    'client_id' => $kestrel->id,
+                    'contract_id' => $kestrelContract->id,
+                    'period_start' => '2026-11-01',
+                    'period_end' => '2026-11-15',
+                    'notes' => 'Аванс за листопад',
+                ],
+                'amount' => '500.00',
+                'received_to_account_id' => $wiseUsd->id,
+                'received_amount' => '500.00',
+                'received_at' => '2026-10-19',
+            ]);
+
             $this->kovalenkoTransfers($profile, $receipts, $wiseUsd, $payoneer, $bankUsd, $bankUah);
-            $this->kovalenkoTaxes($profile, $receipts, $bankUah);
+            $this->kovalenkoTaxes($profile, $receipts, $bankUah, $bankUsd);
 
             // The tracked balance of the UAH account, as the mock's screen shows it
             $flows = app(AccountBalanceCalculator::class)->flows($bankUah, CarbonImmutable::parse('2026-01-01'));
@@ -374,36 +389,23 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * The taxes of Коваленко: 2025's paid, 2026's I–II кв. paid by quarter, III кв. by receipt with ЄП short by
-     * 765.69 and ВЗ by 163.34, and IV кв.'s first receipt with ЄП sent and ВЗ paid.
+     * The taxes of Коваленко (design.md §8.4): ЄП and ВЗ paid per receipt (Nordwave's external invoice from the USD
+     * account), ЄСВ by month on the 19th of the next one, and IV кв.'s first receipt with ЄП sent and ВЗ paid.
      *
      * @param Profile $profile
      * @param array<string, Payment> $receipts
      * @param Account $bankUah
+     * @param Account $bankUsd
      *
      * @return void
      */
-    protected function kovalenkoTaxes(Profile $profile, array $receipts, Account $bankUah): void
+    protected function kovalenkoTaxes(Profile $profile, array $receipts, Account $bankUah, Account $bankUsd): void
     {
-        $recorder = app(TaxPaymentRecorder::class);
-        $pay = fn (TaxType $type, string $amount, string $date, array $allocation, string $status = 'paid') => $recorder->record($profile, [
-            'tax_type' => $type,
-            'amount' => $amount,
-            'paid_at' => $date,
-            'status' => $status,
-            'paid_from_account_id' => $bankUah->id,
-            ...$allocation,
-        ]);
-        $quarter = fn (int $year, int $q) => ['allocation' => 'quarter', 'period_year' => $year, 'period_quarter' => $q];
-        $receipt = fn (Payment $payment) => ['allocation' => 'payment', 'payment_id' => $payment->id];
-
-        foreach ([1 => '2025-04-15', 2 => '2025-07-15', 3 => '2025-10-15', 4 => '2026-01-15'] as $q => $date) {
-            $pay(TaxType::SocialContribution, '5280.00', $date, $quarter(2025, $q));
+        foreach (['2025-11-06', '2025-12-05'] as $date) {
+            $this->payReceiptTaxes($profile, $receipts[$date], $bankUah, '2026-02-10');
         }
 
-        $q4of2025 = app(TaxLiabilityCalculator::class)->forQuarter($profile, 2025, 4);
-        $pay(TaxType::SingleTax, $q4of2025['single_tax']['owed'], '2026-02-10', $quarter(2025, 4));
-        $pay(TaxType::MilitaryLevy, $q4of2025['military_levy']['owed'], '2026-02-10', $quarter(2025, 4));
+        $this->payEsvMonthly($profile, $bankUah, 2025, range(1, 12));
 
         foreach ([1 => 'single_tax', 2 => 'military_levy', 3 => 'social_contribution'] as $type) {
             TaxOpeningBalance::query()->create([
@@ -414,21 +416,31 @@ class DemoSeeder extends Seeder
             ]);
         }
 
-        $pay(TaxType::SingleTax, '24310.52', '2026-05-15', $quarter(2026, 1));
-        $pay(TaxType::MilitaryLevy, '4862.10', '2026-05-15', $quarter(2026, 1));
-        $pay(TaxType::SocialContribution, '5707.02', '2026-04-15', $quarter(2026, 1));
-        $pay(TaxType::SingleTax, '24892.30', '2026-08-14', $quarter(2026, 2));
-        $pay(TaxType::MilitaryLevy, '4978.46', '2026-08-14', $quarter(2026, 2));
-        $pay(TaxType::SocialContribution, '5707.02', '2026-07-14', $quarter(2026, 2));
-
-        foreach (['2026-07-07' => '2026-07-10', '2026-08-06' => '2026-08-10', '2026-09-04' => '2026-09-10'] as $date => $paidAt) {
-            $pay(TaxType::SingleTax, $receipts[$date]->single_tax_uah, $paidAt, $receipt($receipts[$date]));
-            $pay(TaxType::MilitaryLevy, $receipts[$date]->military_levy_uah, $paidAt, $receipt($receipts[$date]));
+        foreach (['2026-01-07', '2026-02-06', '2026-03-06'] as $date) {
+            $this->payReceiptTaxes($profile, $receipts[$date], $bankUah, '2026-05-15');
         }
 
-        $pay(TaxType::SocialContribution, '5707.02', '2026-10-15', $quarter(2026, 3));
-        $pay(TaxType::SingleTax, $receipts['2026-10-05']->single_tax_uah, '2026-10-12', $receipt($receipts['2026-10-05']), 'sent');
-        $pay(TaxType::MilitaryLevy, $receipts['2026-10-05']->military_levy_uah, '2026-10-12', $receipt($receipts['2026-10-05']));
+        foreach (['2026-04-07', '2026-05-06', '2026-06-05'] as $date) {
+            $this->payReceiptTaxes($profile, $receipts[$date], $bankUah, '2026-08-14');
+        }
+
+        foreach (['2026-07-07' => '2026-07-10', '2026-08-06' => '2026-08-10', '2026-09-04' => '2026-09-10'] as $date => $paidAt) {
+            $this->payReceiptTaxes($profile, $receipts[$date], $bankUah, $paidAt);
+        }
+
+        // From the USD account: the bank sells the dollars at its own rate, so what left it is typed by hand
+        $this->payReceiptTaxes($profile, $receipts['2026-09-22'], $bankUsd, '2026-09-25', '41.2000');
+        $this->payEsvMonthly($profile, $bankUah, 2026, range(1, 9));
+
+        $recorder = app(TaxPaymentRecorder::class);
+        $october = $receipts['2026-10-05'];
+
+        foreach ([[TaxType::SingleTax, 'sent'], [TaxType::MilitaryLevy, 'paid']] as [$type, $status]) {
+            $recorder->record($profile, [
+                'tax_type' => $type, 'allocation' => 'payment', 'payment_id' => $october->id,
+                'status' => $status, 'paid_at' => '2026-10-12', 'paid_from_account_id' => $bankUah->id,
+            ]);
+        }
 
         $this->declared($profile, [2025 => [1, 2, 3, 4], 2026 => [1, 2]]);
         $this->requisites($profile, 'Київ');
@@ -471,7 +483,7 @@ class DemoSeeder extends Seeder
             }
 
             $this->invoice($profile, $client, $contract, $wise, '2026-10-06', '2026-10-15', $items(), sentAt: '2026-10-16');
-            $this->payQuartersInFull($profile, $bank, [1, 2, 3]);
+            $this->payTaxesInFull($profile, $bank, [1, 2, 3]);
             $this->declared($profile, [2026 => [1, 2]]);
         });
 
@@ -521,7 +533,7 @@ class DemoSeeder extends Seeder
                 ['unit' => 'fixed', 'quantity' => '1', 'unit_price' => '7600.00', 'description' => 'Software architecture services'],
             ], sentAt: '2026-10-16');
 
-            $this->payQuartersInFull($profile, $bank, [1, 2, 3]);
+            $this->payTaxesInFull($profile, $bank, [1, 2, 3]);
             $this->declared($profile, [2026 => [1, 2]]);
             TaxPeriod::query()->where('year', 2026)->where('quarter', 2)->first()
                 ->forceFill(['declaration_status' => DeclarationStatus::Corrected, 'notes' => '15.09.2026: виправлено курс надходження 06.05.2026'])
@@ -706,7 +718,8 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Pay the owed ЄП, ВЗ and ЄСВ of the quarters of 2026, by quarter, at their deadlines.
+     * Pay the taxes of 2026's quarters in full: ЄП and ВЗ of each receipt four days before the quarter's deadline
+     * (or today, while it is ahead), and ЄСВ by month.
      *
      * @param Profile $profile
      * @param Account $account
@@ -714,33 +727,83 @@ class DemoSeeder extends Seeder
      *
      * @return void
      */
-    protected function payQuartersInFull(Profile $profile, Account $account, array $quarters): void
+    protected function payTaxesInFull(Profile $profile, Account $account, array $quarters): void
     {
         foreach ($quarters as $quarter) {
-            $liability = app(TaxLiabilityCalculator::class)->forQuarter($profile, 2026, $quarter);
             $period = TaxPeriod::query()->where('year', 2026)->where('quarter', $quarter)->first();
+            $paidAt = min($period->tax_due_at->subDays(4)->toDateString(), now()->toDateString());
+            $receipts = Payment::query()->where('period_year', 2026)->where('period_quarter', $quarter)->where('kind', 'invoice')->get();
 
-            foreach ([
-                [TaxType::SingleTax, $liability['single_tax']['owed'], $period->tax_due_at],
-                [TaxType::MilitaryLevy, $liability['military_levy']['owed'], $period->tax_due_at],
-                [TaxType::SocialContribution, $liability['esv']['owed'], $period->esv_due_at],
-            ] as [$type, $owed, $due]) {
-                if (bccomp($owed, '0', 2) <= 0) {
-                    continue;
-                }
-
-                app(TaxPaymentRecorder::class)->record($profile, [
-                    'tax_type' => $type,
-                    'allocation' => 'quarter',
-                    'period_year' => 2026,
-                    'period_quarter' => $quarter,
-                    'amount' => $owed,
-                    'status' => 'paid',
-                    // Four days before the deadline, or today for a deadline, which is still ahead
-                    'paid_at' => min($due->subDays(4)->toDateString(), now()->toDateString()),
-                    'paid_from_account_id' => $account->id,
-                ]);
+            foreach ($receipts as $receipt) {
+                $this->payReceiptTaxes($profile, $receipt, $account, $paidAt);
             }
+
+            $this->payEsvMonthly($profile, $account, 2026, range($quarter * 3 - 2, $quarter * 3));
+        }
+    }
+
+    /**
+     * Pay the receipt's ЄП and ВЗ at its amounts; from a foreign-currency account at the bank's rate, which gives
+     * the amount that left it.
+     *
+     * @param Profile $profile
+     * @param Payment $receipt
+     * @param Account $account
+     * @param string $paidAt
+     * @param string|null $bankRate Hryvnias per unit of a foreign-currency account's currency.
+     *
+     * @return void
+     */
+    protected function payReceiptTaxes(Profile $profile, Payment $receipt, Account $account, string $paidAt, ?string $bankRate = null): void
+    {
+        foreach ([[TaxType::SingleTax, $receipt->single_tax_uah], [TaxType::MilitaryLevy, $receipt->military_levy_uah]] as [$type, $amount]) {
+            app(TaxPaymentRecorder::class)->record($profile, [
+                'tax_type' => $type,
+                'allocation' => 'payment',
+                'payment_id' => $receipt->id,
+                'status' => 'paid',
+                'paid_at' => $paidAt,
+                'paid_from_account_id' => $account->id,
+                'original_amount' => $bankRate === null ? null : bcdiv($amount, $bankRate, 2),
+            ]);
+        }
+    }
+
+    /**
+     * Pay ЄСВ of the months of a year, each on the 19th of the next month (or today, while that is ahead), at the
+     * month's share of its quarter's minimum.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     * @param int $year
+     * @param array<int, int> $months
+     *
+     * @return void
+     */
+    protected function payEsvMonthly(Profile $profile, Account $account, int $year, array $months): void
+    {
+        foreach ($months as $month) {
+            $quarter = intdiv($month - 1, 3) + 1;
+            $owed = app(TaxLiabilityCalculator::class)->forQuarter($profile, $year, $quarter)['esv']['owed'];
+            $share = bcdiv($owed, '3', 2);
+            // The quarter's last month takes what the shares leave
+            $amount = $month % 3 === 0 ? bcsub($owed, bcmul($share, '2', 2), 2) : $share;
+            $due = CarbonImmutable::create($year, $month, 1)->addMonthNoOverflow()->setDay(19);
+
+            if (bccomp($amount, '0', 2) <= 0) {
+                continue;
+            }
+
+            app(TaxPaymentRecorder::class)->record($profile, [
+                'tax_type' => TaxType::SocialContribution,
+                'allocation' => 'month',
+                'period_year' => $year,
+                'period_month' => $month,
+                'amount' => $amount,
+                'status' => 'paid',
+                'paid_at' => min($due->toDateString(), now()->toDateString()),
+                'paid_from_account_id' => $account->id,
+            ]);
         }
     }
 

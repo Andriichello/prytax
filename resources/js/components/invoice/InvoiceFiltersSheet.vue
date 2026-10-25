@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { api } from '@/api/client';
-import type { InvoiceFacets, InvoiceStatus, Paginated, Invoice } from '@/api/types';
+import type { InvoiceFacets, Paginated, Invoice } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Chip from '@/components/ui/Chip.vue';
@@ -10,10 +10,9 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
-import { emptyFilters, filtersToApi, type InvoiceFilters } from '@/composables/useInvoiceFilters';
+import { STATUS_FILTERS, emptyFilters, filtersToApi, statusFilterLabel, type InvoiceFilters } from '@/composables/useInvoiceFilters';
 import { t } from '@/i18n';
 import { dateParts, monthName, quarterLabel, today } from '@/utils/dates';
-import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Фільтри інвойсів (S-InvoiceFilters): a period (years, quarters, months, all multi-select, or a range of issue
@@ -22,7 +21,8 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
  */
 type PeriodMode = 'years' | 'quarters' | 'months' | 'range';
 
-const STATUSES: InvoiceStatus[] = ['draft', 'ready', 'sent', 'paid', 'cancelled'];
+/** The statuses to filter by; «Без інвойсу» while the profile has payments without an invoice, or it is chosen. */
+const statuses = computed(() => STATUS_FILTERS.filter((status) => status !== 'virtual' || (facets?.virtual ?? 0) > 0 || filters.statuses.includes('virtual')));
 
 const { facets, filters } = defineProps<{
     facets: InvoiceFacets | null;
@@ -280,8 +280,8 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         <fieldset class="m-0 flex flex-col border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('core.common.status') }}</SectionTitle></legend>
             <div class="flex flex-wrap gap-2">
-                <Chip v-for="status in STATUSES" :key="status" :selected="draft.statuses.includes(status)" @click="toggle(draft.statuses, status)">
-                    {{ INVOICE_STATUSES[status].label }}
+                <Chip v-for="status in statuses" :key="status" :selected="draft.statuses.includes(status)" @click="toggle(draft.statuses, status)">
+                    {{ statusFilterLabel(status) }}
                 </Chip>
             </div>
         </fieldset>

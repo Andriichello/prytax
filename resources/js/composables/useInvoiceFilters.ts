@@ -4,21 +4,30 @@ import type { Query } from '@/api/client';
 import type { InvoiceStatus } from '@/api/types';
 import { t } from '@/i18n';
 import { formatDate, monthName, quarterLabel } from '@/utils/dates';
+import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * The filters of Інвойси, kept in the URL (design §16: "reflected in the URL"): periods as tokens `2026`, `2026-Q4`,
- * `2026-10`, or a range of issue dates, and lists of clients, statuses and currencies.
+ * `2026-10`, or a range of issue dates, and lists of clients, statuses and currencies. Among the statuses, `virtual`
+ * («Без інвойсу») matches the payments without an invoice, and the five statuses only the other invoices.
  */
+export type InvoiceStatusFilter = InvoiceStatus | 'virtual';
+
 export interface InvoiceFilters {
     periods: string[];
     from: string;
     to: string;
     clients: number[];
-    statuses: InvoiceStatus[];
+    statuses: InvoiceStatusFilter[];
     currencies: string[];
 }
 
-const STATUSES: InvoiceStatus[] = ['draft', 'ready', 'sent', 'paid', 'cancelled'];
+export const STATUS_FILTERS: InvoiceStatusFilter[] = ['draft', 'ready', 'sent', 'paid', 'cancelled', 'virtual'];
+
+/** The name of a status filter: the status's, or «Без інвойсу». */
+export function statusFilterLabel(status: InvoiceStatusFilter): string {
+    return status === 'virtual' ? t('invoices.virtual.marker') : INVOICE_STATUSES[status].label;
+}
 
 function list(value: LocationQuery[string]): string[] {
     const text = Array.isArray(value) ? value.join(',') : value ?? '';
@@ -36,7 +45,7 @@ export function filtersFromQuery(query: LocationQuery): InvoiceFilters {
         from: typeof query.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.from) ? query.from : '',
         to: typeof query.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : '',
         clients: list(query.client).map(Number).filter((id) => Number.isInteger(id) && id > 0),
-        statuses: list(query.status).filter((status): status is InvoiceStatus => STATUSES.includes(status as InvoiceStatus)),
+        statuses: list(query.status).filter((status): status is InvoiceStatusFilter => STATUS_FILTERS.includes(status as InvoiceStatusFilter)),
         currencies: list(query.currency).filter((currency) => /^[A-Z]{3}$/.test(currency)),
     };
 }

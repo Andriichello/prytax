@@ -1,5 +1,6 @@
 import type { AlertSeverity, DeclarationStatus, Invoice, InvoiceStatus, TaxPaymentStatus, TaxType } from '@/api/types';
 import { t } from '@/i18n';
+import { formatDayMonth } from '@/utils/dates';
 
 /**
  * The colours of status badges. The labels are getters, which translate when they are read, so they follow the
@@ -19,6 +20,17 @@ export const INVOICE_STATUSES: Record<InvoiceStatus, StatusLabel> = {
     paid: { get label() { return t('core.invoiceStatus.paid'); }, tone: 'positive' },
     cancelled: { get label() { return t('core.invoiceStatus.cancelled'); }, tone: 'negative' },
 };
+
+/**
+ * An invoice's status with the date it took it, as the lists show it: «Надіслано 15.10», «Оплачено 24.10»,
+ * «Скасовано 20.08»; a draft and a ready invoice have no date.
+ */
+export function datedInvoiceStatus(invoice: Pick<Invoice, 'status' | 'sent_at' | 'paid_at' | 'cancelled_at'>): StatusLabel {
+    const status = INVOICE_STATUSES[invoice.status];
+    const date = { sent: invoice.sent_at, paid: invoice.paid_at, cancelled: invoice.cancelled_at }[invoice.status as 'sent' | 'paid' | 'cancelled'];
+
+    return date ? { label: `${status.label} ${formatDayMonth(date)}`, tone: status.tone } : status;
+}
 
 /**
  * The status, to which a paid invoice returns once its receipts no longer cover it: sent, or ready when it was paid

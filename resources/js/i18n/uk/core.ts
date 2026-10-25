@@ -44,7 +44,6 @@ export default {
         nextYear: 'Наступний рік',
         nothingFound: 'Нікого не знайдено.',
         overdue: 'прострочено',
-        overdueSince: 'прострочено з {date}',
         client: 'Клієнт',
         clients: 'Клієнти',
         contract: 'Договір',
@@ -143,6 +142,7 @@ export default {
         days: { one: '{count} день', few: '{count} дні', many: '{count} днів' },
         transfers: { one: '{count} переказ', few: '{count} перекази', many: '{count} переказів' },
         taxPayments: { one: '{count} сплата', few: '{count} сплати', many: '{count} сплат' },
+        records: { one: '{count} запис', few: '{count} записи', many: '{count} записів' },
     },
 
     /** Quarters, short */

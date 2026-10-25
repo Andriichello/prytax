@@ -8,11 +8,12 @@ export default {
     home: {
         openInvoicesOutstanding: 'Open invoices · {amount} outstanding',
         openInvoices: 'Open invoices',
-        noOpenInvoices: 'No open invoices: all are paid or still drafts.',
         createInvoice: 'Create an invoice',
         allInvoices: 'All invoices',
         periodOf: 'Period {period}',
         dueBy: 'due by {date}',
+        overdueBy: 'overdue, due {date}',
+        noInvoicesQuarter: 'No invoices in the quarter.',
     },
 
     list: {

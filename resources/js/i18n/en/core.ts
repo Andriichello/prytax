@@ -43,7 +43,6 @@ export default {
         nextYear: 'Next year',
         nothingFound: 'Nothing found.',
         overdue: 'overdue',
-        overdueSince: 'overdue since {date}',
         client: 'Client',
         clients: 'Clients',
         contract: 'Contract',
@@ -132,6 +131,7 @@ export default {
         days: { one: '{count} day', other: '{count} days' },
         transfers: { one: '{count} transfer', other: '{count} transfers' },
         taxPayments: { one: '{count} payment', other: '{count} payments' },
+        records: { one: '{count} record', other: '{count} records' },
     },
 
     quarters: {

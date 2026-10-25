@@ -11,13 +11,12 @@ import InfiniteSentinel from '@/components/ui/InfiniteSentinel.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
-import { countFilters, emptyFilters, filtersToApi, useInvoiceFilters } from '@/composables/useInvoiceFilters';
+import { countFilters, emptyFilters, filtersToApi, statusFilterLabel, useInvoiceFilters } from '@/composables/useInvoiceFilters';
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { dateParts, formatMonthYear, monthNameGenitive } from '@/utils/dates';
-import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Інвойси: every invoice, newest first, grouped by the month of issue, loading further as the list scrolls. Filters
@@ -85,7 +84,7 @@ function chipLabel(kind: 'client' | 'status' | 'currency'): string {
     }
 
     if (kind === 'status') {
-        return statuses.length === 1 ? INVOICE_STATUSES[statuses[0]!].label : statuses.length ? t('invoices.list.statusCount', { count: statuses.length }) : t('core.common.status');
+        return statuses.length === 1 ? statusFilterLabel(statuses[0]!) : statuses.length ? t('invoices.list.statusCount', { count: statuses.length }) : t('core.common.status');
     }
 
     return currencies.length ? currencies.join(', ') : t('core.common.currency');

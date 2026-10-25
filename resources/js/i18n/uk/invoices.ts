@@ -8,11 +8,12 @@ export default {
     home: {
         openInvoicesOutstanding: 'Відкриті інвойси · {amount} до оплати',
         openInvoices: 'Відкриті інвойси',
-        noOpenInvoices: 'Відкритих інвойсів немає: усі оплачені або ще в чернетках.',
         createInvoice: 'Створити інвойс',
         allInvoices: 'Усі інвойси',
         periodOf: 'Період {period}',
         dueBy: 'сплатити до {date}',
+        overdueBy: 'прострочено, до {date}',
+        noInvoicesQuarter: 'Інвойсів за квартал немає.',
     },
 
     /** Інвойси: the list, its filter chips and rows */

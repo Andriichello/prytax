@@ -7,6 +7,7 @@ import DateField from '@/components/form/DateField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceStepper from '@/components/invoice/InvoiceStepper.vue';
+import VirtualInvoiceDetail from '@/components/invoice/VirtualInvoiceDetail.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ReceiptCard from '@/components/payment/ReceiptCard.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
@@ -32,7 +33,7 @@ import { INVOICE_STATUSES } from '@/utils/statuses';
  * Інвойс (S-InvoiceDetail): status and how much is received, the receipts, the dates, items and document, an
  * editable note, and the status changes (sending, paying and cancelling ask for their date, today by default; paying
  * defaults to the last receipt's date). A draft opens in its editor instead, for those who may edit it; others see it
- * here, without a number yet.
+ * here, without a number yet. A payment without an invoice shows its record «Без інвойсу» (VirtualInvoiceDetail).
  */
 type Action = 'send' | 'pay' | 'cancel' | 'unfreeze';
 
@@ -45,7 +46,7 @@ const id = computed(() => Number(route.params.id));
 
 const { data: invoice, error, loading, reload } = useLoader(async (signal) => {
     const { data } = await api.get<ApiResponse<Invoice>>(path(`invoices/${id.value}`), {
-        include: ['client', 'contract', 'receivingAccount', 'items', 'payments.receivedToAccount', 'primaryFile'],
+        include: ['client', 'contract', 'receivingAccount', 'items', 'payments.receivedToAccount', 'payments.taxPayments', 'primaryFile'],
         append: ['can_unfreeze'],
     }, signal);
 
@@ -188,7 +189,8 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
 </script>
 
 <template>
-    <SubScreen :title="t('core.common.invoice')" muted :back="{ name: 'invoices' }">
+    <VirtualInvoiceDetail v-if="invoice?.source === 'virtual'" :invoice="invoice" @changed="reload" />
+    <SubScreen v-else :title="t('core.common.invoice')" muted :back="{ name: 'invoices' }">
         <template #action>
             <a
                 v-if="invoice?.primary_file_id"

@@ -167,6 +167,23 @@ export default {
     virtual: {
         marker: 'No invoice',
         forBooks: 'Paid under the contract · for the books only',
+        byContract: 'Paid under the contract',
+        fromClient: 'Amount from the client',
+        equalsReceipts: '= the receipts',
+        paidOn: 'Payment date',
+        whatFor: 'What for',
+        booksOnly: 'This record is for the books only',
+        noDocument: 'No number, PDF or due date: the client never sees it.',
+        followsReceipt: 'The amount always equals the receipts, and changes with them.',
+        goesWithReceipt: 'Delete the receipt, and the record goes too.',
+        ifAsked: 'If the client asks for an invoice',
+        issue: 'Issue as an invoice',
+        issueQuestion: 'Issue as an invoice?',
+        issueExplained: 'It gets the next number, {number}, and a PDF; its status is «Paid» at once.',
+        attach: 'Attach to an issued invoice',
+        attachExplained: 'The receipt moves to it, and this record is deleted.',
+        noIssued: 'The client has no issued invoices in {currency}.',
+        openReceipt: 'Open the receipt',
     },
 
     numberParts: {

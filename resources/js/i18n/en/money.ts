@@ -124,6 +124,12 @@ export default {
         nothingFound: 'Nothing found.',
     },
 
+    /** A receipt card (design.md §16.4) */
+    receiptCard: {
+        payBoth: 'Pay the single tax and the military levy of this receipt',
+        payOne: 'Pay the {tax} of this receipt',
+    },
+
     flow: {
         receiptOn: '{date} · receipt',
         receivedAmount: 'Received {amount}',

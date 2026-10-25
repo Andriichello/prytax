@@ -126,6 +126,12 @@ export default {
         nothingFound: 'Нічого не знайдено.',
     },
 
+    /** A receipt card (design.md §16.4) */
+    receiptCard: {
+        payBoth: 'Сплатити ЄП і ВЗ за цим надходженням',
+        payOne: 'Сплатити {tax} за цим надходженням',
+    },
+
     /** A receipt's money flow */
     flow: {
         receiptOn: '{date} · надходження',

@@ -171,6 +171,23 @@ export default {
     virtual: {
         marker: 'Без інвойсу',
         forBooks: 'Оплата за договором · лише для обліку',
+        byContract: 'Оплата за договором',
+        fromClient: 'Сума від клієнта',
+        equalsReceipts: '= сума надходжень',
+        paidOn: 'Дата оплати',
+        whatFor: 'За що',
+        booksOnly: 'Це запис лише для обліку',
+        noDocument: 'Немає номера, PDF і терміну оплати — клієнт його не бачить.',
+        followsReceipt: 'Сума завжди дорівнює надходженням; змінюється разом із ними.',
+        goesWithReceipt: 'Видалите надходження — запис зникне теж.',
+        ifAsked: 'Якщо клієнт попросить інвойс',
+        issue: 'Оформити як інвойс',
+        issueQuestion: 'Оформити як інвойс?',
+        issueExplained: 'Отримає наступний номер {number} і PDF; статус одразу «Оплачено».',
+        attach: 'Прив’язати до виставленого інвойсу',
+        attachExplained: 'Надходження перейде до нього, а цей запис буде видалено.',
+        noIssued: 'У клієнта немає виставлених інвойсів у {currency}.',
+        openReceipt: 'Відкрити надходження',
     },
 
     /** The parts of an invoice number, inside a sentence */

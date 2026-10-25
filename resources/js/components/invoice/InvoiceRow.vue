@@ -7,13 +7,14 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { t } from '@/i18n';
 import { formatDayMonth, formatPeriod, today } from '@/utils/dates';
 import { compareAmounts, formatAmount, formatMoney, percentOf } from '@/utils/money';
-import { INVOICE_STATUSES, datedInvoiceStatus } from '@/utils/statuses';
+import { datedInvoiceStatus } from '@/utils/statuses';
 
 /**
  * An invoice in Інвойси: number (a generated draft's preview with "наст."; an external one has only its own),
- * status, client and total, and one context line: the period, "Прострочено з …" while money is owed past the due
- * date, or the paid share (handoff §6.6). No "не оплачено" text. A payment without an invoice shows the «Без інвойсу»
- * marker and «Оплачено {дд.мм}», then the client and the amount, then the period.
+ * status with its date («Надіслано 15.10», «Оплачено 25.10», «Скасовано 20.08», design.md §16.2, as on Головна),
+ * client and total, and one context line: the period, "Прострочено з …" while money is owed past the due date, or the
+ * paid share (handoff §6.6). No "не оплачено" text. A payment without an invoice shows the «Без інвойсу» marker and
+ * «Оплачено {дд.мм}», then the client and the amount, then the period.
  */
 const { invoice } = defineProps<{ invoice: Invoice }>();
 
@@ -60,7 +61,7 @@ const to = computed(() => (isDraft.value
                     {{ t('invoices.list.external') }}
                 </span>
             </span>
-            <StatusBadge v-bind="isVirtual ? datedInvoiceStatus(invoice) : INVOICE_STATUSES[invoice.status]" />
+            <StatusBadge v-bind="datedInvoiceStatus(invoice)" />
         </span>
         <span class="flex justify-between gap-2 text-14">
             <span class="min-w-0 truncate">{{ invoice.client?.name }}</span>

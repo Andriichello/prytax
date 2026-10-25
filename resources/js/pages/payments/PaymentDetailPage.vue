@@ -211,17 +211,18 @@ async function removeRefund(): Promise<void> {
 
                 <div class="mt-2.5 mb-0.5 border-t border-dashed border-line-input" />
 
-                <div v-if="payment.invoice" class="-mt-2 flex flex-col">
-                    <RouterLink
-                        :to="{ name: 'invoice', params: { id: payment.invoice.id } }"
-                        class="flex min-h-11 items-center gap-1.5 text-accent no-underline"
-                    >
+                <RouterLink
+                    v-if="payment.invoice"
+                    :to="{ name: 'invoice', params: { id: payment.invoice.id } }"
+                    class="-my-1 flex min-h-14 items-center gap-3 py-1 text-ink no-underline hover:text-ink"
+                >
+                    <span class="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <VirtualMarker v-if="isVirtual" />
-                        <span v-else class="num text-17 font-semibold">{{ payment.invoice.number }}</span>
-                        <Icon name="chevronRight" :size="18" />
-                    </RouterLink>
-                    <span class="-mt-1.5 text-16 font-light">{{ payment.invoice.client?.name }}</span>
-                </div>
+                        <span v-else class="num text-17 font-semibold text-accent">{{ payment.invoice.number }}</span>
+                        <span class="max-w-full truncate text-16 font-light">{{ payment.invoice.client?.name }}</span>
+                    </span>
+                    <Icon name="chevronRight" :size="20" class="shrink-0 text-accent" />
+                </RouterLink>
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4 py-1 text-14">
                     <div class="flex justify-between gap-3 py-3">

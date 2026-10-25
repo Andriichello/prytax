@@ -47,4 +47,21 @@ class InvoiceFactory extends Factory
             'status' => InvoiceStatus::Draft,
         ];
     }
+
+    /**
+     * A virtual invoice of a payment without an invoice (design.md §4.2): paid on its issue date, with no number, due
+     * date or document.
+     *
+     * @return static
+     */
+    public function virtual(): static
+    {
+        return $this->state([
+            'source' => InvoiceSource::Virtual,
+            'status' => InvoiceStatus::Paid,
+            'number' => null,
+            'due_at' => null,
+            'paid_at' => fn (array $attributes) => $attributes['issued_at'],
+        ]);
+    }
 }

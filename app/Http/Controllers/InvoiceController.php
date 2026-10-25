@@ -13,12 +13,14 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use PryTax\Enums\InvoiceLocale;
+use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\Decimal;
 use PryTax\Http\Requests\Invoices\CancelInvoiceRequest;
 use PryTax\Http\Requests\Invoices\FindDuplicateFilesRequest;
 use PryTax\Http\Requests\Invoices\FreezeInvoiceRequest;
 use PryTax\Http\Requests\Invoices\InvoiceDefaultsRequest;
+use PryTax\Http\Requests\Invoices\IssueInvoiceRequest;
 use PryTax\Http\Requests\Invoices\PayInvoiceRequest;
 use PryTax\Http\Requests\Invoices\PreviewNumberRequest;
 use PryTax\Http\Requests\Invoices\PreviewStyleRequest;
@@ -39,6 +41,7 @@ use PryTax\Services\Invoices\InvoiceNumberGenerator;
 use PryTax\Services\Invoices\InvoicePdfRenderer;
 use PryTax\Services\Invoices\InvoiceStylePreview;
 use PryTax\Services\Invoices\InvoiceWriter;
+use PryTax\Services\Invoices\VirtualInvoices;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
@@ -87,6 +90,7 @@ class InvoiceController extends TenantController
         'send' => SendInvoiceRequest::class,
         'pay' => PayInvoiceRequest::class,
         'cancel' => CancelInvoiceRequest::class,
+        'issue' => IssueInvoiceRequest::class,
         'pdf' => ShowRequest::class,
         'stylePreview' => PreviewStyleRequest::class,
         'previewNumber' => PreviewNumberRequest::class,
@@ -109,6 +113,7 @@ class InvoiceController extends TenantController
      * @param InvoicePdfRenderer $renderer
      * @param InvoiceWriter $writer
      * @param InvoiceStylePreview $stylePreviews
+     * @param VirtualInvoices $virtualInvoices
      */
     public function __construct(
         InvoicePolicy $policy,
@@ -118,7 +123,8 @@ class InvoiceController extends TenantController
         protected InvoiceNumberGenerator $numbers,
         protected InvoicePdfRenderer $renderer,
         protected InvoiceWriter $writer,
-        protected InvoiceStylePreview $stylePreviews
+        protected InvoiceStylePreview $stylePreviews,
+        protected VirtualInvoices $virtualInvoices
     ) {
         parent::__construct($policy, $repository);
     }
@@ -213,6 +219,20 @@ class InvoiceController extends TenantController
     }
 
     /**
+     * Handle the `issue` operation: a virtual invoice becomes a generated one.
+     *
+     * @param IssueInvoiceRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleIssue(IssueInvoiceRequest $request): ApiResponse
+    {
+        $invoice = $this->virtualInvoices->issue($this->profileOf($request), $this->find($request));
+
+        return $this->asResourceResponse($this->fresh($invoice))->setMessage('Issued');
+    }
+
+    /**
      * Download the invoice's primary document. A generated PDF, which is missing, is rendered again from the
      * snapshot.
      *
@@ -226,6 +246,11 @@ class InvoiceController extends TenantController
         /** @var ShowRequest $showRequest */
         $showRequest = $this->prepareRequest('pdf', $request);
         $invoice = $this->find($showRequest);
+
+        if ($invoice->isVirtual()) {
+            throw new NotFoundHttpException(__('A payment without an invoice has no document: issue it as an invoice first.'));
+        }
+
         $file = $invoice->primaryFile;
 
         // Only a generated PDF is rendered again: an uploaded primary document is never replaced
@@ -384,7 +409,8 @@ class InvoiceController extends TenantController
 
     /**
      * Handle the `facets` operation: the years, currencies, clients and statuses of the profile's invoices, which
-     * the filters offer, with their counts.
+     * the filters offer, with their counts, and the count of the records of payments without an invoice (`virtual`),
+     * which the status filter offers as a status of its own.
      *
      * @param IndexRequest $request
      *
@@ -392,7 +418,8 @@ class InvoiceController extends TenantController
      */
     protected function handleFacets(IndexRequest $request): ApiResponse
     {
-        $count = fn (string $expression, string $as) => Invoice::query()
+        $count = fn (string $expression, string $as, bool $documents = false) => Invoice::query()
+            ->when($documents, fn ($query) => $query->documents())
             ->selectRaw("$expression as $as, COUNT(*) as count")
             ->groupByRaw($expression)
             ->orderByRaw($expression)
@@ -414,7 +441,9 @@ class InvoiceController extends TenantController
         return ApiResponse::ok(['data' => [
             'years' => array_map(fn (array $year) => [...$year, 'year' => (int) $year['year']], $count('YEAR(issued_at)', 'year')),
             'currencies' => $count('currency', 'currency'),
-            'statuses' => $count('status', 'status'),
+            // The statuses of the documents; the records of payments without an invoice are counted apart
+            'statuses' => $count('status', 'status', true),
+            'virtual' => Invoice::query()->where('source', InvoiceSource::Virtual->value)->count(),
             'clients' => $clients,
         ]]);
     }

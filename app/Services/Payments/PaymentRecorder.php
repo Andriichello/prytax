@@ -19,6 +19,7 @@ use PryTax\Models\Profile;
 use PryTax\Models\TaxPeriod;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Invoices\InvoiceLifecycle;
+use PryTax\Services\Invoices\VirtualInvoices;
 use PryTax\Services\Taxes\PeriodLock;
 
 /**
@@ -26,7 +27,8 @@ use PryTax\Services\Taxes\PeriodLock;
  *
  * Records receipts (design.md §6.1). It asserts that the invoice and the account are the profile's, that the
  * invoice is frozen (ready, sent or paid), that the receipt lands in the account's currency and that its quarter
- * isn't locked, and computes the snapshot. An advance has no invoice until it is linked to one. Editing the amount,
+ * isn't locked, and computes the snapshot. A payment without an invoice is recorded with its virtual invoice, which
+ * follows the receipt, and goes when the receipt is deleted or attached to an issued invoice. Editing the amount,
  * the currency or the date recomputes the snapshot, subject to the lock of both the old and the new quarter, and so
  * does any update of a receipt saved at a manual rate, once the NBU's rate of its day is available. A paid invoice,
  * which a deleted, reduced or moved receipt leaves uncovered, returns to unpaid.
@@ -43,12 +45,14 @@ class PaymentRecorder
      * @param PeriodLock $lock
      * @param AlertSync $alerts
      * @param InvoiceLifecycle $invoices
+     * @param VirtualInvoices $virtualInvoices
      */
     public function __construct(
         protected PaymentSnapshotter $snapshotter,
         protected PeriodLock $lock,
         protected AlertSync $alerts,
-        protected InvoiceLifecycle $invoices
+        protected InvoiceLifecycle $invoices,
+        protected VirtualInvoices $virtualInvoices
     ) {}
 
     /**
@@ -62,6 +66,10 @@ class PaymentRecorder
      */
     public function record(Profile $profile, array $data): Payment
     {
+        if (!empty($data['virtual_invoice'])) {
+            return $this->recordWithoutInvoice($profile, $data);
+        }
+
         $attributes = $this->attributes($profile, $data, null);
 
         $payment = DB::transaction(function () use ($profile, $attributes, $data) {
@@ -70,6 +78,37 @@ class PaymentRecorder
 
             $payment = new Payment;
             $payment->forceFill([...$attributes, 'profile_id' => $profile->getKey()])->save();
+
+            return $payment;
+        });
+
+        $this->alerts->syncAfterCommit($profile);
+
+        return $payment->refresh();
+    }
+
+    /**
+     * Record a payment, which the client made without an invoice, with its virtual invoice (design.md §4.2), in one
+     * transaction.
+     *
+     * @param Profile $profile
+     * @param array $data
+     *
+     * @return Payment
+     * @throws ValidationException
+     */
+    protected function recordWithoutInvoice(Profile $profile, array $data): Payment
+    {
+        $invoice = $this->virtualInvoices->make($profile, $data['virtual_invoice'], $data);
+        $attributes = $this->attributes($profile, $data, null, $invoice);
+
+        $payment = DB::transaction(function () use ($profile, $invoice, $attributes, $data) {
+            $this->lock->assertOpen($profile, CarbonImmutable::parse($attributes['received_at']), $data['correction_note'] ?? null);
+
+            $invoice->save();
+
+            $payment = new Payment;
+            $payment->forceFill([...$attributes, 'invoice_id' => $invoice->getKey(), 'profile_id' => $profile->getKey()])->save();
 
             return $payment;
         });
@@ -171,10 +210,16 @@ class PaymentRecorder
             $data = $this->merged($existing, Arr::except($data, ['payment_id']));
         }
 
-        $attributes = $this->attributes($profile, $data, $existing);
+        $virtual = $existing === null && !empty($data['virtual_invoice'])
+            ? $this->virtualInvoices->make($profile, $data['virtual_invoice'], $data)
+            : null;
+        $attributes = $this->attributes($profile, $data, $existing, $virtual);
         $date = CarbonImmutable::parse($attributes['received_at']);
         $invoice = isset($attributes['invoice_id']) ? Invoice::query()->find($attributes['invoice_id']) : null;
-        $coverage = $this->coverage($invoice, $this->addedTo($invoice, $existing, $attributes['amount']));
+        // A virtual invoice follows its receipt, so it has no coverage to tell
+        $coverage = $virtual !== null || $invoice?->isVirtual()
+            ? null
+            : $this->coverage($invoice, $this->addedTo($invoice, $existing, $attributes['amount']));
 
         return [
             ...$attributes,
@@ -290,8 +335,14 @@ class PaymentRecorder
             ]);
         }
 
-        $merged = $this->merged($payment, $data);
-        $invoice = $merged['kind'] === PaymentKind::Invoice->value ? Invoice::query()->find($merged['invoice_id'] ?? null) : null;
+        $merged = $this->merged($payment, Arr::except($data, ['virtual_invoice']));
+        $invoice = Invoice::query()->find($merged['invoice_id'] ?? null);
+
+        if (!empty($data['virtual_invoice']) && !$payment->invoice?->isVirtual()) {
+            throw ValidationException::withMessages([
+                'virtual_invoice' => [__('Only a payment without an invoice has a client, a contract and a period of its own.')],
+            ]);
+        }
 
         // The taxable event happened in the receipt's currency, which a link to an invoice can't change
         if (($invoice?->currency ?? $payment->currency) !== $payment->currency) {
@@ -347,11 +398,22 @@ class PaymentRecorder
                 ], $data['correction_note'] ?? null);
             }
 
-            $previousInvoiceId = $payment->invoice_id;
+            $previous = $payment->invoice;
 
             $payment->forceFill($attributes)->save();
 
-            $this->invoices->reopenIfUncovered($previousInvoiceId);
+            if (!$previous?->isVirtual()) {
+                $this->invoices->reopenIfUncovered($previous?->getKey());
+            } elseif ($previous->getKey() !== $payment->invoice_id) {
+                // Attached to an issued invoice: the record without an invoice has no receipt left
+                $previous->forceDelete();
+            } else {
+                if (!empty($data['virtual_invoice'])) {
+                    $this->virtualInvoices->change($previous, $data['virtual_invoice']);
+                }
+
+                $this->virtualInvoices->sync($previous, $payment);
+            }
         });
 
         $this->alerts->syncAfterCommit($profile);
@@ -360,8 +422,7 @@ class PaymentRecorder
     }
 
     /**
-     * Get the receipt's stored fields with the update's data over them. Linking an advance to an invoice makes it a
-     * receipt of the invoice.
+     * Get the receipt's stored fields with the update's data over them.
      *
      * @param Payment $payment
      * @param array $data
@@ -370,12 +431,8 @@ class PaymentRecorder
      */
     protected function merged(Payment $payment, array $data): array
     {
-        if ($payment->kind === PaymentKind::Advance && !empty($data['invoice_id'])) {
-            $data['kind'] = PaymentKind::Invoice->value;
-        }
-
         $merged = [...$payment->only([
-            'kind', 'invoice_id', 'description', 'currency', 'amount', 'client_fee_amount',
+            'kind', 'invoice_id', 'currency', 'amount', 'client_fee_amount',
             'received_to_account_id', 'received_amount', 'receipt_group_id',
         ]), 'received_at' => $payment->received_at->toDateString(), ...$data];
 
@@ -441,7 +498,14 @@ class PaymentRecorder
 
             $payment->delete();
 
-            $this->invoices->reopenIfUncovered($payment->invoice_id);
+            $invoice = Invoice::query()->find($payment->invoice_id);
+
+            // A virtual invoice records its receipt only, so it goes with it
+            if ($invoice?->isVirtual()) {
+                $invoice->forceDelete();
+            } else {
+                $this->invoices->reopenIfUncovered($payment->invoice_id);
+            }
         });
 
         $this->alerts->syncAfterCommit($profile);
@@ -517,40 +581,44 @@ class PaymentRecorder
     }
 
     /**
-     * Get the attributes of a receipt of the data, asserting its invoice and account, with its snapshot.
+     * Get the attributes of a receipt of the data, asserting its invoice and account, with its snapshot. Every
+     * receipt belongs to an invoice: the given one, such as a virtual invoice, which isn't saved yet, or the data's.
      *
      * @param Profile $profile
      * @param array $data
      * @param Payment|null $existing
+     * @param Invoice|null $invoice
      *
      * @return array<string, mixed>
      * @throws ValidationException
      */
-    protected function attributes(Profile $profile, array $data, ?Payment $existing): array
+    protected function attributes(Profile $profile, array $data, ?Payment $existing, ?Invoice $invoice = null): array
     {
-        $kind = PaymentKind::from($data['kind'] ?? PaymentKind::Invoice->value);
-        $invoice = null;
-
-        if ($kind === PaymentKind::FxGain) {
+        if (($data['kind'] ?? PaymentKind::Invoice->value) !== PaymentKind::Invoice->value) {
             throw ValidationException::withMessages(['kind' => [__('FX gains are recorded by transfers.')]]);
         }
 
-        if ($kind === PaymentKind::Invoice) {
-            $invoice = Invoice::query()->find($data['invoice_id'] ?? null);
+        $invoice ??= Invoice::query()->find($data['invoice_id'] ?? null);
 
-            if (!$invoice) {
-                throw ValidationException::withMessages(['invoice_id' => [__('The invoice is required.')]]);
-            }
+        if (!$invoice) {
+            throw ValidationException::withMessages(['invoice_id' => [__('The invoice is required.')]]);
+        }
 
-            $frozen = [InvoiceStatus::Ready, InvoiceStatus::Sent, InvoiceStatus::Paid];
-            // A refunded receipt stays with its cancelled invoice, and may still be corrected there
-            $stays = $existing !== null && $existing->invoice_id === $invoice->getKey() && $invoice->status === InvoiceStatus::Cancelled;
+        // A virtual invoice records one receipt, its own, so no other one joins it
+        if ($invoice->isVirtual() && $invoice->exists && $existing?->invoice_id !== $invoice->getKey()) {
+            throw ValidationException::withMessages([
+                'invoice_id' => [__('A payment without an invoice has one receipt, so another one can\'t join it.')],
+            ]);
+        }
 
-            if (!in_array($invoice->status, $frozen, true) && !$stays) {
-                throw ValidationException::withMessages([
-                    'invoice_id' => [__('Receipts are recorded for frozen invoices only: ready, sent or paid.')],
-                ]);
-            }
+        $frozen = [InvoiceStatus::Ready, InvoiceStatus::Sent, InvoiceStatus::Paid];
+        // A refunded receipt stays with its cancelled invoice, and may still be corrected there
+        $stays = $existing !== null && $existing->invoice_id === $invoice->getKey() && $invoice->status === InvoiceStatus::Cancelled;
+
+        if (!in_array($invoice->status, $frozen, true) && !$stays) {
+            throw ValidationException::withMessages([
+                'invoice_id' => [__('Receipts are recorded for frozen invoices only: ready, sent or paid.')],
+            ]);
         }
 
         $account = Account::query()->find($data['received_to_account_id'] ?? null);
@@ -573,7 +641,7 @@ class PaymentRecorder
             ]);
         }
 
-        $currency = $invoice?->currency ?? strtoupper((string) ($data['currency'] ?? $account->currency));
+        $currency = $invoice->currency;
         $amount = Decimal::money($data['amount']);
         $receivedAmount = Decimal::money($data['received_amount'] ?? ($account->currency === $currency ? $amount : null));
 
@@ -595,9 +663,8 @@ class PaymentRecorder
         );
 
         return [
-            'kind' => $kind,
-            'invoice_id' => $invoice?->getKey(),
-            'description' => $data['description'] ?? null,
+            'kind' => PaymentKind::Invoice,
+            'invoice_id' => $invoice->getKey(),
             'receipt_group_id' => $data['receipt_group_id'] ?? null,
             'currency' => $currency,
             'amount' => $amount,

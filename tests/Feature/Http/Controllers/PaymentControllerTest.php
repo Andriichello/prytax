@@ -99,7 +99,7 @@ class PaymentControllerTest extends TestCase
         $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
 
         $this->postJson($this->profilePath($profile, 'payments'), [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '50.00', 'received_to_account_id' => $closed->id, 'received_at' => '2026-10-05',
+            ...$this->withoutInvoice($profile), 'amount' => '50.00', 'received_to_account_id' => $closed->id, 'received_at' => '2026-10-05',
         ])->assertUnprocessable()->assertJsonValidationErrors([
             'received_to_account_id' => "The account is inactive, so receipts can't land on it.",
         ]);
@@ -118,7 +118,7 @@ class PaymentControllerTest extends TestCase
         $wise = $this->createAccount($profile);
 
         $this->postJson($this->profilePath($profile, 'payments'), [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '3892.50', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07',
+            ...$this->withoutInvoice($profile), 'amount' => '3892.50', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07',
         ])->assertCreated()->assertJsonPath('data.uah_amount', '162982.87');
 
         $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'rate' => '41.8710']);
@@ -135,7 +135,7 @@ class PaymentControllerTest extends TestCase
         $profile = $this->createProfile();
         $this->actAs($profile);
         $wise = $this->createAccount($profile);
-        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07'];
+        $receipt = [...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-07-07'];
 
         $this->postJson($this->profilePath($profile, 'payments'), $receipt)
             ->assertUnprocessable()
@@ -160,15 +160,15 @@ class PaymentControllerTest extends TestCase
         Http::fake(['bank.gov.ua/*' => Http::response('Service Unavailable', 503)]);
         $first = $this->createProfile();
         $second = $this->createProfile();
-        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_at' => '2026-07-07'];
+        $receipt = ['amount' => '100.00', 'received_at' => '2026-07-07'];
         $this->actAs($first);
         $this->postJson($this->profilePath($first, 'payments'), [
-            ...$receipt, 'received_to_account_id' => $this->createAccount($first)->id, 'nbu_rate' => '99.0000',
+            ...$receipt, ...$this->withoutInvoice($first), 'received_to_account_id' => $this->createAccount($first)->id, 'nbu_rate' => '99.0000',
         ])->assertCreated();
 
         $this->actAs($second);
         $response = $this->postJson($this->profilePath($second, 'payments'), [
-            ...$receipt, 'received_to_account_id' => $this->createAccount($second)->id,
+            ...$receipt, ...$this->withoutInvoice($second), 'received_to_account_id' => $this->createAccount($second)->id,
         ]);
 
         $response->assertUnprocessable()
@@ -188,7 +188,7 @@ class PaymentControllerTest extends TestCase
         $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
 
         $response = $this->postJson($this->profilePath($profile, 'payments'), [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id,
+            ...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id,
             'received_at' => '2026-10-05', 'nbu_rate' => '45.0000',
         ]);
 
@@ -210,12 +210,12 @@ class PaymentControllerTest extends TestCase
         $this->actAs($profile);
         $wise = $this->createAccount($profile);
         $id = $this->postJson($this->profilePath($profile, 'payments'), [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id,
+            ...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id,
             'received_at' => '2026-07-07', 'nbu_rate' => '40.0000',
         ])->json('data.id');
         $this->cacheRates(['USD' => ['2026-07-07' => '41.8710']]);
 
-        $response = $this->patchJson($this->profilePath($profile, "payments/$id"), ['description' => 'Бонус платформи']);
+        $response = $this->patchJson($this->profilePath($profile, "payments/$id"), ['client_fee_amount' => '1.00']);
 
         $response->assertOk()
             ->assertJsonPath('data.nbu_rate', '41.8710')
@@ -243,7 +243,7 @@ class PaymentControllerTest extends TestCase
         foreach ([$second, $third] as $period) {
             $period->forceFill(['declaration_status' => DeclarationStatus::Accepted, 'locked_at' => now()])->save();
         }
-        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-05-06'];
+        $receipt = [...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-05-06'];
 
         $this->postJson($this->profilePath($profile, 'payments'), $receipt)
             ->assertConflict()
@@ -270,7 +270,7 @@ class PaymentControllerTest extends TestCase
         $this->actAs($profile);
         $wise = $this->createAccount($profile);
         $this->cacheRates(['USD' => ['2026-10-05' => '42.2297']]);
-        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-05'];
+        $receipt = [...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-05'];
 
         $first = $this->withHeader('Idempotency-Key', 'tap-1')->postJson($this->profilePath($profile, 'payments'), $receipt);
         $replay = $this->withHeader('Idempotency-Key', 'tap-1')->postJson($this->profilePath($profile, 'payments'), $receipt);
@@ -414,5 +414,53 @@ class PaymentControllerTest extends TestCase
         $this->assertSame($response->json('data.0.receipt_group_id'), $response->json('data.1.receipt_group_id'));
         $this->assertNotNull($response->json('data.0.receipt_group_id'));
         $this->assertDatabaseCount('payments', 2);
+    }
+
+    /**
+     * Test that a payment without an invoice is recorded with its virtual invoice through the API.
+     *
+     * @return void
+     */
+    public function testRecordsAPaymentWithoutAnInvoice(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-24' => '42.0510']]);
+
+        $id = $this->postJson($this->profilePath($profile, 'payments'), [
+            ...$this->withoutInvoice($profile), 'amount' => '500.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-24',
+        ])->assertCreated()->assertJsonPath('data.uah_amount', '21025.50')->json('data.id');
+
+        $this->getJson($this->profilePath($profile, "payments/$id?include=invoice"))
+            ->assertOk()
+            ->assertJsonPath('data.invoice.source', 'virtual')
+            ->assertJsonPath('data.invoice.status', 'paid')
+            ->assertJsonPath('data.invoice.number', null);
+    }
+
+    /**
+     * Test that a payment without an invoice needs a contract of its client and a period, and can't name an invoice
+     * too (422).
+     *
+     * @return void
+     */
+    public function testReturns422ForAPaymentWithoutAnInvoiceWithoutItsContractOrPeriod(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $wise = $this->createAccount($profile);
+        $receipt = ['amount' => '500.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-10-24'];
+        $without = $this->withoutInvoice($profile)['virtual_invoice'];
+        [, $othersContract] = $this->createClientWithContract($profile, ['abbreviation' => 'NW']);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [
+            ...$receipt, 'virtual_invoice' => [...$without, 'contract_id' => $othersContract->id, 'period_end' => null],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['virtual_invoice.contract_id', 'virtual_invoice.period_end']);
+
+        $this->postJson($this->profilePath($profile, 'payments'), [...$receipt, 'virtual_invoice' => $without, 'invoice_id' => 1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('virtual_invoice');
+        $this->assertDatabaseCount('invoices', 0);
     }
 }

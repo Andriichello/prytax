@@ -249,13 +249,19 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     }
 
     /**
-     * Determine if the invoice is locked: past its draft.
+     * Determine if the invoice is locked: past its draft. A virtual invoice isn't, though it is paid: it has no
+     * document, and follows its receipt (design.md §4.2).
      *
      * @return bool
      */
     public function isLocked(): bool
     {
+        $source = $this->getAttribute('source');
         $status = $this->getAttribute('status');
+
+        if (($source instanceof InvoiceSource ? $source : InvoiceSource::tryFrom((string) $source)) === InvoiceSource::Virtual) {
+            return false;
+        }
 
         return ($status instanceof InvoiceStatus ? $status : InvoiceStatus::from($status)) !== InvoiceStatus::Draft;
     }
@@ -360,6 +366,16 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     public function isGenerated(): bool
     {
         return $this->source === InvoiceSource::Generated;
+    }
+
+    /**
+     * Determine if the invoice is virtual: a record of a payment without an invoice (design.md §4.2).
+     *
+     * @return bool
+     */
+    public function isVirtual(): bool
+    {
+        return $this->source === InvoiceSource::Virtual;
     }
 
     /**

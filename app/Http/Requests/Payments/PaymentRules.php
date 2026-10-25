@@ -9,8 +9,9 @@ use PryTax\Http\Requests\Traits\ScopesToProfile;
 /**
  * Trait PaymentRules.
  *
- * Rules of a receipt's fields, which its store, update and preview requests share. A receipt of an invoice takes
- * the invoice's currency and the account's received currency; an advance or other income names its currency. A
+ * Rules of a receipt's fields, which its store, update and preview requests share. Every receipt belongs to an
+ * invoice, whose currency it takes, and lands in the account's currency. A payment without an invoice names its
+ * client, contract and service period in `virtual_invoice`, which becomes its virtual invoice (design.md §4.2). A
  * manual `nbu_rate` is for when the NBU's rate is unavailable, and a `correction_note` for a locked quarter.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
@@ -29,11 +30,21 @@ trait PaymentRules
      */
     protected function paymentRules(string $presence): array
     {
+        $creating = $presence === 'required';
+
         return [
-            'kind' => ['sometimes', Rule::in([PaymentKind::Invoice->value, PaymentKind::Advance->value, PaymentKind::Other->value])],
-            'invoice_id' => ['sometimes', 'nullable', 'required_if:kind,invoice', 'integer', $this->existsInProfile('invoices')],
-            'description' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'currency' => ['sometimes', 'nullable', 'string', 'size:3', 'alpha'],
+            'kind' => ['sometimes', Rule::in([PaymentKind::Invoice->value])],
+            'invoice_id' => [$creating ? 'required_without:virtual_invoice' : 'sometimes', 'nullable', 'integer', $this->existsInProfile('invoices')],
+            'virtual_invoice' => ['sometimes', 'array:client_id,contract_id,period_start,period_end,notes', ...($creating ? ['prohibits:invoice_id'] : [])],
+            'virtual_invoice.client_id' => ['required_with:virtual_invoice', 'integer', $this->existsInProfile('clients')],
+            'virtual_invoice.contract_id' => [
+                'required_with:virtual_invoice',
+                'integer',
+                $this->existsInProfile('contracts')->where('client_id', (int) $this->input('virtual_invoice.client_id')),
+            ],
+            'virtual_invoice.period_start' => ['required_with:virtual_invoice', 'date'],
+            'virtual_invoice.period_end' => ['required_with:virtual_invoice', 'date', 'after_or_equal:virtual_invoice.period_start'],
+            'virtual_invoice.notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'amount' => [$presence, ...$this->moneyRules()],
             'client_fee_amount' => ['sometimes', 'nullable', ...$this->moneyRules(false)],
             'received_to_account_id' => [$presence, 'integer', $this->existsInProfile('accounts')],
@@ -46,18 +57,12 @@ trait PaymentRules
     }
 
     /**
-     * Normalize the amounts, the rate and the currency.
+     * Normalize the amounts and the rate.
      *
      * @return array
      */
     protected function overrides(): array
     {
-        $overrides = $this->normalizedMoney(['amount', 'client_fee_amount', 'received_amount', 'nbu_rate']);
-
-        if (is_string($this->input('currency'))) {
-            $overrides['currency'] = strtoupper($this->input('currency'));
-        }
-
-        return $overrides;
+        return $this->normalizedMoney(['amount', 'client_fee_amount', 'received_amount', 'nbu_rate']);
     }
 }

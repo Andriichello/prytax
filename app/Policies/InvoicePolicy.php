@@ -38,7 +38,7 @@ class InvoicePolicy extends CrudPolicy
      */
     public function update(mixed $user, mixed $model): bool
     {
-        return parent::update($user, $model);
+        return parent::update($user, $model) && !$model->isVirtual();
     }
 
     /**
@@ -104,6 +104,20 @@ class InvoicePolicy extends CrudPolicy
     public function pay(mixed $user, mixed $model): bool
     {
         return $this->hasAnyRole($user) && in_array($model->status, [InvoiceStatus::Ready, InvoiceStatus::Sent], true);
+    }
+
+    /**
+     * Determine whether the user can issue the invoice as a generated one: a virtual one, of a payment without an
+     * invoice (design.md §4.2).
+     *
+     * @param User|null $user
+     * @param Invoice $model
+     *
+     * @return bool
+     */
+    public function issue(mixed $user, mixed $model): bool
+    {
+        return $this->hasAnyRole($user) && $model->isVirtual();
     }
 
     /**

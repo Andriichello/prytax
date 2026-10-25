@@ -4,6 +4,7 @@ namespace PryTax\Queries;
 
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\InvoiceStatus;
 
 /**
@@ -43,6 +44,19 @@ class InvoiceQuery extends TenantQuery
             "(({$received->toSql()}) - ({$refunded->toSql()})) as paid_amount",
             [...$received->getBindings(), ...$refunded->getBindings()]
         );
+
+        return $this;
+    }
+
+    /**
+     * Only the invoices, which are documents: generated and external ones, not the virtual records of payments
+     * without an invoice (design.md §4.2).
+     *
+     * @return static
+     */
+    public function documents(): static
+    {
+        $this->where($this->qualifyColumn('source'), '<>', InvoiceSource::Virtual->value);
 
         return $this;
     }

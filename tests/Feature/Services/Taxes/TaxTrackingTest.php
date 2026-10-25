@@ -97,7 +97,7 @@ class TaxTrackingTest extends TestCase
 
         try {
             $this->inProfile($profile, fn () => app(PaymentRecorder::class)->record($profile, [
-                'kind' => 'other', 'currency' => 'UAH', 'amount' => '1000.00', 'received_to_account_id' => $account->id,
+                ...$this->withoutInvoice($profile, 'UAH'), 'amount' => '1000.00', 'received_to_account_id' => $account->id,
                 'received_at' => '2027-01-05',
             ]));
             $this->fail('No exception was thrown.');

@@ -107,7 +107,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('invoices/style-preview', [InvoiceController::class, 'stylePreview'])->name('invoices.style-preview');
                     $crud('invoices', InvoiceController::class, $all, 'invoices');
 
-                    foreach (['freeze', 'unfreeze', 'send', 'pay', 'cancel'] as $operation) {
+                    foreach (['freeze', 'unfreeze', 'send', 'pay', 'cancel', 'issue'] as $operation) {
                         Route::post("invoices/{id}/$operation", [InvoiceController::class, $operation])->name("invoices.$operation");
                     }
 

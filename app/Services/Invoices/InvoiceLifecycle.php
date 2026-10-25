@@ -112,7 +112,9 @@ class InvoiceLifecycle
 
         $invoice = Invoice::query()->lockForUpdate()->find($invoiceId);
 
-        if ($invoice?->status !== InvoiceStatus::Paid || $invoice->receivedAmount()->isGreaterThanOrEqualTo(Decimal::of($invoice->total))) {
+        // A virtual invoice follows its receipt, so it is never left uncovered
+        if ($invoice?->status !== InvoiceStatus::Paid || $invoice->isVirtual()
+            || $invoice->receivedAmount()->isGreaterThanOrEqualTo(Decimal::of($invoice->total))) {
             return;
         }
 

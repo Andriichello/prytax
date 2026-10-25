@@ -73,7 +73,7 @@ class AlertSyncTest extends TestCase
         $profile = $this->createProfile();
         $account = $this->createAccount($profile);
         $payment = $this->inProfile($profile, fn () => app(PaymentRecorder::class)->record($profile, [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $account->id,
+            ...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $account->id,
             'received_at' => '2026-07-07', 'nbu_rate' => '40.0000',
         ]));
         $this->cacheRates(['USD' => ['2026-07-07' => '41.8710']]);

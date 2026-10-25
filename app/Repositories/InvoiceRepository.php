@@ -6,6 +6,7 @@ use Core\Models\BaseModel;
 use Core\Queries\BaseQuery;
 use Illuminate\Http\Request;
 use PryTax\Http\Filters\PeriodFilter;
+use PryTax\Http\Filters\StatusFilter;
 use PryTax\Http\Resources\InvoiceResource;
 use PryTax\Models\Invoice;
 use PryTax\Services\Invoices\InvoiceWriter;
@@ -50,6 +51,7 @@ class InvoiceRepository extends TenantRepository
      */
     protected array $allowedFilters = [
         'period' => PeriodFilter::class,
+        'status' => StatusFilter::class,
         'locked_at',
     ];
 

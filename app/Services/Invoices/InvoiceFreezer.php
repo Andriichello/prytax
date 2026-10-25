@@ -187,7 +187,7 @@ class InvoiceFreezer
      * @return void
      * @throws ValidationException
      */
-    protected function assertPurposeComplete(Invoice $invoice): void
+    public function assertPurposeComplete(Invoice $invoice): void
     {
         $settings = $this->settings->forInvoice($invoice);
         $template = $settings['payment_purpose_template'];

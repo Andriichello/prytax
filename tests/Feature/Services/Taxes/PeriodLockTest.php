@@ -40,7 +40,7 @@ class PeriodLockTest extends TestCase
         $wise = $this->createAccount($profile);
         $this->cacheRates(['USD' => ['2026-02-10' => '41.0000']]);
         $later = $this->declareQuarter($profile, 2026, 2);
-        $receipt = ['kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-02-10'];
+        $receipt = [...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-02-10'];
 
         try {
             $this->inProfile($profile, fn () => app(PaymentRecorder::class)->record($profile, $receipt));
@@ -67,7 +67,7 @@ class PeriodLockTest extends TestCase
         $wise = $this->createAccount($profile);
         $this->cacheRates(['USD' => ['2026-05-06' => '41.3478', '2026-05-07' => '41.3500']]);
         $payment = $this->inProfile($profile, fn () => app(PaymentRecorder::class)->record($profile, [
-            'kind' => 'other', 'currency' => 'USD', 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-05-06',
+            ...$this->withoutInvoice($profile), 'amount' => '100.00', 'received_to_account_id' => $wise->id, 'received_at' => '2026-05-06',
         ]));
         $period = $this->declareQuarter($profile, 2026, 2);
         $this->travelTo('2026-09-15 10:00:00');

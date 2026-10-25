@@ -32,7 +32,8 @@ trait InvoiceRules
     protected function invoiceRules(string $presence): array
     {
         return [
-            'source' => ['sometimes', Rule::enum(InvoiceSource::class)],
+            // A virtual invoice is made with its receipt only (design.md §4.2)
+            'source' => ['sometimes', Rule::in([InvoiceSource::Generated->value, InvoiceSource::External->value])],
             'client_id' => [$presence, 'integer', $this->existsInProfile('clients')],
             'contract_id' => ['sometimes', 'nullable', 'integer', $this->existsInProfile('contracts')],
             'receiving_account_id' => ['sometimes', 'nullable', 'integer', $this->existsInProfile('accounts')],

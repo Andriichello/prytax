@@ -166,6 +166,28 @@ trait ActsInProfiles
     }
 
     /**
+     * Get the field of a receipt without an invoice (design.md §4.2): the virtual invoice of a new client's contract in
+     * the currency, for October 2026.
+     *
+     * @param Profile $profile
+     * @param string $currency
+     *
+     * @return array{virtual_invoice: array{client_id: int, contract_id: int, period_start: string, period_end: string}}
+     */
+    protected function withoutInvoice(Profile $profile, string $currency = 'USD'): array
+    {
+        [$client, $contract] = $this->createClientWithContract($profile, ['currency' => $currency]);
+        $this->inProfile($profile, fn () => $contract->update(['currency' => $currency]));
+
+        return ['virtual_invoice' => [
+            'client_id' => $client->id,
+            'contract_id' => $contract->id,
+            'period_start' => '2026-10-01',
+            'period_end' => '2026-10-31',
+        ]];
+    }
+
+    /**
      * Create an account of the profile.
      *
      * @param Profile $profile

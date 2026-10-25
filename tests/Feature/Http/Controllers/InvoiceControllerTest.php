@@ -8,7 +8,10 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PryTax\Models\Invoice;
+use PryTax\Models\Payment;
+use PryTax\Models\Profile;
 use PryTax\Services\Invoices\InvoiceWriter;
+use PryTax\Services\Payments\PaymentRecorder;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -817,5 +820,107 @@ class InvoiceControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.*.id', [$other->id, $september->id])
             ->assertJsonPath('meta.total', 4);
+    }
+
+    /**
+     * Record a payment without an invoice from Kestrel Studio: 500.00 USD on 24.10.2026, for November.
+     *
+     * @param Profile $profile
+     *
+     * @return Payment
+     */
+    private function paymentWithoutInvoice(Profile $profile): Payment
+    {
+        $wise = $this->createAccount($profile);
+        $this->cacheRates(['USD' => ['2026-10-24' => '42.0510']]);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'KS', 'name' => 'Kestrel Studio']);
+
+        return $this->inProfile($profile, fn () => app(PaymentRecorder::class)->record($profile, [
+            'virtual_invoice' => ['client_id' => $client->id, 'contract_id' => $contract->id, 'period_start' => '2026-11-01', 'period_end' => '2026-11-30'],
+            'amount' => '500.00',
+            'received_to_account_id' => $wise->id,
+            'received_at' => '2026-10-24',
+        ]));
+    }
+
+    /**
+     * Test that a payment without an invoice is issued as an invoice: numbered by the period's end, with one fixed
+     * item for the whole amount, its snapshot and PDF, still paid on the payment's date.
+     *
+     * @return void
+     */
+    public function testIssuesAPaymentWithoutAnInvoiceAsAnInvoice(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'accountant');
+        $id = $this->paymentWithoutInvoice($profile)->invoice_id;
+
+        $response = $this->postJson($this->profilePath($profile, "invoices/$id/issue?include=items&append=snapshot"));
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Issued')
+            ->assertJsonPath('data.source', 'generated')
+            ->assertJsonPath('data.number', 'KS-2026-11-30-1')
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.issued_at', '2026-10-24')
+            ->assertJsonPath('data.items.0.unit', 'fixed')
+            ->assertJsonPath('data.items.0.amount', '500.00')
+            ->assertJsonPath('data.snapshot.totals.total', '500.00');
+        $this->get($this->profilePath($profile, "invoices/$id/pdf"))->assertOk()->assertDownload('KS-2026-11-30-1.pdf');
+    }
+
+    /**
+     * Test that a payment without an invoice has no document, takes no edits, and that an issued invoice isn't issued
+     * again (403), nor is a virtual one created through the invoices.
+     *
+     * @return void
+     */
+    public function testKeepsAPaymentWithoutAnInvoiceWithoutADocument(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $payment = $this->paymentWithoutInvoice($profile);
+        $id = $payment->invoice_id;
+        $issued = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+
+        $this->getJson($this->profilePath($profile, "invoices/$id/pdf"))
+            ->assertNotFound()
+            ->assertJsonPath('message', 'A payment without an invoice has no document: issue it as an invoice first.');
+        $this->withHeader('If-Unmodified-Since', now()->toRfc7231String())
+            ->patchJson($this->profilePath($profile, "invoices/$id"), ['notes' => 'Аванс'])
+            ->assertForbidden();
+        $this->postJson($this->profilePath($profile, "invoices/{$issued->id}/issue"))->assertForbidden();
+        $this->postJson($this->profilePath($profile, 'invoices'), [
+            'source' => 'virtual', 'client_id' => $issued->client_id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-31',
+        ])->assertUnprocessable()->assertJsonValidationErrors('source');
+    }
+
+    /**
+     * Test that the status filter treats the payments without an invoice as a status of their own, which the facets
+     * count apart from the statuses.
+     *
+     * @return void
+     */
+    public function testFiltersThePaymentsWithoutAnInvoiceAsAStatusOfTheirOwn(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'viewer');
+        $virtual = $this->paymentWithoutInvoice($profile)->invoice_id;
+        $paid = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        $this->inProfile($profile, fn () => $paid->forceFill(['status' => 'paid', 'paid_at' => '2026-10-05'])->save());
+
+        $ids = fn (string $statuses) => array_column($this->getJson($this->profilePath($profile, "invoices?filter[status][in]=$statuses"))
+            ->assertOk()->json('data'), 'id');
+
+        $this->assertSame([$paid->id], $ids('paid'));
+        $this->assertSame([$virtual], $ids('virtual'));
+        $this->assertEqualsCanonicalizing([$paid->id, $virtual], $ids('paid,virtual'));
+        $this->getJson($this->profilePath($profile, 'invoices/facets'))
+            ->assertOk()
+            ->assertJsonPath('data.statuses', [['status' => 'paid', 'count' => 1]])
+            ->assertJsonPath('data.virtual', 1);
     }
 }

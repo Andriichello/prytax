@@ -39,6 +39,7 @@ export default {
             'The refund will be removed from the records, and its period’s income will go back up. To correct a refund, delete it and record it again.',
         taxPlaceholder: 'dd.mm.yyyy · Account · Order No.',
         taxesCaption: 'The single tax and the military levy of this receipt are always here. Tap one to record or change its payment. SSC is separate, in «Taxes».',
+        recordGoesToo: 'The “No invoice” record will be deleted with it.',
     },
 
     paymentForm: {

@@ -72,12 +72,14 @@ const taxes = computed(() => (['single_tax', 'military_levy'] as const).map((typ
 
 /**
  * The status, to which deleting the receipt returns its paid invoice, as the receipts left no longer cover it (a
- * receipt with refunds can't be deleted, so its whole amount leaves), or null when the invoice stays as it is.
+ * receipt with refunds can't be deleted, so its whole amount leaves), or null when the invoice stays as it is. A
+ * record «Без інвойсу» doesn't return to unpaid: it is deleted with its receipt.
  */
 const reopenedStatus = computed(() => {
     const invoice = payment.value?.invoice;
 
-    if (!invoice || invoice.status !== 'paid' || compareAmounts(subtractAmounts(invoice.paid_amount ?? '0', payment.value!.amount), invoice.total) >= 0) {
+    if (!invoice || invoice.source === 'virtual' || invoice.status !== 'paid'
+        || compareAmounts(subtractAmounts(invoice.paid_amount ?? '0', payment.value!.amount), invoice.total) >= 0) {
         return null;
     }
 
@@ -353,6 +355,7 @@ async function removeRefund(): Promise<void> {
                     <template #number><span class="num">{{ payment?.invoice?.number }}</span></template>
                 </Translated>
             </p>
+            <p v-if="payment?.invoice?.source === 'virtual'" class="m-0">{{ t('money.payment.recordGoesToo') }}</p>
             <TextAreaField v-if="needsNote" v-model="correctionNote" :label="t('money.payment.correctionQuestion')" :rows="2" />
         </ConfirmSheet>
 

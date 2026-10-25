@@ -11,6 +11,8 @@ import { errorMessage } from '@/utils/errors';
  * The app's frame: one centred column, at most 480 px wide (the designs are drawn at 390 px). When the app can't
  * start (no connection, the server failed), it says so with a retry instead of a blank page. The infinite lists stay
  * alive behind the records opened from them, so going back returns to the same place; another user starts afresh.
+ * A screen for signed-in users shows only while someone is: signing out (or a lapsed session) leaves it before the
+ * router reaches Вхід, rather than mounting it once more without a user, whose loaders would fail.
  */
 const KEPT_ALIVE = ['InvoicesPage', 'TransfersPage'];
 
@@ -29,9 +31,9 @@ const retry = (): void => window.location.reload();
                 <PrimaryButton @click="retry">{{ t('shell.startup.tryAgain') }}</PrimaryButton>
             </div>
         </AuthLayout>
-        <RouterView v-else v-slot="{ Component }">
+        <RouterView v-else v-slot="{ Component, route }">
             <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">
-                <component :is="Component" />
+                <component :is="Component" v-if="user || route.meta.guest || route.meta.public" />
             </KeepAlive>
         </RouterView>
     </div>

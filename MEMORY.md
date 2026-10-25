@@ -194,8 +194,11 @@ statistics screen; and go on with the rest. Done, each verified in tests and in 
   across the user's profiles (`useCurrentProfile().locate()`, routes' `meta.record`); `?profile=ID` on any path
   switches the profile and is dropped from the URL.
 - **Dates are typed `дд.мм.рррр`** whatever the device's language (`DateField` is a text input, `parseDisplayDate()`
-  takes `4.1.2026`, `14/10/2026`, `14102026`), with the native calendar under a button (`showPicker()`); a wrong or
-  out-of-range date is told after leaving the field.
+  takes `4.1.2026`, `14/10/2026`, `14102026`), with a calendar under a button; a wrong or out-of-range date is told
+  after leaving the field. Since 2026-10-25 the calendar is the app's own `components/form/DatePickerSheet.vue` (the
+  user found the native one ugly; no package): a bottom sheet with Monday-first weeks (`calendarWeeks()`,
+  `weekdayNames()` in `utils/dates.ts`), today ringed, the chosen day filled, `min`/`max` disabled, a months view
+  behind the title, «Сьогодні».
 - **Vitest** (approved by the user; `vitest@5.0.3`, pinned to a release a few weeks old): `vitest.config.js` (alias
   only, not Vite's config), `npm test`. Installing with Node 22's npm crashed (arborist `edgesOut`); Node 24's npm 11
   worked (it also rewrote the lockfile's flags of optional platform packages, harmless).

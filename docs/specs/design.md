@@ -856,9 +856,10 @@ handoff's quarter card (Нараховано · Сплачено · До спл�
 ### 8.5 Tax ledger (`TaxLedger`, Податки)
 
 Податки is one ledger, month by month. It merges the **obligations** (what is to be paid) with the **tax payments**
-(what was sent, paid or failed), under a summary of the chosen period (§16.5). One service, `TaxLedger`, builds it.
-The endpoint below, the receipt page and the receipt cards all read it, so a receipt's ЄП and ВЗ read the same
-everywhere.
+(what was sent, paid or failed), under a summary of the chosen period (§16.5). One service, `TaxLedger`, builds it
+for the endpoint below. The receipt page, the receipt cards and the tax payment form follow its rule for a receipt's
+tax (the SPA's `receiptTaxPayment`): the payment that didn't fail, else unpaid, however many attempts failed. So a
+receipt's ЄП and ВЗ read the same everywhere, and an unpaid row records a new payment.
 
 **Obligations** are computed, never stored:
 - **ЄП and ВЗ per receipt:** a receipt's `single_tax_uah` / `military_levy_uah` (when not zero) is an obligation of the
@@ -913,8 +914,8 @@ status are selected:
   Within each status, the newest come first.
 - **The month's header** sums its own rows: accrued (all but the failed ones), sent and paid.
 
-**API.** `GET taxes/{year}/ledger?quarter[]=&tax_type[]=&status[]=` (no quarter = the whole year; the statuses are
-`unpaid`, `failed`, `sent` and `paid`):
+**API.** `GET taxes/{year}/ledger?quarter=&tax_type=&status=`, each a list, as an array or comma-separated
+(`quarter=3,4`). No quarter is the whole year; the statuses are `unpaid`, `failed`, `sent` and `paid`:
 
 ```
 { summary: { total: {accrued, sent, paid},
@@ -1102,7 +1103,7 @@ demo data reseeded.
 9. **Untranslated names** (§16.5): the English dictionaries write ЄП, ВЗ, ЄСВ and ФОП as the Ukrainian ones do, and
    the translation guard allows them.
 
-Steps 1–7 are built (2026-10-25); steps 8 and 9 are next.
+All nine steps are built (2026-10-25).
 
 Later: `SheetImporter` for the 2025 sheet (`--profile=`, `--dry-run`: external invoices, payments, transfers, tax
 payments, ЄСВ months paid or exempt; totals must reconcile to the sheet within the rounding policy), XLSX exports and
@@ -1222,7 +1223,10 @@ the Ukrainian one.
   - **Статус:** Не сплачено · Не пройшов · Надіслано · Сплачено, with the same rules. The badge reads «Усі статуси» or
     the chosen ones («Не пройшов, Надіслано»). The hint is «Підсумок рахує лише обрані статуси. Прибрати останній —
     знову всі.»
-  - **The URL** mirrors the filters (§10). The first handoff's `?mode=` is gone.
+  - **The URL** mirrors the filters (§10): `year`, `quarters` (`2-4`, `4`, or `all` for the whole year), `taxes` and
+    `statuses` (comma-separated, left out when all are chosen). A link without `quarters` opens the current quarter
+    of the current year, or a whole other year; an old link's `quarter` names one quarter. The first handoff's
+    `?mode=` is gone.
 - **Інвойси** keeps its filters (years, quarters, months or a range; clients; statuses; currencies; the live count),
   plus the status «Без інвойсу» after Скасовано.
 - **Status badges:**

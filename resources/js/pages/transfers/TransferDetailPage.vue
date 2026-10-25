@@ -41,6 +41,9 @@ const { data: transfer, error, loading, reload } = useLoader(async (signal) => {
 }, [profileId, id]);
 
 const isSale = computed(() => !!transfer.value && transfer.value.currency_sent !== transfer.value.currency_received);
+/** The receipts the transfer moved, the newest first. */
+const allocations = computed(() => [...(transfer.value?.allocations ?? [])]
+    .sort((a, b) => (b.payment?.received_at ?? '').localeCompare(a.payment?.received_at ?? '') || b.payment_id - a.payment_id));
 const allocated = computed(() => sumAmounts(...(transfer.value?.allocations ?? []).map((allocation) => allocation.amount)));
 
 const deleteOpen = ref(false);
@@ -124,7 +127,7 @@ async function remove(): Promise<void> {
                     </SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                         <RouterLink
-                            v-for="allocation in transfer.allocations"
+                            v-for="allocation in allocations"
                             :key="allocation.id"
                             :to="{ name: 'payment', params: { id: allocation.payment_id } }"
                             class="flex items-center justify-between gap-3 py-3 text-ink no-underline hover:text-ink"

@@ -76,7 +76,7 @@ const statusDate = computed(() => {
 
     return date ? ` ${formatDayMonth(date)}` : '';
 });
-const sortedPayments = computed(() => [...(invoice.value?.payments ?? [])].sort((a, b) => a.received_at.localeCompare(b.received_at)));
+const sortedPayments = computed(() => [...(invoice.value?.payments ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at) || b.id - a.id));
 const fileSize = computed(() => {
     const size = invoice.value?.primaryFile?.size;
 

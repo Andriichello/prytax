@@ -62,7 +62,7 @@ const { data: loaded, error, loading, reload } = useLoader(async (signal) => {
             filter: { period_year: year.value, period_quarter: quarter.value, kind: 'invoice' },
             include: ['invoice.client', 'taxPayments'],
             append: showFees.value ? ['metrics'] : [],
-            sort: 'received_at',
+            sort: '-received_at,-id',
         }, signal),
     ]);
 

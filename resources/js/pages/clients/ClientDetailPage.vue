@@ -50,6 +50,9 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
 const client = computed(() => data.value?.client ?? null);
 const stats = computed(() => data.value?.stats ?? null);
 const chargeTypes = computed(() => client.value?.chargeTypes ?? []);
+/** The client's contracts, the newest first. */
+const contracts = computed(() => [...(client.value?.contracts ?? [])]
+    .sort((a, b) => b.started_at.localeCompare(a.started_at) || b.id - a.id));
 
 /** The client's invoices' document in short: the style and language, what they print, and the client's own texts. */
 const documentSummary = computed(() => {
@@ -225,7 +228,7 @@ const addressLines = computed(() => {
                         </template>
                     </SectionTitle>
                     <RouterLink
-                        v-for="contract in client.contracts ?? []"
+                        v-for="contract in contracts"
                         :key="contract.id"
                         :to="{ name: 'contract', params: { clientId: client.id, id: contract.id } }"
                         class="flex flex-col gap-1 rounded-card border border-line bg-surface p-4 text-ink no-underline hover:text-ink"

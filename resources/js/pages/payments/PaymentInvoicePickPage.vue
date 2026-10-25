@@ -28,7 +28,7 @@ const { error, loading, reload } = useLoader(async (signal) => {
     invoices.value = await api.all<Invoice>(path('invoices'), {
         filter: { status: { in: ['ready', 'sent'] } },
         include: ['client'],
-        sort: 'issued_at',
+        sort: '-issued_at,-id',
     }, signal);
 
     return true;

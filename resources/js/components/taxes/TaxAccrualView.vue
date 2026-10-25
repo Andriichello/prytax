@@ -37,7 +37,7 @@ const { data, error, loading, reload } = useLoader(async (signal) => {
         api.all<Payment>(path('payments'), {
             filter: { period_year: year, period_quarter: quarter, kind: 'invoice' },
             include: ['invoice.client', 'taxPayments'],
-            sort: 'received_at',
+            sort: '-received_at,-id',
         }, signal),
     ]);
 

@@ -87,7 +87,7 @@ const { error: loadError, loading, reload } = useLoader(async (signal) => {
         api.all<Invoice>(path('invoices'), {
             filter: { status: { in: ['ready', 'sent'] } },
             include: ['client'],
-            sort: 'issued_at',
+            sort: '-issued_at,-id',
         }, signal),
         api.all<Account>(path('accounts'), {}, signal),
         api.all<Client>(path('clients'), {}, signal),

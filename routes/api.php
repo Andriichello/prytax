@@ -154,6 +154,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
 
                     Route::get('taxes/{year}', [TaxReportController::class, 'reconciliation'])->name('taxes.reconciliation');
                     Route::get('taxes/{year}/months', [TaxReportController::class, 'byMonth'])->name('taxes.months');
+                    Route::get('taxes/{year}/ledger', [TaxReportController::class, 'ledger'])->name('taxes.ledger');
                     Route::get('taxes/{year}/{quarter}/payments', [TaxReportController::class, 'byPayment'])->name('taxes.payments');
                     Route::get('declarations/{year}/{quarter}', [TaxReportController::class, 'declaration'])->name('declarations');
                 });

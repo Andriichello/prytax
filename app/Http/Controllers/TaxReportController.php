@@ -5,6 +5,7 @@ namespace PryTax\Http\Controllers;
 use Core\Http\Requests\Crud\IndexRequest;
 use Core\Http\Responses\ApiResponse;
 use PryTax\Enums\TaxType;
+use PryTax\Http\Requests\Reports\TaxLedgerRequest;
 use PryTax\Http\Requests\Reports\TaxReportRequest;
 use PryTax\Http\Resources\TaxPaymentCollection;
 use PryTax\Http\Resources\TaxPaymentResource;
@@ -12,15 +13,16 @@ use PryTax\Policies\TaxPaymentPolicy;
 use PryTax\Repositories\TaxPaymentRepository;
 use PryTax\Services\Reports\DeclarationFigures;
 use PryTax\Services\Reports\TaxBreakdown;
+use PryTax\Services\Taxes\TaxLedger;
 use PryTax\Services\Taxes\TaxReconciler;
 
 /**
  * Class TaxReportController.
  *
- * Податки of a profile (design.md §8): a tax's quarters with owed, paid, pending and the running balance
- * (`taxes/{year}?tax_type=`), ЄП and ВЗ by receipt (`taxes/{year}/{quarter}/payments`) and by month
- * (`taxes/{year}/months`), and a quarter's declaration figures (`declarations/{year}/{quarter}`). Reading them needs
- * the `viewAny models.tax-payments` permission.
+ * Податки of a profile (design.md §8): the tax ledger of a period (`taxes/{year}/ledger`), a tax's quarters with
+ * owed, paid, pending and the running balance (`taxes/{year}?tax_type=`), ЄП and ВЗ by receipt
+ * (`taxes/{year}/{quarter}/payments`) and by month (`taxes/{year}/months`), and a quarter's declaration figures
+ * (`declarations/{year}/{quarter}`). Reading them needs the `viewAny models.tax-payments` permission.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -47,6 +49,7 @@ class TaxReportController extends TenantController
      * @var array
      */
     protected array $operations = [
+        'ledger' => TaxLedgerRequest::class,
         'reconciliation' => TaxReportRequest::class,
         'byPayment' => IndexRequest::class,
         'byMonth' => IndexRequest::class,
@@ -58,6 +61,7 @@ class TaxReportController extends TenantController
      *
      * @param TaxPaymentPolicy $policy
      * @param TaxPaymentRepository $repository
+     * @param TaxLedger $ledger
      * @param TaxReconciler $reconciler
      * @param TaxBreakdown $breakdown
      * @param DeclarationFigures $declarations
@@ -65,11 +69,30 @@ class TaxReportController extends TenantController
     public function __construct(
         TaxPaymentPolicy $policy,
         TaxPaymentRepository $repository,
+        protected TaxLedger $ledger,
         protected TaxReconciler $reconciler,
         protected TaxBreakdown $breakdown,
         protected DeclarationFigures $declarations
     ) {
         parent::__construct($policy, $repository);
+    }
+
+    /**
+     * Handle the `ledger` operation.
+     *
+     * @param TaxLedgerRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleLedger(TaxLedgerRequest $request): ApiResponse
+    {
+        return ApiResponse::ok(['data' => $this->ledger->forPeriod(
+            $this->profileOf($request),
+            (int) $request->route('year'),
+            array_map(intval(...), $request->validated('quarter') ?? []),
+            array_map(TaxType::from(...), $request->validated('tax_type') ?? []),
+            $request->validated('status') ?? [],
+        )]);
     }
 
     /**

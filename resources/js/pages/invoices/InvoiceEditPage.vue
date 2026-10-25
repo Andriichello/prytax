@@ -292,18 +292,27 @@ watch(() => form.currency, (currency) => {
 let defaultsRun = 0;
 
 /**
+ * The form's contract, once it is one of its client's loaded contracts; `undefined` while a changed client still
+ * holds the previous client's contract, which the loaded contracts then replace.
+ */
+const contractOfClient = computed(() => (form.contract_id === null
+    || contracts.value.some((item) => item.id === form.contract_id && item.client_id === form.client_id)
+    ? form.contract_id
+    : undefined));
+
+/**
  * What the form starts with for the client, contract and period: currency, dates, account, the contract's
  * description and rates, and the number the freeze would give. An external invoice has no contract: its currency is
  * the client's, or the one typed.
  */
 watch(() => [
     form.client_id,
-    form.source === 'generated' ? form.contract_id : null,
+    form.source === 'generated' ? contractOfClient.value : null,
     form.period_end,
     touched.issued_at ? form.issued_at : '',
     form.source === 'external' && touched.currency ? form.currency : '',
 ] as const, async ([clientId, contractId, periodEnd, issuedAt, currency]) => {
-    if (clientId === null) {
+    if (clientId === null || contractId === undefined) {
         return;
     }
 

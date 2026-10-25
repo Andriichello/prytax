@@ -45,7 +45,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
 - `php8.5 artisan test --compact`: **413 tests**, all passing on 2026-10-25 on `feat/tax-ledger` (about 130 s, on MySQL `prytax_test`). Run
   it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
-  not run it). The frontend: `npm test` (Vitest, **560 tests**, incl. the translation guard
+  not run it). The frontend: `npm test` (Vitest, **563 tests**, incl. the translation guard
   `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
 - **PHP and Node:** the system `php` is 8.4 (set for another project; leave it), but PryTax's vendor needs 8.5: run
   the server, artisan and tests with `php8.5`. The system `node` is 18, which can't run Vite/Vitest: prefix
@@ -100,6 +100,12 @@ the owner's note that English keeps ЄП, ВЗ, ЄСВ and ФОП: specs first (
 - **Checks:** PHP suite 413 tests, `npm test` 560, `npm run typecheck`, `npm run build`; Податки and its drawer driven
   in headless Chrome in English (the signed-in user's saved language is `en`, and the dev database holds the user's
   records, so it wasn't switched to check Ukrainian).
+- **Back keeps the place (the user's request, 2026-10-25):** going back to Інвойси showed a reload, and Податки lost
+  its scroll (it wasn't kept alive, so it remounted empty and loaded again). Now `TaxesPage` is in `App.vue`'s
+  `KEPT_ALIVE` with its filter frozen while hidden (as `useInvoiceFilters`), and `useLoader` / `usePagedList` load
+  again on return only when `dataVersion` (`api/client.ts`: accepted writes, but `…/preview` and `…/propose`) moved.
+  Checked over ngrok with 600 ms latency: no API calls on return, scroll kept; `composables/useLoader.test.ts` mounts
+  a KeepAlive with an in-memory renderer (no DOM package). Інвойси's lost scroll didn't reproduce in desktop Chrome.
 - **ngrok (2026-10-25, the user asked, to test from a phone):** `ngrok http 8010` runs in the background
   (`https://23dd-91-247-39-213.ngrok-free.app`); `.env` got `ASSET_URL` = that URL and the host appended to
   `SANCTUM_STATEFUL_DOMAINS` (the backup is in that session's scratchpad). While `ASSET_URL` is set, localhost loads

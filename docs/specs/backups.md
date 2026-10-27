@@ -1,9 +1,24 @@
-# PryTax — Backups, data safety & retention (design v1.5)
+# PryTax — Backups, data safety & retention (design v1.6)
 
 Companion to `docs/specs/design.md` (v4). Covers (1) protecting the platform's data against loss,
 (2) per-organization backups / exports that owners configure and download, and (3) data retention and deletion
 (§9). Stack: Laravel 13, PHP 8.5, MySQL 8, PHPUnit 12, queue workers, scheduler with `->onOneServer()`, Google Cloud
 Storage (private buckets).
+
+### Changes in v1.6 (where Layer A's database copies live)
+
+- **Cloud SQL enhanced backups into a Backup and DR backup vault** in the DR project, instead of standard automated
+  backups (an instance can't use both): daily, with point-in-time recovery, 30 days of enforced retention that no one
+  can shorten once locked; they survive the deletion of the instance and of the app project (§1.1).
+- **The nightly dump is a serverless export** (`instances.export` with `offload`) started by Cloud Scheduler and a Cloud
+  Run job **in the DR project**, written by the instance's service account with create-only access into the DR bucket,
+  which sits in **another region** than the instance; the Laravel scheduler and the app's identity have no access to
+  the DR project (§1.1).
+- **DR project `prytax-dr-<env>`** holds the vault, the bucket and the export job; its layout, permissions, the lien
+  Backup and DR puts on it from 1 November 2026, monitoring and the drill alternating vault and dump are specified (§1.1).
+- **All Layer A retention is 30 days** (vault, DR bucket, soft delete; was 35 for the bucket), so the erasure horizon
+  "within 35 days" keeps a margin for lifecycle delays; the DR bucket has no soft delete of its own (§1.1, §1.3, §3.1,
+  §9.1). The document copy's lifecycle and re-copying are spelled out (§1.2).
 
 ### Changes in v1.5 (second review against the code)
 
@@ -123,7 +138,7 @@ to a single Laravel deployable:
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | Are per-organization CSV archives our backup? | **No — two layers.** Layer A (platform disaster recovery) = database-native backups + point-in-time recovery + an independent nightly dump, owned by us and not configurable. Layer B (tenant backups/exports) = per-profile CSV archives that organizations schedule and download. CSV archives cannot restore a whole platform quickly or consistently; database backups cannot give an owner their own data. Both are needed. |
+| D1 | Are per-organization CSV archives our backup? | **No — two layers.** Layer A (platform disaster recovery) = Cloud SQL enhanced backups in a backup vault + point-in-time recovery + an independent nightly dump in another region, both in a separate DR project, owned by us and not configurable. Layer B (tenant backups/exports) = per-profile CSV archives that organizations schedule and download. CSV archives cannot restore a whole platform quickly or consistently; database backups cannot give an owner their own data. Both are needed. |
 | D2 | Full vs quarter-by-quarter vs year-by-year vs invoice-by-invoice? | **Scheduled backups are always a full snapshot of the profile.** A ФОП's whole history is a few MB (KB without PDFs), so incremental or partial backups add complexity and restore risk for no saving. Period slicing (year / quarter / date range) exists as an **on-demand export** (for an accountant or a tax audit) and is marked as not restorable. Invoice-by-invoice backups are not offered: thousands of tiny objects, no restore value. Inside every archive, documents are already organised per invoice. |
 | D3 | Format | **CSV, one file per table**, RFC 4180, UTF-8 with BOM, plus `manifest.json`, `schema.json`, `README.txt` and a `documents/` folder with the invoice PDFs and uploads. |
 | D4 | "Zipped and gzipped"? | **Only `.zip` (deflate).** Gzipping a zip saves ~0 % (the content is already compressed) and turns a double-click archive into a two-step one on Windows/macOS. |
@@ -146,19 +161,69 @@ Target: **RPO ≤ 5 min, RTO ≤ 1 h** for the database; **no loss** of uploaded
 
 ### 1.1 Database (Cloud SQL for MySQL; equivalents noted for self-managed MySQL)
 
-- **Automated daily backups**, retention 30 (Cloud SQL allows 1–365) and **point-in-time recovery** (binary-log
-  based) enabled. Self-managed: `xtrabackup` nightly + binlog shipping to GCS.
-- **Deletion protection** on the instance, and a **final backup** configured, so deleting the instance by mistake
-  keeps a backup (Cloud SQL: final backups default 30 days, 1–365). Automated backups are otherwise deleted on a
-  rolling basis after instance deletion.
-- **Independent logical dump, outside the instance's blast radius**: nightly `mysqldump --single-transaction
-  --routines --triggers --hex-blob` (or `gcloud sql export sql`) from a read replica to a **separate bucket in a
-  separate GCP project** (`prytax-dr-<env>`), with a **bucket retention policy (Bucket Lock)** of 35 days. This
-  survives a compromised app service account, an accidental instance or project deletion, and a bad migration that
-  replicates to the replica.
-- **Quarterly restore drill**: restore the latest dump into a scratch instance, run `php artisan prytax:verify-db`
-  (row counts, FK orphans, `TaxReconciler` balances for a sample of profiles), record the duration (this is your real
-  RTO).
+Nothing of Layer A exists yet: PryTax isn't deployed, and the local MySQL has no backups. In production the database
+has two copies outside the app's project, both in the **DR project `prytax-dr-<env>`**, to which nobody in the app
+project has any role:
+
+| Copy | Stored in | Retention | Survives |
+|---|---|---|---|
+| **Enhanced backups** + point-in-time recovery logs | a Backup and DR **backup vault** in the DR project (Google-managed storage, not a bucket), the instance's region | 30 days, enforced: no one can delete a backup earlier | deleting the instance or the whole app project; a compromised app identity; a bad migration (restore to the minute before it) |
+| **Nightly logical dump** (`.sql.gz`) | the bucket **`prytax-dr-<env>`** in the DR project, **another region** | 30 days, locked retention policy | all of the above, plus an outage of Cloud SQL, of Backup and DR or of the instance's region; readable by any MySQL |
+
+**Enhanced backups into a backup vault** (instead of Cloud SQL's standard automated backups: an instance uses one
+backup option at a time, and attaching a backup plan overwrites the instance's own backup settings):
+- The **backup vault and the backup plan live in the DR project**, as Google recommends (a project apart from the
+  instances). The vault is in the instance's region, or a multi-region compatible with it; a vault can't be elsewhere.
+- **Backup plan:** a daily backup, kept 30 days, and point-in-time recovery from transaction logs, which enhanced
+  backups support, also after the instance is deleted. That gives the RPO of ≤ 5 min.
+- **Enforced retention:** the vault's minimum enforced retention is 30 days. Until it passes, no one (a project owner
+  or Google) can delete a backup. It is set unlocked while testing and **locked after the first restore drill**; a
+  locked minimum can never be lowered.
+- **Permissions:** the vault's service agent gets the *Backup and DR Cloud SQL Operator* role in the app project
+  (needed because the vault and the instance are in different projects). No other cross-project grant.
+- **The lien:** from 1 November 2026, Backup and DR puts a project-level lien on any project whose vault holds
+  backups protected by enforced retention, so the DR project can't be deleted while they exist. That is wanted;
+  decommissioning removes the lien deliberately.
+- **Limitation:** an instance with enhanced backups can't have a Cloud SQL *DR replica* (the cross-region failover
+  replica). Read replicas are unaffected, and the cross-region copy is the dump below.
+- **Deletion protection** stays on the instance. The *final backup* setting of standard backups isn't needed: the vault
+  keeps backups and logs after the instance is deleted.
+- **Retention stays ≤ 30 days** so the erasure horizon holds (§9.1). A longer one changes the privacy policy and the key
+  retention of §1.3 with it.
+
+**Nightly logical dump into the DR bucket:**
+- **Who runs it:** Cloud Scheduler in the DR project starts a Cloud Run job, which runs as its own service account of
+  the DR project and calls the Cloud SQL Admin API `instances.export` with `offload: true` — a **serverless export**: a
+  temporary instance does the work, so the primary isn't loaded (billed extra). Equivalent command:
+  `gcloud sql export sql prytax-<env> gs://prytax-dr-<env>/mysql/{yyyy}/{mm}/{dd}/prytax-{yyyymmddThhmmZ}.sql.gz
+  --database=prytax --offload` (gzipped because of the `.gz` name). Not the Laravel scheduler: the app's identity has
+  no access to the DR project.
+- **Permissions, least privilege:**
+  - the job's service account: a custom role with `cloudsql.instances.get` and `cloudsql.instances.export` on the
+    instance, granted in the app project; it can start exports and nothing else;
+  - the **instance's own service account** (its `serviceAccountEmailAddress`) writes the file:
+    `roles/storage.objectCreator` on the DR bucket only, which creates objects but can't overwrite or delete them. The
+    docs show this grant within one project; for a bucket in another project the same bucket-level grant is expected
+    to work, and the first test export confirms it;
+  - one or two named people can read the DR project: a dump holds names, e-mails, addresses and amounts in plain text
+    (РНОКПП, IBANs and invoice snapshots stay encrypted with `APP_KEY`, §1.3).
+- **Bucket `prytax-dr-<env>`:** a region other than the instance's (e.g. the instance in `europe-central2`, Warsaw;
+  the bucket in `europe-west3`, Frankfurt); Standard class; uniform access; public access prevention; a **retention
+  policy of 30 days**, unlocked while testing, then locked (Bucket Lock: it can't be shortened or removed, and the
+  bucket can't be deleted until every object is older than it); a lifecycle rule deleting objects older than 31 days;
+  **no soft delete** on this bucket (the retention policy already protects it, and soft delete would keep deleted dumps
+  past the erasure horizon); CMEK optional.
+- **Monitoring:** an alert when the job fails or no new dump has appeared for 26 h.
+- **Why both copies:** the vault restores fastest, to any minute, but only into Cloud SQL and only in the instance's
+  region. The dump is portable (any MySQL, a laptop), readable, in another region, and independent of Cloud SQL and of
+  Backup and DR.
+- Self-managed MySQL: `xtrabackup` nightly with binlog shipping instead of the vault, and `mysqldump
+  --single-transaction --routines --triggers --hex-blob` for the dump, into the same bucket.
+
+**Quarterly restore drill**, alternating the source: (a) point-in-time recovery from the vault to a chosen minute
+into a scratch instance; (b) the latest dump into a scratch instance (or a local MySQL). Run `php artisan
+prytax:verify-db` (row counts, FK orphans, `TaxReconciler` balances for a sample of profiles), and record the duration
+(this is the real RTO).
 
 ### 1.2 Documents (invoice PDFs, uploaded invoices, signature images)
 
@@ -167,8 +232,11 @@ Target: **RPO ≤ 5 min, RTO ≤ 1 h** for the database; **no loss** of uploaded
   covers it).
 - Generated PDFs are regenerable from `invoices.snapshot`; **uploaded** files and signatures are not, which is
   why the bucket needs protection, not just the database.
-- The nightly DR job also copies new objects to the DR project's bucket (Storage Transfer Service, daily,
-  incremental).
+- A daily Storage Transfer Service job of the DR project copies the documents into `prytax-dr-<env>/files/`
+  (incremental: objects missing from the copy or changed). Deletions aren't propagated. The DR bucket's 31-day
+  lifecycle removes every copy, and the next run copies again whatever still exists in the source. So the copy keeps
+  every live document, and a document deleted in the source leaves the copy within about a month (§9.1). The cost of
+  copying again is a few GB a month at most (§3.4).
 
 ### 1.3 Keys and secrets
 
@@ -176,7 +244,8 @@ Target: **RPO ≤ 5 min, RTO ≤ 1 h** for the database; **no loss** of uploaded
   and `account_number` in any database backup are unreadable, and `tax_id_hash` (HMAC with the app key) cannot be
   recomputed.
 - Key rotation: new key in `APP_KEY`, old keys in `APP_PREVIOUS_KEYS`; a re-encrypt job, then old keys stay in
-  Secret Manager for as long as any backup encrypted with them exists (35 days for Layer A).
+  Secret Manager for as long as any backup encrypted with them exists (30 days for Layer A, §1.1; Layer B archives
+  hold decrypted values and need no key).
 
 ---
 
@@ -355,7 +424,7 @@ the period on its own:
 |---|---|---|
 | `prytax-backups-<env>` | Layer B archives | Region `europe-central2` (or the app's region); Standard class; private; uniform access; public access prevention; **soft delete 30 days**; lifecycle: delete `org/*/profile/*` objects older than 1 125 days (36 months + margin — the hard ceiling); delete `tmp/*` after 1 day |
 | `prytax-files-<env>` | documents | §1.2 |
-| `prytax-dr-<env>` (separate project) | Layer A dumps + document copies | Bucket Lock 35 days; nobody in the app project has access |
+| `prytax-dr-<env>` (DR project) | Layer A dumps (`mysql/`) + document copies (`files/`) | Another region than the instance's; retention policy 30 days, locked; lifecycle: delete after 31 days; no soft delete; only the instance's service account may create dumps (`objectCreator`); nobody in the app project has access. The Backup and DR vault with the enhanced backups is in the same project (§1.1) |
 
 ### 3.2 Object layout (no personal data in object names)
 
@@ -903,8 +972,11 @@ impossible as the schema stands. Options:
 - Archives contain РНОКПП, IBANs, client addresses: private buckets only, no personal data in object names or URLs,
   signed URLs ≤ 10 min, no links in e-mails (e-mail says "готово, відкрийте PryTax").
 - Owner/accountant only; viewer excluded; every download audited (user, IP, UA, time).
-- Existing archives are protected by the bucket's 30-day soft delete, which the app's identity can't bypass, and by
-  the DR copy in another project with Bucket Lock (§3.3); the app itself can delete, as owners and retention need it to.
+- Existing archives are protected by the bucket's 30-day soft delete, which the app's identity can't bypass (§3.3);
+  the data they hold is also in Layer A's copies in the DR project (§1.1), from which any archive can be produced
+  again. The app itself can delete archives, as owners and retention need it to.
+- The database's copies (the vault's enhanced backups and the nightly dumps) live in the DR project, which no identity
+  of the app project can reach; the vault's backups can't be deleted early by anyone (§1.1).
 - Organization, profile and user deletion follow §9: lock first, final export, grace period, FK-ordered purge
   including documents and backups. Keeping records 1 095 days is the ФОП's obligation; the final export is how they
   meet it.
@@ -916,9 +988,10 @@ impossible as the schema stands. Options:
 
 ## 7. Build order
 
-1. **Layer A** before the first real user: Cloud SQL backups + PITR + deletion protection + final backup;
-   nightly independent dump to the DR project; documents bucket soft delete; `APP_KEY` in Secret Manager; one
-   restore drill.
+1. **Layer A** before the first real user: the DR project; Cloud SQL enhanced backups into its vault with
+   point-in-time recovery, and deletion protection; the nightly serverless export into the DR bucket in another region,
+   with its monitoring; the documents copy; documents bucket soft delete; `APP_KEY` in Secret Manager; one restore
+   drill from each source, then lock the vault's retention and the bucket's retention policy.
 2. Module skeleton (`PryTax\DataLifecycle\` + the dependency test, §10) + `PryTaxTableRegistry` (incl.
    `ApiCoreTables`) + `ProfileArchiveWriter` + registry completeness test + column snapshot + isolation test + CI
    round-trip with `prytax:backup:import`. Before any real data: `Relation::requireMorphMap()`, the alias-collision
@@ -1001,8 +1074,9 @@ enough).
   "automatic") that the owner can download during the grace period.
 - **One registry, three uses.** `TableRegistry::tables()` order = FK-safe insert order for import; **reversed** = FK-safe
   delete order for purge. A table added to the registry is automatically exported, imported and purged.
-- **Erasure has a documented horizon.** After a purge, data still exists in GCS soft delete (30 days) and in Layer A
-  DR dumps (Bucket Lock 35 days). The privacy policy says "removed from backups within 35 days of deletion".
+- **Erasure has a documented horizon.** After a purge, data still exists in GCS soft delete (30 days), in the vault's
+  enhanced backups (30 days, enforced), and in the DR bucket's dumps and document copies (deleted after 31 days by its
+  lifecycle, which may lag a day). The privacy policy says "removed from backups within 35 days of deletion".
 
 ### 9.2 Families (config `config/retention.php`)
 
@@ -1351,4 +1425,9 @@ When a second app (e.g. the restaurant menu app) needs backups:
   package gets the same treatment as api-core.
 
 Sources: [Cloud SQL backups overview](https://docs.cloud.google.com/sql/docs/mysql/backup-recovery/backups) ·
-[Cloud Storage soft delete](https://docs.cloud.google.com/storage/docs/soft-delete)
+[Cloud Storage soft delete](https://docs.cloud.google.com/storage/docs/soft-delete) ·
+[Cloud SQL: choose your backup option](https://docs.cloud.google.com/sql/docs/mysql/backup-recovery/backup-options) ·
+[Back up Cloud SQL instances to a backup vault](https://docs.cloud.google.com/backup-disaster-recovery/docs/cloud-console/sql/csql-backup) ·
+[Backup vaults](https://docs.cloud.google.com/backup-disaster-recovery/docs/concepts/backup-vault) ·
+[Cloud SQL export and import using SQL dump files](https://docs.cloud.google.com/sql/docs/mysql/import-export/import-export-sql) ·
+[Cloud SQL serverless exports](https://cloud.google.com/blog/products/databases/introducing-cloud-sql-serverless-exports)

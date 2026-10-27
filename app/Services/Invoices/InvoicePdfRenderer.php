@@ -14,6 +14,7 @@ use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\DocumentDate;
 use PryTax\Helpers\MoneyFormatter;
 use PryTax\Models\Invoice;
+use PryTax\Models\Profile;
 
 /**
  * Class InvoicePdfRenderer.
@@ -94,7 +95,7 @@ class InvoicePdfRenderer
             return $this->pdf($this->html($invoice, 'v1'))->output();
         }
 
-        $document = $this->document($invoice->snapshot ?? [], $this->signature($invoice->snapshot ?? []));
+        $document = $this->document($invoice->snapshot ?? [], $this->signature($invoice, $invoice->snapshot ?? []));
         $pdf = $this->pdf($this->documentHtml($document))->setOption('fontHeightRatio', self::FONT_HEIGHT_RATIO);
 
         $pdf->render();
@@ -116,7 +117,7 @@ class InvoicePdfRenderer
     {
         $snapshot = $invoice->snapshot ?? [];
         $template ??= $this->templateFor($invoice);
-        $signature = $this->signature($snapshot);
+        $signature = $this->signature($invoice, $snapshot);
 
         if ($template === 'v1') {
             return view(self::TEMPLATES['v1'], [
@@ -664,16 +665,23 @@ class InvoicePdfRenderer
     }
 
     /**
-     * Get the signature image of the snapshot's profile as a data URI, or null.
+     * Get the signature image of the snapshot's profile as a data URI, or null. The snapshot's file is looked up among
+     * the signatures of the invoice's own profile only, so an id, which names another profile's file (a snapshot
+     * restored from a backup, backups.md §4.2), renders no signature rather than someone else's.
      *
+     * @param Invoice $invoice
      * @param array $snapshot
      *
      * @return string|null
      */
-    protected function signature(array $snapshot): ?string
+    protected function signature(Invoice $invoice, array $snapshot): ?string
     {
         $id = data_get($snapshot, 'profile.signature_file_id');
-        $file = $id ? File::query()->find($id) : null;
+        $file = $id ? File::query()
+            ->where('fileable_type', (new Profile)->getMorphClass())
+            ->where('fileable_id', $invoice->profile_id)
+            ->inCollection(Profile::SIGNATURE_COLLECTION)
+            ->find($id) : null;
         $contents = $file?->contents();
 
         return $contents === null ? null : 'data:' . $file->mime_type . ';base64,' . base64_encode($contents);

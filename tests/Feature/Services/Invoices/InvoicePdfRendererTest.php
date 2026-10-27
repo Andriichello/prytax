@@ -130,6 +130,30 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Test that the PDF draws the signature of the invoice's own profile, and none, when the snapshot names a file of
+     * another profile (a snapshot restored from a backup, backups.md §4.2).
+     *
+     * @return void
+     */
+    public function testDrawsOnlyASignatureOfTheInvoicesOwnProfile(): void
+    {
+        Storage::fake('local');
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        $profile = $this->createProfile();
+        $other = $this->createProfile($profile->organization);
+        $this->inProfile($profile, fn () => $profile->attachContents($png, 'signature.png', $profile::SIGNATURE_COLLECTION));
+        $foreign = $this->inProfile($other, fn () => $other->attachContents($png, 'signature.png', $other::SIGNATURE_COLLECTION));
+        $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile))->fresh();
+        $renderer = app(InvoicePdfRenderer::class);
+
+        $this->assertStringContainsString('data:image/png;base64,', $this->inProfile($profile, fn () => $renderer->html($invoice)));
+
+        $invoice->snapshot = array_replace_recursive($invoice->snapshot, ['profile' => ['signature_file_id' => $foreign->id]]);
+
+        $this->assertStringNotContainsString('data:image/png', $this->inProfile($profile, fn () => $renderer->html($invoice)));
+    }
+
+    /**
      * Test that an invoice frozen with a snapshot of version 1 renders again with template v1, and records it.
      *
      * @return void

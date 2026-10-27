@@ -1,12 +1,13 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-27: **`main` = `dev`** = everything through the tax ledger plus the backups spec and this note
-(`feat/tax-ledger` fast-forwarded into both, then the spec's commits on `dev` and `main` fast-forwarded to it, the user
-asked each time; **not pushed**, `origin` is still at the invoice styles of 2026-10-24). The «Minimal» redesign (design.md v4), its browser QA pass and the owner's
-decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". The next feature is designed, not built:
-backups, data safety and retention (`docs/specs/backups.md` v1.6, see "Backups spec"). Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
-decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
-and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
+Status as of 2026-10-28: **the backups spec is being built on branch `feat/backups`** (from `dev` = `main` = a6c7ec3;
+19 commits, not merged, not pushed; see "Backups build"). `main` = `dev` = everything through the tax ledger plus the
+backups spec (`docs/specs/backups.md` v1.6) and this note, fast-forwarded on 2026-10-27 when the user asked; **not
+pushed**, `origin` is still at the invoice styles of 2026-10-24. The «Minimal» redesign (design.md v4), its browser QA
+pass and the owner's decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". Before it, as of
+2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's decisions, the
+frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys, and the invoice
+settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (v4: §14 is the Minimal phase, §16 its screens; `docs/specs/invoice.md` is the invoice PDF as
 built; `docs/specs/suggestions.md` what is deferred or hidden). The current design handoff is «Minimal»:
 `storage/handoff/MINIMAL_APP.md`, `storage/handoff/CHAT_LOG.md`, and the boards extracted in
@@ -31,22 +32,25 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
 | 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
-| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed, in `dev` and `main`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
+| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed, in `dev` and `main`** (2026-10-27), reviewed twice against the code; see "Backups spec" |
+| 12. Backups, data safety and retention: the build (Layer B, retention, `verify-db`, the SPA screens) | **On branch `feat/backups`** (2026-10-28), not merged, not pushed; the SPA not checked in a browser yet; see "Backups build" |
 
 - **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
   the invoice settings and styles (pushed on 2026-10-24). **`main` = `dev`** (checked out) = that + Minimal (specs,
   backend, SPA, demo, the QA fixes, the owner's decisions) + the tax ledger + the backups spec and this note,
   fast-forwarded on 2026-10-27 when the user asked. Nothing of it is pushed (`git log --oneline origin/dev..dev`). The local `feat/minimal`, `feat/invoice-v2` and `feat/tax-ledger` branches are merged and still
-  there. The remote `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev`
+  there. **`feat/backups`** (checked out, from `dev`; `git log --oneline dev..feat/backups`) holds the backups build. The remote `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev`
   track it); push only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
   658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
   api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
-- `php8.5 artisan test --compact`: **413 tests**, all passing on 2026-10-25 on `feat/tax-ledger` (about 130 s, on MySQL `prytax_test`). Run
+- `php8.5 artisan test --compact`: **about 484 tests** on `feat/backups` (2026-10-28): the last full run had 482, one failing
+  (the registry's completeness test, on `data_retention_runs`), which was then fixed and its test rerun, but the full
+  suite wasn't run again after it (and after `VerifyDatabaseTest`) — run it first. About 185 s, on MySQL `prytax_test`. Run
   it with a generous timeout (or in the background); two runs at once deadlock each other (so parallel agents must
-  not run it). The frontend: `npm test` (Vitest, **563 tests**, incl. the translation guard
+  not run it). The frontend: `npm test` (Vitest, **569 tests** on `feat/backups`, incl. the translation guard
   `resources/js/i18n/i18n.test.ts`), `npm run typecheck` (clean), `npm run build`, all with Node 24 (below).
 - **PHP and Node:** the system `php` is 8.4 (set for another project; leave it), but PryTax's vendor needs 8.5: run
   the server, artisan and tests with `php8.5`. The system `node` is 18, which can't run Vite/Vitest: prefix
@@ -59,13 +63,15 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 
 ### First steps of the next session
 
-1. Ask the user whether to push `dev` and `main`, and whether to delete the merged branches; don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether
-   to undo it. Then ask what to build: the backups module (its open decision and the package approval first, see
-   "Backups spec"), the open points of "QA of Minimal", docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per
-   receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a package, so approval),
-   pixel polish against the boards, `SheetImporter`.
-2. On 2026-10-27 MySQL wasn't running (`systemctl is-active mysql` → inactive; starting it needs sudo, so ask the
-   user), and neither were the dev server (8010, `php8.5`) nor the headless Chrome (9223); check with
+1. Continue the backups build on `feat/backups` (see "Backups build", its "Next" list): run the full PHP suite, then check
+   the Резервні копії screen and the period export in headless Chrome (with a queue worker), update the spec to v1.7 as
+   built, and update this file. Then ask the user about merging `feat/backups` into `dev` (and `main`), pushing, the
+   spec's §5.3 open decision, the GCS adapter approval and the open points under "Backups build". Also still open from
+   before: deleting the merged branches (feat/minimal, feat/invoice-v2, feat/tax-ledger), undoing ngrok in `.env` (see
+   "Tax ledger"), and the backlog: the open points of "QA of Minimal", docs/specs/suggestions.md §1, XLSX exports and the
+   yearly PDF summary (a package, so approval), pixel polish against the boards, `SheetImporter`.
+2. On 2026-10-28 MySQL was running (on 2026-10-27 it wasn't: `systemctl is-active mysql`; starting it needs sudo, so
+   ask the user), but neither the dev server (8010, `php8.5`) nor the headless Chrome (9223) were; check with
    `ss -ltnp | grep -E ':3306|:8010|:9223'` and start them (commands under "Frontend" and "Checking the UI").
    `npm run build` after SPA changes; sign in as `olena@example.com` / `password` (the UI language is Ukrainian).
    Leave port 8000 (`/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers alone.
@@ -76,7 +82,79 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
 
-## Backups spec (2026-10-27, `docs/specs/backups.md` v1.6, not built)
+## Backups build (2026-10-28, branch `feat/backups`, not merged, not pushed)
+
+The user asked to implement `docs/specs/backups.md` (v1.6). Built in the spec's §7 order, one commit per part (19,
+`git log --oneline dev..feat/backups`); every part has its tests. The spec isn't updated as built yet (v1.7, below).
+- **Before real data:** `Relation::requireMorphMap()` and `PryTax\Helpers\MorphMap::register()` (refuses an alias, which
+  another class has); `InvoicePdfRenderer::signature()` looks only among the invoice's own profile's signatures;
+  `PryTax\Backups\ProfileAuditTagger` (an `AuditLog::creating` listener in `Providers/DataLifecycleBindings`) writes
+  `metadata.profile_id`. Not done: the `../api-core` path repository in `composer.json` (§12; a dependency change that
+  needs api-core tags, so ask).
+- **Engine `app/DataLifecycle/`** (`PryTax\DataLifecycle\`, its own provider, config `data-lifecycle`, migrations and views
+  in the module): `Contracts/` (TableRegistry with `excluded()` and `formatVersion()`, TenantRoot, ArchiveChecks,
+  RetentionFamilyHandler with `families()` and the container `TAG`); `Registry/` (TableSpec, Rewrite, SchemaInspector,
+  Column, MorphAliases, ColumnSnapshot, RegistryHasher); `Backup/` (RunSpec, BackupRuns — starts scheduled, manual,
+  automatic runs and exports —, models BackupPolicy/BackupRun/Backup/BackupDownload with enums, the job
+  RunOrganizationBackup, BuildOrganizationBundle, Http controllers/requests/resources, policies, repositories, events,
+  ImportException/ImportResult; `Internal/`: Selection, Csv, Values, ArchiveWriter, ArchiveImporter, ArchiveStore,
+  BackupRunner, Pruner, BundleBuilder, ArchiveRepacker, BackupVerifier); `Retention/` (RetentionRuns, TenantPurger,
+  models RetentionRun/RetentionJob, RunRetentionJob; `Internal/`: DueJobs, RetentionHandlers, TechnicalHandler).
+  `tests/Feature/DataLifecycle/ModuleBoundariesTest.php` (token_get_all) holds the three dependency rules.
+- **PryTax's definitions:** `app/Backups/` (PryTaxTableRegistry, ApiCoreTables, ProfileTenantRoot, AccountingArchiveChecks,
+  ProfileAuditTagger, BackupRunNotifier + BackupRunNotification — e-mails to owners by the policy), `app/Retention/`
+  (Accounting/Documents/ProfileFinalize/UserRemoval/OrganizationPurge handlers, RetentionTriggers — model listeners —,
+  RetentionFamilies — the family of every other table), `Providers/DataLifecycleBindings.php`. The column snapshot is
+  `tests/Backup/registry.snapshot.json` (regenerate with `DB_DATABASE=prytax_test php8.5 artisan prytax:backup:snapshot`
+  after migrating the test database; it refuses a breaking change without a new `FORMAT_VERSION`).
+- **API** (organization-level, ids are ULIDs): `organization/backup-policy` (GET; PUT owners), `organization/backup-runs`
+  (GET, POST 202 — 5 manual a day —, GET `{id}?include=backups`, POST/GET `{id}/bundle`), `organization/backups`
+  (GET, GET `{id}`, POST `{id}/download {password?}`, DELETE manual ones, owners); `profiles/{profile}/exports` (POST
+  `{from, to}` 202, GET `{id}`). Permissions in `config/api-core.php` (`$backups`): owners and accountants all but
+  configure and delete, which owners have; viewers none.
+- **Commands** (scheduled by the module's provider): `prytax:backup:dispatch` (5 min; gives an organization without a
+  policy the default one), `prytax:backup:prune` (05:30), `prytax:backup:verify` (weekly), `prytax:backup:import {zip}
+  --organization= [--dry-run]`, `prytax:backup:snapshot`; `prytax:retention:execute` (5 min), `prytax:retention:rolling`
+  (daily), `prytax:retention:status|retry|cancel`; app: `prytax:verify-db` (the Layer A drill). `routes/console.php`
+  also prunes resolved alerts after 180 days (`Alert` is MassPrunable), failed jobs (30 d) and batches (7 d).
+- **Flows:** deleting a ФОП (soft) takes an automatic backup and plans accounting → documents → profile_finalize after
+  30 days, restoring it cancels; removing a user through api-core plans credentials → access → user_pii now (name
+  `Видалений користувач`, e-mail `deleted+{id}@invalid`, an unusable password); a soft-deleted organization (model
+  event; there is no API for it) takes the final backups and is purged after 30 days. Purges never run on a subject,
+  which isn't deleted.
+- **SPA:** `pages/settings/BackupsPage.vue` (`/settings/backups`, on Ще under Організація), `components/accounting/
+  PeriodExportSheet.vue` (a button on Облік), `api.put`, texts in `settings.backups.*` and `accounting.export.*`.
+  Typecheck, Vitest and the build pass; **not driven in a browser yet**.
+- **Departures from the spec (put them into v1.7):** `projects` and `charge_types` are `profile` tables (they have
+  `profile_id`); no `withTrashed()` (the query builder exports soft-deleted rows anyway); `tax_payments.receipt_tax_key`
+  is generated too, and only `VIRTUAL|STORED GENERATED` counts (`DEFAULT_GENERATED` is a default); the snapshot's
+  `signature_file_id` is rewritten after `files` is imported (a "late" rewrite); `tax_id` keys aren't row ids;
+  documents sit at `documents/{owner table}/{owner id}/{file id}-{name}`; timestamps in UTC (the database keeps Kyiv
+  time); the module's own tables are excluded in `PryTaxTableRegistry::EXCLUDED`; `backups` keeps `file_name`,
+  `manifest`, `snapshot_at`, runs keep their options, profile ids and bundle columns; download audit entries have no
+  subject (`audit_logs.subject_id` is an integer, ids are ULIDs: name `models.backups.downloaded`, `metadata.backup_id`);
+  a password download is repacked in the request, not by a job; the run job has `tries = 0`, `maxExceptions = 3`,
+  `retryUntil` 12 h (WithoutOverlapping's releases would use up `tries`); manual runs don't skip unchanged ФОП; no
+  upcasters yet (the importer refuses other format versions).
+- **Not done / open (ask):** Layer A itself (GCP: the DR project, the vault, the serverless export — infrastructure, not
+  code); the GCS Flysystem adapter (production's `BACKUPS_DISK`, needs approval); §5.3 (same-organization restore) and
+  self-service restore; the deletion-state UI («ФОП буде видалено … Скасувати видалення», the restore endpoint exists);
+  the final organization bundle and its e-mail on an organization's deletion (its users are soft-deleted with it, so
+  nobody could download it: the spec contradicts itself); an organization delete endpoint; tests the spec lists, which
+  aren't written: a concurrent write during the snapshot (needs a connection outside the test's transaction), the
+  engine's tests with a fake registry (DDL breaks RefreshDatabase), an upcaster.
+- **Local setup done on 2026-10-28:** the dev database `prytax` got the five new tables (`migrate`) and the roles' new
+  permissions (`RolesAndPermissionsSeeder`, which only syncs roles' permissions); no records were touched. Runs are
+  queued (`QUEUE_CONNECTION=database`): run `php8.5 artisan queue:work --queue=backups,retention,default` in the
+  background when checking the UI. Archives go to the `backups` disk (`storage/app/backups`, served signed under
+  `/backups-storage`); tests fake it in `TestCase`.
+- **History caveats:** 8537715's importer test asserts the alert rebuild, which fb9993d adds; 68a3925 adds tables, which
+  the registry test excludes only in 956544f.
+- **Next:** the full suite; the browser check (Ще → Резервні копії as owner, accountant, viewer; manual backup, download
+  with and without a password, the bundle, the policy sheet; Облік → Експорт за період); backups.md v1.7 as built; then
+  the questions above.
+
+## Backups spec (2026-10-27, `docs/specs/backups.md` v1.6; built on `feat/backups`, see "Backups build")
 
 The user wrote the design (v1.2): Layer A, the platform's disaster recovery (Cloud SQL backups and point-in-time
 recovery, an independent dump into another GCP project, soft delete on the buckets, `APP_KEY` in Secret Manager);
@@ -110,8 +188,9 @@ Facts found, which the spec relies on:
 Open: the decision of §5.3 (restoring into the same organization vs `UNIQUE(organization_id, tax_id_hash)`: purge the
 original first, or allow one *active* profile per РНОКПП with a generated `active_tax_id_hash`), and the approval of the
 GCS Flysystem adapter. To do before real data exists, whatever else is built: `Relation::requireMorphMap()` and the
-alias collision guard, the audit tagger, scoping the signature lookup to the invoice's profile, and replacing the
-committed `../api-core` path repository in `composer.json` (§12). Build order: the spec's §7.
+alias collision guard, the audit tagger, scoping the signature lookup to the invoice's profile (all three done on
+`feat/backups`), and replacing the committed `../api-core` path repository in `composer.json` (§12; not done). Build
+order: the spec's §7.
 
 ## Tax ledger (2026-10-25, branch `feat/tax-ledger`, merged into `dev` and `main` on 2026-10-27)
 

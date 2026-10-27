@@ -61,6 +61,8 @@ final class PryTaxTableRegistry implements TableRegistry
             TableSpec::profile('contracts'),
             TableSpec::child('contract_rates', parent: 'contracts', fk: 'contract_id'),
             TableSpec::profile('invoices')
+                // A period export takes the invoices of its receipts too
+                ->period('issued_at', alsoVia: ['payments.invoice_id'])
                 ->decrypt('snapshot', json: true)
                 ->rewrite('snapshot', to: 'files', json: '$.profile.signature_file_id')
                 ->rewrite('sequence_scope_key', to: 'clients', pattern: '/client:(\d+)/')
@@ -69,13 +71,15 @@ final class PryTaxTableRegistry implements TableRegistry
                 ->generated('active_number'),
             TableSpec::child('invoice_items', parent: 'invoices', fk: 'invoice_id'),
             // Before payments (source_transfer_id)
-            TableSpec::profile('account_transfers'),
-            TableSpec::profile('payments')->generated('period_year', 'period_quarter', 'period_month'),
-            TableSpec::profile('refunds')->generated('period_year', 'period_quarter', 'period_month'),
+            TableSpec::profile('account_transfers')->period('received_at'),
+            // A period export takes the receipts, which its transfers' allocations name, too
+            TableSpec::profile('payments')->period('received_at', alsoVia: ['transfer_allocations.payment_id'])
+                ->generated('period_year', 'period_quarter', 'period_month'),
+            TableSpec::profile('refunds')->period('refunded_at')->generated('period_year', 'period_quarter', 'period_month'),
             TableSpec::child('transfer_allocations', parent: 'account_transfers', fk: 'transfer_id'),
-            TableSpec::profile('tax_periods'),
-            TableSpec::profile('esv_obligations'),
-            TableSpec::profile('tax_payments')->generated('receipt_tax_key'),
+            TableSpec::profile('tax_periods')->periodOfQuarter('year', 'quarter'),
+            TableSpec::profile('esv_obligations')->periodOfMonth('year', 'month'),
+            TableSpec::profile('tax_payments')->periodOfQuarter('period_year', 'period_quarter')->generated('receipt_tax_key'),
             TableSpec::profile('tax_opening_balances'),
             TableSpec::profile('tax_payment_requisites'),
             // Derived: AlertSync rebuilds them after an import

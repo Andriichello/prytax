@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use PryTax\DataLifecycle\Backup\Http\Controllers\BackupController;
 use PryTax\DataLifecycle\Backup\Http\Controllers\BackupPolicyController;
 use PryTax\DataLifecycle\Backup\Http\Controllers\BackupRunController;
+use PryTax\DataLifecycle\Backup\Http\Controllers\ExportController;
 use PryTax\Http\Controllers\AccountController;
 use PryTax\Http\Controllers\AccountingController;
 use PryTax\Http\Controllers\AccountMovementController;
@@ -94,6 +95,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                 ->where(['client' => '[0-9]+', 'account' => '[0-9]+', 'invoice' => '[0-9]+', 'payment' => '[0-9]+'])
                 ->group(function () use ($crud, $all) {
                     ProfileSettingController::routes('settings', 'settings');
+                    ExportController::routes();
                     ProfileSignatureController::routes('signatures', 'signatures');
 
                     $crud('accounts', AccountController::class, $all, 'accounts');

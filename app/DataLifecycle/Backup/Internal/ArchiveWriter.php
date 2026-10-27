@@ -85,6 +85,13 @@ final class ArchiveWriter
                     $header[] = 'archive_path';
                 }
 
+                // A period export marks the rows, which it takes only so the period reads on its own
+                $marksScope = $spec->isPeriod() && $table->periodVia() !== [];
+
+                if ($marksScope) {
+                    $header[] = 'in_scope';
+                }
+
                 $csv = Csv::BOM . Csv::line($header);
                 $rows = 0;
 
@@ -102,6 +109,10 @@ final class ArchiveWriter
                         if ($document) {
                             $documents[] = $document;
                         }
+                    }
+
+                    if ($marksScope) {
+                        $values['in_scope'] = $selection->isInPeriod($table, $row) ? '1' : '0';
                     }
 
                     if ($table->isRoot()) {

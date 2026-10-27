@@ -152,6 +152,22 @@ final class TableSpec
     private ?array $match = null;
 
     /**
+     * How a period export filters the table: by a date column, or by the year and quarter or month columns of the
+     * period a row is of. A table without one is exported whole.
+     *
+     * @var array{type: string, column?: string, year?: string, part?: string}|null
+     */
+    private ?array $period = null;
+
+    /**
+     * Columns (`table.column`) of rows, which reference rows outside the period, which a period export takes too, so
+     * the period reads on its own (marked `in_scope = 0`).
+     *
+     * @var array<int, string>
+     */
+    private array $periodVia = [];
+
+    /**
      * Callback, which completes a row before it is imported, such as recomputing an omitted hash.
      *
      * @var Closure(array<string, mixed>): array<string, mixed>|null
@@ -452,6 +468,73 @@ final class TableSpec
         $this->onImport = $callback;
 
         return $this;
+    }
+
+    /**
+     * Filter a period export by the date column, taking also the rows, which in-period rows reference through the
+     * columns.
+     *
+     * @param string $column
+     * @param array<int, string> $alsoVia `table.column` of the referencing rows.
+     *
+     * @return self
+     */
+    public function period(string $column, array $alsoVia = []): self
+    {
+        $this->period = ['type' => 'date', 'column' => $column];
+        $this->periodVia = $alsoVia;
+
+        return $this;
+    }
+
+    /**
+     * Filter a period export by the quarter, which the year and quarter columns name.
+     *
+     * @param string $year
+     * @param string $quarter
+     *
+     * @return self
+     */
+    public function periodOfQuarter(string $year, string $quarter): self
+    {
+        $this->period = ['type' => 'quarter', 'year' => $year, 'part' => $quarter];
+
+        return $this;
+    }
+
+    /**
+     * Filter a period export by the month, which the year and month columns name.
+     *
+     * @param string $year
+     * @param string $month
+     *
+     * @return self
+     */
+    public function periodOfMonth(string $year, string $month): self
+    {
+        $this->period = ['type' => 'month', 'year' => $year, 'part' => $month];
+
+        return $this;
+    }
+
+    /**
+     * Get how a period export filters the table.
+     *
+     * @return array{type: string, column?: string, year?: string, part?: string}|null
+     */
+    public function periodFilter(): ?array
+    {
+        return $this->period;
+    }
+
+    /**
+     * Get the columns of the rows, which make a period export take rows outside the period.
+     *
+     * @return array<int, string>
+     */
+    public function periodVia(): array
+    {
+        return $this->periodVia;
     }
 
     /**
@@ -757,6 +840,8 @@ final class TableSpec
             'optional' => $this->optional,
             'documents' => $this->documents,
             'match' => $this->match,
+            'period' => $this->period,
+            'period_via' => $this->periodVia,
             'on_import' => $this->onImport ? true : null,
         ], fn (mixed $value) => $value !== null && $value !== []);
     }

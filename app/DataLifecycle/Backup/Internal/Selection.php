@@ -79,6 +79,17 @@ final class Selection
             return $query->whereRaw('1 = 0');
         }
 
+        if ($this->spec->isPeriod() && $table->periodFilter() !== null) {
+            $query->where(function (Builder $query) use ($table) {
+                $this->inPeriod($query, $table);
+
+                foreach ($table->periodVia() as $via) {
+                    [$source, $column] = explode('.', $via, 2);
+                    $query->orWhereIn('id', $this->query($this->spec($source))->whereNotNull($column)->select($column));
+                }
+            });
+        }
+
         return match ($table->strategy()) {
             TableSpec::ROOT => $query->where('id', $this->tenantId),
             TableSpec::PROFILE => $query->where($this->root->foreignKey(), $this->tenantId),
@@ -133,6 +144,54 @@ final class Selection
     public function spec(string $name): TableSpec
     {
         return $this->tables[$name] ?? throw new LogicException("The table $name isn't in the registry.");
+    }
+
+    /**
+     * Limit the query to the rows of the run's period: a date in it, or a quarter or month, which overlaps it.
+     *
+     * @param Builder $query
+     * @param TableSpec $table
+     *
+     * @return void
+     */
+    private function inPeriod(Builder $query, TableSpec $table): void
+    {
+        $filter = $table->periodFilter();
+        [$from, $to] = [$this->spec->from->toDateString(), $this->spec->to->toDateString()];
+
+        if ($filter['type'] === 'date') {
+            $query->whereBetween($filter['column'], [$from, $to]);
+
+            return;
+        }
+
+        $grammar = $query->getGrammar();
+        [$year, $part] = [$grammar->wrap($filter['year']), $grammar->wrap($filter['part'])];
+        $unit = $filter['type'] === 'quarter' ? 'QUARTER' : 'MONTH';
+        $start = "MAKEDATE($year, 1) + INTERVAL ($part - 1) $unit";
+
+        $query->whereRaw("$start <= ? AND $start + INTERVAL 1 $unit > ?", [$to, $from]);
+    }
+
+    /**
+     * Determine if a row of the table is of the run's period itself, rather than taken with it.
+     *
+     * @param TableSpec $table
+     * @param object $row
+     *
+     * @return bool
+     */
+    public function isInPeriod(TableSpec $table, object $row): bool
+    {
+        $filter = $table->periodFilter();
+
+        if (!$this->spec->isPeriod() || $filter === null || $filter['type'] !== 'date') {
+            return true;
+        }
+
+        $date = substr((string) $row->{$filter['column']}, 0, 10);
+
+        return $date >= $this->spec->from->toDateString() && $date <= $this->spec->to->toDateString();
     }
 
     /**

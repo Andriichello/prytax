@@ -3,13 +3,16 @@
 namespace PryTax\DataLifecycle;
 
 use Core\Providers\MorphServiceProvider;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
 use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
 use PryTax\DataLifecycle\Backup\Models\BackupRun;
+use PryTax\DataLifecycle\Console\BackupDispatchCommand;
 use PryTax\DataLifecycle\Console\BackupImportCommand;
+use PryTax\DataLifecycle\Console\BackupPruneCommand;
 use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
 
 /**
@@ -47,7 +50,7 @@ class DataLifecycleServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstrap the module's migrations and views.
+     * Bootstrap the module's models, migrations, views, commands and schedule.
      *
      * @return void
      */
@@ -60,9 +63,16 @@ class DataLifecycleServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                BackupDispatchCommand::class,
                 BackupImportCommand::class,
+                BackupPruneCommand::class,
                 BackupSnapshotCommand::class,
             ]);
         }
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command(BackupDispatchCommand::class)->everyFiveMinutes()->onOneServer()->withoutOverlapping();
+            $schedule->command(BackupPruneCommand::class)->dailyAt('05:30')->onOneServer();
+        });
     }
 }

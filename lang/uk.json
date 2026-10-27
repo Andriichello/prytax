@@ -207,5 +207,11 @@
     "The template is the ФОП's.": "Шаблон задано в налаштуваннях ФОП.",
     "Enter the note text.": "Введіть текст примітки.",
     "Choose all profiles or a list of them.": "Оберіть усі ФОП або їх перелік.",
-    "The organization has made :count manual backups today already.": "Сьогодні організація вже зробила :count ручних копій."
+    "The organization has made :count manual backups today already.": "Сьогодні організація вже зробила :count ручних копій.",
+    "The backup of :place failed": "Резервні копії «:place»: помилка",
+    "The backup of :place is incomplete": "Резервні копії «:place»: зроблено не всі",
+    "The backup of :place is done": "Резервні копії «:place» готові",
+    "Backed up: :completed ФОП, unchanged: :skipped, failed: :failed.": "Збережено копій ФОП: :completed, без змін: :skipped, з помилкою: :failed.",
+    "The next run will try again. Open PryTax to see the details and download the backups.": "Наступне копіювання спробує ще раз. Відкрийте PryTax, щоб переглянути подробиці й завантажити копії.",
+    "Open PryTax to download the backups.": "Відкрийте PryTax, щоб завантажити копії."
 }

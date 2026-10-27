@@ -130,6 +130,23 @@ final class ArchiveStore
     }
 
     /**
+     * Get the temporary objects of downloads (`tmp/downloads/`), with when each was last modified.
+     *
+     * @return array<string, int>
+     */
+    public function temporaryObjects(): array
+    {
+        $disk = $this->disk($this->diskName());
+        $objects = [];
+
+        foreach ($disk->allFiles('tmp/downloads') as $path) {
+            $objects[$path] = $disk->lastModified($path);
+        }
+
+        return $objects;
+    }
+
+    /**
      * Get a disk.
      *
      * @param string $name

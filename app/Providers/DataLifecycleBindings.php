@@ -6,10 +6,12 @@ use Core\Models\AuditLog;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use PryTax\Backups\AccountingArchiveChecks;
+use PryTax\Backups\BackupRunNotifier;
 use PryTax\Backups\ProfileAuditTagger;
 use PryTax\Backups\ProfileTenantRoot;
 use PryTax\Backups\PryTaxTableRegistry;
 use PryTax\DataLifecycle\Backup\Events\ArchiveImported;
+use PryTax\DataLifecycle\Backup\Events\BackupRunFinished;
 use PryTax\DataLifecycle\Contracts\ArchiveChecks;
 use PryTax\DataLifecycle\Contracts\TableRegistry;
 use PryTax\DataLifecycle\Contracts\TenantRoot;
@@ -40,14 +42,16 @@ class DataLifecycleBindings extends ServiceProvider
     ];
 
     /**
-     * Bootstrap the tagging of audit entries (in `creating`, since entries can't be changed afterwards), and the
-     * notifications of an imported profile.
+     * Bootstrap the tagging of audit entries (in `creating`, since entries can't be changed afterwards), the e-mails
+     * of runs, and the notifications of an imported profile.
      *
      * @return void
      */
     public function boot(): void
     {
         AuditLog::creating(fn (AuditLog $entry) => $this->app->make(ProfileAuditTagger::class)->tag($entry));
+
+        Event::listen(BackupRunFinished::class, [BackupRunNotifier::class, 'handle']);
 
         // Notifications are derived, so an archive doesn't restore them (backups.md §5.1)
         Event::listen(ArchiveImported::class, function (ArchiveImported $event) {

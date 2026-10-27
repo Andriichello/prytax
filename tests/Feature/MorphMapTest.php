@@ -7,6 +7,7 @@ use Illuminate\Database\ClassMorphViolationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use LogicException;
+use PryTax\DataLifecycle\DataLifecycleServiceProvider;
 use PryTax\Helpers\MorphMap;
 use PryTax\Providers\AppServiceProvider;
 use Tests\TestCase;
@@ -15,7 +16,8 @@ use Tests\TestCase;
  * Class MorphMapTest.
  *
  * The morph map, whose aliases polymorphic columns store (backups.md §4.2): it is required, every model of api-core
- * and of PryTax has an alias of its own, and an alias, which another class has already, is refused.
+ * and of PryTax (its backups module too) has an alias of its own, and an alias, which another class has already, is
+ * refused.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature
@@ -50,7 +52,7 @@ class MorphMapTest extends TestCase
      */
     public function testMapsEveryModelToAnAliasOfItsOwn(): void
     {
-        foreach ([...MorphServiceProvider::getModelClasses(), ...AppServiceProvider::MODELS] as $model) {
+        foreach ([...MorphServiceProvider::getModelClasses(), ...AppServiceProvider::MODELS, ...DataLifecycleServiceProvider::MODELS] as $model) {
             $alias = MorphServiceProvider::slugWithFolderOf($model);
 
             $this->assertSame($alias, Relation::getMorphAlias($model), $model);

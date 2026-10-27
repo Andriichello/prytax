@@ -2,7 +2,13 @@
 
 namespace PryTax\DataLifecycle;
 
+use Core\Providers\MorphServiceProvider;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use PryTax\DataLifecycle\Backup\Models\Backup;
+use PryTax\DataLifecycle\Backup\Models\BackupDownload;
+use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
+use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\DataLifecycle\Console\BackupImportCommand;
 use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
 
@@ -17,6 +23,19 @@ use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
  */
 class DataLifecycleServiceProvider extends ServiceProvider
 {
+    /**
+     * Models of the module, which the morph map names by aliases (`models.backups`): their permissions and audit
+     * entries use them.
+     *
+     * @var array<int, class-string>
+     */
+    public const array MODELS = [
+        Backup::class,
+        BackupDownload::class,
+        BackupPolicy::class,
+        BackupRun::class,
+    ];
+
     /**
      * Register the module's config.
      *
@@ -34,6 +53,8 @@ class DataLifecycleServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Relation::morphMap(MorphServiceProvider::getMorphMap(self::MODELS));
+
         $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
         $this->loadViewsFrom(__DIR__ . '/resources/views', 'data-lifecycle');
 

@@ -137,7 +137,7 @@ final class ArchiveWriter
             throw $exception;
         }
 
-        return new DataArchive($path, $manifest['content_hash'], $documents, $manifest);
+        return new DataArchive($path, $manifest['content_hash'], $documents, $manifest, $this->root->folderName($rootRow));
     }
 
     /**

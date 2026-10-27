@@ -20,12 +20,14 @@ final class DataArchive
      * @param string $contentHash
      * @param array<int, Document> $documents
      * @param array<string, mixed> $manifest
+     * @param string $folder The tenant's folder in a bundle, which its file is named after.
      */
     public function __construct(
         public readonly string $path,
         public readonly string $contentHash,
         public readonly array $documents,
         public readonly array $manifest,
+        public readonly string $folder,
     ) {}
 
     /**

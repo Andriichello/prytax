@@ -5,6 +5,7 @@ namespace Tests\Feature\Backups;
 use Core\Models\AuditLog;
 use Core\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\DataLifecycle\Backup\BackupRuns;
@@ -260,6 +261,47 @@ class BackupControllerTest extends TestCase
         $this->assertTrue($next->hour >= 1 && $next->hour < 5);
 
         $this->putJson('/api/organization/backup-policy', ['retention_daily' => 32])->assertJsonValidationErrors('retention_daily');
+    }
+
+    /**
+     * Test that the bundle of a run is built on demand, with a folder per ФОП, each holding its archive unchanged (an
+     * unchanged ФОП its archive before), and is downloaded through a logged link.
+     *
+     * @return void
+     */
+    public function testBuildsTheOrganizationsBundleOfARun(): void
+    {
+        $other = $this->createProfile($this->profile->organization, ['full_name_en' => 'Andrii Melnyk']);
+        $policy = $this->policy();
+        $runs = app(BackupRuns::class);
+        $first = $runs->scheduled($policy);
+        DB::table('profiles')->where('id', $other->id)->update(['phone' => '+380501112233']);
+        $second = $runs->scheduled($policy);
+        $this->actAs($this->profile, 'accountant');
+
+        $this->getJson("/api/organization/backup-runs/$second->id/bundle")->assertOk()->assertJsonPath('data.status', null);
+        $this->postJson("/api/organization/backup-runs/$second->id/bundle")->assertStatus(202);
+        $url = $this->getJson("/api/organization/backup-runs/$second->id/bundle")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ready')
+            ->json('data.url');
+
+        $local = tempnam(sys_get_temp_dir(), 'test');
+        file_put_contents($local, Storage::disk('backups')->get(substr((string) parse_url($url, PHP_URL_PATH), 1)));
+        $zip = new ZipArchive;
+        $zip->open($local);
+        $manifest = json_decode($zip->getFromName('manifest.json'), true);
+
+        $this->assertSame([$this->profile->id, $other->id], array_column($manifest['profiles'], 'profile_id'));
+        $skipped = Backup::query()->withoutGlobalScopes()->where('run_id', $first->id)->where('profile_id', $this->profile->id)->sole();
+        $this->assertSame($skipped->id, $manifest['profiles'][0]['backup_id']);
+        $this->assertSame("profiles/andrii-melnyk_p$other->id", $manifest['profiles'][1]['folder']);
+        $this->assertSame($other->id, json_decode($zip->getFromName("profiles/andrii-melnyk_p$other->id/manifest.json"), true)['profile']['id']);
+        $this->assertNotFalse($zip->getFromName("profiles/andrii-melnyk_p$other->id/data/profile.csv"));
+        $zip->close();
+        unlink($local);
+
+        $this->assertSame('bundle', BackupDownload::query()->withoutGlobalScopes()->sole()->kind);
     }
 
     /**

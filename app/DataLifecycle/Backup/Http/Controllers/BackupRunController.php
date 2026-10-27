@@ -7,12 +7,20 @@ use Core\Http\Requests\Crud\IndexRequest;
 use Core\Http\Requests\Crud\ShowRequest;
 use Core\Http\Requests\Crud\StoreRequest;
 use Core\Http\Responses\ApiResponse;
+use Core\Models\AuditLog;
+use Core\Models\Organization;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
+use PryTax\DataLifecycle\Backup\Http\Requests\BundleRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreBackupRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunCollection;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunResource;
+use PryTax\DataLifecycle\Backup\Internal\ArchiveStore;
+use PryTax\DataLifecycle\Backup\Internal\BundleBuilder;
+use PryTax\DataLifecycle\Backup\Jobs\BuildOrganizationBundle;
+use PryTax\DataLifecycle\Backup\Models\BackupDownload;
 use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\DataLifecycle\Backup\Policies\BackupRunPolicy;
 use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
@@ -22,7 +30,8 @@ use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
  *
  * Runs of the organization's backup (backups.md §4.7): `organization/backup-runs`, newest first, each with its
  * backups (`?include=backups`); a manual run of every profile or of the listed ones, five a day at most, which answers
- * 202 with the run, as its job does the work.
+ * 202 with the run, as its job does the work; the organization's bundle of a run, built on demand (202) and then
+ * downloaded through a signed link, which is logged.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Backup\Http\Controllers
@@ -52,6 +61,8 @@ class BackupRunController extends CrudController
         'index' => IndexRequest::class,
         'show' => ShowRequest::class,
         'store' => StoreBackupRunRequest::class,
+        'bundle' => BundleRunRequest::class,
+        'bundleStatus' => BundleRunRequest::class,
     ];
 
     /**
@@ -60,9 +71,14 @@ class BackupRunController extends CrudController
      * @param BackupRunPolicy $policy
      * @param BackupRunRepository $repository
      * @param BackupRuns $runs
+     * @param ArchiveStore $store
      */
-    public function __construct(BackupRunPolicy $policy, BackupRunRepository $repository, protected BackupRuns $runs)
-    {
+    public function __construct(
+        BackupRunPolicy $policy,
+        BackupRunRepository $repository,
+        protected BackupRuns $runs,
+        protected ArchiveStore $store
+    ) {
         parent::__construct($policy, $repository);
     }
 
@@ -76,6 +92,8 @@ class BackupRunController extends CrudController
         Route::get('backup-runs', [static::class, 'index'])->name('backup-runs.index');
         Route::post('backup-runs', [static::class, 'store'])->name('backup-runs.store');
         Route::get('backup-runs/{id}', [static::class, 'show'])->name('backup-runs.show');
+        Route::post('backup-runs/{id}/bundle', [static::class, 'bundle'])->name('backup-runs.bundle');
+        Route::get('backup-runs/{id}/bundle', [static::class, 'bundleStatus'])->middleware('throttle:30,60')->name('backup-runs.bundle.show');
     }
 
     /**
@@ -99,5 +117,93 @@ class BackupRunController extends CrudController
         $run = $this->runs->manual($request->orgId(), $request->profileIds(), $request->user()?->getKey());
 
         return $this->asResourceResponse($run->fresh())->setMessage('Started')->setStatus(202);
+    }
+
+    /**
+     * Handle the `bundle` operation: build the run's bundle, unless it is ready already.
+     *
+     * @param BundleRunRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleBundle(BundleRunRequest $request): ApiResponse
+    {
+        /** @var BackupRun $run */
+        $run = $this->builder($request)->findOrFail($request->getId());
+
+        if (!$this->bundleIsReady($run) && $run->bundle_status !== 'building') {
+            $run->forceFill(['bundle_status' => 'building'])->save();
+            BuildOrganizationBundle::dispatch($run->id);
+        }
+
+        return ApiResponse::make($this->bundleOf($request, $run->fresh()), 202, 'Building');
+    }
+
+    /**
+     * Handle the `bundleStatus` operation: the bundle's status, and a download link of a ready one, logged.
+     *
+     * @param BundleRunRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleBundleStatus(BundleRunRequest $request): ApiResponse
+    {
+        /** @var BackupRun $run */
+        $run = $this->builder($request)->findOrFail($request->getId());
+
+        return ApiResponse::ok($this->bundleOf($request, $run, link: true));
+    }
+
+    /**
+     * Get the bundle's status, with a download link of a ready one when asked.
+     *
+     * @param BundleRunRequest $request
+     * @param BackupRun $run
+     * @param bool $link
+     *
+     * @return array{data: array{status: string|null, url?: string, expires_at?: string}}
+     */
+    protected function bundleOf(BundleRunRequest $request, BackupRun $run, bool $link = false): array
+    {
+        if (!$this->bundleIsReady($run)) {
+            return ['data' => ['status' => $run->bundle_status === 'ready' ? null : $run->bundle_status]];
+        }
+
+        if (!$link) {
+            return ['data' => ['status' => 'ready']];
+        }
+
+        $expiresAt = now()->addMinutes((int) config('data-lifecycle.backups.url_lifetime'));
+        $organization = Organization::query()->findOrFail($run->organization_id);
+
+        BackupDownload::query()->create([
+            'run_id' => $run->id,
+            'user_id' => $request->user()?->getKey(),
+            'kind' => 'bundle',
+            'ip' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 250, ''),
+        ]);
+        AuditLog::record('backup_downloaded', null, [
+            'name' => $run->getMorphClass() . '.downloaded',
+            'metadata' => ['run_id' => $run->id, 'ip' => $request->ip(), 'user_agent' => $request->userAgent()],
+        ]);
+
+        return ['data' => [
+            'status' => 'ready',
+            'url' => $this->store->url((string) $run->bundle_disk, (string) $run->bundle_path, BundleBuilder::fileName($run, $organization->slug), $expiresAt),
+            'expires_at' => $expiresAt->toIso8601String(),
+        ]];
+    }
+
+    /**
+     * Determine if the run's bundle is built and not expired.
+     *
+     * @param BackupRun $run
+     *
+     * @return bool
+     */
+    protected function bundleIsReady(BackupRun $run): bool
+    {
+        return $run->bundle_status === 'ready' && $run->bundle_path !== null && ($run->bundle_expires_at?->isFuture() ?? false);
     }
 }

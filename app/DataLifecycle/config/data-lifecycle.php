@@ -36,4 +36,15 @@ return [
         // Hours, for which an organization's bundle or a period export is kept (§2.4, §2.7)
         'temporary_hours' => 24,
     ],
+
+    'retention' => [
+        // Queue of the retention jobs
+        'queue' => env('RETENTION_QUEUE', 'retention'),
+        // Days of grace after a profile or an organization is deleted, during which it can be restored (§9.3)
+        'grace_days' => 30,
+        // Days, after which rows of a morph table, whose owner is gone, are deleted (§9.2 `technical`)
+        'orphan_days' => 7,
+        // Days, after which a run without backups is deleted
+        'empty_run_days' => 90,
+    ],
 ];

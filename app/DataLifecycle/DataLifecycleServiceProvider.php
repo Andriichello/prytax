@@ -15,6 +15,13 @@ use PryTax\DataLifecycle\Console\BackupImportCommand;
 use PryTax\DataLifecycle\Console\BackupPruneCommand;
 use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
 use PryTax\DataLifecycle\Console\BackupVerifyCommand;
+use PryTax\DataLifecycle\Console\RetentionCancelCommand;
+use PryTax\DataLifecycle\Console\RetentionExecuteCommand;
+use PryTax\DataLifecycle\Console\RetentionRetryCommand;
+use PryTax\DataLifecycle\Console\RetentionRollingCommand;
+use PryTax\DataLifecycle\Console\RetentionStatusCommand;
+use PryTax\DataLifecycle\Contracts\RetentionFamilyHandler;
+use PryTax\DataLifecycle\Retention\Internal\TechnicalHandler;
 
 /**
  * Class DataLifecycleServiceProvider.
@@ -41,13 +48,15 @@ class DataLifecycleServiceProvider extends ServiceProvider
     ];
 
     /**
-     * Register the module's config.
+     * Register the module's config, and the engine's own retention handler.
      *
      * @return void
      */
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/config/data-lifecycle.php', 'data-lifecycle');
+
+        $this->app->tag([TechnicalHandler::class], RetentionFamilyHandler::TAG);
     }
 
     /**
@@ -69,6 +78,11 @@ class DataLifecycleServiceProvider extends ServiceProvider
                 BackupPruneCommand::class,
                 BackupSnapshotCommand::class,
                 BackupVerifyCommand::class,
+                RetentionCancelCommand::class,
+                RetentionExecuteCommand::class,
+                RetentionRetryCommand::class,
+                RetentionRollingCommand::class,
+                RetentionStatusCommand::class,
             ]);
         }
 
@@ -76,6 +90,8 @@ class DataLifecycleServiceProvider extends ServiceProvider
             $schedule->command(BackupDispatchCommand::class)->everyFiveMinutes()->onOneServer()->withoutOverlapping();
             $schedule->command(BackupPruneCommand::class)->dailyAt('05:30')->onOneServer();
             $schedule->command(BackupVerifyCommand::class)->weeklyOn(0, '06:00')->onOneServer();
+            $schedule->command(RetentionExecuteCommand::class)->everyFiveMinutes()->onOneServer()->withoutOverlapping();
+            $schedule->command(RetentionRollingCommand::class)->dailyAt('03:40')->onOneServer();
         });
     }
 }

@@ -4,7 +4,7 @@ Status as of 2026-10-27: **`main` = `dev`** = everything through the tax ledger 
 both on 2026-10-27, the user asked; **not pushed**, `origin` is still at the invoice styles of 2026-10-24), plus, on
 `dev` only, the backups spec and this note. The «Minimal» redesign (design.md v4), its browser QA pass and the owner's
 decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". The next feature is designed, not built:
-backups, data safety and retention (`docs/specs/backups.md` v1.5, see "Backups spec"). Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
+backups, data safety and retention (`docs/specs/backups.md` v1.6, see "Backups spec"). Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
 and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (v4: §14 is the Minimal phase, §16 its screens; `docs/specs/invoice.md` is the invoice PDF as
@@ -31,7 +31,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
 | 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
-| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.5 committed on `dev`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
+| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed on `dev`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
 
 - **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
   the invoice settings and styles (pushed on 2026-10-24). **`main`** = that + Minimal (specs, backend, SPA, demo, the
@@ -78,7 +78,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
 
-## Backups spec (2026-10-27, `docs/specs/backups.md` v1.5, not built)
+## Backups spec (2026-10-27, `docs/specs/backups.md` v1.6, not built)
 
 The user wrote the design (v1.2): Layer A, the platform's disaster recovery (Cloud SQL backups and point-in-time
 recovery, an independent dump into another GCP project, soft delete on the buckets, `APP_KEY` in Secret Manager);
@@ -86,7 +86,11 @@ Layer B, per-profile CSV archives in a zip, scheduled per organization with gran
 organization bundles on demand, period exports, restore only as a new profile; retention families with deletion runs
 and a 30-day grace; a module `PryTax\DataLifecycle\` (engine) with PryTax's definitions in `PryTax\Backups\` and
 `PryTax\Retention\`. Two reviews against the code on 2026-10-27 turned it into v1.3–v1.5 (the user's edits, then mine;
-"Changes in v1.x" at the top of the spec list them). Facts found, which the spec relies on:
+"Changes in v1.x" at the top of the spec list them). v1.6 (the user asked, same day) places Layer A's database copies
+in a DR project `prytax-dr-<env>`: Cloud SQL **enhanced backups** in a Backup and DR vault (instead of standard
+backups; 30 days enforced, PITR) and a nightly **serverless export** (`--offload`) into the DR bucket in another region,
+started from the DR project; all Layer A retention is 30 days. Nothing of Layer A exists yet (nothing is deployed).
+Facts found, which the spec relies on:
 - api-core's `settings` (`model_*`), `sequences` (`model_*`), `files` (`fileable_*`, plus `disk` and `path`) and
   `audit_logs` (`causer_*`, `subject_*`, `metadata` JSON) have no `profile_id`: the registry selects them through their
   owners (`TableSpec::morph`), and audit entries by `metadata.profile_id`, which an `AuditLog::creating` listener of

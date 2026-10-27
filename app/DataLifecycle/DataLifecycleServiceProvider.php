@@ -3,6 +3,7 @@
 namespace PryTax\DataLifecycle;
 
 use Illuminate\Support\ServiceProvider;
+use PryTax\DataLifecycle\Console\BackupImportCommand;
 use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
 
 /**
@@ -38,6 +39,7 @@ class DataLifecycleServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                BackupImportCommand::class,
                 BackupSnapshotCommand::class,
             ]);
         }

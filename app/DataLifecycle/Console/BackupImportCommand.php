@@ -1,0 +1,72 @@
+<?php
+
+namespace PryTax\DataLifecycle\Console;
+
+use Illuminate\Console\Command;
+use PryTax\DataLifecycle\Backup\ImportException;
+use PryTax\DataLifecycle\Backup\Internal\ArchiveImporter;
+
+/**
+ * Class BackupImportCommand.
+ *
+ * Restores a tenant's archive into an organization as a new tenant, never in place (backups.md §5.1): ops' tool of
+ * phase 1. With `--dry-run` it imports, verifies and rolls back, reporting what it would write.
+ *
+ * @author Andrii Prykhodko <andriichello@gmail.com>
+ * @package PryTax\DataLifecycle\Console
+ */
+class BackupImportCommand extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'prytax:backup:import
+        {archive : Local path of the archive (.zip)}
+        {--organization= : Id of the organization, into which it is imported}
+        {--dry-run : Import, verify and roll back}';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Import a backup archive into an organization as a new ФОП';
+
+    /**
+     * Execute the console command.
+     *
+     * @param ArchiveImporter $importer
+     *
+     * @return int
+     */
+    public function handle(ArchiveImporter $importer): int
+    {
+        $organizationId = (int) $this->option('organization');
+
+        if ($organizationId <= 0) {
+            $this->error('Give the organization: --organization=ID.');
+
+            return self::INVALID;
+        }
+
+        try {
+            $result = $importer->import((string) $this->argument('archive'), $organizationId, (bool) $this->option('dry-run'));
+        } catch (ImportException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $this->table(['Table', 'Rows'], collect($result->rows)->map(fn (int $rows, string $table) => [$table, $rows])->values()->all());
+        $this->line("Documents: $result->documents" . ($result->skippedFiles ? ", files rows without their document left out: $result->skippedFiles" : ''));
+        $this->line('Checks: ' . json_encode($result->checks, JSON_UNESCAPED_UNICODE));
+
+        $result->dryRun
+            ? $this->info('Dry run: everything was verified and rolled back.')
+            : $this->info("Imported as the new tenant $result->tenantId.");
+
+        return self::SUCCESS;
+    }
+}

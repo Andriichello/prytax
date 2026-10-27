@@ -4,6 +4,9 @@ use Core\Http\Controllers\Auth\AuthController;
 use Core\Http\Controllers\NotificationController;
 use Core\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+use PryTax\DataLifecycle\Backup\Http\Controllers\BackupController;
+use PryTax\DataLifecycle\Backup\Http\Controllers\BackupPolicyController;
+use PryTax\DataLifecycle\Backup\Http\Controllers\BackupRunController;
 use PryTax\Http\Controllers\AccountController;
 use PryTax\Http\Controllers\AccountingController;
 use PryTax\Http\Controllers\AccountMovementController;
@@ -69,6 +72,13 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
         ->where(['id' => '[0-9]+', 'profile' => '[0-9]+', 'year' => '20[0-9]{2}', 'quarter' => '[1-4]'])
         ->group(function () use ($crud, $all) {
             $crud('profiles', ProfileController::class, [...$all, 'restore'], 'profiles');
+
+            // Backups of the organization's profiles (docs/specs/backups.md §4.7), whose ids are ULIDs
+            Route::prefix('organization')->name('organization.')->where(['id' => '[0-9A-Za-z]{26}'])->group(function () {
+                BackupPolicyController::routes();
+                BackupRunController::routes();
+                BackupController::routes();
+            });
 
             Route::get('overview/{year}/{quarter}', [PracticeOverviewController::class, 'overview'])->name('overview');
 

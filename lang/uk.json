@@ -205,5 +205,7 @@
     "The template is the invoice's own.": "Шаблон задано в самому інвойсі.",
     "The template is the client's.": "Шаблон задано в клієнта.",
     "The template is the ФОП's.": "Шаблон задано в налаштуваннях ФОП.",
-    "Enter the note text.": "Введіть текст примітки."
+    "Enter the note text.": "Введіть текст примітки.",
+    "Choose all profiles or a list of them.": "Оберіть усі ФОП або їх перелік.",
+    "The organization has made :count manual backups today already.": "Сьогодні організація вже зробила :count ручних копій."
 }

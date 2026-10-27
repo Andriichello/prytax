@@ -2,6 +2,9 @@
 
 use Core\Models\Organization;
 use Core\Models\User;
+use PryTax\DataLifecycle\Backup\Models\Backup;
+use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
+use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\Models\Account;
 use PryTax\Models\AccountMovement;
 use PryTax\Models\AccountOpeningBalance;
@@ -47,6 +50,16 @@ $finance = [
     ExchangeRate::class => ['viewAny', 'view'],
 ];
 
+/*
+ * Backups of the organization's profiles (docs/specs/backups.md D7): owners configure them, owners and accountants
+ * start and download them; viewers have no access (a bulk export of personal data).
+ */
+$backups = [
+    BackupPolicy::class => ['viewAny'],
+    BackupRun::class => ['viewAny', 'view', 'create', 'bundle', 'export'],
+    Backup::class => ['viewAny', 'view', 'download'],
+];
+
 $readOnly = array_map(fn (array $actions) => ['viewAny', 'view'], $finance);
 $readOnly[Alert::class] = ['viewAny', 'view', 'read'];
 
@@ -76,6 +89,9 @@ return [
                 Role::class => ['attachUser', 'attachAnyUser', 'detachUser'],
                 Profile::class => ['all', 'restore', 'configure'],
                 ...$finance,
+                ...$backups,
+                BackupPolicy::class => ['viewAny', 'configure'],
+                Backup::class => ['viewAny', 'view', 'download', 'delete'],
             ],
         ],
         [
@@ -86,6 +102,7 @@ return [
                 // Settings and signatures of profiles, not their identity, which owners keep
                 Profile::class => ['viewAny', 'view', 'configure'],
                 ...$finance,
+                ...$backups,
             ],
         ],
         [

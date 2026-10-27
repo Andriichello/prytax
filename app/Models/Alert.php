@@ -7,7 +7,9 @@ use Core\Models\BaseModel;
 use Core\Models\User;
 use Database\Factories\AlertFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use PryTax\Enums\AlertCategory;
 use PryTax\Enums\AlertSeverity;
@@ -22,7 +24,7 @@ use PryTax\Queries\AlertQuery;
  * Read state is per user, and is written only when the user taps the notification, its action or its ✓, never when
  * the list is loaded. Its texts are kept in every language of the app (`texts`), and in Ukrainian, PryTax's own, in
  * `title`, `body`, `action_label` and the payload's `context`. (api-core's `notifications` are another thing: database
- * notifications of a user.)
+ * notifications of a user.) Resolved ones are pruned after 180 days.
  *
  * @property int $id
  * @property int $profile_id
@@ -52,6 +54,14 @@ class Alert extends BaseModel
     use HasFactory;
 
     use BelongsToProfile;
+    use MassPrunable;
+
+    /**
+     * Days, for which a resolved notification is kept (backups.md §9.2 `communication`).
+     *
+     * @var int
+     */
+    public const int RESOLVED_DAYS = 180;
 
     /**
      * The attributes that are mass-assignable.
@@ -112,6 +122,18 @@ class Alert extends BaseModel
     public function readers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'alert_reads')->withPivot('read_at');
+    }
+
+    /**
+     * Get the query of the notifications, which were resolved long enough ago to be pruned, of every profile.
+     *
+     * @return Builder
+     */
+    public function prunable(): Builder
+    {
+        return static::query()
+            ->withoutGlobalScope(self::PROFILE_SCOPE)
+            ->where('resolved_at', '<', now()->subDays(self::RESOLVED_DAYS));
     }
 
     /**

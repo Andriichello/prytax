@@ -4,6 +4,7 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -17,7 +18,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * Set up the test environment: no request may reach the network, such as the NBU's rates, unless a test fakes
-     * its endpoint, and pages render without the SPA's built assets.
+     * its endpoint, pages render without the SPA's built assets, and backups (a deleted profile's) go to a fake disk.
      *
      * @return void
      */
@@ -27,5 +28,6 @@ abstract class TestCase extends BaseTestCase
 
         Http::preventStrayRequests();
         $this->withoutVite();
+        Storage::fake('backups');
     }
 }

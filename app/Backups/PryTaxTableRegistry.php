@@ -36,6 +36,7 @@ final class PryTaxTableRegistry implements TableRegistry
         'idempotency_keys' => 'transient, 24 h',
         'backups' => 'the archives themselves; retention deletes them with their profile',
         'backup_policy_profiles' => 'the organization\'s backup configuration',
+        'data_retention_runs' => 'the deletions themselves (subject_type / subject_id)',
     ];
 
     /**

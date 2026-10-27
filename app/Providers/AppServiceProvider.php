@@ -3,11 +3,11 @@
 namespace PryTax\Providers;
 
 use Core\Http\Middleware\RequireUpdatedPassword;
-use Core\Providers\MorphServiceProvider;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Support\ServiceProvider;
+use PryTax\Helpers\MorphMap;
 use PryTax\Http\Middleware\HandleIdempotencyKey;
 use PryTax\Http\Middleware\ResolveProfile;
 use PryTax\Models\Account;
@@ -83,7 +83,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Relation::morphMap(MorphServiceProvider::getMorphMap(self::MODELS));
+        // api-core's own models are mapped by its provider, which boots first. A model left out of the map throws, rather
+        // than writing its class name into a polymorphic column (backups.md §4.2)
+        MorphMap::register(self::MODELS);
+        Relation::requireMorphMap();
 
         $this->app['router']->aliasMiddleware(ResolveProfile::ALIAS, ResolveProfile::class);
         $this->app['router']->aliasMiddleware(HandleIdempotencyKey::ALIAS, HandleIdempotencyKey::class);

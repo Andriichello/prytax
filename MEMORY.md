@@ -1,9 +1,10 @@
 # PryTax: progress and handoff
 
-Status as of the end of 2026-10-25: the «Minimal» redesign (design.md v4), its browser QA pass (ten fixes) and the
-owner's decisions on it are **merged into `dev`** (fast-forward from `feat/minimal`, the user asked; `dev` is checked
-out, 47 commits ahead of `origin/dev`, **not pushed**; `main` is unchanged); see "Minimal" and "QA of Minimal". Before
-it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
+Status as of 2026-10-27: **`main` = `dev`** = everything through the tax ledger (`feat/tax-ledger` fast-forwarded into
+both on 2026-10-27, the user asked; **not pushed**, `origin` is still at the invoice styles of 2026-10-24), plus, on
+`dev` only, the backups spec and this note. The «Minimal» redesign (design.md v4), its browser QA pass and the owner's
+decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". The next feature is designed, not built:
+backups, data safety and retention (`docs/specs/backups.md` v1.5, see "Backups spec"). Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
 and the invoice settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (v4: §14 is the Minimal phase, §16 its screens; `docs/specs/invoice.md` is the invoice PDF as
@@ -12,8 +13,8 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 `storage/handoff/prytax-minimal-handoff/` (`screens/png/NNN-M-*.png` by board number, `screens/html/M-*.html`,
 `source/`). Its second handoff (2026-10-25, afternoon: Податки as one tax ledger) is `storage/handoff/latest/`
 (`MINIMAL_DELTA_2026-10-25.md`, `CHAT_LOG_DELTA.md`), extracted in `storage/handoff/prytax-minimal-handoff-2/`; the
-specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 are built on branch
-`feat/tax-ledger` (see "Tax ledger"). The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
+specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
+`feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
 ## Where things stand
@@ -29,15 +30,16 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 | 7. Invoice styles (13 PDF styles, template v3), the note in the cascade | **Done, merged and pushed** (2026-10-24); see "Invoice styles" |
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
-| 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Built on `feat/tax-ledger`** (2026-10-25), not merged, not pushed; see "Tax ledger" |
+| 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
+| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.5 committed on `dev`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
 
-- **Branches:** `main` = `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English +
-  translation keys + the invoice settings and styles (pushed on 2026-10-24). **`dev`** (checked out) = that + the
-  Minimal phase (specs, backend, SPA, demo, notes, the QA fixes, the owner's decisions; `git log --oneline
-  origin/dev..dev`), fast-forwarded from `feat/minimal` on 2026-10-25 when the user asked; **not pushed**, and `main`
-  not updated. The local `feat/minimal` and `feat/invoice-v2` branches are merged and still there. The remote
-  `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev` track it); push
-  only when the user asks.
+- **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
+  the invoice settings and styles (pushed on 2026-10-24). **`main`** = that + Minimal (specs, backend, SPA, demo, the
+  QA fixes, the owner's decisions) + the tax ledger, fast-forwarded on 2026-10-27 when the user asked. **`dev`**
+  (checked out) = `main` + the backups spec and this note. Nothing of it is pushed (`git log --oneline
+  origin/dev..dev`). The local `feat/minimal`, `feat/invoice-v2` and `feat/tax-ledger` branches are merged and still
+  there. The remote `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev`
+  track it); push only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
   658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
@@ -58,13 +60,15 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 
 ### First steps of the next session
 
-1. Ask the user whether to merge `feat/tax-ledger` into `dev`, push `dev` and fast-forward `main` (and delete the
-   merged branches); don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether to undo it.
-   Then what is left: the open points of "QA of Minimal" (ask the user), docs/specs/suggestions.md §1 (kopeck
-   remainders of ЄП/ВЗ per receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a
-   package, so approval), pixel polish against the boards, `SheetImporter`.
-2. At the end of 2026-10-25 the dev server (8010, `php8.5`) and a headless Chrome (9223) were left running; check with
-   `ss -ltnp | grep -E ':8010|:9223'` and start them if they're gone (commands under "Frontend" and "Checking the UI").
+1. Ask the user whether to push `dev` and `main` (and whether `main` should take the backups spec too), and whether to
+   delete the merged branches; don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether
+   to undo it. Then ask what to build: the backups module (its open decision and the package approval first, see
+   "Backups spec"), the open points of "QA of Minimal", docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per
+   receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a package, so approval),
+   pixel polish against the boards, `SheetImporter`.
+2. On 2026-10-27 MySQL wasn't running (`systemctl is-active mysql` → inactive; starting it needs sudo, so ask the
+   user), and neither were the dev server (8010, `php8.5`) nor the headless Chrome (9223); check with
+   `ss -ltnp | grep -E ':3306|:8010|:9223'` and start them (commands under "Frontend" and "Checking the UI").
    `npm run build` after SPA changes; sign in as `olena@example.com` / `password` (the UI language is Ukrainian).
    Leave port 8000 (`/var/www/count-api`), the user's own Chrome and the `boost:mcp` servers alone.
 3. Helper scripts kept on disk in `storage/handoff/tools/` (git-ignored): `act.mjs` (the browser step runner, see
@@ -74,7 +78,40 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
    reruns it), `htmltext.py` (the text of a board's HTML: `python3 -I storage/handoff/tools/htmltext.py
    storage/handoff/prytax-minimal-handoff/screens/html/M-Taxes.html`).
 
-## Tax ledger (2026-10-25, branch `feat/tax-ledger`)
+## Backups spec (2026-10-27, `docs/specs/backups.md` v1.5, not built)
+
+The user wrote the design (v1.2): Layer A, the platform's disaster recovery (Cloud SQL backups and point-in-time
+recovery, an independent dump into another GCP project, soft delete on the buckets, `APP_KEY` in Secret Manager);
+Layer B, per-profile CSV archives in a zip, scheduled per organization with grandfather-father-son retention,
+organization bundles on demand, period exports, restore only as a new profile; retention families with deletion runs
+and a 30-day grace; a module `PryTax\DataLifecycle\` (engine) with PryTax's definitions in `PryTax\Backups\` and
+`PryTax\Retention\`. Two reviews against the code on 2026-10-27 turned it into v1.3–v1.5 (the user's edits, then mine;
+"Changes in v1.x" at the top of the spec list them). Facts found, which the spec relies on:
+- api-core's `settings` (`model_*`), `sequences` (`model_*`), `files` (`fileable_*`, plus `disk` and `path`) and
+  `audit_logs` (`causer_*`, `subject_*`, `metadata` JSON) have no `profile_id`: the registry selects them through their
+  owners (`TableSpec::morph`), and audit entries by `metadata.profile_id`, which an `AuditLog::creating` listener of
+  PryTax is to write (api-core blocks only updating and deleting entries; `Audited` leaves `metadata` empty).
+- Morph columns hold aliases `models.<plural>` (`MorphServiceProvider::slugWithFolderOf`, e.g. `models.invoices`,
+  `models.users`), but the map isn't required (`Relation::requiresMorphMap()` is false; only `IdempotencyKey` is
+  unmapped), and a PryTax model with the basename of an api-core one would take its alias silently.
+- Ids inside values: the snapshot's `profile.signature_file_id` (`InvoicePdfRenderer::signature()` does an unscoped
+  `File::query()->find()`), the settings `taxes.payment_account_ids` / `taxes.default_account_id`, and the sequence keys
+  `invoices:client:{id}[:year]` (also `invoices.sequence_scope_key`).
+- FK order: `contract_rates.charge_type_id` → `charge_types`, `payments.source_transfer_id` → `account_transfers`, and
+  the `invoices.primary_file_id` ↔ `files` cycle. Encrypted columns: `profiles.tax_id`, `accounts.iban`,
+  `accounts.account_number`, `invoices.snapshot` (`encrypted:array`). `invoices.active_number` is a generated column.
+- api-core already soft-deletes a user (tokens stop; a force delete hands linked accounts over) and an organization's
+  users with the organization; `users.password` is NOT NULL; `audit.retention_days` applies to the whole table.
+- ext-zip (libzip 1.7.3) supports AES-256, so no zipstream package; no GCS adapter, Pest or PHPStan is installed (the
+  module's dependency rules are a PHPUnit test).
+
+Open: the decision of §5.3 (restoring into the same organization vs `UNIQUE(organization_id, tax_id_hash)`: purge the
+original first, or allow one *active* profile per РНОКПП with a generated `active_tax_id_hash`), and the approval of the
+GCS Flysystem adapter. To do before real data exists, whatever else is built: `Relation::requireMorphMap()` and the
+alias collision guard, the audit tagger, scoping the signature lookup to the invoice's profile, and replacing the
+committed `../api-core` path repository in `composer.json` (§12). Build order: the spec's §7.
+
+## Tax ledger (2026-10-25, branch `feat/tax-ledger`, merged into `dev` and `main` on 2026-10-27)
 
 The second Minimal handoff (`storage/handoff/latest/`, extracted in `storage/handoff/prytax-minimal-handoff-2/`) and
 the owner's note that English keeps ЄП, ВЗ, ЄСВ and ФОП: specs first (design.md §8.5, §16.2, §16.5, §13, §14 steps
@@ -501,6 +538,9 @@ finding was fixed with tests, except the items under "Not done yet". The user de
 - Enum columns are VARCHARs without CHECK constraints; `TaxRule`'s immutability is guarded by model events only.
 - PII may reach `laravel.log` through bindings of a failed query (clients' tax ids, e-mails).
 - Performance: `AlertSync` runs a full collection after every write. Fine for one ФОП; debounce or queue later.
+- Found by the backups review (2026-10-27; fix before real data, see "Backups spec"): the morph map isn't required;
+  `InvoicePdfRenderer::signature()` finds the snapshot's signature file by id without scoping it to the profile;
+  `composer.json` commits a path repository (`../api-core`, `dev-dev`), which breaks any build without that folder.
 
 ## Map of the code (namespace `PryTax\`, directory `app/`)
 

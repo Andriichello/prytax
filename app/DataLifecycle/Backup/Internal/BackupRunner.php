@@ -72,7 +72,8 @@ final class BackupRunner
 
         $run->forceFill(['status' => RunStatus::Running, 'started_at' => $run->started_at ?? now(), 'error' => null])->save();
 
-        $organization = Organization::query()->findOrFail($run->organization_id);
+        // A deleted organization's final backups are taken during its grace
+        $organization = Organization::query()->withTrashed()->findOrFail($run->organization_id);
         $context = ['run_id' => $run->id, 'organization' => ['id' => $organization->id, 'name' => $organization->name]];
 
         $db = $this->connection();

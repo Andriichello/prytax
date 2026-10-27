@@ -1,8 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-27: **`main` = `dev`** = everything through the tax ledger (`feat/tax-ledger` fast-forwarded into
-both on 2026-10-27, the user asked; **not pushed**, `origin` is still at the invoice styles of 2026-10-24), plus, on
-`dev` only, the backups spec and this note. The «Minimal» redesign (design.md v4), its browser QA pass and the owner's
+Status as of 2026-10-27: **`main` = `dev`** = everything through the tax ledger plus the backups spec and this note
+(`feat/tax-ledger` fast-forwarded into both, then the spec's commits on `dev` and `main` fast-forwarded to it, the user
+asked each time; **not pushed**, `origin` is still at the invoice styles of 2026-10-24). The «Minimal» redesign (design.md v4), its browser QA pass and the owner's
 decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". The next feature is designed, not built:
 backups, data safety and retention (`docs/specs/backups.md` v1.6, see "Backups spec"). Before it, as of 2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's
 decisions, the frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys,
@@ -31,13 +31,12 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 | 8. «Minimal» (design.md v4): one ФОП per session, accordion forms, two notes, payments without an invoice, ЄП/ВЗ per receipt | **Merged into `dev`** (2026-10-25), not pushed; see "Minimal" |
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
 | 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
-| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed on `dev`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
+| 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed, in `dev` and `main`** (2026-10-27), reviewed twice against the code; **not built**; see "Backups spec" |
 
 - **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
-  the invoice settings and styles (pushed on 2026-10-24). **`main`** = that + Minimal (specs, backend, SPA, demo, the
-  QA fixes, the owner's decisions) + the tax ledger, fast-forwarded on 2026-10-27 when the user asked. **`dev`**
-  (checked out) = `main` + the backups spec and this note. Nothing of it is pushed (`git log --oneline
-  origin/dev..dev`). The local `feat/minimal`, `feat/invoice-v2` and `feat/tax-ledger` branches are merged and still
+  the invoice settings and styles (pushed on 2026-10-24). **`main` = `dev`** (checked out) = that + Minimal (specs,
+  backend, SPA, demo, the QA fixes, the owner's decisions) + the tax ledger + the backups spec and this note,
+  fast-forwarded on 2026-10-27 when the user asked. Nothing of it is pushed (`git log --oneline origin/dev..dev`). The local `feat/minimal`, `feat/invoice-v2` and `feat/tax-ledger` branches are merged and still
   there. The remote `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev`
   track it); push only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
@@ -60,8 +59,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 
 ### First steps of the next session
 
-1. Ask the user whether to push `dev` and `main` (and whether `main` should take the backups spec too), and whether to
-   delete the merged branches; don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether
+1. Ask the user whether to push `dev` and `main`, and whether to delete the merged branches; don't push unasked. If ngrok is still set up in `.env` (see "Tax ledger"), ask whether
    to undo it. Then ask what to build: the backups module (its open decision and the package approval first, see
    "Backups spec"), the open points of "QA of Minimal", docs/specs/suggestions.md §1 (kopeck remainders of ЄП/ВЗ per
    receipt, Appendix A, B2, B5, golden PDFs), XLSX exports and the yearly PDF summary (need a package, so approval),

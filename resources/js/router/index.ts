@@ -115,6 +115,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/settings/invoice-document', name: 'settings-invoice-document', component: () => import('@/pages/settings/InvoiceDocumentSettingsPage.vue') },
     { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
     { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue') },
+    { path: '/settings/backups', name: 'settings-backups', component: () => import('@/pages/settings/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
 
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];

@@ -16,7 +16,7 @@ import { styleName } from '@/utils/invoiceStyles';
 
 /**
  * Ще (M-More, design.md §16.5): money and counterparties, the ФОП's settings, the invoices' numbering and document,
- * the organization with signing out, and the language. Комісії opens from Перекази.
+ * the organization (users, backups) with signing out, and the language. Комісії opens from Перекази.
  */
 
 /**
@@ -79,6 +79,7 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         title: t('shell.more.organization'),
         items: [
             { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
+            { label: t('settings.backups.title'), icon: 'download', to: '/settings/backups', visible: can('viewAny', 'backup-runs') },
         ],
     },
 ]);

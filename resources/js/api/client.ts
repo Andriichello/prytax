@@ -238,6 +238,7 @@ export const api = {
         request<T>(path, { method: 'POST', body, headers }),
     patch: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, { method: 'PATCH', body, headers }),
+    put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
     /** A delete; the query carries what the API reads besides the path (a declared quarter's `correction_note`). */
     delete: <T>(path: string, query?: Query) => request<T>(path, { method: 'DELETE', query }),
 };

@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, apiUrl } from '@/api/client';
 import type { ApiResponse, Payment, PaymentMetrics, PracticeOverview } from '@/api/types';
+import PeriodExportSheet from '@/components/accounting/PeriodExportSheet.vue';
 import QuarterSummaryCard from '@/components/accounting/QuarterSummaryCard.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import MonthCard from '@/components/payment/MonthCard.vue';
@@ -54,6 +55,11 @@ const showFees = useStoredState('accounting.fees', false, (value): value is bool
 
 /** The profile and quarter on screen: another quarter's figures are never shown while the chosen one loads. */
 const key = computed(() => `${profileId.value}:${year.value}:${quarter.value}`);
+
+/* Експорт за період, of the quarter shown unless the user picks other days */
+const exportOpen = ref(false);
+const quarterStart = computed(() => `${year.value}-${String(quarter.value * 3 - 2).padStart(2, '0')}-01`);
+const quarterEnd = computed(() => new Date(Date.UTC(year.value, quarter.value * 3, 0)).toISOString().slice(0, 10));
 
 /** The quarter's receipts, the newest first: with their invoices and tax payments, or with their fees (`metrics`). */
 const receiptsQuery = (withMetrics: boolean) => ({
@@ -233,10 +239,20 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                         <a :href="exportYear" download class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink">
                             <Icon name="download" :size="18" /> {{ t('accounting.quarters.yearCsv') }}
                         </a>
+                        <button
+                            v-if="can('export', 'backup-runs')"
+                            type="button"
+                            class="col-span-2 flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink"
+                            @click="exportOpen = true"
+                        >
+                            <Icon name="download" :size="18" /> {{ t('accounting.export.title') }}
+                        </button>
                     </div>
                 </section>
             </template>
         </LoadState>
+
+        <PeriodExportSheet v-model:open="exportOpen" :from="quarterStart" :to="quarterEnd" />
 
         <PeriodFilterSheet
             v-model:open="filterOpen"

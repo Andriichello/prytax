@@ -88,4 +88,12 @@ export default {
         deleteExplained: 'The payment leaves the tax books, and what it paid is owed again.',
     },
 
+    export: {
+        title: 'Export a period (ZIP)',
+        note: 'The ФОП’s archive of the chosen days: the period’s receipts, refunds, transfers, taxes and ЄСВ with their invoices and documents. For an accountant or a tax audit; it can’t be restored.',
+        from: 'From',
+        to: 'To',
+        download: 'Build and download',
+        failed: 'The export couldn’t be built.',
+    },
 } satisfies Translation<typeof uk>;

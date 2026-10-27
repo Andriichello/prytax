@@ -1,0 +1,596 @@
+{
+    "format_version": 1,
+    "tables": {
+        "profiles": {
+            "file": "data/profile.csv",
+            "strategy": "root",
+            "columns": {
+                "id": "export",
+                "organization_id": "export",
+                "created_by_user_id": "export",
+                "tax_group": "export",
+                "full_name": "export",
+                "full_name_en": "export",
+                "tax_id": "decrypt",
+                "tax_id_kind": "export",
+                "tax_id_hash": "omit",
+                "registered_at": "export",
+                "address": "export",
+                "address_en": "export",
+                "email": "export",
+                "phone": "export",
+                "default_currency": "export",
+                "locale": "export",
+                "is_active": "export",
+                "closed_at": "export",
+                "created_at": "export",
+                "updated_at": "export",
+                "deleted_at": "export"
+            }
+        },
+        "accounts": {
+            "file": "data/accounts.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "created_by_user_id": "export",
+                "name": "export",
+                "kind": "export",
+                "currency": "export",
+                "holder_name": "export",
+                "bank_name": "export",
+                "iban": "decrypt",
+                "swift": "export",
+                "account_number": "decrypt",
+                "details": "export",
+                "limit_amount": "export",
+                "limit_period": "export",
+                "is_active": "export",
+                "sort_order": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "account_opening_balances": {
+            "file": "data/account_opening_balances.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "account_id": "export",
+                "created_by_user_id": "export",
+                "as_of": "export",
+                "amount": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "account_movements": {
+            "file": "data/account_movements.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "account_id": "export",
+                "created_by_user_id": "export",
+                "direction": "export",
+                "amount": "export",
+                "booked_at": "export",
+                "category": "export",
+                "note": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "clients": {
+            "file": "data/clients.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "created_by_user_id": "export",
+                "name": "export",
+                "abbreviation": "export",
+                "legal_name": "export",
+                "name_uk": "export",
+                "legal_name_uk": "export",
+                "country": "export",
+                "currency": "export",
+                "vat_number": "export",
+                "address": "export",
+                "tax_id": "export",
+                "email": "export",
+                "invoice_locale": "export",
+                "payment_purpose_template": "export",
+                "act_note_enabled": "export",
+                "act_note": "export",
+                "show_contract": "export",
+                "invoice_style": "export",
+                "payment_note_enabled": "export",
+                "payment_note": "export",
+                "other_note_enabled": "export",
+                "other_note": "export",
+                "notes": "export",
+                "is_active": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "projects": {
+            "file": "data/projects.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "client_id": "export",
+                "code": "export",
+                "name": "export",
+                "is_active": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "charge_types": {
+            "file": "data/charge_types.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "client_id": "export",
+                "name": "export",
+                "is_active": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "contracts": {
+            "file": "data/contracts.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "client_id": "export",
+                "created_by_user_id": "export",
+                "name": "export",
+                "number": "export",
+                "subject": "export",
+                "started_at": "export",
+                "ends_at": "export",
+                "currency": "export",
+                "payment_terms_days": "export",
+                "description_template": "export",
+                "is_active": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "contract_rates": {
+            "file": "data/contract_rates.csv",
+            "strategy": "child",
+            "columns": {
+                "id": "export",
+                "contract_id": "export",
+                "charge_type_id": "export",
+                "effective_from": "export",
+                "hourly_rate": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "invoices": {
+            "file": "data/invoices.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "client_id": "export",
+                "contract_id": "export",
+                "receiving_account_id": "export",
+                "created_by_user_id": "export",
+                "number": "export",
+                "sequence_scope_key": "export",
+                "sequence_number": "export",
+                "source": "export",
+                "period_start": "export",
+                "period_end": "export",
+                "issued_at": "export",
+                "due_at": "export",
+                "currency": "export",
+                "locale": "export",
+                "payment_purpose_template": "export",
+                "act_note_enabled": "export",
+                "act_note": "export",
+                "show_contract": "export",
+                "style": "export",
+                "payment_note_enabled": "export",
+                "payment_note": "export",
+                "other_note_enabled": "export",
+                "other_note": "export",
+                "subtotal": "export",
+                "adjustment_amount": "export",
+                "adjustment_label": "export",
+                "total": "export",
+                "status": "export",
+                "locked_at": "export",
+                "sent_at": "export",
+                "paid_at": "export",
+                "cancelled_at": "export",
+                "snapshot": "decrypt:json",
+                "notes": "export",
+                "primary_file_id": "deferred",
+                "created_at": "export",
+                "updated_at": "export",
+                "deleted_at": "export",
+                "active_number": "generated"
+            }
+        },
+        "invoice_items": {
+            "file": "data/invoice_items.csv",
+            "strategy": "child",
+            "columns": {
+                "id": "export",
+                "invoice_id": "export",
+                "position": "export",
+                "project_id": "export",
+                "project_code": "export",
+                "charge_type_id": "export",
+                "charge_type": "export",
+                "description": "export",
+                "unit": "export",
+                "quantity": "export",
+                "unit_price": "export",
+                "amount": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "account_transfers": {
+            "file": "data/account_transfers.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "from_account_id": "export",
+                "to_account_id": "export",
+                "created_by_user_id": "export",
+                "amount_sent": "export",
+                "currency_sent": "export",
+                "amount_received": "export",
+                "currency_received": "export",
+                "fee_amount": "export",
+                "fee_currency": "export",
+                "nbu_rate": "export",
+                "rate_is_manual": "export",
+                "sent_at": "export",
+                "received_at": "export",
+                "reference": "export",
+                "note": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "payments": {
+            "file": "data/payments.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "invoice_id": "export",
+                "created_by_user_id": "export",
+                "kind": "export",
+                "description": "export",
+                "receipt_group_id": "export",
+                "currency": "export",
+                "amount": "export",
+                "client_fee_amount": "export",
+                "received_to_account_id": "export",
+                "received_amount": "export",
+                "received_currency": "export",
+                "receipt_rate": "export",
+                "received_at": "export",
+                "nbu_rate": "export",
+                "nbu_rate_date": "export",
+                "exchange_rate_id": "export",
+                "rate_is_manual": "export",
+                "uah_amount": "export",
+                "tax_rule_id": "export",
+                "single_tax_uah": "export",
+                "military_levy_uah": "export",
+                "period_year": "generated",
+                "period_quarter": "generated",
+                "period_month": "generated",
+                "repatriation_ack_at": "export",
+                "source_transfer_id": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "refunds": {
+            "file": "data/refunds.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "payment_id": "export",
+                "from_account_id": "export",
+                "created_by_user_id": "export",
+                "amount": "export",
+                "currency": "export",
+                "refunded_at": "export",
+                "nbu_rate": "export",
+                "nbu_rate_date": "export",
+                "exchange_rate_id": "export",
+                "rate_is_manual": "export",
+                "uah_amount": "export",
+                "tax_rule_id": "export",
+                "reason": "export",
+                "period_year": "generated",
+                "period_quarter": "generated",
+                "period_month": "generated",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "transfer_allocations": {
+            "file": "data/transfer_allocations.csv",
+            "strategy": "child",
+            "columns": {
+                "id": "export",
+                "transfer_id": "export",
+                "payment_id": "export",
+                "amount": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "tax_periods": {
+            "file": "data/tax_periods.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "year": "export",
+                "quarter": "export",
+                "is_annual": "export",
+                "declaration_status": "export",
+                "declaration_submitted_at": "export",
+                "declaration_due_at": "export",
+                "tax_due_at": "export",
+                "esv_due_at": "export",
+                "locked_at": "export",
+                "notes": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "esv_obligations": {
+            "file": "data/esv_obligations.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "year": "export",
+                "month": "export",
+                "tax_rule_id": "export",
+                "amount_due": "export",
+                "status": "export",
+                "note": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "tax_payments": {
+            "file": "data/tax_payments.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "created_by_user_id": "export",
+                "tax_type": "export",
+                "amount": "export",
+                "paid_at": "export",
+                "status": "export",
+                "allocation": "export",
+                "payment_id": "export",
+                "period_year": "export",
+                "period_quarter": "export",
+                "period_month": "export",
+                "paid_from_account_id": "export",
+                "original_amount": "export",
+                "original_currency": "export",
+                "reference": "export",
+                "note": "export",
+                "receipt_tax_key": "generated",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "tax_opening_balances": {
+            "file": "data/tax_opening_balances.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "created_by_user_id": "export",
+                "tax_type": "export",
+                "as_of": "export",
+                "amount": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "tax_payment_requisites": {
+            "file": "data/tax_payment_requisites.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "created_by_user_id": "export",
+                "tax_type": "export",
+                "iban": "export",
+                "recipient_name": "export",
+                "recipient_code": "export",
+                "purpose_template": "export",
+                "effective_from": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "alerts": {
+            "file": "data/alerts.csv",
+            "strategy": "profile:export-only",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "type": "export",
+                "category": "export",
+                "severity": "export",
+                "dedupe_key": "export",
+                "title": "export",
+                "body": "export",
+                "payload": "export",
+                "action_label": "export",
+                "action_route": "export",
+                "texts": "export",
+                "resolved_at": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "settings": {
+            "file": "data/core/settings.csv",
+            "strategy": "morph",
+            "columns": {
+                "id": "export",
+                "model_type": "export",
+                "model_id": "export",
+                "key": "export",
+                "value": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "sequences": {
+            "file": "data/core/sequences.csv",
+            "strategy": "morph",
+            "columns": {
+                "id": "export",
+                "model_type": "export",
+                "model_id": "export",
+                "key": "export",
+                "next_number": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "files": {
+            "file": "data/core/files.csv",
+            "strategy": "morph",
+            "columns": {
+                "id": "export",
+                "fileable_type": "export",
+                "fileable_id": "export",
+                "collection": "export",
+                "name": "export",
+                "disk": "export",
+                "path": "export",
+                "mime_type": "export",
+                "size": "export",
+                "sha256": "export",
+                "metadata": "export",
+                "created_at": "export",
+                "updated_at": "export",
+                "archive_path": "document"
+            }
+        },
+        "audit_logs": {
+            "file": "data/core/audit_logs.csv",
+            "strategy": "profile_json:export-only",
+            "columns": {
+                "id": "export",
+                "organization_id": "export",
+                "causer_type": "export",
+                "causer_id": "export",
+                "subject_type": "export",
+                "subject_id": "export",
+                "source": "export",
+                "event": "export",
+                "name": "export",
+                "description": "export",
+                "status_code": "export",
+                "changes": "export",
+                "metadata": "export",
+                "created_at": "export"
+            }
+        },
+        "tax_rules": {
+            "file": "data/reference/tax_rules.csv",
+            "strategy": "reference",
+            "columns": {
+                "id": "export",
+                "effective_from": "export",
+                "effective_to": "export",
+                "single_tax_rate": "export",
+                "military_levy_rate": "export",
+                "excess_rate": "export",
+                "min_wage": "export",
+                "esv_monthly": "export",
+                "esv_mandatory": "export",
+                "esv_due_day": "export",
+                "income_cap_uah": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "exchange_rates": {
+            "file": "data/reference/exchange_rates.csv",
+            "strategy": "reference",
+            "columns": {
+                "id": "export",
+                "currency": "export",
+                "rate_date": "export",
+                "rate": "export",
+                "fetched_at": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "users": {
+            "file": "data/reference/users.csv",
+            "strategy": "reference",
+            "columns": {
+                "id": "export",
+                "organization_id": "omit",
+                "main_account_id": "omit",
+                "name": "export",
+                "email": "export",
+                "password": "omit",
+                "remember_token": "omit",
+                "password_updated_at": "omit",
+                "timezone": "omit",
+                "locale": "omit",
+                "metadata": "omit",
+                "email_verified_at": "omit",
+                "suspended_at": "omit",
+                "last_login_at": "omit",
+                "created_at": "omit",
+                "updated_at": "omit",
+                "deleted_at": "omit"
+            }
+        }
+    },
+    "excluded": {
+        "alert_reads": "per-user read state",
+        "idempotency_keys": "transient, 24 h",
+        "model_has_permissions": "organization-level access, not profile data",
+        "model_has_roles": "organization-level access, not profile data",
+        "notifications": "per-user notifications (notifiable_*), not profile data",
+        "password_reset_tokens": "credentials, never exported",
+        "permissions": "global configuration",
+        "personal_access_tokens": "credentials, never exported",
+        "role_has_permissions": "global configuration",
+        "roles": "global configuration",
+        "sessions": "credentials, never exported"
+    }
+}

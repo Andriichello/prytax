@@ -582,6 +582,8 @@
     },
     "excluded": {
         "alert_reads": "per-user read state",
+        "backup_policy_profiles": "the organization's backup configuration",
+        "backups": "the archives themselves; retention deletes them with their profile",
         "idempotency_keys": "transient, 24 h",
         "model_has_permissions": "organization-level access, not profile data",
         "model_has_roles": "organization-level access, not profile data",

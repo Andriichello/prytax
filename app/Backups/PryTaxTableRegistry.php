@@ -34,6 +34,8 @@ final class PryTaxTableRegistry implements TableRegistry
     public const array EXCLUDED = [
         'alert_reads' => 'per-user read state',
         'idempotency_keys' => 'transient, 24 h',
+        'backups' => 'the archives themselves; retention deletes them with their profile',
+        'backup_policy_profiles' => 'the organization\'s backup configuration',
     ];
 
     /**

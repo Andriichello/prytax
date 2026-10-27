@@ -182,6 +182,32 @@ class BackupRunnerTest extends TestCase
     }
 
     /**
+     * Test that the weekly verification imports a stored archive in a dry run, writing nothing but its pass, and
+     * fails on an archive, which differs from its checksum.
+     *
+     * @return void
+     */
+    public function testVerifiesThatAStoredArchiveRestores(): void
+    {
+        $profile = $this->createProfile();
+        $run = app(BackupRuns::class)->manual($profile->organization_id, null, null);
+        $organizations = Organization::query()->count();
+
+        $this->artisan('prytax:backup:verify')->assertSuccessful();
+
+        $backup = $this->backupOf($run, $profile);
+        $this->assertNotNull($backup->verified_at);
+        $this->assertSame($organizations, Organization::query()->count());
+        $this->assertSame(1, Profile::query()->withoutGlobalScopes()->count());
+
+        Storage::disk('backups')->put($backup->object_path, 'damaged');
+        $backup->forceFill(['verified_at' => null])->saveQuietly();
+
+        $this->artisan('prytax:backup:verify')->assertFailed();
+        $this->assertNull($backup->fresh()->verified_at);
+    }
+
+    /**
      * Get the policy of the profile's organization.
      *
      * @param Profile $profile

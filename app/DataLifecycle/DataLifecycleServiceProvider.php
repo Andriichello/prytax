@@ -14,6 +14,7 @@ use PryTax\DataLifecycle\Console\BackupDispatchCommand;
 use PryTax\DataLifecycle\Console\BackupImportCommand;
 use PryTax\DataLifecycle\Console\BackupPruneCommand;
 use PryTax\DataLifecycle\Console\BackupSnapshotCommand;
+use PryTax\DataLifecycle\Console\BackupVerifyCommand;
 
 /**
  * Class DataLifecycleServiceProvider.
@@ -67,12 +68,14 @@ class DataLifecycleServiceProvider extends ServiceProvider
                 BackupImportCommand::class,
                 BackupPruneCommand::class,
                 BackupSnapshotCommand::class,
+                BackupVerifyCommand::class,
             ]);
         }
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $schedule->command(BackupDispatchCommand::class)->everyFiveMinutes()->onOneServer()->withoutOverlapping();
             $schedule->command(BackupPruneCommand::class)->dailyAt('05:30')->onOneServer();
+            $schedule->command(BackupVerifyCommand::class)->weeklyOn(0, '06:00')->onOneServer();
         });
     }
 }

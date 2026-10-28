@@ -6,7 +6,7 @@ import TaxPaymentBadge from '@/components/taxes/TaxPaymentBadge.vue';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { formatDayMonthWords } from '@/utils/dates';
-import { formatAmount, formatCompact, formatMoney } from '@/utils/money';
+import { formatAmount, formatCompact, formatMoney, multiplyDecimals } from '@/utils/money';
 import { receiptTaxPayment } from '@/utils/taxes';
 
 /**
@@ -14,10 +14,11 @@ import { receiptTaxPayment } from '@/utils/taxes';
  * invoice, its count and its total), then a table, whose columns keep their widths (owner #70–#72): Інвойс (the
  * number and the client) · Дата · Сума (on a green pill) · Курс НБУ · Дохід ₴ · ЄП 5 % · ВЗ 1 %. ЄП and ВЗ show the
  * amount with the status badge under it, so a long badge never meets Дохід; each opens its payment, the row the
- * receipt. With `fees`, a line under each receipt in the same grid: the net income under the amount, and the fees
- * under ЄП, each with its short label, in the receipt's currency. The columns follow the table's own width (a
- * container query): under 920 px the date goes under the invoice, and the income in hryvnias and the NBU rate under
- * the amount.
+ * receipt. With `fees`, a strip under each receipt, inset in its block before the next one's divider, in the same
+ * grid: the net income under the amount (in its currency) and under Дохід (in hryvnias, at the receipt's NBU rate,
+ * at which its taxes count too; once for a hryvnia receipt), and the fees under ЄП. The columns follow the table's
+ * own width (a container query): under 920 px the date goes under the invoice, and the income in hryvnias and the NBU
+ * rate under the amount (and the net in hryvnias under the net).
  */
 const { receipts, title = undefined, count = undefined, total = undefined, taxes: showTaxes = true, feesOf = null } = defineProps<{
     receipts: Payment[];
@@ -35,6 +36,19 @@ type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
 const TAXES: ReceiptTax[] = ['single_tax', 'military_levy'];
 const columns = 'grid-cols-[minmax(0,1fr)_132px_116px_116px] @min-[920px]:grid-cols-[minmax(0,1fr)_72px_124px_72px_124px_116px_116px]';
+
+/** A receipt's net income in hryvnias: its own for a hryvnia receipt, else at its NBU rate; null when unknown. */
+function netUah(receipt: Payment, net: string | null | undefined): string | null {
+    if (net === null || net === undefined) {
+        return null;
+    }
+
+    if (receipt.currency === 'UAH') {
+        return net;
+    }
+
+    return receipt.nbu_rate ? multiplyDecimals(net, receipt.nbu_rate) : null;
+}
 
 function tax(receipt: Payment, type: ReceiptTax) {
     const taxPayment = receiptTaxPayment(receipt.taxPayments, type);
@@ -68,7 +82,10 @@ function tax(receipt: Payment, type: ReceiptTax) {
             <span class="text-right">{{ showTaxes ? t('money.receiptTable.militaryLevy') : '' }}</span>
         </div>
         <template v-for="(receipt, index) in receipts" :key="receipt.id">
-            <div class="relative grid items-center gap-4 px-5 py-3.5 hover:bg-paper-light" :class="[columns, index > 0 ? 'border-t border-divider' : '']">
+            <div
+                class="relative grid items-center gap-4 px-5 hover:bg-paper-light"
+                :class="[columns, index > 0 ? 'border-t border-divider' : '', feesOf && feesOf(receipt) ? 'pt-3.5 pb-2' : 'py-3.5']"
+            >
                 <RouterLink
                     :to="{ name: 'payment', params: { id: receipt.id } }"
                     class="flex min-w-0 flex-col gap-0.5 text-ink no-underline after:absolute after:inset-0 hover:text-ink"
@@ -104,14 +121,24 @@ function tax(receipt: Payment, type: ReceiptTax) {
                 </template>
                 <template v-else><span /><span /></template>
             </div>
-            <div v-if="feesOf && feesOf(receipt)" class="grid items-center gap-4 bg-paper-light px-5 py-2 text-13" :class="columns">
+            <div v-if="feesOf && feesOf(receipt)" class="mx-3 mb-3 grid items-center gap-4 rounded-lg bg-paper-light px-2 py-1.5 text-13" :class="columns">
                 <span />
                 <span class="hidden @min-[920px]:block" />
-                <span class="num text-right font-semibold whitespace-nowrap text-positive">
-                    <span class="font-sans text-12 font-normal text-ink-3">{{ t('money.receiptCard.netShort') }}</span>
-                    {{ feesOf(receipt)?.net !== null ? formatCompact(feesOf(receipt)!.net!, receipt.currency) : '—' }}
+                <span class="flex flex-col items-end gap-0.5">
+                    <span v-if="receipt.currency !== 'UAH'" class="num font-semibold whitespace-nowrap text-positive">
+                        <span class="font-sans text-12 font-normal text-ink-3">{{ t('money.receiptCard.netShort') }}</span>
+                        {{ feesOf(receipt)?.net !== null ? formatCompact(feesOf(receipt)!.net!, receipt.currency) : '—' }}
+                    </span>
+                    <span class="num font-semibold whitespace-nowrap text-positive @min-[920px]:hidden">
+                        <span v-if="receipt.currency === 'UAH'" class="font-sans text-12 font-normal text-ink-3">{{ t('money.receiptCard.netShort') }}</span>
+                        {{ netUah(receipt, feesOf(receipt)?.net) !== null ? formatCompact(netUah(receipt, feesOf(receipt)?.net), 'UAH') : '—' }}
+                    </span>
                 </span>
-                <span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" />
+                <span class="hidden @min-[920px]:block" />
+                <span class="num hidden text-right font-semibold whitespace-nowrap text-positive @min-[920px]:block">
+                    <span class="font-sans text-12 font-normal text-ink-3">{{ t('money.receiptCard.netShort') }}</span>
+                    {{ netUah(receipt, feesOf(receipt)?.net) !== null ? formatCompact(netUah(receipt, feesOf(receipt)?.net), 'UAH') : '—' }}
+                </span>
                 <span class="num text-right whitespace-nowrap">
                     <span class="font-sans text-12 text-ink-3">{{ t('money.receiptCard.feesShort') }}</span>
                     {{ feesOf(receipt)?.fees !== null ? formatCompact(feesOf(receipt)!.fees!, receipt.currency) : '—' }}

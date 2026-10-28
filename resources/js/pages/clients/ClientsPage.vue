@@ -5,6 +5,7 @@ import type { Client } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -71,14 +72,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
     <SubScreen title="" muted :back="{ name: 'more' }">
         <div class="-mt-1 flex items-center justify-between gap-3">
             <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('core.common.clients') }}</h1>
-            <RouterLink
-                v-if="can('create', 'clients')"
-                :to="{ name: 'client-new' }"
-                class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
-            >
-                <Icon name="plus" :size="20" />
-                {{ t('core.common.add') }}
-            </RouterLink>
+            <NewPill v-if="can('create', 'clients')" :to="{ name: 'client-new' }" />
         </div>
 
         <div class="relative">

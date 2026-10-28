@@ -30,9 +30,9 @@ const label = computed(() => {
         case 'paid':
             return t('core.taxPaymentStatus.paidOn', { date }).trim();
         case 'failed':
-            return t('core.taxPaymentStatus.failedShort');
+            return t('core.taxPaymentStatus.failed');
         default:
-            return t('core.taxPaymentStatus.unpaidShort');
+            return t('core.taxPaymentStatus.unpaid');
     }
 });
 </script>

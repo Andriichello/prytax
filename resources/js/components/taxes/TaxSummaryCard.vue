@@ -4,6 +4,7 @@ import type { TaxLedger, TaxType } from '@/api/types';
 import TaxBar from '@/components/taxes/TaxBar.vue';
 import TaxFigures from '@/components/taxes/TaxFigures.vue';
 import Icon from '@/components/ui/Icon.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { t } from '@/i18n';
 import { formatDate } from '@/utils/dates';
 import { compareAmounts, formatAmount } from '@/utils/money';
@@ -39,7 +40,9 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
         <div v-if="rows.length > 1" class="relative z-[1] -mx-4 flex flex-col gap-2 bg-ink px-4 pt-4 pb-3.5 text-white">
             <div class="flex items-baseline justify-between">
                 <span class="text-13 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('accounting.taxes.total') }}</span>
-                <span class="num text-15 font-semibold">{{ paidShare }} %</span>
+                <span class="text-15 font-semibold">
+                    <Translated :text="t('accounting.taxes.paidShare')"><template #percent><span class="num">{{ paidShare }}</span></template></Translated>
+                </span>
             </div>
             <TaxBar :accrued="summary.total.accrued" :sent="summary.total.sent" :paid="summary.total.paid" :parts="quarters" dark />
             <TaxFigures :figures="summary.total" dark class="pt-0.5" />

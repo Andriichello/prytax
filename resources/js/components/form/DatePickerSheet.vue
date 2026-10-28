@@ -1,221 +1,164 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import DateCalendar from '@/components/form/DateCalendar.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
-import Icon from '@/components/ui/Icon.vue';
+import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { t } from '@/i18n';
-import { calendarWeeks, dateOf, dateParts, daysInMonth, formatDate, formatMonthYear, monthName, today, weekdayNames } from '@/utils/dates';
+import { addDays, presetRange, rangeDays, RANGE_PRESETS, tapRange, type PickedRange, type RangePreset } from '@/utils/datePicker';
+import { dateParts, formatDate, formatDayMonth, today as todayInKyiv } from '@/utils/dates';
 
 /**
- * The calendar of a date field, in a bottom sheet: the days of a month, Monday first, with today ringed and the chosen
- * day filled; the month's title turns to the months of a year, for a jump to another month or year. Days outside
- * `min`–`max` can't be picked, and the arrows stop at them. Picking a day, or «Сьогодні», closes the sheet. Both
- * views take the height of six weeks, so the sheet doesn't jump from month to month.
+ * The date picker of a field on mobile (design.md §16.6): a bottom sheet titled with the field's label, with a sticky
+ * «Готово». A single date has the chips «Сьогодні» and «Вчора»; a period has its presets, the day count and the
+ * hint. A tap picks at once, and the field follows live (`choose`, `range`); «Готово» and ✕ only close. Days outside
+ * `min`–`max` can't be picked, and `note` says why under the grid («Майбутні дати недоступні — …»).
  */
-const { title, value = '', min = undefined, max = undefined } = defineProps<{
+const { title, mode = 'single', value = '', from = '', to = '', min = undefined, max = undefined, note = undefined } = defineProps<{
     title: string;
-    /** The chosen date, `YYYY-MM-DD`, or '' without one. */
+    mode?: 'single' | 'range';
+    /** The chosen date of a single date, `YYYY-MM-DD`, or ''. */
     value?: string;
+    /** The period of a range. */
+    from?: string;
+    to?: string;
     min?: string;
     max?: string;
+    note?: string;
 }>();
 
 const open = defineModel<boolean>('open', { required: true });
-const emit = defineEmits<{ choose: [date: string] }>();
+const emit = defineEmits<{
+    choose: [date: string];
+    range: [range: PickedRange];
+}>();
 
-const view = ref<'days' | 'months'>('days');
+const todayDate = ref(todayInKyiv());
 const shown = ref({ year: 2026, month: 1 });
-const todayDate = ref(today());
+const picked = ref<PickedRange>({ start: '', end: '' });
 
 const allowed = (date: string): boolean => (!min || date >= min) && (!max || date <= max);
 
-/* Each opening shows the chosen day's month, else today's, held within the range */
+/* Each opening shows the chosen day's month (a period's start), else today's, held within the range */
 watch(open, (isOpen) => {
     if (!isOpen) {
         return;
     }
 
-    todayDate.value = today();
+    todayDate.value = todayInKyiv();
+    picked.value = { start: from, end: to };
 
-    const start = value || (min && todayDate.value < min ? min : max && todayDate.value > max ? max : todayDate.value);
-    const { year, month } = dateParts(start);
+    const chosen = mode === 'range' ? from : value;
+    const start = chosen || (min && todayDate.value < min ? min : max && todayDate.value > max ? max : todayDate.value);
 
-    shown.value = { year, month };
-    view.value = 'days';
+    shown.value = { year: dateParts(start).year, month: dateParts(start).month };
 }, { immediate: true });
 
-/** Whether a day of the month can be picked. */
-const monthAllowed = (year: number, month: number): boolean => (!max || dateOf(year, month, 1) <= max)
-    && (!min || dateOf(year, month, daysInMonth(year, month)) >= min);
-
-/** Whether a day of the year can be picked. */
-const yearAllowed = (year: number): boolean => (!max || `${year}-01-01` <= max) && (!min || `${year}-12-31` >= min);
-
-/** The month or year an arrow goes to. */
-function shifted(delta: number): { year: number; month: number } {
-    if (view.value === 'months') {
-        return { year: shown.value.year + delta, month: shown.value.month };
-    }
-
-    const index = shown.value.year * 12 + shown.value.month - 1 + delta;
-
-    return { year: Math.floor(index / 12), month: (index % 12) + 1 };
-}
-
-const canStep = (delta: number): boolean => {
-    const { year, month } = shifted(delta);
-
-    return view.value === 'months' ? yearAllowed(year) : monthAllowed(year, month);
-};
-
-function step(delta: number): void {
-    if (canStep(delta)) {
-        shown.value = shifted(delta);
-    }
-}
-
-/** Always six weeks, so the sheet keeps its height from month to month. */
-const weeks = computed(() => {
-    const rows = calendarWeeks(shown.value.year, shown.value.month);
-
-    while (rows.length < 6) {
-        rows.push(Array.from({ length: 7 }, () => null));
-    }
-
-    return rows;
-});
-const weekdays = computed(() => weekdayNames());
-const months = computed(() => Array.from({ length: 12 }, (_, index) => ({ month: index + 1, name: monthName(index + 1).slice(0, 3) })));
-
-const selectedMonth = computed(() => (value ? dateParts(value) : null));
-const currentMonth = computed(() => dateParts(todayDate.value));
+const yesterday = computed(() => addDays(todayDate.value, -1));
 
 function choose(date: string): void {
-    if (allowed(date)) {
-        emit('choose', date);
-        open.value = false;
-    }
-}
-
-function chooseMonth(month: number): void {
-    shown.value = { year: shown.value.year, month };
-    view.value = 'days';
-}
-
-const dayClass = (date: string): string => {
     if (!allowed(date)) {
-        return 'text-switch-off';
+        return;
     }
 
-    if (date === value) {
-        return 'bg-accent font-semibold text-white';
+    if (mode === 'single') {
+        emit('choose', date);
+        shown.value = { year: dateParts(date).year, month: dateParts(date).month };
+
+        return;
     }
 
-    return date === todayDate.value ? 'border-2 border-accent font-semibold text-accent' : 'text-ink hover:bg-accent-soft';
-};
+    picked.value = tapRange(picked.value, date);
+    emit('range', picked.value);
+}
 
-const monthClass = (month: number): string => {
-    const { year } = shown.value;
+function applyPreset(preset: RangePreset): void {
+    const range = presetRange(preset, todayDate.value);
 
-    if (!monthAllowed(year, month)) {
-        return 'border border-dashed border-line-input text-switch-off';
-    }
+    picked.value = range;
+    shown.value = { year: dateParts(range.start).year, month: dateParts(range.start).month };
+    emit('range', range);
+}
 
-    if (selectedMonth.value?.year === year && selectedMonth.value.month === month) {
-        return 'border-2 border-accent bg-accent-soft font-semibold text-accent-hover';
-    }
+const presetLabel = (preset: RangePreset): string => ({
+    thisMonth: t('shell.dateField.presets.thisMonth'),
+    nextMonth: t('shell.dateField.presets.nextMonth'),
+    lastMonth: t('shell.dateField.presets.lastMonth'),
+    thisQuarter: t('shell.dateField.presets.thisQuarter'),
+})[preset];
 
-    return currentMonth.value.year === year && currentMonth.value.month === month
-        ? 'border-2 border-line-input bg-surface font-semibold'
-        : 'border border-line-input bg-surface';
-};
+const presets = computed(() => RANGE_PRESETS.map((preset) => {
+    const range = presetRange(preset, todayDate.value);
+
+    return { preset, label: presetLabel(preset), on: range.start === picked.value.start && range.end === picked.value.end };
+}));
+
+const quickDays = computed(() => [
+    { date: todayDate.value, label: t('shell.dateField.today') },
+    { date: yesterday.value, label: t('shell.dateField.yesterday') },
+].filter((day) => allowed(day.date)));
+
+const summary = computed(() => (picked.value.start && picked.value.end
+    ? t('shell.dateField.periodDays', {
+        from: formatDayMonth(picked.value.start),
+        to: formatDate(picked.value.end),
+        days: rangeDays(picked.value.start, picked.value.end),
+    })
+    : null));
+
+const chipClass = (on: boolean): string => (on ? 'border-ink bg-ink font-medium text-white' : 'border-line-input bg-surface text-ink');
 </script>
 
 <template>
     <BottomSheet v-model:open="open" :title="title">
         <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-1">
+            <div v-if="mode === 'single'" class="flex gap-2">
                 <button
+                    v-for="day in quickDays"
+                    :key="day.date"
                     type="button"
-                    :aria-label="view === 'days' ? t('shell.dateField.previousMonth') : t('shell.dateField.previousYear')"
-                    :disabled="!canStep(-1)"
-                    class="flex size-11 items-center justify-center rounded-full text-ink disabled:text-handle"
-                    @click="step(-1)"
+                    class="min-h-9 rounded-full border border-line-input bg-surface px-3.5 text-14 text-ink"
+                    @click="choose(day.date)"
                 >
-                    <Icon name="chevronLeft" :size="22" />
+                    {{ day.label }}
                 </button>
+            </div>
+            <div v-else class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
                 <button
+                    v-for="item in presets"
+                    :key="item.preset"
                     type="button"
-                    :aria-label="t('shell.dateField.chooseMonth')"
-                    :aria-expanded="view === 'months' ? 'true' : 'false'"
-                    class="flex h-11 flex-1 items-center justify-center gap-1 rounded-full text-17 font-semibold"
-                    aria-live="polite"
-                    @click="view = view === 'days' ? 'months' : 'days'"
+                    class="min-h-9 shrink-0 rounded-full border px-3.5 text-14 whitespace-nowrap"
+                    :class="chipClass(item.on)"
+                    @click="applyPreset(item.preset)"
                 >
-                    {{ view === 'days' ? formatMonthYear(shown.year, shown.month) : shown.year }}
-                    <Icon name="chevronDown" :size="18" class="text-ink-3 transition-transform" :class="view === 'months' ? 'rotate-180' : ''" />
-                </button>
-                <button
-                    type="button"
-                    :aria-label="view === 'days' ? t('shell.dateField.nextMonth') : t('shell.dateField.nextYear')"
-                    :disabled="!canStep(1)"
-                    class="flex size-11 items-center justify-center rounded-full text-ink disabled:text-handle"
-                    @click="step(1)"
-                >
-                    <Icon name="chevronRight" :size="22" />
+                    {{ item.label }}
                 </button>
             </div>
 
-            <div v-if="view === 'days'" class="flex h-78 flex-col gap-1">
-                <div class="grid grid-cols-7" aria-hidden="true">
-                    <span
-                        v-for="(name, index) in weekdays"
-                        :key="name"
-                        class="py-1 text-center text-12 font-medium"
-                        :class="index >= 5 ? 'text-ink-4' : 'text-ink-3'"
-                    >{{ name }}</span>
-                </div>
-                <div v-for="(week, index) in weeks" :key="index" class="grid h-11 grid-cols-7">
-                    <span v-for="(date, day) in week" :key="date ?? `blank-${day}`" class="flex justify-center">
-                        <button
-                            v-if="date"
-                            type="button"
-                            :disabled="!allowed(date)"
-                            :aria-label="formatDate(date)"
-                            :aria-pressed="date === value ? 'true' : 'false'"
-                            :aria-current="date === todayDate ? 'date' : undefined"
-                            class="num flex size-11 items-center justify-center rounded-full text-16 disabled:cursor-not-allowed"
-                            :class="dayClass(date)"
-                            @click="choose(date)"
-                        >
-                            {{ dateParts(date).day }}
-                        </button>
-                    </span>
-                </div>
-            </div>
+            <DateCalendar
+                v-model:shown="shown"
+                :selected="mode === 'single' ? value : undefined"
+                :range="mode === 'range' ? picked : undefined"
+                :min="min"
+                :max="max"
+                :today="todayDate"
+                @pick="choose"
+            />
 
-            <div v-else class="grid h-78 grid-cols-3 grid-rows-4 gap-2">
-                <button
-                    v-for="item in months"
-                    :key="item.month"
-                    type="button"
-                    :disabled="!monthAllowed(shown.year, item.month)"
-                    :aria-pressed="selectedMonth?.year === shown.year && selectedMonth.month === item.month ? 'true' : 'false'"
-                    class="flex items-center justify-center rounded-control text-15"
-                    :class="monthClass(item.month)"
-                    @click="chooseMonth(item.month)"
-                >
-                    {{ item.name }}
-                </button>
+            <div v-if="mode === 'range'" class="flex items-baseline justify-between gap-3 px-0.5">
+                <span class="text-14 text-ink-3">{{ t('shell.dateField.period') }}</span>
+                <span v-if="summary" class="num text-15 font-semibold">{{ summary }}</span>
+                <span v-else class="text-15 font-semibold text-accent">{{ t('shell.dateField.chooseEnd') }}</span>
             </div>
-
-            <button
-                v-if="allowed(todayDate)"
-                type="button"
-                class="flex h-12 items-center justify-center gap-2 rounded-button border border-line-input bg-surface text-15 font-medium text-accent"
-                @click="choose(todayDate)"
-            >
-                {{ t('shell.dateField.today') }} · <span class="num">{{ formatDate(todayDate) }}</span>
-            </button>
         </div>
+
+        <template #footer>
+            <div class="flex flex-col gap-3">
+                <p v-if="mode === 'range' || note" class="m-0 text-center text-13 leading-[1.4] text-ink-3">
+                    {{ mode === 'range' ? t('shell.dateField.rangeHint') : note }}
+                </p>
+                <PrimaryButton @click="open = false">{{ t('shell.dateField.done') }}</PrimaryButton>
+            </div>
+        </template>
     </BottomSheet>
 </template>

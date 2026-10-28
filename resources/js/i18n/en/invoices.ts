@@ -29,6 +29,9 @@ export default {
         noNumber: 'no number',
         nextNumber: 'next {number}',
         external: 'external',
+        allClients: 'All clients',
+        allStatuses: 'All statuses',
+        allCurrencies: 'All currencies',
     },
 
     filters: {
@@ -42,9 +45,6 @@ export default {
         issuedFrom: 'Issued from',
         through: 'to',
         hint: 'You can pick several of one kind. “Range” takes a start and an end date.',
-        showInvoices: 'Show invoices',
-        nothingFound: 'Nothing found',
-        showCount: 'Show {invoices}',
     },
 
     detail: {
@@ -186,6 +186,7 @@ export default {
         attachExplained: 'The receipt moves to it, and this record is deleted.',
         noIssued: 'The client has no issued invoices in {currency}.',
         openReceipt: 'Open the receipt',
+        record: 'Record',
     },
 
     numberParts: {

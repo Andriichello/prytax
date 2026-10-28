@@ -54,6 +54,7 @@ export default {
         recipient: 'Recipient',
         receipts: 'Receipts',
         receipt: 'Receipt',
+        export: 'Export',
     },
 
     invoiceStatus: {
@@ -84,10 +85,8 @@ export default {
         paid: 'Paid',
         failed: 'Failed',
         unpaid: 'Not paid',
-        sentOn: 'sent {date}',
-        paidOn: 'paid {date}',
-        failedShort: 'failed',
-        unpaidShort: 'not paid',
+        sentOn: 'Sent {date}',
+        paidOn: 'Paid {date}',
     },
 
     taxes: {

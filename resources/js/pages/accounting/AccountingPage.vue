@@ -9,9 +9,11 @@ import TabScreen from '@/components/layout/TabScreen.vue';
 import MonthCard from '@/components/payment/MonthCard.vue';
 import ReceiptTaxCard from '@/components/payment/ReceiptTaxCard.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import ExportBlock from '@/components/ui/ExportBlock.vue';
+import ExportButton from '@/components/ui/ExportButton.vue';
 import FilterBadge from '@/components/ui/FilterBadge.vue';
-import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import PeriodFilterSheet, { type PeriodFilter } from '@/components/ui/PeriodFilterSheet.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SwitchTile from '@/components/ui/SwitchTile.vue';
@@ -166,14 +168,7 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
 <template>
     <TabScreen :title="t('shell.nav.accounting')">
         <template #title-action>
-            <RouterLink
-                v-if="can('create', 'payments')"
-                :to="{ name: 'payment-pick' }"
-                class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
-            >
-                <Icon name="plus" :size="20" />
-                {{ t('core.common.receipt') }}
-            </RouterLink>
+            <NewPill v-if="can('create', 'payments')" :to="{ name: 'payment-pick' }" :label="t('core.common.receipt')" />
         </template>
         <template #filters>
             <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
@@ -185,12 +180,12 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="data">
                 <section v-if="data.card" class="flex flex-col gap-2.5">
-                    <SectionTitle rule>{{ t('accounting.quarters.summary') }}</SectionTitle>
+                    <SectionTitle>{{ t('accounting.quarters.summary') }}</SectionTitle>
                     <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" />
                 </section>
 
                 <section class="flex flex-col gap-2.5">
-                    <SectionTitle rule>{{ t('core.common.receipts') }}</SectionTitle>
+                    <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
                     <div class="grid grid-cols-2 gap-2">
                         <SwitchTile v-model="showTaxes" :label="t('shell.nav.taxes')" />
                         <SwitchTile v-model="showFees" :label="t('accounting.quarters.feesNet')" />
@@ -232,22 +227,13 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                         </MonthCard>
                     </template>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <a :href="exportQuarter" download class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink">
-                            <Icon name="download" :size="18" /> {{ t('accounting.quarters.quarterCsv') }}
-                        </a>
-                        <a :href="exportYear" download class="flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink no-underline hover:text-ink">
-                            <Icon name="download" :size="18" /> {{ t('accounting.quarters.yearCsv') }}
-                        </a>
-                        <button
-                            v-if="can('export', 'backup-runs')"
-                            type="button"
-                            class="col-span-2 flex h-12 items-center justify-center gap-2 rounded-control border border-line-input bg-surface text-15 font-medium text-ink"
-                            @click="exportOpen = true"
-                        >
-                            <Icon name="download" :size="18" /> {{ t('accounting.export.title') }}
-                        </button>
-                    </div>
+                    <ExportBlock>
+                        <ExportButton :href="exportQuarter">{{ t('accounting.quarters.quarterCsv') }}</ExportButton>
+                        <ExportButton :href="exportYear">{{ t('accounting.quarters.yearCsv') }}</ExportButton>
+                        <ExportButton v-if="can('export', 'backup-runs')" class="col-span-2" @click="exportOpen = true">
+                            {{ t('accounting.export.title') }}
+                        </ExportButton>
+                    </ExportBlock>
                 </section>
             </template>
         </LoadState>

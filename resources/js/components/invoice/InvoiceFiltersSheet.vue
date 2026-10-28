@@ -1,23 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { api } from '@/api/client';
-import type { InvoiceFacets, Paginated, Invoice } from '@/api/types';
-import DateField from '@/components/form/DateField.vue';
+import type { InvoiceFacets } from '@/api/types';
+import DateRangeField from '@/components/form/DateRangeField.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Chip from '@/components/ui/Chip.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Icon from '@/components/ui/Icon.vue';
-import { useCurrentProfile } from '@/composables/useCurrentProfile';
-import { STATUS_FILTERS, emptyFilters, filtersToApi, statusFilterLabel, type InvoiceFilters } from '@/composables/useInvoiceFilters';
+import { STATUS_FILTERS, emptyFilters, statusFilterLabel, type InvoiceFilters } from '@/composables/useInvoiceFilters';
 import { t } from '@/i18n';
 import { dateParts, monthName, quarterLabel, today } from '@/utils/dates';
 
 /**
  * Фільтри інвойсів (S-InvoiceFilters): a period (years, quarters, months, all multi-select, or a range of issue
- * dates — one kind at a time: switching the kind clears the other's choice), clients, statuses and currencies. The
- * button shows how many invoices the choice finds.
+ * dates — one kind at a time: switching the kind clears the other's choice), clients, statuses and currencies.
+ * «Застосувати» commits the draft (design.md §16.2, rule 5).
  */
 type PeriodMode = 'years' | 'quarters' | 'months' | 'range';
 
@@ -32,14 +30,10 @@ const { facets, filters } = defineProps<{
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ apply: [filters: InvoiceFilters] }>();
 
-const { path } = useCurrentProfile();
-
 const now = dateParts(today());
 const draft = ref<InvoiceFilters>(emptyFilters());
 const mode = ref<PeriodMode>('months');
 const shownYear = ref(now.year);
-const count = ref<number | null>(null);
-const counting = ref(false);
 
 const years = computed(() => {
     const known = (facets?.years ?? []).map((entry) => entry.year);
@@ -125,40 +119,6 @@ const monthToken = (month: number): string => `${shownYear.value}-${String(month
 const isFutureQuarter = (quarter: number): boolean => shownYear.value > now.year
     || (shownYear.value === now.year && (quarter - 1) * 3 + 1 > now.month);
 const isFutureMonth = (month: number): boolean => shownYear.value > now.year || (shownYear.value === now.year && month > now.month);
-
-let countTimer: ReturnType<typeof setTimeout> | undefined;
-let countRequest: AbortController | null = null;
-
-watch(draft, () => {
-    clearTimeout(countTimer);
-    countRequest?.abort();
-
-    if (!open.value) {
-        return;
-    }
-
-    counting.value = true;
-    countTimer = setTimeout(async () => {
-        const own = (countRequest = new AbortController());
-
-        try {
-            const result = await api.get<Paginated<Invoice>>(path('invoices'), {
-                filter: filtersToApi(draft.value),
-                page: { size: 1 },
-            }, own.signal);
-
-            count.value = result.meta.total;
-        } catch {
-            if (own === countRequest) {
-                count.value = null;
-            }
-        } finally {
-            if (own === countRequest) {
-                counting.value = false;
-            }
-        }
-    }, 250);
-}, { deep: true });
 
 function reset(): void {
     draft.value = emptyFilters();
@@ -253,10 +213,14 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
                 </div>
             </template>
 
-            <div v-else class="grid grid-cols-2 gap-2.5">
-                <DateField v-model="draft.from" :label="t('invoices.filters.issuedFrom')" :max="draft.to || undefined" />
-                <DateField v-model="draft.to" :label="t('invoices.filters.through')" :min="draft.from || undefined" />
-            </div>
+            <DateRangeField
+                v-else
+                v-model:from="draft.from"
+                v-model:to="draft.to"
+                :title="t('invoices.filters.range')"
+                :from-label="t('invoices.filters.issuedFrom')"
+                :to-label="t('invoices.filters.through')"
+            />
 
             <span class="text-13 text-ink-3">{{ t('invoices.filters.hint') }}</span>
         </fieldset>
@@ -301,9 +265,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         </fieldset>
 
         <template #footer>
-            <PrimaryButton :busy="counting && count === null" @click="apply">
-                {{ count === null ? t('invoices.filters.showInvoices') : count === 0 ? t('invoices.filters.nothingFound') : t('invoices.filters.showCount', { invoices: t('core.counts.invoices', { count }) }) }}
-            </PrimaryButton>
+            <PrimaryButton @click="apply">{{ t('shell.filters.apply') }}</PrimaryButton>
         </template>
     </BottomSheet>
 </template>

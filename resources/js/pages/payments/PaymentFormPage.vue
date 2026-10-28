@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ApiError, api, newIdempotencyKey } from '@/api/client';
 import type { Account, ApiResponse, Client, Contract, Invoice, InvoiceCoverage, Payment, PaymentGroupResponse, PaymentPreview, PaymentSavedResponse } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
+import DateRangeField from '@/components/form/DateRangeField.vue';
 import SelectField from '@/components/form/SelectField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import TextField from '@/components/form/TextField.vue';
@@ -621,22 +622,16 @@ const generalError = computed(() => {
                         :hint="t('money.paymentForm.whatForHint')"
                         :error="fieldError(shownError, 'virtual_invoice.notes')"
                     />
-                    <div class="flex flex-col gap-1.5">
-                        <div class="grid grid-cols-2 gap-2.5">
-                            <DateField
-                                v-model="form.period_start"
-                                :label="t('invoices.editor.periodFrom')"
-                                :error="fieldError(shownError, 'virtual_invoice.period_start')"
-                            />
-                            <DateField
-                                v-model="form.period_end"
-                                :label="t('invoices.filters.through')"
-                                :min="form.period_start || undefined"
-                                :error="fieldError(shownError, 'virtual_invoice.period_end')"
-                            />
-                        </div>
-                        <span class="text-12 text-ink-3">{{ t('money.paymentForm.servicePeriodHint') }}</span>
-                    </div>
+                    <DateRangeField
+                        v-model:from="form.period_start"
+                        v-model:to="form.period_end"
+                        :title="t('invoices.detail.servicePeriod')"
+                        :from-label="t('invoices.editor.periodFrom')"
+                        :to-label="t('invoices.filters.through')"
+                        :from-error="fieldError(shownError, 'virtual_invoice.period_start')"
+                        :to-error="fieldError(shownError, 'virtual_invoice.period_end')"
+                        :hint="t('money.paymentForm.servicePeriodHint')"
+                    />
                 </template>
                 <TextField
                     v-if="!form.virtual"
@@ -671,6 +666,7 @@ const generalError = computed(() => {
                         v-model="form.received_at"
                         :label="t('money.paymentForm.dateCredited')"
                         :max="today()"
+                        :picker-note="t('shell.dateField.futureUnavailable')"
                         :error="fieldError(shownError, 'received_at')"
                     />
                 </div>

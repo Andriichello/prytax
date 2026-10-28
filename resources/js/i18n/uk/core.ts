@@ -55,6 +55,7 @@ export default {
         recipient: 'Отримувач',
         receipts: 'Надходження',
         receipt: 'Надходження',
+        export: 'Експорт',
     },
 
     /** Statuses of invoices */
@@ -89,10 +90,8 @@ export default {
         paid: 'Сплачено',
         failed: 'Не пройшов',
         unpaid: 'Не сплачено',
-        sentOn: 'надіслано {date}',
-        paidOn: 'сплачено {date}',
-        failedShort: 'не пройшов',
-        unpaidShort: 'не сплачено',
+        sentOn: 'Надіслано {date}',
+        paidOn: 'Сплачено {date}',
     },
 
     /** The short names of the taxes */

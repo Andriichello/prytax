@@ -68,7 +68,8 @@
     --font-sans: 'Geologica', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
-    /* The sizes of the designs, named by their pixels: text-11 … text-30 */
+    /* The sizes of the designs, named by their pixels: text-10 … text-32 */
+    --text-10: 10px;
     --text-11: 11px;
     --text-12: 12px;
     --text-13: 13px;

@@ -22,6 +22,7 @@ import type {
 } from '@/api/types';
 import AccordionGroup from '@/components/form/AccordionGroup.vue';
 import DateField from '@/components/form/DateField.vue';
+import DateRangeField from '@/components/form/DateRangeField.vue';
 import Dimmable from '@/components/form/Dimmable.vue';
 import ReadRow from '@/components/form/ReadRow.vue';
 import SelectField from '@/components/form/SelectField.vue';
@@ -1033,18 +1034,17 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2.5" @input="dirty = true" @change="dirty = true">
-                            <DateField
-                                v-model="form.period_start"
-                                :label="t('invoices.editor.periodFrom')"
-                                :error="fieldError(saveError, 'period_start')"
-                                @update:model-value="touched.period = true"
-                            />
-                            <DateField
-                                v-model="form.period_end"
-                                :label="t('invoices.filters.through')"
-                                :min="form.period_start || undefined"
-                                :error="fieldError(saveError, 'period_end')"
-                                @update:model-value="touched.period = true"
+                            <DateRangeField
+                                v-model:from="form.period_start"
+                                v-model:to="form.period_end"
+                                class="col-span-2"
+                                :title="t('invoices.detail.servicePeriod')"
+                                :from-label="t('invoices.editor.periodFrom')"
+                                :to-label="t('invoices.filters.through')"
+                                :from-error="fieldError(saveError, 'period_start')"
+                                :to-error="fieldError(saveError, 'period_end')"
+                                @update:from="touched.period = true"
+                                @update:to="touched.period = true"
                             />
                             <DateField
                                 v-model="form.issued_at"
@@ -1300,18 +1300,17 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                     :error="fieldError(saveError, 'client_id')"
                 />
                 <div class="grid grid-cols-2 gap-2.5">
-                    <DateField
-                        v-model="form.period_start"
-                        :label="t('invoices.editor.periodFrom')"
-                        :error="fieldError(saveError, 'period_start')"
-                        @update:model-value="touched.period = true"
-                    />
-                    <DateField
-                        v-model="form.period_end"
-                        :label="t('invoices.filters.through')"
-                        :min="form.period_start || undefined"
-                        :error="fieldError(saveError, 'period_end')"
-                        @update:model-value="touched.period = true"
+                    <DateRangeField
+                        v-model:from="form.period_start"
+                        v-model:to="form.period_end"
+                        class="col-span-2"
+                        :title="t('invoices.detail.servicePeriod')"
+                        :from-label="t('invoices.editor.periodFrom')"
+                        :to-label="t('invoices.filters.through')"
+                        :from-error="fieldError(saveError, 'period_start')"
+                        :to-error="fieldError(saveError, 'period_end')"
+                        @update:from="touched.period = true"
+                        @update:to="touched.period = true"
                     />
                     <DateField
                         v-model="form.issued_at"

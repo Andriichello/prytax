@@ -92,11 +92,11 @@ const isEmpty = computed(() => ledger.value !== null && ledger.value.summary.row
                 <EmptyState v-if="isEmpty" :text="t('accounting.taxes.empty')" />
                 <template v-else>
                     <section v-if="ledger.summary.rows.length > 0" class="flex flex-col gap-2.5">
-                        <SectionTitle rule>{{ t('accounting.taxes.summaryTitle') }}</SectionTitle>
+                        <SectionTitle>{{ t('accounting.taxes.summaryTitle') }}</SectionTitle>
                         <TaxSummaryCard :summary="ledger.summary" :quarters="filter.quarters.length || 4" />
                     </section>
                     <section v-if="ledger.months.length > 0" class="flex flex-col gap-2.5">
-                        <SectionTitle rule>{{ t('accounting.taxes.byMonth') }}</SectionTitle>
+                        <SectionTitle>{{ t('accounting.taxes.byMonth') }}</SectionTitle>
                         <TaxLedgerMonth v-for="month in ledger.months" :key="month.month" :month="month" :can-pay="canPay" />
                         <p class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('accounting.taxes.footnote') }}</p>
                     </section>

@@ -4,7 +4,7 @@ import { api } from '@/api/client';
 import type { Account, AccountKind, LimitPeriod } from '@/api/types';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
-import Icon from '@/components/ui/Icon.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -81,14 +81,7 @@ function caption(account: Account): string {
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.accounts.title') }}</h1>
-                <RouterLink
-                    v-if="can('create', 'accounts')"
-                    :to="{ name: 'account-new' }"
-                    class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
-                >
-                    <Icon name="plus" :size="20" />
-                    {{ t('core.common.add') }}
-                </RouterLink>
+                <NewPill v-if="can('create', 'accounts')" :to="{ name: 'account-new' }" />
             </div>
             <p class="m-0 text-14 leading-[1.45] text-ink-3">
                 {{ t('money.accounts.balancesNote') }}

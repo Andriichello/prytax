@@ -30,6 +30,9 @@ export default {
         noNumber: 'без номера',
         nextNumber: 'наст. {number}',
         external: 'зовнішній',
+        allClients: 'Усі клієнти',
+        allStatuses: 'Усі статуси',
+        allCurrencies: 'Усі валюти',
     },
 
     /** Фільтри інвойсів */
@@ -44,9 +47,6 @@ export default {
         issuedFrom: 'Виставлено з',
         through: 'по',
         hint: 'Можна обрати кілька одного виду. У «Діапазон» — дата початку й кінця.',
-        showInvoices: 'Показати інвойси',
-        nothingFound: 'Нічого не знайдено',
-        showCount: 'Показати {invoices}',
     },
 
     /** Інвойс: the invoice page, its steps and items */
@@ -190,6 +190,7 @@ export default {
         attachExplained: 'Надходження перейде до нього, а цей запис буде видалено.',
         noIssued: 'У клієнта немає виставлених інвойсів у {currency}.',
         openReceipt: 'Відкрити надходження',
+        record: 'Запис',
     },
 
     /** The parts of an invoice number, inside a sentence */

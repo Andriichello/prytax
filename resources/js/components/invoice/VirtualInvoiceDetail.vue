@@ -94,7 +94,7 @@ async function attach(target: Invoice): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="t('shell.nav.invoices')" muted :back="{ name: 'invoices' }">
+    <SubScreen :title="t('invoices.virtual.record')" muted :back="{ name: 'invoices' }">
         <template v-if="payment" #action>
             <button
                 type="button"

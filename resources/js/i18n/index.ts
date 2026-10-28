@@ -4,14 +4,14 @@ import type { KeysOf, Messages, PluralForms } from '@/i18n/types';
 import uk from '@/i18n/uk';
 
 /**
- * The languages of the screens: each has its dictionary (`i18n/{locale}/*.ts`, with the keys of the Ukrainian one)
- * and its name in itself, for the switch. A language is added with its folder and a line here; the API answers in it
- * once `api-core.locales` has it too.
+ * The languages of the screens: each has its dictionary (`i18n/{locale}/*.ts`, with the keys of the Ukrainian one),
+ * its name in itself and in another of them (the language sheet shows both, design.md §16.6). A language is added
+ * with its folder and a line here; the API answers in it once `api-core.locales` has it too.
  */
 const LANGUAGES = {
-    uk: { name: 'Українська', messages: uk }, // i18n-ignore
-    en: { name: 'English', messages: en },
-} satisfies Record<string, { name: string; messages: Messages }>;
+    uk: { name: 'Українська', otherName: 'Ukrainian', messages: uk }, // i18n-ignore
+    en: { name: 'English', otherName: 'Англійська', messages: en }, // i18n-ignore
+} satisfies Record<string, { name: string; otherName: string; messages: Messages }>;
 
 export type Locale = keyof typeof LANGUAGES;
 
@@ -22,6 +22,9 @@ export const DEFAULT_LOCALE: Locale = 'uk';
 
 /** The name of each language in itself, for the switch. */
 export const LOCALE_NAMES = Object.fromEntries(LOCALES.map((code) => [code, LANGUAGES[code].name])) as Record<Locale, string>;
+
+/** The name of each language in another one: «Ukrainian», «Англійська». */
+export const LOCALE_OTHER_NAMES = Object.fromEntries(LOCALES.map((code) => [code, LANGUAGES[code].otherName])) as Record<Locale, string>;
 
 /** A key of the dictionaries: 'invoices.editor.issueDate'. */
 export type MessageKey = KeysOf<typeof uk>;

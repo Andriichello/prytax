@@ -289,6 +289,15 @@ export interface UploadedInvoiceFile extends StoredFile {
 // ---- Profiles & settings ----
 
 /** A ФОП of the organization: `profiles`, `profiles/{id}`. */
+/** The status line of a ФОП on «ФОП організації»: what it has to pay, its overdue invoices, its next ЄСВ deadline. */
+export interface ProfileStatus {
+    /** The unpaid ЄП, ВЗ and ЄСВ of the ledger, in UAH. */
+    taxes_to_pay: Amount;
+    overdue_invoices: number;
+    /** The earliest deadline of its unpaid ЄСВ. */
+    esv_due_at: DateString | null;
+}
+
 export interface Profile {
     id: number;
     organization_id: number;
@@ -323,6 +332,8 @@ export interface Profile {
     unread_alerts_count?: number;
     /** Append: whether a quarter's declaration was corrected, so an уточнююча декларація is due. */
     needs_correction?: boolean;
+    /** Append: the status line of «ФОП організації». */
+    status?: ProfileStatus;
     /** Append: the document settings, which its clients take. */
     effective_invoice_settings?: EffectiveInvoiceSettings;
     /** Append: the built-in texts of invoices in each language. */
@@ -2159,4 +2170,84 @@ export interface PracticeOverview {
     profiles: OverviewCard[];
     /** Profiles left out. */
     inactive_count: number;
+}
+
+// ---- Книги обліку ----
+
+/** A receipt (or a refund, negative) of the income book's month, with the running total after it. */
+export interface IncomeBookEntry {
+    kind: 'receipt' | 'refund';
+    id: number;
+    /** The receipt, which a refund returns money of. */
+    payment_id: number;
+    credited_on: DateString;
+    client: string | null;
+    invoice_number: string | null;
+    virtual: boolean;
+    amount_uah: Amount;
+    ytd_after: Amount;
+}
+
+/** A started month of the income book: `ok` with receipts, `no_income` past and empty, `not_yet` current and empty. */
+export interface IncomeBookMonth {
+    month: number;
+    total: Amount;
+    ytd_end: Amount;
+    count: number;
+    state: 'ok' | 'no_income' | 'not_yet';
+    current: boolean;
+    /** Newest first. */
+    receipts: IncomeBookEntry[];
+}
+
+/** The income book of a year (`books/{year}/income`): the started quarters, newest first. */
+export interface IncomeBookYear {
+    year: number;
+    ytd: Amount;
+    has_receipts: boolean;
+    limit: { cap: Amount; percent: Percent; left: Amount };
+    quarters: {
+        quarter: number;
+        total: Amount;
+        ytd_end: Amount;
+        current: boolean;
+        /** Newest first. */
+        months: IncomeBookMonth[];
+    }[];
+}
+
+/** A segment of a tax's bar in the books: a month of ЄСВ or a quarter of ЄП and ВЗ. */
+export interface TaxesBookSegment {
+    period: number;
+    accrued: Amount;
+    sent: Amount;
+    paid: Amount;
+    state: 'none' | 'unpaid' | 'sent' | 'paid';
+}
+
+/** The taxes of a year (`books/{year}/taxes`), on the tax ledger. */
+export interface TaxesBookYear {
+    year: number;
+    /** ЄСВ of a month in the year's rule, for the footnote. */
+    esv_monthly: Amount | null;
+    totals: { accrued: Amount; sent: Amount; paid: Amount; percent: Percent };
+    /** I кв. … to each started quarter, newest first. */
+    cumulative: {
+        to_quarter: number;
+        current: boolean;
+        total: Amount;
+        rows: { tax_type: TaxType; quarter: Amount; cumulative: Amount; sent: Amount; paid: Amount }[];
+    }[];
+    by_tax: {
+        tax_type: TaxType;
+        accrued: Amount;
+        sent: Amount;
+        paid: Amount;
+        /** The earliest deadline of what isn't paid yet, and its month (ЄСВ) or quarter. */
+        due_at: DateString | null;
+        due_period: number | null;
+        segments: TaxesBookSegment[];
+        /** Newest first. */
+        quarters: { quarter: number; amount: Amount; cumulative: Amount }[];
+    }[];
 }

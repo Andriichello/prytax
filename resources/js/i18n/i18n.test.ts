@@ -188,12 +188,12 @@ describe('t', () => {
     });
 
     it('gives the text of the current language, and fills in the placeholders', () => {
-        expect(t('shell.more.language')).toBe('Мова');
+        expect(t('shell.more.appLanguage')).toBe('Мова застосунку');
         expect(t('invoices.list.nextNumber', { number: 14 })).toBe('наст. 14');
 
         locale.value = 'en';
 
-        expect(t('shell.more.language')).toBe('Language');
+        expect(t('shell.more.appLanguage')).toBe('App language');
         expect(t('invoices.list.nextNumber', { number: 14 })).toBe('next 14');
     });
 

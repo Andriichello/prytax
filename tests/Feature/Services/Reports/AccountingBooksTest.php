@@ -170,5 +170,7 @@ class AccountingBooksTest extends TestCase
         $esv = array_column($byTax['social_contribution']['segments'], 'state', 'period');
         $this->assertSame(['paid', 'unpaid', 'unpaid'], [$esv[9], $esv[10], $esv[12]]);
         $this->assertSame([1 => 'unpaid', 2 => 'none', 3 => 'none', 4 => 'sent'], array_column($byTax['single_tax']['segments'], 'state', 'period'));
+        $this->assertSame(['2050.00', '2050.00', '0.00'], array_values(array_intersect_key($byTax['single_tax']['segments'][3], array_flip(['accrued', 'sent', 'paid']))));
+        $this->assertSame([1, '2026-05-20'], [$byTax['single_tax']['due_period'], $byTax['single_tax']['due_at']]);
     }
 }

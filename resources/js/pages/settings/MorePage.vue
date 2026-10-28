@@ -4,19 +4,22 @@ import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { Account, Client, Paginated } from '@/api/types';
 import TabScreen from '@/components/layout/TabScreen.vue';
+import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
-import LanguageSwitch from '@/components/ui/LanguageSwitch.vue';
+import LanguageSheet from '@/components/ui/LanguageSheet.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
-import { t } from '@/i18n';
+import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { styleName } from '@/utils/invoiceStyles';
 
 /**
- * Ще (M-More, design.md §16.5): money and counterparties, the ФОП's settings, the invoices' numbering and document,
- * the organization (users, backups) with signing out, and the language. Комісії opens from Перекази.
+ * Ще (M-More, design.md §16.5): the «ФОП» card, which switches to another ФОП of the organization; money and
+ * counterparties, the ФОП's settings, the invoices' numbering and document, the organization (users, backups, the
+ * app's language) with signing out. Комісії opens from Перекази.
  */
 
 /**
@@ -37,7 +40,9 @@ function roleName(role: string): string {
 
 const router = useRouter();
 const { user, can, signOut } = useSession();
-const { profileId, path, reset, settings } = useCurrentProfile();
+const { profile, profiles, profileId, path, reset, settings } = useCurrentProfile();
+
+const languageOpen = ref(false);
 
 const { data: counts } = useLoader(async (signal) => {
     const [accounts, clients] = await Promise.all([
@@ -101,6 +106,33 @@ async function leave(): Promise<void> {
 
 <template>
     <TabScreen :title="t('shell.more.more')">
+        <section v-if="profile" class="flex flex-col gap-2">
+            <SectionTitle>{{ t('shell.profiles.fop') }}</SectionTitle>
+            <div class="flex flex-col rounded-card border border-line bg-surface px-4">
+                <div class="flex items-center gap-3 py-3.5">
+                    <Avatar :initials="profile.initials" variant="dark" :size="44" />
+                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span class="truncate text-17 font-semibold">{{ profile.full_name }}</span>
+                        <span class="text-13 text-ink-3">
+                            <Translated :text="t('shell.profiles.fopLine', { group: profile.tax_group })">
+                                <template #taxId>
+                                    <Translated :text="profile.tax_id_kind === 'passport' ? t('shell.profiles.passportMasked') : t('shell.profiles.taxIdMasked')">
+                                        <template #masked><span class="num">{{ profile.tax_id_masked }}</span></template>
+                                    </Translated>
+                                </template>
+                            </Translated>
+                        </span>
+                    </span>
+                </div>
+                <RouterLink :to="{ name: 'profiles' }" class="flex min-h-13 items-center gap-2.5 border-t border-divider text-accent no-underline hover:text-accent-hover">
+                    <Icon name="transfer" :size="20" />
+                    <span class="flex-1 text-16 font-medium">{{ t('shell.profiles.change') }}</span>
+                    <span class="text-14 text-ink-3">{{ t('shell.profiles.inOrganization', { count: profiles.length }) }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </RouterLink>
+            </div>
+        </section>
+
         <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
             <SectionTitle>{{ section.title }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
@@ -120,6 +152,17 @@ async function leave(): Promise<void> {
                 <button
                     v-if="section.key === 'organization'"
                     type="button"
+                    class="flex min-h-14 items-center gap-3.5 text-left text-ink"
+                    @click="languageOpen = true"
+                >
+                    <Icon name="globe" :size="22" />
+                    <span class="flex-1 text-16">{{ t('shell.more.appLanguage') }}</span>
+                    <span class="text-14 text-ink-3">{{ LOCALE_NAMES[locale] }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </button>
+                <button
+                    v-if="section.key === 'organization'"
+                    type="button"
                     class="flex min-h-14 items-center gap-3.5 text-left text-negative"
                     :disabled="signingOut"
                     @click="leave"
@@ -130,13 +173,11 @@ async function leave(): Promise<void> {
             </div>
         </section>
 
-        <section class="flex flex-col gap-2">
-            <SectionTitle>{{ t('shell.more.language') }}</SectionTitle>
-            <LanguageSwitch size="lg" />
-        </section>
 
         <p v-if="user" class="m-0 text-center text-13 text-ink-3">
             PryTax · {{ user.email }} · {{ user.roles.map(roleName).join(', ') }}
         </p>
+
+        <LanguageSheet v-model:open="languageOpen" :note="t('shell.more.appLanguageNote')" />
     </TabScreen>
 </template>

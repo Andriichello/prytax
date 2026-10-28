@@ -183,15 +183,17 @@ class AccountingBooks
             $own = $ofTax($type);
             $totals = $sums($own);
             $segments = $type === TaxType::SocialContribution
-                ? array_map(fn (int $month) => ['period' => $month, 'state' => $this->stateOf($sums($own->where('period_month', $month)))], range(1, 12))
-                : array_map(fn (int $quarter) => ['period' => $quarter, 'state' => $this->stateOf($sums($ofQuarter($own, $quarter)))], range(1, 4));
+                ? array_map(fn (int $month) => ['period' => $month, ...$this->segmentOf($sums($own->where('period_month', $month)))], range(1, 12))
+                : array_map(fn (int $quarter) => ['period' => $quarter, ...$this->segmentOf($sums($ofQuarter($own, $quarter)))], range(1, 4));
+            $due = $own->where('status', '!=', TaxPaymentStatus::Paid->value)->sortBy('due_at')->first();
 
             return [
                 'tax_type' => $type->value,
                 'accrued' => Decimal::money($totals['accrued']),
                 'sent' => Decimal::money($totals['sent']),
                 'paid' => Decimal::money($totals['paid']),
-                'due_at' => $own->where('status', '!=', TaxPaymentStatus::Paid->value)->min('due_at'),
+                'due_at' => $due['due_at'] ?? null,
+                'due_period' => $due === null ? null : ($type === TaxType::SocialContribution ? $due['period_month'] : $due['quarter']['quarter']),
                 'segments' => $segments,
                 'quarters' => array_map(fn (int $quarter) => [
                     'quarter' => $quarter,
@@ -219,12 +221,12 @@ class AccountingBooks
 
     /**
      * Get the receipts and refunds of the year in the order the money came: a receipt on its credit date, a refund (a
-     * negative amount) on its own date, each with its client and invoice.
+     * negative amount) on its own date, each with its receipt, client and invoice.
      *
      * @param Profile $profile
      * @param int $year
      *
-     * @return Collection<int, array{kind: string, id: int, month: int, credited_on: string, client: string|null, invoice_number: string|null, virtual: bool, amount: BigDecimal}>
+     * @return Collection<int, array{kind: string, id: int, payment_id: int, month: int, credited_on: string, client: string|null, invoice_number: string|null, virtual: bool, amount: BigDecimal}>
      */
     protected function entries(Profile $profile, int $year): Collection
     {
@@ -236,6 +238,7 @@ class AccountingBooks
             ->map(fn (Payment $payment) => [
                 'kind' => 'receipt',
                 'id' => $payment->id,
+                'payment_id' => $payment->id,
                 'month' => (int) $payment->period_month,
                 'credited_on' => $payment->received_at->toDateString(),
                 'client' => $payment->invoice?->client?->name,
@@ -252,6 +255,7 @@ class AccountingBooks
             ->map(fn (Refund $refund) => [
                 'kind' => 'refund',
                 'id' => $refund->id,
+                'payment_id' => $refund->payment_id,
                 'month' => (int) $refund->period_month,
                 'credited_on' => $refund->refunded_at->toDateString(),
                 'client' => $refund->payment?->invoice?->client?->name,
@@ -297,20 +301,27 @@ class AccountingBooks
     }
 
     /**
-     * Get the state of a segment: paid once its payments cover what is accrued, sent once sent and paid ones do, and
-     * unpaid otherwise (or none, when nothing is accrued).
+     * Get a segment of a tax's bar: its sums and its state, which is paid once its payments cover what is accrued,
+     * sent once sent and paid ones do, and unpaid otherwise (or none, when nothing is accrued).
      *
      * @param array{accrued: BigDecimal, sent: BigDecimal, paid: BigDecimal} $sums
      *
-     * @return string
+     * @return array{accrued: string, sent: string, paid: string, state: string}
      */
-    protected function stateOf(array $sums): string
+    protected function segmentOf(array $sums): array
     {
-        return match (true) {
+        $state = match (true) {
             $sums['accrued']->isZero() => 'none',
             $sums['paid']->isGreaterThanOrEqualTo($sums['accrued']) => 'paid',
             $sums['paid']->plus($sums['sent'])->isGreaterThanOrEqualTo($sums['accrued']) => 'sent',
             default => 'unpaid',
         };
+
+        return [
+            'accrued' => Decimal::money($sums['accrued']),
+            'sent' => Decimal::money($sums['sent']),
+            'paid' => Decimal::money($sums['paid']),
+            'state' => $state,
+        ];
     }
 }

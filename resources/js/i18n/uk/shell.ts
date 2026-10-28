@@ -84,11 +84,36 @@ export default {
         back: 'Назад',
         fopGroup: 'ФОП · {group} група',
         notificationsUnread: 'Сповіщення, непрочитаних: {count}',
+        books: 'Книги обліку',
+        barActions: 'Книги обліку й сповіщення',
+    },
+
+    /** ФОП організації: switching the ФОП, and Ще's «ФОП» card */
+    profiles: {
+        title: 'ФОП організації',
+        fop: 'ФОП',
+        change: 'Змінити ФОП',
+        inOrganization: '{count} в організації',
+        search: 'Пошук за ПІБ або РНОКПП',
+        searchLabel: 'Пошук ФОП',
+        active: 'Активні',
+        inactive: 'Неактивні',
+        current: 'Поточний ФОП',
+        taxIdMasked: 'РНОКПП {masked}',
+        passportMasked: 'Паспорт {masked}',
+        fopLine: 'ФОП · {group} група · {taxId}',
+        noAlerts: 'без сповіщень',
+        taxesToPay: '{amount} ₴ податків до сплати',
+        taxesPaid: 'податки сплачено',
+        esvDue: 'ЄСВ до {date}',
+        closedOn: 'Неактивний · закрито {date}',
+        inactiveShort: 'Неактивний',
+        nothingFound: 'Нікого не знайдено',
+        footnote: 'Перемикання змінює ФОП для всього застосунку: інвойси, облік, податки й налаштування. Користувачі й ролі — спільні для організації. Неактивного ФОП можна відкрити, щоб переглянути історію.',
     },
 
     /** Ще and the language switch */
     more: {
-        language: 'Мова',
         tagline: 'Облік доходів, інвойси та податки для ФОП 3 групи',
         more: 'Ще',
         moneyCounterparties: 'Гроші й контрагенти',
@@ -100,6 +125,9 @@ export default {
         organization: 'Організація',
         usersRoles: 'Користувачі й ролі',
         signOut: 'Вийти',
+        appLanguage: 'Мова застосунку',
+        appLanguageNote: 'Лише інтерфейс і лише для вас. Мова інвойсів — у «Документ інвойсу» та в картці клієнта.',
+        appLanguageGuestNote: 'Запам’ятаємо на цьому пристрої. Після входу мову можна змінити в «Ще › Мова застосунку».',
     },
 
     /** Сповіщення */

@@ -90,6 +90,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: () => import('@/pages/accounting/AccountingPage.vue'), meta: { tab: 'accounting' } },
     { path: '/accounting/esv', name: 'accounting-esv', redirect: (to) => ({ name: 'taxes', query: { year: to.query.year } }) },
     { path: '/accounting/income-book', name: 'income-book', redirect: { name: 'accounting' } },
+    { path: '/books', name: 'books', component: () => import('@/pages/books/BooksPage.vue') },
     { path: '/fees', name: 'fees', component: () => import('@/pages/accounting/FeesPage.vue') },
 
     { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes', keepAlive: true } },
@@ -109,6 +110,7 @@ const routes: RouteRecordRaw[] = [
     },
 
     { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },
+    { path: '/profiles', name: 'profiles', component: () => import('@/pages/settings/ProfileSwitchPage.vue') },
     { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue'), meta: { can: ['create', 'profiles'], denied: 'more' } },
     { path: '/settings/profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfileFormPage.vue') },
     { path: '/settings/numbering', name: 'settings-numbering', component: () => import('@/pages/settings/NumberingSettingsPage.vue') },
@@ -136,9 +138,17 @@ export const router = createRouter({
 
 /**
  * Where each tab's own screen was left (its address with the filters), so the tab bar returns to it as it was: the
- * route of a tab's screen is named after the tab. Signing in starts afresh.
+ * route of a tab's screen is named after the tab. Signing in, and switching the ФОП, start afresh.
  */
 export const tabPaths = reactive<Partial<Record<TabName, string>>>({});
+
+/** The ФОП, whose places `tabPaths` and `keptScroll` hold. */
+let placesOf: number | null = null;
+
+function forgetPlaces(): void {
+    keptScroll.clear();
+    (Object.keys(tabPaths) as TabName[]).forEach((tab) => delete tabPaths[tab]);
+}
 
 router.beforeEach((_to, from) => {
     if (from.meta.keepAlive) {
@@ -151,10 +161,14 @@ router.afterEach((to, _from, failure) => {
         return;
     }
 
-    if (to.meta.guest) {
-        keptScroll.clear();
-        (Object.keys(tabPaths) as TabName[]).forEach((tab) => delete tabPaths[tab]);
-    } else if (to.meta.tab && to.name === to.meta.tab) {
+    const profileId = useCurrentProfile().profileId.value;
+
+    if (to.meta.guest || profileId !== placesOf) {
+        forgetPlaces();
+        placesOf = profileId;
+    }
+
+    if (!to.meta.guest && to.meta.tab && to.name === to.meta.tab) {
         tabPaths[to.meta.tab] = to.fullPath;
     }
 });

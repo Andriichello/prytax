@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import BarActions from '@/components/layout/BarActions.vue';
 import Avatar from '@/components/ui/Avatar.vue';
-import Icon from '@/components/ui/Icon.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { t } from '@/i18n';
 
 /**
- * The top bar of the root screens: the current ФОП, which is one per session (design.md §16.1), so its chip is static,
- * and the bell with the unread notifications, which opens Сповіщення. The count is read again on each root screen, as
- * notifications come and go with every write and the nightly check.
+ * The top bar of the root screens: the current ФОП, whose chip is static (it is switched on Ще, design.md §16.1), and
+ * the 📖 | 🔔 capsule. The unread count is read again on each root screen, as notifications come and go with every
+ * write and the nightly check.
  */
 const { profile, loadProfiles } = useCurrentProfile();
 
@@ -26,18 +26,6 @@ onMounted(() => void loadProfiles().catch(() => undefined));
                 <span class="text-11 text-ink-3">{{ t('shell.nav.fopGroup', { group: profile?.tax_group ?? 3 }) }}</span>
             </span>
         </div>
-        <RouterLink
-            :to="{ name: 'alerts' }"
-            :aria-label="unread ? t('shell.nav.notificationsUnread', { count: unread }) : t('shell.alerts.notifications')"
-            class="relative flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink hover:text-ink"
-        >
-            <Icon name="bell" :size="22" />
-            <span
-                v-if="unread"
-                class="absolute -top-0.5 -right-0.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-negative px-1 text-11 font-semibold text-white"
-            >
-                {{ unread }}
-            </span>
-        </RouterLink>
+        <BarActions :unread="unread" />
     </header>
 </template>

@@ -141,6 +141,10 @@ export default {
         days: { one: '{count} день', few: '{count} дні', many: '{count} днів' },
         transfers: { one: '{count} переказ', few: '{count} перекази', many: '{count} переказів' },
         records: { one: '{count} запис', few: '{count} записи', many: '{count} записів' },
+        notifications: { one: '{count} сповіщення', few: '{count} сповіщення', many: '{count} сповіщень' },
+        overdueInvoices: { one: '{count} прострочений інвойс', few: '{count} прострочені інвойси', many: '{count} прострочених інвойсів' },
+        activeProfiles: { one: '{count} активний', few: '{count} активні', many: '{count} активних' },
+        inactiveProfiles: { one: '{count} неактивний', few: '{count} неактивні', many: '{count} неактивних' },
     },
 
     /** Quarters, short */

@@ -130,6 +130,10 @@ export default {
         days: { one: '{count} day', other: '{count} days' },
         transfers: { one: '{count} transfer', other: '{count} transfers' },
         records: { one: '{count} record', other: '{count} records' },
+        notifications: { one: '{count} notification', other: '{count} notifications' },
+        overdueInvoices: { one: '{count} overdue invoice', other: '{count} overdue invoices' },
+        activeProfiles: { one: '{count} active', other: '{count} active' },
+        inactiveProfiles: { one: '{count} inactive', other: '{count} inactive' },
     },
 
     quarters: {

@@ -14,6 +14,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useFilterPopover } from '@/composables/useFilterPopover';
 import { countFilters, emptyFilters, filtersToApi, statusFilterLabel, useInvoiceFilters } from '@/composables/useInvoiceFilters';
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
@@ -36,6 +37,7 @@ const { isDesktop } = useBreakpoint();
 const { filters, periodSummary, apply } = useInvoiceFilters();
 
 const filtering = ref(false);
+const { part: filterPart, anchor: filterAnchor, openAt: openFilterAt } = useFilterPopover<'period' | 'client' | 'status' | 'currency'>(filtering);
 
 const { data: facets } = useLoader(async (signal) => {
     const { data } = await api.get<ApiResponse<InvoiceFacets>>(path('invoices/facets'), undefined, signal);
@@ -112,10 +114,10 @@ function chipLabel(kind: 'client' | 'status' | 'currency'): string {
 }
 
 const chips = computed(() => [
-    { key: 'client', label: chipLabel('client'), active: filters.value.clients.length > 0 },
-    { key: 'status', label: chipLabel('status'), active: filters.value.statuses.length > 0 },
+    { key: 'client' as const, label: chipLabel('client'), active: filters.value.clients.length > 0 },
+    { key: 'status' as const, label: chipLabel('status'), active: filters.value.statuses.length > 0 },
     ...((facets.value?.currencies.length ?? 0) > 1
-        ? [{ key: 'currency', label: chipLabel('currency'), active: filters.value.currencies.length > 0 }]
+        ? [{ key: 'currency' as const, label: chipLabel('currency'), active: filters.value.currencies.length > 0 }]
         : []),
 ]);
 
@@ -135,7 +137,7 @@ const chipClass = (active: boolean): string => (active
                     type="button"
                     class="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
                     :class="chipClass(periodSummary !== null)"
-                    @click="filtering = true"
+                    @click="openFilterAt($event, 'period')"
                 >
                     <Icon name="calendar" :size="16" />
                     <span :class="periodSummary && /^\d/.test(periodSummary) ? 'num' : ''">{{ periodSummary ?? t('core.common.period') }}</span>
@@ -147,7 +149,7 @@ const chipClass = (active: boolean): string => (active
                     type="button"
                     class="flex min-h-11 max-w-56 shrink-0 items-center gap-1.5 rounded-full border pr-3 pl-3.5 text-14"
                     :class="chipClass(chip.active)"
-                    @click="filtering = true"
+                    @click="openFilterAt($event, chip.key)"
                 >
                     <span class="truncate">{{ chip.label }}</span>
                     <Icon name="chevronDown" :size="16" />
@@ -193,6 +195,13 @@ const chipClass = (active: boolean): string => (active
             </InfiniteSentinel>
         </LoadState>
 
-        <InvoiceFiltersSheet v-model:open="filtering" :facets="facets" :filters="filters" @apply="apply" />
+        <InvoiceFiltersSheet
+            v-model:open="filtering"
+            :only="filterPart"
+            :anchor="filterAnchor"
+            :facets="facets"
+            :filters="filters"
+            @apply="apply"
+        />
     </TabScreen>
 </template>

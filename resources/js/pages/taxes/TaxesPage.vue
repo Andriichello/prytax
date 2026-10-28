@@ -12,6 +12,7 @@ import FilterBadge from '@/components/ui/FilterBadge.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useFilterPopover } from '@/composables/useFilterPopover';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
@@ -57,6 +58,7 @@ watch(() => route.query, (query) => {
 });
 
 const filterOpen = ref(false);
+const { part: filterPart, anchor: filterAnchor, openAt: openFilterAt } = useFilterPopover<'period' | 'taxes' | 'statuses'>(filterOpen);
 
 function applyFilter(next: TaxLedgerFilter): void {
     void router.replace({ query: { ...route.query, quarter: undefined, mode: undefined, view: undefined, ...queryOfFilter(next) } });
@@ -81,9 +83,9 @@ const isEmpty = computed(() => ledger.value !== null && ledger.value.summary.row
     <TabScreen :title="t('shell.nav.taxes')">
         <template #filters>
             <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
-                <FilterBadge :label="periodBadge(filter)" period @click="filterOpen = true" />
-                <FilterBadge :label="taxesBadge(filter.taxes)" @click="filterOpen = true" />
-                <FilterBadge :label="statusesBadge(filter.statuses)" @click="filterOpen = true" />
+                <FilterBadge :label="periodBadge(filter)" period @click="openFilterAt($event, 'period')" />
+                <FilterBadge :label="taxesBadge(filter.taxes)" @click="openFilterAt($event, 'taxes')" />
+                <FilterBadge :label="statusesBadge(filter.statuses)" @click="openFilterAt($event, 'statuses')" />
             </div>
         </template>
 
@@ -104,6 +106,6 @@ const isEmpty = computed(() => ledger.value !== null && ledger.value.summary.row
             </template>
         </LoadState>
 
-        <TaxFilterSheet v-model:open="filterOpen" :value="filter" @apply="applyFilter" />
+        <TaxFilterSheet v-model:open="filterOpen" :only="filterPart" :anchor="filterAnchor" :value="filter" @apply="applyFilter" />
     </TabScreen>
 </template>

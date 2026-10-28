@@ -21,6 +21,7 @@ import SwitchTile from '@/components/ui/SwitchTile.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useFilterPopover } from '@/composables/useFilterPopover';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { useStoredState } from '@/composables/useStoredState';
@@ -125,6 +126,7 @@ const groupingOptions = computed<{ value: Grouping; label: string }[]>(() => [
 ]);
 
 const filterOpen = ref(false);
+const { part: filterPart, anchor: filterAnchor, openAt: openFilterAt } = useFilterPopover<'period' | 'grouping'>(filterOpen);
 
 function applyFilter(filter: PeriodFilter): void {
     grouping.value = (filter.grouping as Grouping | undefined) ?? grouping.value;
@@ -176,8 +178,8 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
         </template>
         <template #filters>
             <div class="scrollbar-none flex items-center gap-2 overflow-x-auto" :class="isDesktop ? '' : '-mx-4 px-4'">
-                <FilterBadge :label="`${quarterLabel(quarter)} ${year}`" period @click="filterOpen = true" />
-                <FilterBadge :label="groupingOptions.find((option) => option.value === grouping)?.label ?? ''" @click="filterOpen = true" />
+                <FilterBadge :label="`${quarterLabel(quarter)} ${year}`" period @click="openFilterAt($event, 'period')" />
+                <FilterBadge :label="groupingOptions.find((option) => option.value === grouping)?.label ?? ''" @click="openFilterAt($event, 'grouping')" />
                 <template v-if="isDesktop">
                     <span class="flex-1" />
                     <label class="flex items-center gap-2 text-14 text-ink-2">{{ t('shell.nav.taxes') }} <ToggleSwitch v-model="showTaxes" /></label>
@@ -280,6 +282,8 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
 
         <PeriodFilterSheet
             v-model:open="filterOpen"
+            :only="filterPart"
+            :anchor="filterAnchor"
             :value="{ year, quarter, grouping }"
             :groupings="groupingOptions"
             @apply="applyFilter"

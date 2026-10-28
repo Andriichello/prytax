@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import BottomSheet from '@/components/ui/BottomSheet.vue';
+import FilterSurface from '@/components/ui/FilterSurface.vue';
 import Icon from '@/components/ui/Icon.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -25,7 +25,13 @@ import {
  * included); the taxes and the statuses, several at once, where none chosen means all, as all chosen does. The
  * drawer edits a draft: «Застосувати» commits it, «Скинути» returns it to the defaults, and closing it discards it.
  */
-const { value } = defineProps<{ value: TaxLedgerFilter }>();
+const { value, only = undefined, anchor = null } = defineProps<{
+    value: TaxLedgerFilter;
+    /** On desktop, the one part the chip clicked opens (design.md §17.4). */
+    only?: 'period' | 'taxes' | 'statuses';
+    /** The chip, which the desktop popover hangs from. */
+    anchor?: HTMLElement | null;
+}>();
 
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ apply: [filter: TaxLedgerFilter] }>();
@@ -86,12 +92,12 @@ const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium tex
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('shell.filters.title')">
+    <FilterSurface v-model:open="open" :title="t('shell.filters.title')" :anchor="anchor">
         <template #action>
             <button type="button" class="flex min-h-11 items-center text-16 font-medium text-accent" @click="reset">{{ t('shell.filters.reset') }}</button>
         </template>
 
-        <section class="flex flex-col gap-3">
+        <section v-if="!only || only === 'period'" class="flex flex-col gap-3">
             <SectionTitle as="h3">{{ t('shell.filters.period') }}</SectionTitle>
             <div class="flex items-center justify-between">
                 <button
@@ -130,7 +136,7 @@ const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium tex
             <span class="text-14 text-ink-3">{{ hint }}</span>
         </section>
 
-        <section class="flex flex-col gap-3">
+        <section v-if="!only || only === 'taxes'" class="flex flex-col gap-3">
             <SectionTitle as="h3">{{ t('accounting.taxes.filterTaxes') }}</SectionTitle>
             <div role="group" :aria-label="t('accounting.taxes.filterTaxes')" class="flex flex-wrap gap-2">
                 <button
@@ -148,7 +154,7 @@ const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium tex
             <span class="text-14 text-ink-3">{{ t('accounting.taxes.taxesHint') }}</span>
         </section>
 
-        <section class="flex flex-col gap-3">
+        <section v-if="!only || only === 'statuses'" class="flex flex-col gap-3">
             <SectionTitle as="h3">{{ t('accounting.taxes.filterStatuses') }}</SectionTitle>
             <div role="group" :aria-label="t('accounting.taxes.filterStatuses')" class="flex flex-wrap gap-2">
                 <button
@@ -169,5 +175,5 @@ const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium tex
         <template #footer>
             <PrimaryButton @click="apply">{{ t('shell.filters.apply') }}</PrimaryButton>
         </template>
-    </BottomSheet>
+    </FilterSurface>
 </template>

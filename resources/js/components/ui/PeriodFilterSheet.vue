@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
-import BottomSheet from '@/components/ui/BottomSheet.vue';
+import FilterSurface from '@/components/ui/FilterSurface.vue';
 import Icon from '@/components/ui/Icon.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -19,9 +19,13 @@ export interface PeriodFilter {
     grouping?: string;
 }
 
-const { value, groupings = [] } = defineProps<{
+const { value, groupings = [], only = undefined, anchor = null } = defineProps<{
     value: PeriodFilter;
     groupings?: { value: string; label: string }[];
+    /** On desktop, the one part the chip clicked opens (design.md §17.4). */
+    only?: 'period' | 'grouping';
+    /** The chip, which the desktop popover hangs from. */
+    anchor?: HTMLElement | null;
 }>();
 
 const open = defineModel<boolean>('open', { required: true });
@@ -67,12 +71,12 @@ function apply(): void {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('shell.filters.title')">
+    <FilterSurface v-model:open="open" :title="t('shell.filters.title')" :anchor="anchor">
         <template #action>
             <button type="button" class="flex min-h-11 items-center text-16 font-medium text-accent" @click="reset">{{ t('shell.filters.reset') }}</button>
         </template>
 
-        <section class="flex flex-col gap-3">
+        <section v-if="!only || only === 'period'" class="flex flex-col gap-3">
             <SectionTitle as="h3">{{ t('shell.filters.period') }}</SectionTitle>
             <div class="flex items-center justify-between">
                 <button
@@ -113,7 +117,7 @@ function apply(): void {
             <span class="text-14 text-ink-3">{{ t('shell.filters.oneQuarter') }}</span>
         </section>
 
-        <section v-if="groupings.length" class="flex flex-col gap-3">
+        <section v-if="(!only || only === 'grouping') && groupings.length" class="flex flex-col gap-3">
             <SectionTitle as="h3">{{ t('shell.filters.grouping') }}</SectionTitle>
             <div role="radiogroup" :aria-label="t('shell.filters.grouping')" class="flex flex-wrap gap-2">
                 <button
@@ -134,5 +138,5 @@ function apply(): void {
         <template #footer>
             <PrimaryButton @click="apply">{{ t('shell.filters.apply') }}</PrimaryButton>
         </template>
-    </BottomSheet>
+    </FilterSurface>
 </template>

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import type { InvoiceFacets } from '@/api/types';
 import DateRangeField from '@/components/form/DateRangeField.vue';
-import BottomSheet from '@/components/ui/BottomSheet.vue';
+import FilterSurface from '@/components/ui/FilterSurface.vue';
 import Chip from '@/components/ui/Chip.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -22,9 +22,13 @@ type PeriodMode = 'years' | 'quarters' | 'months' | 'range';
 /** The statuses to filter by; «Без інвойсу» while the profile has payments without an invoice, or it is chosen. */
 const statuses = computed(() => STATUS_FILTERS.filter((status) => status !== 'virtual' || (facets?.virtual ?? 0) > 0 || filters.statuses.includes('virtual')));
 
-const { facets, filters } = defineProps<{
+const { facets, filters, only = undefined, anchor = null } = defineProps<{
     facets: InvoiceFacets | null;
     filters: InvoiceFilters;
+    /** On desktop, the one part the chip clicked opens (design.md §17.4). */
+    only?: 'period' | 'client' | 'status' | 'currency';
+    /** The chip, which the desktop popover hangs from. */
+    anchor?: HTMLElement | null;
 }>();
 
 const open = defineModel<boolean>('open', { required: true });
@@ -136,12 +140,12 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('invoices.list.filters')">
+    <FilterSurface v-model:open="open" :title="t('invoices.list.filters')" :anchor="anchor">
         <template #action>
             <button type="button" class="flex min-h-11 items-center px-1 text-15 font-medium text-accent" @click="reset">{{ t('invoices.list.reset') }}</button>
         </template>
 
-        <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
+        <fieldset v-if="!only || only === 'period'" class="m-0 flex flex-col gap-3 border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('core.common.period') }}</SectionTitle></legend>
             <SegmentedControl
                 :model-value="mode"
@@ -225,7 +229,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
             <span class="text-13 text-ink-3">{{ t('invoices.filters.hint') }}</span>
         </fieldset>
 
-        <fieldset v-if="facets?.clients.length" class="m-0 flex flex-col border-0 p-0">
+        <fieldset v-if="(!only || only === 'client') && facets?.clients.length" class="m-0 flex flex-col border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('core.common.clients') }}</SectionTitle></legend>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-3.5">
                 <label v-for="client in facets.clients" :key="client.client_id" class="flex min-h-12 items-center gap-3 text-15">
@@ -241,7 +245,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
             </div>
         </fieldset>
 
-        <fieldset class="m-0 flex flex-col border-0 p-0">
+        <fieldset v-if="!only || only === 'status'" class="m-0 flex flex-col border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('core.common.status') }}</SectionTitle></legend>
             <div class="flex flex-wrap gap-2">
                 <Chip v-for="status in statuses" :key="status" :selected="draft.statuses.includes(status)" @click="toggle(draft.statuses, status)">
@@ -250,7 +254,7 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
             </div>
         </fieldset>
 
-        <fieldset v-if="facets && facets.currencies.length > 1" class="m-0 flex flex-col border-0 p-0">
+        <fieldset v-if="(!only || only === 'currency') && facets && facets.currencies.length > 1" class="m-0 flex flex-col border-0 p-0">
             <legend class="mb-2.5 p-0"><SectionTitle as="span">{{ t('core.common.currency') }}</SectionTitle></legend>
             <div class="flex flex-wrap gap-2">
                 <Chip
@@ -267,5 +271,5 @@ const tileDisabled = 'border border-dashed border-line-input text-switch-off';
         <template #footer>
             <PrimaryButton @click="apply">{{ t('shell.filters.apply') }}</PrimaryButton>
         </template>
-    </BottomSheet>
+    </FilterSurface>
 </template>

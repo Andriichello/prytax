@@ -2,11 +2,15 @@
 import { computed } from 'vue';
 import { api } from '@/api/client';
 import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
+import HomeAside from '@/components/home/HomeAside.vue';
 import InvoiceRow from '@/components/invoice/InvoiceRow.vue';
+import InvoiceTable from '@/components/invoice/InvoiceTable.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import Translated from '@/components/ui/Translated.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -17,10 +21,12 @@ import { formatMoney } from '@/utils/money';
 /**
  * Головна (M-Home, design.md §16.5): the invoices of the current and the previous quarter by their issue date, of
  * every status and the payments without an invoice among them, newest first. The subtitle tells what the open
- * invoices (ready and sent) still await, per currency.
+ * invoices (ready and sent) still await, per currency. On desktop (D-Home, §17.4) the quarters are tables, beside the
+ * income limit, the quarter's taxes and the latest notifications (under them below 1280 px).
  */
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop, isWide } = useBreakpoint();
 
 const now = currentQuarter();
 const quarters = [now, now.quarter === 1 ? { year: now.year - 1, quarter: 4 } : { year: now.year, quarter: now.quarter - 1 }];
@@ -79,6 +85,12 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
             </p>
         </template>
 
+        <template v-if="isDesktop" #title-action>
+            <NewPill v-if="can('create', 'invoices')" :to="{ name: 'invoice-new' }" :label="t('invoices.editor.newInvoice')" />
+        </template>
+
+        <div :class="isDesktop ? (isWide ? 'grid grid-cols-[minmax(0,1fr)_360px] items-start gap-5' : 'flex flex-col gap-5') : 'contents'">
+        <div :class="isDesktop ? 'flex min-w-0 flex-col gap-5' : 'contents'">
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <section v-for="section in sections" :key="section.key" :aria-labelledby="`quarter-${section.key}`" class="flex flex-col gap-2">
                 <div class="flex items-baseline justify-between px-0.5">
@@ -87,7 +99,8 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
                     </h2>
                     <span class="num text-13 text-ink-2">{{ section.count }}</span>
                 </div>
-                <div v-if="section.invoices.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <InvoiceTable v-if="section.invoices.length && isDesktop" :invoices="section.invoices" variant="home" />
+                <div v-else-if="section.invoices.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <InvoiceRow v-for="invoice in section.invoices" :key="invoice.id" :invoice="invoice" />
                 </div>
                 <EmptyState v-else :text="t('invoices.home.noInvoicesQuarter')">
@@ -101,9 +114,12 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
                 </EmptyState>
             </section>
 
-            <RouterLink :to="{ name: 'invoices' }" class="flex min-h-11 items-center self-center text-14 font-medium no-underline">
+            <RouterLink :to="{ name: 'invoices' }" class="flex min-h-11 items-center text-14 font-medium no-underline" :class="isDesktop ? 'self-start' : 'self-center'">
                 {{ t('invoices.home.allInvoices') }}
             </RouterLink>
         </LoadState>
+        </div>
+        <HomeAside v-if="isDesktop" />
+        </div>
     </TabScreen>
 </template>

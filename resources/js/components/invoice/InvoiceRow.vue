@@ -5,8 +5,9 @@ import VirtualMarker from '@/components/invoice/VirtualMarker.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { t } from '@/i18n';
-import { formatDayMonth, formatPeriod, today } from '@/utils/dates';
-import { compareAmounts, formatAmount, formatMoney, percentOf } from '@/utils/money';
+import { formatDayMonth, formatPeriod } from '@/utils/dates';
+import { invoiceRowLink, invoiceRowNumber, isOverdue } from '@/utils/invoiceRows';
+import { formatAmount, formatMoney, percentOf } from '@/utils/money';
 import { datedInvoiceStatus } from '@/utils/statuses';
 
 /**
@@ -22,27 +23,9 @@ const isCancelled = computed(() => invoice.status === 'cancelled');
 const isVirtual = computed(() => invoice.source === 'virtual');
 const paid = computed(() => invoice.paid_amount ?? '0.00');
 const percent = computed(() => percentOf(paid.value, invoice.total));
-const isOpen = computed(() => invoice.status === 'ready' || invoice.status === 'sent');
-const overdue = computed(() => isOpen.value && invoice.due_at !== null && invoice.due_at < today() && compareAmounts(paid.value, invoice.total) < 0);
-
-/** A draft's number: an external one's own, a number typed by hand, else the preview the freeze would give. */
-const number = computed(() => {
-    if (!isDraft.value) {
-        return invoice.number;
-    }
-
-    if (invoice.source === 'external') {
-        return invoice.number ?? t('invoices.list.noNumber');
-    }
-
-    return invoice.number !== null && invoice.sequence_number === null
-        ? invoice.number
-        : t('invoices.list.nextNumber', { number: invoice.number_preview ?? invoice.number ?? '…' });
-});
-
-const to = computed(() => (isDraft.value
-    ? { name: 'invoice-edit', params: { id: invoice.id } }
-    : { name: 'invoice', params: { id: invoice.id } }));
+const overdue = computed(() => isOverdue(invoice));
+const number = computed(() => invoiceRowNumber(invoice));
+const to = computed(() => invoiceRowLink(invoice));
 </script>
 
 <template>

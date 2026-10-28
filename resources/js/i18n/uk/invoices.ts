@@ -14,6 +14,9 @@ export default {
         dueBy: 'сплатити до {date}',
         overdueBy: 'прострочено, до {date}',
         noInvoicesQuarter: 'Інвойсів за квартал немає.',
+        allTaxes: 'Усі податки',
+        toPayFor: 'До сплати за {quarter}',
+        unreadCount: { one: '{count} непрочитане', few: '{count} непрочитані', many: '{count} непрочитаних' },
     },
 
     /** Інвойси: the list, its filter chips and rows */
@@ -325,5 +328,14 @@ export default {
         languageShort: 'Мова',
         styleShort: 'Стиль',
         languageHint: 'Те саме, що «Мова документа» в профілі ФОП.',
+    },
+
+    /** The desktop tables of Головна and Інвойси */
+    table: {
+        number: 'Номер',
+        clientPeriod: 'Клієнт · період',
+        amount: 'Сума',
+        payment: 'Оплата',
+        dueShort: 'до {date}',
     },
 } satisfies Messages;

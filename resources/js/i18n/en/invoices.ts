@@ -14,6 +14,9 @@ export default {
         dueBy: 'due by {date}',
         overdueBy: 'overdue, due {date}',
         noInvoicesQuarter: 'No invoices in the quarter.',
+        allTaxes: 'All taxes',
+        toPayFor: 'To pay for {quarter}',
+        unreadCount: { one: '{count} unread', other: '{count} unread' },
     },
 
     list: {
@@ -315,5 +318,13 @@ export default {
         languageShort: 'Language',
         styleShort: 'Style',
         languageHint: 'The same as the document language of the ФОП profile.',
+    },
+
+    table: {
+        number: 'Number',
+        clientPeriod: 'Client · period',
+        amount: 'Amount',
+        payment: 'Payment',
+        dueShort: 'by {date}',
     },
 } satisfies Translation<typeof uk>;

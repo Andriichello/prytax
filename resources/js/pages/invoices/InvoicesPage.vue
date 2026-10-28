@@ -4,6 +4,7 @@ import { api } from '@/api/client';
 import type { ApiResponse, Invoice, InvoiceFacets, Paginated } from '@/api/types';
 import InvoiceFiltersSheet from '@/components/invoice/InvoiceFiltersSheet.vue';
 import InvoiceRow from '@/components/invoice/InvoiceRow.vue';
+import InvoiceTable from '@/components/invoice/InvoiceTable.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -11,17 +12,19 @@ import NewPill from '@/components/ui/NewPill.vue';
 import InfiniteSentinel from '@/components/ui/InfiniteSentinel.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { countFilters, emptyFilters, filtersToApi, statusFilterLabel, useInvoiceFilters } from '@/composables/useInvoiceFilters';
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { dateParts, monthName, monthNameGenitive, quarterLabel, quarterOf } from '@/utils/dates';
+import { dateParts, monthName, monthNameGenitive, quarterLabel, quarterName, quarterOf } from '@/utils/dates';
 
 /**
- * Інвойси: every invoice, newest first, grouped by the month of issue («IV кв. · Жовтень · 2026») with its count («N інвойсів», or «N записи» with
- * a payment without an invoice among them), in the rows of Головна, loading further as the list scrolls. The last
+ * Інвойси: every invoice, newest first, grouped by the month of issue («IV кв. · Жовтень · 2026») with its count («N
+ * інвойсів», or «N записи» with a payment without an invoice among them), in the rows of Головна, loading further as
+ * the list scrolls; on desktop, by quarter in a table (design.md §17.4), whose rows open the invoice's panel. The last
  * month on screen shows its count once it is loaded whole. Filters (no free-text search) live in the URL and open the
  * filters sheet. App keeps it alive behind an opened invoice.
  */
@@ -29,6 +32,7 @@ defineOptions({ name: 'InvoicesPage' });
 
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 const { filters, periodSummary, apply } = useInvoiceFilters();
 
 const filtering = ref(false);
@@ -46,18 +50,24 @@ const list = usePagedList<Invoice>((page, signal) => api.get<Paginated<Invoice>>
     page: { number: page, size: 30 },
 }, signal), [profileId, filters]);
 
+/** The groups of the list: by the month of issue on mobile, by its quarter in the desktop tables. */
 const months = computed(() => {
     const groups: { key: string; title: string; invoices: Invoice[] }[] = [];
 
     for (const invoice of list.items.value) {
         const { year, month } = dateParts(invoice.issued_at);
-        const key = `${year}-${month}`;
+        const quarter = quarterOf(month);
+        const key = isDesktop.value ? `${year}-q${quarter}` : `${year}-${month}`;
         const last = groups[groups.length - 1];
 
         if (last?.key === key) {
             last.invoices.push(invoice);
         } else {
-            groups.push({ key, title: `${quarterLabel(quarterOf(month))} · ${monthName(month)} · ${year}`, invoices: [invoice] });
+            groups.push({
+                key,
+                title: isDesktop.value ? `${quarterName(quarter)} ${year}` : `${quarterLabel(quarter)} · ${monthName(month)} · ${year}`,
+                invoices: [invoice],
+            });
         }
     }
 
@@ -117,7 +127,7 @@ const chipClass = (active: boolean): string => (active
 <template>
     <TabScreen :title="t('shell.nav.invoices')">
         <template #title-action>
-            <NewPill v-if="can('create', 'invoices')" :to="{ name: 'invoice-new' }" />
+            <NewPill v-if="can('create', 'invoices')" :to="{ name: 'invoice-new' }" :label="isDesktop ? t('invoices.editor.newInvoice') : undefined" />
         </template>
         <template #filters>
             <nav :aria-label="t('invoices.list.filters')" class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
@@ -172,7 +182,8 @@ const chipClass = (active: boolean): string => (active
                     {{ month.title }}
                     <template v-if="month.count" #aside><span class="num text-ink-2">{{ month.count }}</span></template>
                 </SectionTitle>
-                <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <InvoiceTable v-if="isDesktop" :invoices="month.invoices" />
+                <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <InvoiceRow v-for="invoice in month.invoices" :key="invoice.id" :invoice="invoice" />
                 </div>
             </section>

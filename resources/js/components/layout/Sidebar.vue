@@ -108,7 +108,7 @@ async function leave(): Promise<void> {
 </script>
 
 <template>
-    <aside :aria-label="t('shell.nav.sidebar')" class="flex h-dvh w-62 shrink-0 flex-col gap-3 border-r border-line bg-surface px-4 pt-5 pb-4">
+    <aside :aria-label="t('shell.nav.sidebar')" class="flex h-dvh w-62 shrink-0 flex-col gap-3 border-r border-line bg-surface px-3.5 pt-5 pb-4">
         <div class="flex items-center gap-2.5 px-1 pt-1">
             <span class="flex size-8 items-center justify-center rounded-[9px] bg-ink text-white">
                 <Icon name="invoice" :size="18" />
@@ -116,7 +116,7 @@ async function leave(): Promise<void> {
             <span class="text-20 font-bold tracking-[-0.02em]">Pry<span class="text-accent">Tax</span></span>
         </div>
 
-        <div v-if="profile" class="flex flex-col rounded-button border border-line bg-paper px-3">
+        <div v-if="profile" class="flex flex-col rounded-button border border-line bg-paper px-2.5">
             <RouterLink :to="{ name: 'settings-profile' }" class="flex items-center gap-2.5 py-2.5 text-ink no-underline hover:text-ink">
                 <Avatar :initials="profile.initials" variant="dark" :size="36" />
                 <span class="flex min-w-0 flex-1 flex-col leading-[1.25]">
@@ -140,13 +140,13 @@ async function leave(): Promise<void> {
 
         <nav :aria-label="t('shell.nav.mainNavigation')" class="scrollbar-none -mx-1 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-1">
             <template v-for="group in groups" :key="group.key">
-                <span v-if="group.title" class="px-3 pt-3 pb-1 text-12 font-semibold tracking-[0.05em] text-ink-3 uppercase">{{ group.title }}</span>
+                <span v-if="group.title" class="px-2.5 pt-3 pb-1 text-12 font-semibold tracking-[0.05em] text-ink-3 uppercase">{{ group.title }}</span>
                 <template v-for="item in group.items" :key="item.key">
                     <RouterLink
                         v-if="item.visible !== false"
                         :to="item.to"
                         :aria-current="item.names.includes(activeName) ? 'page' : undefined"
-                        class="flex h-9 shrink-0 items-center gap-3 rounded-[10px] px-3 text-14 no-underline"
+                        class="flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-2.5 text-14 no-underline"
                         :class="item.names.includes(activeName) ? 'bg-accent-soft font-semibold text-accent-hover hover:text-accent-hover' : 'font-medium text-ink hover:bg-paper hover:text-ink'"
                     >
                         <Icon :name="item.icon" :size="20" />
@@ -163,7 +163,7 @@ async function leave(): Promise<void> {
                 type="button"
                 :aria-label="`${t('shell.more.appLanguage')}: ${LOCALE_NAMES[locale]}`"
                 :aria-expanded="languageOpen ? 'true' : 'false'"
-                class="flex min-h-9 items-center gap-3 rounded-[10px] px-3 text-14 text-ink hover:bg-paper"
+                class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 text-ink hover:bg-paper"
                 @click="languageOpen = !languageOpen"
             >
                 <Icon name="globe" :size="20" />
@@ -171,10 +171,10 @@ async function leave(): Promise<void> {
                 <span class="num text-12 text-ink-3 uppercase">{{ locale }}</span>
                 <Icon name="chevronDown" :size="16" class="text-ink-3" />
             </button>
-            <p v-if="user" class="m-0 truncate px-3 py-1 text-12 text-ink-3">{{ user.email }} · {{ user.roles.map(roleName).join(', ') }}</p>
+            <p v-if="user" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ user.email }} · {{ user.roles.map(roleName).join(', ') }}</p>
             <button
                 type="button"
-                class="flex min-h-9 items-center gap-3 rounded-[10px] px-3 text-14 font-medium text-negative hover:bg-paper"
+                class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 font-medium text-negative hover:bg-paper"
                 :disabled="signingOut"
                 @click="leave"
             >

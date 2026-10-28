@@ -83,7 +83,7 @@ const retry = (): void => window.location.reload();
         </AuthLayout>
         <template v-else-if="shell">
             <div class="mx-auto flex w-full max-w-360">
-                <Sidebar class="sticky top-0 self-start min-[1441px]:border-l" />
+                <Sidebar class="sticky top-0 self-start min-[1441px]:shadow-[-1px_0_0_var(--color-line)]" />
                 <div class="min-w-0 flex-1">
                     <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">
                         <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">

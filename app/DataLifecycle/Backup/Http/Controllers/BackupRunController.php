@@ -133,7 +133,7 @@ class BackupRunController extends CrudController
             'policy' => [
                 'enabled' => $policy->enabled,
                 'frequency' => $policy->frequency,
-                'next_run_at' => $policy->enabled ? $policy->next_run_at?->toIso8601String() : null,
+                'next_run_at' => $policy->enabled ? ($policy->next_run_at ?? $policy->nextRunAfter(now()))->toIso8601String() : null,
                 'time_of_day' => $policy->nextRunAfter(now())->format('H:i'),
                 'retention_monthly' => $policy->retention_monthly,
             ],

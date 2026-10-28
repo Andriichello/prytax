@@ -37,4 +37,13 @@ class BackupRunRepository extends CrudRepository
      * @var array<string, string>
      */
     protected array $defaultSorts = ['created_at' => 'desc', 'id' => 'desc'];
+
+    /**
+     * List of filters allowed on request: the kind, so the screen leaves the period exports out.
+     *
+     * @var array<int|string, string>
+     */
+    protected array $allowedFilters = [
+        'kind',
+    ];
 }

@@ -35,6 +35,7 @@ class BackupResource extends BaseResource
             'documents' => $this->resource->manifest['documents']['count'] ?? null,
             'has_archive' => $this->resource->hasArchive(),
             ...$this->keeping(),
+            'previous' => $this->previous(),
         ];
     }
 
@@ -53,5 +54,33 @@ class BackupResource extends BaseResource
         $estimate = app(RetentionEstimate::class)->of($this->resource);
 
         return ['keep_until' => $estimate['until'], 'keep_reason' => $estimate['reason']];
+    }
+
+    /**
+     * Get the archive, which a backup skipped as unchanged stands for: the profile's newest completed backup before it,
+     * whose archive its download gives (backups.md §4.5, §4.8), with its size, date and documents.
+     *
+     * @return array{id: string, bytes: int|null, created_at: string|null, documents: int|null}|null
+     */
+    protected function previous(): ?array
+    {
+        if ($this->resource->status !== BackupStatus::SkippedUnchanged) {
+            return null;
+        }
+
+        $previous = Backup::query()
+            ->where('profile_id', $this->resource->profile_id)
+            ->where('status', BackupStatus::Completed)
+            ->where('created_at', '<=', $this->resource->created_at)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return $previous === null ? null : [
+            'id' => $previous->id,
+            'bytes' => $previous->bytes,
+            'created_at' => $previous->created_at?->toIso8601String(),
+            'documents' => $previous->manifest['documents']['count'] ?? null,
+        ];
     }
 }

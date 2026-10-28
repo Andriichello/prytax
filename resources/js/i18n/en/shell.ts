@@ -78,6 +78,11 @@ export default {
         notificationsUnread: 'Notifications, {count} unread',
         books: 'Accounting books',
         barActions: 'Accounting books and notifications',
+        booksShort: 'Books',
+        settings: 'Settings',
+        profileDetails: 'Profile and details',
+        sidebar: 'Sidebar',
+        recordPanel: 'Record',
     },
 
     profiles: {
@@ -101,6 +106,7 @@ export default {
         inactiveShort: 'Inactive',
         nothingFound: 'Nobody found',
         footnote: 'Switching changes the ФОП for the whole app: invoices, accounting, taxes and settings. Users and roles are shared by the organization. An inactive ФОП can be opened to look through its history.',
+        newProfile: 'New ФОП',
     },
 
     more: {
@@ -118,6 +124,7 @@ export default {
         appLanguage: 'App language',
         appLanguageNote: 'Only the screens, and only for you. The language of invoices is in Invoice document and on the client’s card.',
         appLanguageGuestNote: 'We will remember it on this device. After signing in, change it in More › App language.',
+        appLanguageShortNote: 'Only the screens. The language of invoices is in Invoice document and on the client’s card.',
     },
 
     alerts: {

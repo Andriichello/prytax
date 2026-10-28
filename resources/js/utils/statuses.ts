@@ -77,3 +77,17 @@ export const TAX_TYPES: Record<TaxType, string> = {
         return t('core.taxes.socialContribution');
     },
 };
+
+/** A role as the screens name it: власник, бухгалтер, перегляд. */
+export function roleName(role: string): string {
+    switch (role) {
+        case 'owner':
+            return t('core.roles.owner');
+        case 'accountant':
+            return t('core.roles.accountant');
+        case 'viewer':
+            return t('core.roles.viewer');
+        default:
+            return role;
+    }
+}

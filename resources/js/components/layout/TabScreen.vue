@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import BarActions from '@/components/layout/BarActions.vue';
 import TabBar from '@/components/layout/TabBar.vue';
 import TopHeader from '@/components/layout/TopHeader.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 
 /**
  * A root screen (Головна, Інвойси, Облік, Податки, Ще; design.md §16.2): the top bar scrolls away, while a block
  * with the title, its action (`title-action`), an optional subtitle, a mode switch (`switcher`) and the filter badges
- * (`filters`) sticks to the top, with a rule and a soft shadow once stuck. Then the content and the tab bar.
+ * (`filters`) sticks to the top, with a rule and a soft shadow once stuck. Then the content and the tab bar. On
+ * desktop (§17.2) the page header holds the title with its sub-line on the left and the action with the 📖 | 🔔
+ * capsule on the right; the switch and the filters follow it, and the sidebar replaces the tab bar.
  */
 const { title } = defineProps<{ title: string }>();
+
+const { isDesktop } = useBreakpoint();
 
 const sentinel = ref<HTMLElement | null>(null);
 const stuck = ref(false);
@@ -30,7 +36,26 @@ onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
-    <div class="flex min-h-dvh flex-col">
+    <div v-if="isDesktop" class="flex min-h-dvh flex-col">
+        <header class="flex items-start justify-between gap-6 px-10 pt-7 pb-5">
+            <div class="flex min-w-0 flex-col gap-1">
+                <h1 class="m-0 text-30 font-semibold tracking-[-0.02em]">{{ title }}</h1>
+                <slot name="subtitle" />
+            </div>
+            <div class="flex shrink-0 items-center gap-3">
+                <slot name="title-action" />
+                <BarActions />
+            </div>
+        </header>
+        <div v-if="$slots.switcher || $slots.filters" class="flex flex-col gap-3.5 px-10 pb-5">
+            <slot name="switcher" />
+            <slot name="filters" />
+        </div>
+        <main class="flex flex-1 flex-col gap-5 px-10 pb-12">
+            <slot />
+        </main>
+    </div>
+    <div v-else class="flex min-h-dvh flex-col">
         <TopHeader />
         <div ref="sentinel" aria-hidden="true" class="h-px" />
         <div

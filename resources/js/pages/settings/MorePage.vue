@@ -15,29 +15,13 @@ import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { styleName } from '@/utils/invoiceStyles';
+import { roleName } from '@/utils/statuses';
 
 /**
  * Ще (M-More, design.md §16.5): the «ФОП» card, which switches to another ФОП of the organization; money and
  * counterparties, the ФОП's settings, the invoices' numbering and document, the organization (users, backups, the
  * app's language) with signing out. Комісії opens from Перекази.
  */
-
-/**
- * A role as the footnote names it: власник, бухгалтер, перегляд.
- */
-function roleName(role: string): string {
-    switch (role) {
-        case 'owner':
-            return t('core.roles.owner');
-        case 'accountant':
-            return t('core.roles.accountant');
-        case 'viewer':
-            return t('core.roles.viewer');
-        default:
-            return role;
-    }
-}
-
 const router = useRouter();
 const { user, can, signOut } = useSession();
 const { profile, profiles, profileId, path, reset, settings } = useCurrentProfile();

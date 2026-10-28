@@ -21,6 +21,13 @@ declare module 'vue-router' {
         denied?: string;
         /** The API resource of the page's record, relative to its profile, so a link from outside finds its profile. */
         record?: (params: RouteParamsGeneric) => string;
+        /**
+         * On desktop, a record's page opens in the panel over the page it came from (design.md §17.1): `of` is the page
+         * under it when it is opened directly; `wide` is the invoice editor's 760 px.
+         */
+        panel?: { of: string; wide?: boolean };
+        /** A page of the sidebar on desktop: its header has no back arrow. */
+        section?: boolean;
     }
 }
 
@@ -53,24 +60,24 @@ const routes: RouteRecordRaw[] = [
     { path: '/overview', name: 'overview', redirect: { name: 'accounting' } },
 
     { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices', keepAlive: true } },
-    { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['create', 'invoices'], denied: 'invoices' } },
-    { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue'), meta: { record: record('invoices') } },
-    { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice', record: record('invoices') } },
+    { path: '/invoices/new', name: 'invoice-new', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['create', 'invoices'], denied: 'invoices', panel: { of: '/invoices', wide: true } } },
+    { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue'), meta: { record: record('invoices'), panel: { of: '/invoices' } } },
+    { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice', record: record('invoices'), panel: { of: '/invoices', wide: true } } },
 
     { path: '/payments/pick', name: 'payment-pick', component: () => import('@/pages/payments/PaymentInvoicePickPage.vue'), meta: { can: ['create', 'payments'], denied: 'accounting' } },
-    { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home' } },
-    { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue'), meta: { record: record('payments') } },
-    { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment', record: record('payments') } },
-    { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue'), meta: { keepAlive: true } },
-    { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['create', 'account-transfers'], denied: 'transfers' } },
-    { path: '/transfers/:id(\\d+)', name: 'transfer', component: () => import('@/pages/transfers/TransferDetailPage.vue'), meta: { record: record('transfers') } },
-    { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['update', 'account-transfers'], denied: 'transfer', record: record('transfers') } },
+    { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home', panel: { of: '/accounting' } } },
+    { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue'), meta: { record: record('payments'), panel: { of: '/accounting' } } },
+    { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment', record: record('payments'), panel: { of: '/accounting' } } },
+    { path: '/transfers', name: 'transfers', component: () => import('@/pages/transfers/TransfersPage.vue'), meta: { keepAlive: true, section: true } },
+    { path: '/transfers/new', name: 'transfer-new', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['create', 'account-transfers'], denied: 'transfers', panel: { of: '/transfers' } } },
+    { path: '/transfers/:id(\\d+)', name: 'transfer', component: () => import('@/pages/transfers/TransferDetailPage.vue'), meta: { record: record('transfers'), panel: { of: '/transfers' } } },
+    { path: '/transfers/:id(\\d+)/edit', name: 'transfer-edit', component: () => import('@/pages/transfers/TransferFormPage.vue'), meta: { can: ['update', 'account-transfers'], denied: 'transfer', record: record('transfers'), panel: { of: '/transfers' } } },
 
-    { path: '/accounts', name: 'accounts', component: () => import('@/pages/accounts/AccountsPage.vue') },
+    { path: '/accounts', name: 'accounts', component: () => import('@/pages/accounts/AccountsPage.vue'), meta: { section: true } },
     { path: '/accounts/new', name: 'account-new', component: () => import('@/pages/accounts/AccountFormPage.vue'), meta: { can: ['create', 'accounts'], denied: 'accounts' } },
     { path: '/accounts/:id(\\d+)', name: 'account', component: () => import('@/pages/accounts/AccountDetailPage.vue'), meta: { record: record('accounts') } },
     { path: '/accounts/:id(\\d+)/edit', name: 'account-edit', component: () => import('@/pages/accounts/AccountFormPage.vue'), meta: { can: ['update', 'accounts'], denied: 'account', record: record('accounts') } },
-    { path: '/clients', name: 'clients', component: () => import('@/pages/clients/ClientsPage.vue') },
+    { path: '/clients', name: 'clients', component: () => import('@/pages/clients/ClientsPage.vue'), meta: { section: true } },
     { path: '/clients/new', name: 'client-new', component: () => import('@/pages/clients/ClientFormPage.vue'), meta: { can: ['create', 'clients'], denied: 'clients' } },
     { path: '/clients/:id(\\d+)', name: 'client', component: () => import('@/pages/clients/ClientDetailPage.vue'), meta: { record: record('clients') } },
     { path: '/clients/:id(\\d+)/edit', name: 'client-edit', component: () => import('@/pages/clients/ClientFormPage.vue'), meta: { can: ['update', 'clients'], denied: 'client', record: record('clients') } },
@@ -90,8 +97,8 @@ const routes: RouteRecordRaw[] = [
     { path: '/accounting/:year(\\d{4})?/:quarter([1-4])?', name: 'accounting', component: () => import('@/pages/accounting/AccountingPage.vue'), meta: { tab: 'accounting' } },
     { path: '/accounting/esv', name: 'accounting-esv', redirect: (to) => ({ name: 'taxes', query: { year: to.query.year } }) },
     { path: '/accounting/income-book', name: 'income-book', redirect: { name: 'accounting' } },
-    { path: '/books', name: 'books', component: () => import('@/pages/books/BooksPage.vue') },
-    { path: '/fees', name: 'fees', component: () => import('@/pages/accounting/FeesPage.vue') },
+    { path: '/books', name: 'books', component: () => import('@/pages/books/BooksPage.vue'), meta: { section: true } },
+    { path: '/fees', name: 'fees', component: () => import('@/pages/accounting/FeesPage.vue'), meta: { section: true } },
 
     { path: '/taxes', name: 'taxes', component: () => import('@/pages/taxes/TaxesPage.vue'), meta: { tab: 'taxes', keepAlive: true } },
     {
@@ -99,10 +106,10 @@ const routes: RouteRecordRaw[] = [
         name: 'taxes-by-payment',
         redirect: (to) => ({ name: 'taxes', query: { year: to.params.year, quarters: to.params.quarter } }),
     },
-    { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
-    { path: '/taxes/payments/:id(\\d+)', name: 'tax-payment', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { record: record('tax-payments') } },
-    { path: '/taxes/esv/new', name: 'esv-payment-new', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes' } },
-    { path: '/taxes/esv/:id(\\d+)', name: 'esv-payment', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { record: record('tax-payments') } },
+    { path: '/taxes/payments/new', name: 'tax-payment-new', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes', panel: { of: '/taxes' } } },
+    { path: '/taxes/payments/:id(\\d+)', name: 'tax-payment', component: () => import('@/pages/taxes/TaxPaymentFormPage.vue'), meta: { record: record('tax-payments'), panel: { of: '/taxes' } } },
+    { path: '/taxes/esv/new', name: 'esv-payment-new', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { can: ['create', 'tax-payments'], denied: 'taxes', panel: { of: '/taxes' } } },
+    { path: '/taxes/esv/:id(\\d+)', name: 'esv-payment', component: () => import('@/pages/taxes/EsvPaymentFormPage.vue'), meta: { record: record('tax-payments'), panel: { of: '/taxes' } } },
     {
         path: '/taxes/declaration/:year(\\d{4})/:quarter([1-4])',
         name: 'declaration',
@@ -112,12 +119,12 @@ const routes: RouteRecordRaw[] = [
     { path: '/more', name: 'more', component: () => import('@/pages/settings/MorePage.vue'), meta: { tab: 'more' } },
     { path: '/profiles', name: 'profiles', component: () => import('@/pages/settings/ProfileSwitchPage.vue') },
     { path: '/profiles/new', name: 'profile-new', component: () => import('@/pages/settings/ProfileFormPage.vue'), meta: { can: ['create', 'profiles'], denied: 'more' } },
-    { path: '/settings/profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfileFormPage.vue') },
-    { path: '/settings/numbering', name: 'settings-numbering', component: () => import('@/pages/settings/NumberingSettingsPage.vue') },
-    { path: '/settings/invoice-document', name: 'settings-invoice-document', component: () => import('@/pages/settings/InvoiceDocumentSettingsPage.vue') },
-    { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
-    { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue') },
-    { path: '/settings/backups', name: 'settings-backups', component: () => import('@/pages/settings/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
+    { path: '/settings/profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfileFormPage.vue'), meta: { section: true } },
+    { path: '/settings/numbering', name: 'settings-numbering', component: () => import('@/pages/settings/NumberingSettingsPage.vue'), meta: { section: true } },
+    { path: '/settings/invoice-document', name: 'settings-invoice-document', component: () => import('@/pages/settings/InvoiceDocumentSettingsPage.vue'), meta: { section: true } },
+    { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue'), meta: { section: true } },
+    { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue'), meta: { section: true } },
+    { path: '/settings/backups', name: 'settings-backups', component: () => import('@/pages/settings/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more', section: true } },
 
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];
@@ -170,6 +177,27 @@ router.afterEach((to, _from, failure) => {
 
     if (!to.meta.guest && to.meta.tab && to.name === to.meta.tab) {
         tabPaths[to.meta.tab] = to.fullPath;
+    }
+});
+
+/**
+ * The page under the record panel of the desktop layout (design.md §17.1): the page a record was opened from, kept
+ * while one record leads to another, or the record's own list (`meta.panel.of`) when it was opened directly. Null
+ * off a record. The mobile layout ignores it.
+ */
+export const panelBackground = ref<string | null>(null);
+
+router.afterEach((to, from, failure) => {
+    if (failure) {
+        return;
+    }
+
+    if (!to.meta.panel) {
+        panelBackground.value = null;
+    } else if (!(from.meta.panel && panelBackground.value)) {
+        panelBackground.value = from !== START_LOCATION && from.matched.length > 0 && !from.meta.guest && !from.meta.public
+            ? from.fullPath
+            : to.meta.panel.of;
     }
 });
 

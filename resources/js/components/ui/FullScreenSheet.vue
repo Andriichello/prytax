@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, useId } from 'vue';
 import Icon from '@/components/ui/Icon.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useOverlay } from '@/composables/useOverlay';
 import { t } from '@/i18n';
 
 /**
  * A screen over the whole page, which keeps the page (and its form) as it is underneath: a header with its title and
  * an optional subtitle, and a back arrow before them or a ✕ after them (the modal header, design.md §16.6, rule 7),
- * its scrolling content, and an optional sticky `footer`. Escape and the header's button close it; the page behind is inert while it is open, and one over another closes first.
+ * its scrolling content, and an optional sticky `footer`. On desktop it is a centred dialog, 560 px wide, with its
+ * backdrop (design.md §17.3). Escape and the header's button close it; the page behind is inert while it is open, and one over another closes first.
  */
 const { title, subtitle = undefined, dismiss = 'back' } = defineProps<{
     title: string;
@@ -25,15 +27,17 @@ function close(): void {
 }
 
 const { layer } = useOverlay(open, close, screen);
+const { isDesktop } = useBreakpoint();
 </script>
 
 <template>
     <Teleport to="body">
+        <div v-if="open && isDesktop" class="fixed inset-0 bg-overlay" :style="{ zIndex: 40 + layer * 10 }" aria-hidden="true" @click="close" />
         <Transition
-            enter-from-class="translate-x-full"
-            leave-to-class="translate-x-full"
-            enter-active-class="transition-transform duration-200 ease-out"
-            leave-active-class="transition-transform duration-150 ease-in"
+            :enter-from-class="isDesktop ? 'opacity-0' : 'translate-x-full'"
+            :leave-to-class="isDesktop ? 'opacity-0' : 'translate-x-full'"
+            :enter-active-class="isDesktop ? 'transition-opacity duration-150' : 'transition-transform duration-200 ease-out'"
+            :leave-active-class="isDesktop ? 'transition-opacity duration-100' : 'transition-transform duration-150 ease-in'"
         >
             <section
                 v-if="open"
@@ -42,7 +46,8 @@ const { layer } = useOverlay(open, close, screen);
                 aria-modal="true"
                 :aria-labelledby="titleId"
                 tabindex="-1"
-                class="fixed inset-0 flex flex-col bg-paper outline-none"
+                class="fixed flex flex-col bg-paper outline-none"
+                :class="isDesktop ? 'inset-x-0 top-1/2 mx-auto max-h-[88dvh] w-140 -translate-y-1/2 overflow-hidden rounded-3xl shadow-[0_24px_64px_rgb(23_25_31/0.28)]' : 'inset-0'"
                 :style="{ zIndex: 50 + layer * 10 }"
             >
                 <div class="mx-auto flex w-full max-w-120 min-h-0 flex-1 flex-col">

@@ -1,14 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-28: **the backups spec is being built on branch `feat/backups`** (from `dev` = `main` = a6c7ec3;
-19 commits, not merged, not pushed; see "Backups build"). `main` = `dev` = everything through the tax ledger plus the
-backups spec (`docs/specs/backups.md` v1.6) and this note, fast-forwarded on 2026-10-27 when the user asked; **not
-pushed**, `origin` is still at the invoice styles of 2026-10-24. The «Minimal» redesign (design.md v4), its browser QA
-pass and the owner's decisions on it are in; see "Minimal", "QA of Minimal" and "Tax ledger". Before it, as of
-2026-10-24, `main` = `dev` had everything: backend, frontend, the QA pass, its follow-ups (the user's decisions, the
-frontend gaps, Ukrainian API messages, «Запам’ятати мене»), English and the SPA's translation keys, and the invoice
-settings cascade with the 13 invoice styles. Read this file first when resuming, then `CLAUDE.md`,
-`docs/specs/design.md` (v4: §14 is the Minimal phase, §16 its screens; `docs/specs/invoice.md` is the invoice PDF as
+Status as of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are being built** (see "Handoffs of 2026-10-28").
+`feat/backups` passed the full suite (484) and was fast-forwarded into `dev` (not `main`); **`origin/main` =
+`origin/dev` = a6c7ec3** (pushed by the user before this session: the backups spec, not the build). The mobile delta 3
+is built on branch **`feat/minimal-delta-3`** (from `dev`, not merged, not pushed) but for XLSX; the desktop layout and
+the backups screens are next. Read this file first when resuming, then `CLAUDE.md`,
+`docs/specs/design.md` (v5: §14 is the build order, §16 the mobile screens, §17 the desktop layout; `docs/specs/invoice.md` is the invoice PDF as
 built; `docs/specs/suggestions.md` what is deferred or hidden). The current design handoff is «Minimal»:
 `storage/handoff/MINIMAL_APP.md`, `storage/handoff/CHAT_LOG.md`, and the boards extracted in
 `storage/handoff/prytax-minimal-handoff/` (`screens/png/NNN-M-*.png` by board number, `screens/html/M-*.html`,
@@ -17,6 +14,41 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Handoffs of 2026-10-28 (branch `feat/minimal-delta-3`, not merged, not pushed)
+
+Claude Design's three bundles are in `storage/handoff-28-10-2026/` (git-ignored; the zips are extracted there):
+`prytax-minimal-handoff-3/` (`MINIMAL_DELTA_3.md`, the mobile delta), `prytax-desktop-handoff/` (`DESKTOP_APP.md`, 59
+boards at 1440), `prytax-backups-handoff/` (`BACKUPS_UI.md`, 25 boards; its `BACKUPS_DESIGN.md` = `docs/specs/backups.md`
+v1.6). Build order: delta 3, then desktop, then the backups screens. The owner's answers (the user said "go with your
+recommendations", 2026-10-28) are in design.md v5 ("Changes in v5") and backups.md v1.7: keep the client-side current
+ФОП and `profiles/{profile}/…` (no `PUT me/current-profile`); «+ Новий ФОП» = the existing owner-only form; English
+already ships; the books' PDF mirrors the screen; XLSX via `openspout/openspout` (approved); desktop filter popovers
+with Скинути/Застосувати; 1024–1279 px moves the right columns under the main one; notifications are a popover on
+desktop and `/alerts` stays a page; backups: password switch off by default, no bundle password, restore deferred,
+sizes with a dot, in-app notices through api-core's per-user `notifications`; page-number pagination (not cursor).
+The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
+- **Specs:** design.md v5 (c409c51: §16.1 ФОП switching, §16.2 capsule and rules, §16.6 shared components, §16.7
+  Книги обліку, §17 desktop) and backups.md v1.7 (ee08a60, on `feat/backups`: as built + §4.7/§4.8 the UI).
+- **Delta 3, built:** `DateCalendar` + `DatePickerSheet` (single: Сьогодні/Вчора, `pickerNote`; range: presets, band,
+  day count, `utils/datePicker.ts` with tests) and `DateRangeField` (the receipt's and the editor's service period, the
+  invoice filter range); `DateField` opens the picker on a tap (a touch doesn't focus it, so no keyboard), Alt+↓ from
+  the keyboard; rules 1–10 (`SectionTitle` without rule, sentence-case tax badges, «57.3 % сплачено», chips «Усі …»,
+  «Застосувати» without the live count, `NewPill`, the ✕ on the right of `FullScreenSheet dismiss="close"`, «Запис»,
+  `ExportBlock`/`ExportButton`); the 📖 | 🔔 `BarActions` in `TopHeader`; ФОП switching (`profiles?append=status` →
+  `ProfileStatus`: taxes to pay from the ledger's unpaid items, overdue invoices, the earliest unpaid ЄСВ deadline;
+  Ще's «ФОП» card; `/profiles` `ProfileSwitchPage` + `ProfileSwitchRow`; App.vue's KeepAlive key and the router's
+  `tabPaths`/`keptScroll` follow the ФОП); the language sheet (`LanguageSheet` on Ще's row and the sign-in pill;
+  `LanguageSwitch` removed; `LOCALE_OTHER_NAMES`); Книги обліку (`/books?tab=&year=&group=`, `BooksPage`,
+  `components/books/*`; API `books/{year}/income|taxes` on `AccountingBooks` (+ `TaxLedger::items()`), PDFs
+  `books/{year}/{book}/export?format=pdf`, `resources/views/pdf/books/*`, texts in `lang/uk.json`).
+- **Blocked:** `composer require openspout/openspout` fails here ("Could not authenticate against github.com"; the
+  composer files were restored). The user is asked to run it; then add the XLSX exports of the books and Облік (rule
+  10: Облік's block becomes CSV · XLSX of the quarter, + «🗃 Архів» from the backups handoff).
+- **`.env`:** the ngrok `ASSET_URL` and the host in `SANCTUM_STATEFUL_DOMAINS` were removed (the tunnel was gone, and
+  the build baked the tunnel's URL into lazy chunks); a copy is in this session's scratchpad. Rebuild after env changes.
+- **Checking:** `act.mjs` takes `WIDTH`/`HEIGHT`/`SCALE` (desktop from 1024) and a `clear-cache` step; maria
+  (accountant) has `uk`, olena `en`; the sign-in screen keeps the device's language (click «Українська» in the sheet).
 
 ## Where things stand
 

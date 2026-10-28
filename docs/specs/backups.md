@@ -1007,6 +1007,16 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
 - **Notices:** «Резервна копія: {N} з {M} ФОП не збережено» → `/backups`; «Архів організації готовий»; «Архів за період
   готовий · {ФОП} · {період}»; «ФОП {name} видалено — фінальну копію можна завантажити до {date}».
 
+**As built (2026-10-28, branch `feat/backups-ui`):** `pages/backups/BackupsPage.vue` and `BackupPolicyPage.vue`,
+`components/backups/*` (`BackupStatusCard`, `BackupRunCard`, `BackupRunSheet`, `BackupDownloadSheet`), `utils/backups.ts`,
+and `components/accounting/PeriodExportSheet.vue` (Рік / Квартал / Період). The API added `backup-status`,
+`deleted-profiles`, `keep_until` / `keep_reason` (`Pruner::keepUntil()`, a request-scoped `RetentionEstimate`) and
+`previous` on a backup skipped as unchanged (the archive its download gives); `backup-runs` filters by `kind`. A run's
+«Повторити» and the failed ФОП's card start a manual run of that ФОП. Not built yet: the in-app notices (api-core's
+`notifications`; the bundle's banner polls on the page and the period archive's sheet waits for its export and
+downloads it), XLSX on Облік (the package couldn't be installed here), and the banner tells the signed link's 10 minutes
+rather than the bundle's 24 hours.
+
 ---
 
 ## 5. Restore

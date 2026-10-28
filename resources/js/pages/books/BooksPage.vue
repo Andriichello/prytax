@@ -16,6 +16,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import Translated from '@/components/ui/Translated.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { t } from '@/i18n';
@@ -35,6 +36,7 @@ type Grouping = 'quarter' | 'tax';
 const route = useRoute();
 const router = useRouter();
 const { profile, profileId, path } = useCurrentProfile();
+const { isDesktop } = useBreakpoint();
 
 const currentYear = dateParts(today()).year;
 const registeredYear = computed(() => (profile.value?.registered_at ? dateParts(profile.value.registered_at).year : currentYear));
@@ -93,7 +95,7 @@ function chooseYear(event: Event): void {
 </script>
 
 <template>
-    <SubScreen :title="t('accounting.books.title')" :subtitle="subtitle" :back="{ name: 'home' }">
+    <SubScreen :title="t('accounting.books.title')" :subtitle="subtitle" :back="{ name: 'home' }" :width="isDesktop ? 'full' : 'column'">
         <template #action>
             <label class="relative mr-2 flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-line-input bg-surface pr-3 pl-3.5 text-15 font-medium">
                 <Icon name="calendar" :size="18" />
@@ -141,11 +143,14 @@ function chooseYear(event: Event): void {
                     <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('accounting.books.emptyYearHint') }}</p>
                 </section>
                 <template v-else>
-                    <SectionTitle>
-                        {{ t('accounting.books.incomeBook') }}
-                        <template #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
-                    </SectionTitle>
-                    <IncomeBookTable :book="income" />
+                    <div class="flex items-center justify-between gap-3">
+                        <SectionTitle>
+                            {{ t('accounting.books.incomeBook') }}
+                            <template v-if="!isDesktop" #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
+                        </SectionTitle>
+                        <ExportButton v-if="isDesktop" :href="pdf" class="h-10! px-3.5!">PDF</ExportButton>
+                    </div>
+                    <IncomeBookTable :book="income" :wide="isDesktop" />
                 </template>
                 <p class="m-0 px-0.5 text-13 leading-[1.45] text-ink-3">{{ t('accounting.books.incomeNote') }}</p>
             </template>
@@ -161,7 +166,9 @@ function chooseYear(event: Event): void {
                         {{ t('accounting.books.cumulativeTitle') }}
                         <template #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
                     </SectionTitle>
-                    <TaxCumulativeCard v-for="period in taxes.cumulative" :key="period.to_quarter" :period="period" :year="year" />
+                    <div :class="isDesktop ? 'grid grid-cols-2 items-start gap-4' : 'contents'">
+                        <TaxCumulativeCard v-for="period in taxes.cumulative" :key="period.to_quarter" :period="period" :year="year" />
+                    </div>
                     <p class="m-0 px-0.5 text-13 leading-[1.45] text-ink-3">
                         <Translated :text="t('accounting.books.taxesNote', { esv: formatAmount(taxes.esv_monthly ?? '0') })">
                             <template #plus><span class="text-warning">{{ t('accounting.books.plusAmount') }}</span></template>
@@ -178,11 +185,13 @@ function chooseYear(event: Event): void {
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-sent-bar" />{{ t('accounting.books.legendSent') }}</span>
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-line-input" />{{ t('accounting.books.legendUnpaid') }}</span>
                     </div>
-                    <TaxBookCard v-for="tax in taxes.by_tax" :key="tax.tax_type" :tax="tax" />
+                    <div :class="isDesktop ? 'grid grid-cols-3 items-start gap-4' : 'contents'">
+                        <TaxBookCard v-for="tax in taxes.by_tax" :key="tax.tax_type" :tax="tax" />
+                    </div>
                 </template>
             </template>
 
-            <ExportBlock v-if="(tab === 'income' && income) || (tab === 'taxes' && taxes)">
+            <ExportBlock v-if="(tab === 'income' && income && !(isDesktop && income.has_receipts)) || (tab === 'taxes' && taxes)">
                 <ExportButton :href="pdf">PDF</ExportButton>
             </ExportBlock>
         </LoadState>

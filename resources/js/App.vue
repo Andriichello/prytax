@@ -14,8 +14,9 @@ import { errorMessage } from '@/utils/errors';
 
 /**
  * The app's frame. On mobile, one centred column, at most 480 px wide (the designs are drawn at 390 px); on desktop
- * (from 1024 px, design.md §17), the sidebar and the page beside it, and a record's page in the panel on the right,
- * over the page it was opened from (`panelBackground`), which stays mounted under it. When the app can't start (no
+ * (from 1024 px, design.md §17), the sidebar and the page beside it, at most 1440 px wide (the boards' width) and
+ * centred on a wider screen, and a record's page in the panel on the right, over the page it was opened from
+ * (`panelBackground`), which stays mounted under it. When the app can't start (no
  * connection, the server failed), it says so with a retry instead of a blank page. The infinite lists and Податки
  * stay alive behind the records opened from them, so going back returns to the same place, without loading again
  * unless something was saved meanwhile (`dataVersion`); another user, or another ФОП, starts afresh. The condition
@@ -81,13 +82,15 @@ const retry = (): void => window.location.reload();
             </div>
         </AuthLayout>
         <template v-else-if="shell">
-            <Sidebar class="sticky top-0 self-start" />
-            <div class="min-w-0 flex-1">
-                <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">
-                    <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">
-                        <component :is="Component" />
-                    </KeepAlive>
-                </RouterView>
+            <div class="mx-auto flex w-full max-w-360">
+                <Sidebar class="sticky top-0 self-start min-[1441px]:border-l" />
+                <div class="min-w-0 flex-1">
+                    <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">
+                        <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">
+                            <component :is="Component" />
+                        </KeepAlive>
+                    </RouterView>
+                </div>
             </div>
             <RecordPanel v-if="inPanel" :wide="route.meta.panel?.wide" :dialog="route.meta.panel?.dialog" @close="closePanel">
                 <RouterView />

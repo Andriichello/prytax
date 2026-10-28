@@ -1669,7 +1669,15 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Layout switch:** `useBreakpoint()` (`isDesktop` from 1024 px, `isWide` from 1280 px). `App.vue` renders the
   sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
   880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`) have no back
-  button.
+  button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
+  tables and cards keep the boards' widths (1112 px of content); the record panel opens at its right edge. A page's
+  title keeps its width, and its actions go under it when they don't fit beside it.
+- **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
+  beside Головна's 360 px column from 1280 px: Інвойси's table puts the period under the client and the payment
+  under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date
+  under the invoice and the income ₴ and the NBU rate under the amount under 920 px; its summary is two cards with
+  the taxes under them under 960 px; Податки's summary narrows its columns under 760 px; Книги's cards by tax are
+  three, two or one a row.
 - **Panels:** a record's route (`meta.panel`: `of`, `wide`, `dialog`) renders in `RecordPanel` over a background
   route — the page it was opened from (`panelBackground` in the router), kept while one record leads to another, or
   `meta.panel.of` for a deep link —, which a `RouterView :route` keeps mounted under the scrim (`loadRouteLocation`

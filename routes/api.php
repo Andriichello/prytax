@@ -18,6 +18,7 @@ use PryTax\Http\Controllers\BooksController;
 use PryTax\Http\Controllers\ChargeTypeController;
 use PryTax\Http\Controllers\ClientController;
 use PryTax\Http\Controllers\ContractController;
+use PryTax\Http\Controllers\DeletedProfileController;
 use PryTax\Http\Controllers\EsvObligationController;
 use PryTax\Http\Controllers\ExchangeRateController;
 use PryTax\Http\Controllers\InvoiceController;
@@ -79,6 +80,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
             Route::prefix('organization')->name('organization.')->where(['id' => '[0-9A-Za-z]{26}'])->group(function () {
                 BackupPolicyController::routes();
                 BackupRunController::routes();
+                Route::get('deleted-profiles', [DeletedProfileController::class, 'deleted'])->name('deleted-profiles');
                 BackupController::routes();
             });
 

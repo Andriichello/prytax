@@ -127,6 +127,30 @@ class ProfilePurgeTest extends TestCase
     }
 
     /**
+     * Test that a deleted ФОП is listed among «Видалені ФОП» during its grace, with the day its data go and its final
+     * backup, and leaves the list once restored.
+     *
+     * @return void
+     */
+    public function testListsADeletedProfileDuringItsGrace(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+
+        $this->deleteJson("/api/profiles/$profile->id")->assertOk();
+
+        $listed = $this->getJson('/api/organization/deleted-profiles')->assertOk()->json('data');
+        $this->assertSame([$profile->id], array_column($listed, 'id'));
+        $this->assertStringStartsWith('2026-11-19', (string) $listed[0]['purge_at']);
+        $this->assertNotNull($listed[0]['final_backup_id']);
+
+        $this->postJson("/api/profiles/$profile->id/restore")->assertOk();
+
+        $this->getJson('/api/organization/deleted-profiles')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    /**
      * Test that a cancel by ops restores the profile, and a run, which has started, can't be cancelled.
      *
      * @return void

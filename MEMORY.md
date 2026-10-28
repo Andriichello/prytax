@@ -77,12 +77,10 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 | 14. Desktop layout («Minimal (Desktop)») | **Merged into `dev` and `main`, pushed** (2026-10-28); design.md §17.6 |
 | 15. The backups screens of the backups handoff | **Merged into `dev` and `main`, pushed** (2026-10-28); backups.md §4.8 "As built" |
 
-- **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
-  the invoice settings and styles (pushed on 2026-10-24). **`main` = `dev`** (checked out) = that + Minimal (specs,
-  backend, SPA, demo, the QA fixes, the owner's decisions) + the tax ledger + the backups spec and this note,
-  fast-forwarded on 2026-10-27 when the user asked. Nothing of it is pushed (`git log --oneline origin/dev..dev`). The local `feat/minimal`, `feat/invoice-v2` and `feat/tax-ledger` branches are merged and still
-  there. **`feat/backups`** (checked out, from `dev`; `git log --oneline dev..feat/backups`) holds the backups build. The remote `origin` is `github.com/Andriichello/prytax` (added by the user on 2026-10-24; `main` and `dev`
-  track it); push only when the user asks.
+- **Branches:** only `main` and `dev` exist, `main` = `dev` (checked out) = everything through the handoffs of
+  2026-10-28, pushed by the user (`origin/main` = `origin/dev`); the merged feature branches were deleted on 2026-10-28
+  when the user asked. Work on a new feature branch from `dev`. The remote `origin` is `github.com/Andriichello/prytax`
+  (added by the user on 2026-10-24; `main` and `dev` track it); push only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
   658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
   which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
@@ -108,7 +106,7 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 1. The three handoffs of 2026-10-28 are built, merged into `dev` and `main` and pushed (2026-10-28). Open: XLSX (the user is to run `php8.5 $(which composer) require openspout/openspout`; then the books' and
    Облік's XLSX exports), the in-app notices of backups (api-core's `notifications` in Сповіщення), the desktop panel
    header anatomy (badges, «✎ Змінити», ⋯ in the header), Інвойси's search, the remaining spec decisions (§5.3, the
-   GCS adapter), deleting the merged branches, and the backlog: the open points of "QA of Minimal",
+   GCS adapter), and the backlog: the open points of "QA of Minimal",
    docs/specs/suggestions.md §1, the yearly PDF summary, `SheetImporter`.
 2. On 2026-10-28 MySQL was running (on 2026-10-27 it wasn't: `systemctl is-active mysql`; starting it needs sudo, so
    ask the user), but neither the dev server (8010, `php8.5`) nor the headless Chrome (9223) were; check with

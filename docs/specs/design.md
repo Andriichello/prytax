@@ -1663,3 +1663,28 @@ trap); `Dialog`; `Popover` (anchored, flipping and shifting to stay in the viewp
 date picker, the menu, notifications, the ФОП switcher and the language); `DataTable` (a CSS grid with fixed numeric
 columns and a flexible first one, numbers right-aligned in mono tabular figures); `TaxCells`; `useBreakpoint()` with
 `lg` = 1024, by which a route renders a page or a panel.
+
+### 17.6 As built (2026-10-28, branch `feat/desktop`)
+
+- **Layout switch:** `useBreakpoint()` (`isDesktop` from 1024 px, `isWide` from 1280 px). `App.vue` renders the
+  sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
+  880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`) have no back
+  button.
+- **Panels:** a record's route (`meta.panel`: `of`, `wide`, `dialog`) renders in `RecordPanel` over a background
+  route — the page it was opened from (`panelBackground` in the router), kept while one record leads to another, or
+  `meta.panel.of` for a deep link —, which a `RouterView :route` keeps mounted under the scrim (`loadRouteLocation`
+  loads it first). This replaces the handoff's nested routes with the same behaviour. Closing goes back through the
+  history when the page came from there. «Інвойс для надходження» is the 520 px dialog variant. The record pages
+  render their mobile content in the panel with the panel's header (the kind of record over the title, ← to the
+  previous record, ✕); the full header anatomy (badges, «✎ Змінити» and ⋯ in the header) is not done yet, and the
+  pages keep their own.
+- **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px); `Popover` (anchored,
+  flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
+  the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
+  the date pickers (`DatePickerPopover`).
+- **Pages:** Головна (tables by quarter, `HomeAside`), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
+  cards, the switches on the filter row, `ReceiptTable`), Податки (the summary table, one-line ledger rows), Книги
+  (the whole width, the cards in grids), the settings with their side notes, Рахунки in two columns, Перекази,
+  Клієнти and Користувачі at 880 px, Вхід split.
+- **Not done:** Інвойси's search «Номер або клієнт» (no search API, §15); the status filter as a checkbox list (it
+  keeps its chips); «✎ Змінити» beside the name on Рахунок and Клієнт; Книги's tabs beside the year chip.

@@ -3,8 +3,8 @@
 Status as of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are being built** (see "Handoffs of 2026-10-28").
 `feat/backups` passed the full suite (484) and was fast-forwarded into `dev` (not `main`); **`origin/main` =
 `origin/dev` = a6c7ec3** (pushed by the user before this session: the backups spec, not the build). The mobile delta 3
-is built on branch **`feat/minimal-delta-3`** (from `dev`, not merged, not pushed) but for XLSX; the desktop layout and
-the backups screens are next. Read this file first when resuming, then `CLAUDE.md`,
+is built on branch **`feat/minimal-delta-3`** (from `dev`, not merged, not pushed) but for XLSX; the desktop layout on
+**`feat/desktop`** (from it, not merged, not pushed; design.md §17.6); the backups screens are next. Read this file first when resuming, then `CLAUDE.md`,
 `docs/specs/design.md` (v5: §14 is the build order, §16 the mobile screens, §17 the desktop layout; `docs/specs/invoice.md` is the invoice PDF as
 built; `docs/specs/suggestions.md` what is deferred or hidden). The current design handoff is «Minimal»:
 `storage/handoff/MINIMAL_APP.md`, `storage/handoff/CHAT_LOG.md`, and the boards extracted in
@@ -47,6 +47,8 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
   10: Облік's block becomes CSV · XLSX of the quarter, + «🗃 Архів» from the backups handoff).
 - **`.env`:** the ngrok `ASSET_URL` and the host in `SANCTUM_STATEFUL_DOMAINS` were removed (the tunnel was gone, and
   the build baked the tunnel's URL into lazy chunks); a copy is in this session's scratchpad. Rebuild after env changes.
+- **Desktop, built on branch `feat/desktop`** (from `feat/minimal-delta-3`, not merged, not pushed): see design.md
+  §17.6 (the shell, panels over a background route, dialogs, popovers, the desktop pages, and what is not done).
 - **Checking:** `act.mjs` takes `WIDTH`/`HEIGHT`/`SCALE` (desktop from 1024) and a `clear-cache` step; maria
   (accountant) has `uk`, olena `en`; the sign-in screen keeps the device's language (click «Українська» in the sheet).
 

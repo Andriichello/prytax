@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { Account, Client, Paginated } from '@/api/types';
+import type { Account, ApiResponse, BackupStatusSummary, Client, Paginated } from '@/api/types';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -14,6 +14,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
+import { kyivTime, relativeDay } from '@/utils/backups';
 import { styleName } from '@/utils/invoiceStyles';
 import { roleName } from '@/utils/statuses';
 
@@ -36,6 +37,15 @@ const { data: counts } = useLoader(async (signal) => {
 
     return { accounts: accounts.meta.total, clients: clients.meta.total };
 }, [profileId]);
+
+/** «сьогодні 02:37»: when the organization's last copy was made, beside Резервні копії. */
+const { data: backupStatus } = useLoader(async (signal) => (can('viewAny', 'backup-runs')
+    ? (await api.get<ApiResponse<BackupStatusSummary>>('organization/backup-status', undefined, signal)).data
+    : null), []);
+
+const lastBackup = computed(() => (backupStatus.value?.last_completed_at
+    ? `${relativeDay(backupStatus.value.last_completed_at).toLocaleLowerCase()} ${kyivTime(backupStatus.value.last_completed_at)}`
+    : null));
 
 const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; value?: string; visible?: boolean }[] }[]>(() => [
     {
@@ -68,7 +78,7 @@ const sections = computed<{ key: string; title: string; items: { label: string; 
         title: t('shell.more.organization'),
         items: [
             { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
-            { label: t('settings.backups.title'), icon: 'download', to: '/settings/backups', visible: can('viewAny', 'backup-runs') },
+            { label: t('settings.backups.title'), icon: 'archive', to: '/backups', value: lastBackup.value ?? undefined, visible: can('viewAny', 'backup-runs') },
         ],
     },
 ]);

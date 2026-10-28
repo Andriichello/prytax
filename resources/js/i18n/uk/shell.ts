@@ -193,6 +193,8 @@ export default {
         copyLabel: 'Копіювати: {label}',
         previous: 'Попередній',
         next: 'Наступний',
+        decrease: 'Менше',
+        increase: 'Більше',
     },
 
     /** A date field */

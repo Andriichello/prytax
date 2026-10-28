@@ -65,8 +65,6 @@ const key = computed(() => `${profileId.value}:${year.value}:${quarter.value}`);
 
 /* Експорт за період, of the quarter shown unless the user picks other days */
 const exportOpen = ref(false);
-const quarterStart = computed(() => `${year.value}-${String(quarter.value * 3 - 2).padStart(2, '0')}-01`);
-const quarterEnd = computed(() => new Date(Date.UTC(year.value, quarter.value * 3, 0)).toISOString().slice(0, 10));
 
 /** The quarter's receipts, the newest first: with their invoices and tax payments, or with their fees (`metrics`). */
 const receiptsQuery = (withMetrics: boolean) => ({
@@ -168,7 +166,6 @@ const feesOf = (receipt: Payment): { fees: string | null; net: string | null } |
 };
 
 const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${quarter.value}/export`)));
-const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)));
 </script>
 
 <template>
@@ -199,9 +196,8 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                     <div v-if="isDesktop" class="flex items-center justify-between gap-3">
                         <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
                         <span class="flex gap-2">
-                            <ExportButton :href="exportQuarter" class="h-10! px-3.5!">{{ t('accounting.quarters.quarterCsv') }}</ExportButton>
-                            <ExportButton :href="exportYear" class="h-10! px-3.5!">{{ t('accounting.quarters.yearCsv') }}</ExportButton>
-                            <ExportButton v-if="can('export', 'backup-runs')" class="h-10! px-3.5!" @click="exportOpen = true">{{ t('accounting.export.title') }}</ExportButton>
+                            <ExportButton :href="exportQuarter" class="h-10! px-3.5!">CSV</ExportButton>
+                            <ExportButton v-if="can('export', 'backup-runs')" icon="archive" class="h-10! px-3.5!" @click="exportOpen = true">{{ t('accounting.export.buttonWide') }}</ExportButton>
                         </span>
                     </div>
                     <SectionTitle v-else>{{ t('core.common.receipts') }}</SectionTitle>
@@ -267,18 +263,15 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                         </MonthCard>
                     </template>
 
-                    <ExportBlock v-if="!isDesktop">
-                        <ExportButton :href="exportQuarter">{{ t('accounting.quarters.quarterCsv') }}</ExportButton>
-                        <ExportButton :href="exportYear">{{ t('accounting.quarters.yearCsv') }}</ExportButton>
-                        <ExportButton v-if="can('export', 'backup-runs')" class="col-span-2" @click="exportOpen = true">
-                            {{ t('accounting.export.title') }}
-                        </ExportButton>
+                    <ExportBlock v-if="!isDesktop" :hint="can('export', 'backup-runs') ? t('accounting.export.blockHint') : undefined">
+                        <ExportButton :href="exportQuarter">CSV</ExportButton>
+                        <ExportButton v-if="can('export', 'backup-runs')" icon="archive" @click="exportOpen = true">{{ t('accounting.export.button') }}</ExportButton>
                     </ExportBlock>
                 </section>
             </template>
         </LoadState>
 
-        <PeriodExportSheet v-model:open="exportOpen" :from="quarterStart" :to="quarterEnd" />
+        <PeriodExportSheet v-model:open="exportOpen" :year="year" :quarter="quarter" />
 
         <PeriodFilterSheet
             v-model:open="filterOpen"

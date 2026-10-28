@@ -87,7 +87,7 @@ const groups = computed<{ key: string; title?: string; items: NavItem[] }[]>(() 
             { key: 'numbering', label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering', names: ['settings-numbering'] },
             { key: 'document', label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', names: ['settings-invoice-document'] },
             { key: 'users', label: t('shell.more.usersRoles'), icon: 'people', to: '/users', names: ['users'], visible: can('viewAny', 'users') },
-            { key: 'backups', label: t('settings.backups.title'), icon: 'download', to: '/settings/backups', names: ['settings-backups'], visible: can('viewAny', 'backup-runs') },
+            { key: 'backups', label: t('settings.backups.title'), icon: 'archive', to: '/backups', names: ['backups', 'backup-policy'], visible: can('viewAny', 'backup-runs') },
         ],
     },
 ]);

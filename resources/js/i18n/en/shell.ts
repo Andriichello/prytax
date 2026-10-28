@@ -180,6 +180,8 @@ export default {
         copyLabel: 'Copy {label}',
         previous: 'Previous',
         next: 'Next',
+        decrease: 'Less',
+        increase: 'More',
     },
 
     dateField: {

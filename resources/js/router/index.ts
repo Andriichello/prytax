@@ -125,7 +125,9 @@ const routes: RouteRecordRaw[] = [
     { path: '/settings/invoice-document', name: 'settings-invoice-document', component: () => import('@/pages/settings/InvoiceDocumentSettingsPage.vue'), meta: { section: true } },
     { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue'), meta: { section: true } },
     { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue'), meta: { section: true } },
-    { path: '/settings/backups', name: 'settings-backups', component: () => import('@/pages/settings/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more', section: true } },
+    { path: '/backups', name: 'backups', component: () => import('@/pages/backups/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more', section: true } },
+    { path: '/backups/policy', name: 'backup-policy', component: () => import('@/pages/backups/BackupPolicyPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
+    { path: '/settings/backups', name: 'settings-backups', redirect: { name: 'backups' } },
 
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];

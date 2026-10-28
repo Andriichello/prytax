@@ -2251,3 +2251,93 @@ export interface TaxesBookYear {
         quarters: { quarter: number; amount: Amount; cumulative: Amount }[];
     }[];
 }
+
+// ---- Резервні копії ----
+
+export type BackupKind = 'scheduled' | 'manual' | 'automatic' | 'export';
+
+/** A profile's archive in a run (`organization/backups`, a run's `backups`). */
+export interface BackupRecord {
+    id: string;
+    run_id: string;
+    profile_id: number;
+    status: 'pending' | 'completed' | 'skipped_unchanged' | 'failed' | 'pruned';
+    tier: BackupKind;
+    bytes: number | null;
+    error: string | null;
+    has_archive: boolean;
+    documents: number | null;
+    snapshot_at: DateTimeString | null;
+    created_at: DateTimeString;
+    expires_at: DateTimeString | null;
+    /** The last day it stays under the current policy; null until deleted (the newest, a manual one). */
+    keep_until: DateString | null;
+    keep_reason: 'newest' | 'manual' | 'day' | 'week' | 'month' | 'expires' | 'next_prune' | null;
+    /** Of a backup skipped as unchanged: the profile's archive before it, which its download gives. */
+    previous: { id: string; bytes: number | null; created_at: DateTimeString | null; documents: number | null } | null;
+}
+
+/** A backup run of the organization (`organization/backup-runs`). */
+export interface BackupRunRecord {
+    id: string;
+    kind: BackupKind;
+    status: 'queued' | 'running' | 'completed' | 'partial' | 'failed';
+    reason: string | null;
+    profile_ids: number[] | null;
+    triggered_by_user_id: number | null;
+    snapshot_at: DateTimeString | null;
+    started_at: DateTimeString | null;
+    finished_at: DateTimeString | null;
+    created_at: DateTimeString;
+    error: string | null;
+    bundle_status: 'building' | 'ready' | 'failed' | null;
+    backups?: BackupRecord[];
+}
+
+/** The organization's backup policy (`organization/backup-policy`). */
+export interface BackupPolicyRecord {
+    enabled: boolean;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    weekday: number | null;
+    month_day: number | null;
+    retention_daily: number;
+    retention_weekly: number;
+    retention_monthly: number;
+    include_documents: boolean;
+    include_audit_log: boolean;
+    profiles_mode: 'all' | 'selected';
+    profile_ids: number[];
+    skip_unchanged: boolean;
+    notify: 'failures' | 'always' | 'never';
+    next_run_at: DateTimeString | null;
+}
+
+/** What the status card of Резервні копії shows (`organization/backup-status`). */
+export interface BackupStatusSummary {
+    policy: {
+        enabled: boolean;
+        frequency: BackupPolicyRecord['frequency'];
+        next_run_at: DateTimeString | null;
+        /** The organization's time of day in the window, `02:37`. */
+        time_of_day: string;
+        retention_monthly: number;
+    };
+    latest_run: BackupRunRecord | null;
+    last_completed_at: DateTimeString | null;
+    /** The profiles, which have a completed archive, and the bytes of their newest ones. */
+    profiles: number;
+    bytes: number;
+    manual_runs_left: number;
+}
+
+/** A deleted ФОП in its grace (`organization/deleted-profiles`). */
+export interface DeletedProfile {
+    id: number;
+    full_name: string;
+    short_name: string;
+    initials: string;
+    deleted_at: DateTimeString | null;
+    purge_at: DateTimeString | null;
+    final_backup_id: string | null;
+    final_backup_bytes: number | null;
+}

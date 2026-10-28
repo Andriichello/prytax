@@ -145,6 +145,8 @@ export default {
         overdueInvoices: { one: '{count} прострочений інвойс', few: '{count} прострочені інвойси', many: '{count} прострочених інвойсів' },
         activeProfiles: { one: '{count} активний', few: '{count} активні', many: '{count} активних' },
         inactiveProfiles: { one: '{count} неактивний', few: '{count} неактивні', many: '{count} неактивних' },
+        documents: { one: '{count} документ', few: '{count} документи', many: '{count} документів' },
+        lastBackups: { one: '{count} остання', few: '{count} останні', many: '{count} останніх' },
     },
 
     /** Quarters, short */

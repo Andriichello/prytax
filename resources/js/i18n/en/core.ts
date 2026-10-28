@@ -134,6 +134,8 @@ export default {
         overdueInvoices: { one: '{count} overdue invoice', other: '{count} overdue invoices' },
         activeProfiles: { one: '{count} active', other: '{count} active' },
         inactiveProfiles: { one: '{count} inactive', other: '{count} inactive' },
+        documents: { one: '{count} document', other: '{count} documents' },
+        lastBackups: { one: 'the last {count}', other: 'the last {count}' },
     },
 
     quarters: {

@@ -14,6 +14,7 @@ use PryTax\Http\Resources\PaymentCollection;
 use PryTax\Http\Resources\PaymentResource;
 use PryTax\Policies\PaymentPolicy;
 use PryTax\Repositories\PaymentRepository;
+use PryTax\Services\Pdf\PdfFonts;
 use PryTax\Services\Reports\AccountingBooks;
 use Throwable;
 
@@ -60,11 +61,13 @@ class BooksController extends TenantController
      * @param PaymentPolicy $policy
      * @param PaymentRepository $repository
      * @param AccountingBooks $books
+     * @param PdfFonts $fonts
      */
     public function __construct(
         PaymentPolicy $policy,
         PaymentRepository $repository,
-        protected AccountingBooks $books
+        protected AccountingBooks $books,
+        protected PdfFonts $fonts
     ) {
         parent::__construct($policy, $repository);
     }
@@ -109,6 +112,8 @@ class BooksController extends TenantController
         $year = (int) $request->route('year');
         $book = (string) $request->route('book');
 
+        $this->fonts->metrics();
+        $title = $book === 'income' ? __('Income book · :year', ['year' => $year]) : __('Taxes · :year', ['year' => $year]);
         $pdf = Pdf::loadView("pdf.books.$book", [
             'profile' => $profile,
             'year' => $year,
@@ -117,7 +122,7 @@ class BooksController extends TenantController
         ])->setPaper('a4')->setOption('isFontSubsettingEnabled', true);
 
         $pdf->render();
-        $this->numberPages($pdf->getDomPDF()->getCanvas());
+        $this->numberPages($pdf->getDomPDF()->getCanvas(), $title);
 
         $name = $book === 'income' ? "knyha-dokhodiv-$year.pdf" : "podatky-$year.pdf";
 
@@ -128,19 +133,25 @@ class BooksController extends TenantController
     }
 
     /**
-     * Number every page at its bottom right: "1 / 3", in DejaVu Sans Mono.
+     * Put the book's name and the page's number at the foot of each page, as the app's muted small print: «PryTax ·
+     * Книга обліку доходів · 2026» on the left, «1 / 2» on the right.
      *
      * @param Canvas $canvas
+     * @param string $title
      *
      * @return void
      */
-    protected function numberPages(Canvas $canvas): void
+    protected function numberPages(Canvas $canvas, string $title): void
     {
-        $canvas->page_script(function (int $page, int $total, Canvas $canvas, FontMetrics $metrics) {
-            $font = $metrics->getFont('DejaVu Sans Mono');
-            $text = "$page / $total";
+        $canvas->page_script(function (int $page, int $total, Canvas $canvas, FontMetrics $metrics) use ($title) {
+            $text = $metrics->getFont('DejaVu Sans');
+            $figures = $metrics->getFont('Plex Mono') ?? $text;
+            $number = "$page / $total";
+            $color = [0.557, 0.573, 0.612];
+            $y = $canvas->get_height() - 30;
 
-            $canvas->text($canvas->get_width() - 40 - $metrics->getTextWidth($text, $font, 7), $canvas->get_height() - 30, $text, $font, 7, [0.35, 0.37, 0.42]);
+            $canvas->text(40, $y, "PryTax · $title", $text, 7, $color);
+            $canvas->text($canvas->get_width() - 40 - $metrics->getTextWidth($number, $figures, 7), $y, $number, $figures, 7, $color);
         });
     }
 }

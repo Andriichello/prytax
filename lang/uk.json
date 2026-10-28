@@ -219,7 +219,6 @@
     "Income book · :year": "Книга обліку доходів · :year",
     "Income since the start of the year": "Дохід з початку року",
     ":percent % of the limit": ":percent % ліміту",
-    "limit :cap · :left left": "ліміт :cap · залишилось :left",
     "No receipts in :year yet.": "Надходжень за :year ще немає.",
     "Since the start of the year": "З початку року",
     "Q:number": ":roman кв.",
@@ -240,5 +239,11 @@
     "current": "поточний",
     "For Q:number": "За :roman кв.",
     "Cumulative": "Наростаючим",
-    "ЄП and ВЗ as in the declaration: cumulative since the start of the year, and for a quarter = cumulative − the previous period. ЄСВ is :esv ₴ for each month of a quarter. «+ amount» under the paid one is sent, not yet confirmed by the bank.": "ЄП і ВЗ — як у декларації: наростаючим підсумком з початку року, а за квартал = наростаючим − попередній період. ЄСВ — :esv ₴ за кожен місяць кварталу. «+ сума» під сплаченим — надіслано, банк ще не підтвердив."
+    "ЄП and ВЗ as in the declaration: cumulative since the start of the year, and for a quarter = cumulative − the previous period. ЄСВ is :esv ₴ for each month of a quarter. «+ amount» under the paid one is sent, not yet confirmed by the bank.": "ЄП і ВЗ — як у декларації: наростаючим підсумком з початку року, а за квартал = наростаючим − попередній період. ЄСВ — :esv ₴ за кожен місяць кварталу. «+ сума» під сплаченим — надіслано, банк ще не підтвердив.",
+    "Made on :date": "Сформовано :date",
+    "group :group limit": "ліміт :group групи",
+    "left": "залишилось",
+    "Income book": "Книга доходів",
+    "newest first": "нові вгорі",
+    "Cumulative total": "Наростаючим підсумком"
 }

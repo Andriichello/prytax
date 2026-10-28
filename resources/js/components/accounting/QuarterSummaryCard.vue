@@ -11,12 +11,15 @@ import { TAX_TYPES } from '@/utils/statuses';
 /**
  * «Підсумок кварталу» of Облік (design.md §7, §16.5): the black band of the year's income limit (the share used, the
  * income so far and the limit, with ticks at 80 and 90 %), the quarter's income per currency (received of
- * invoiced), the income for taxes, and the quarter's ЄСВ, ЄП and ВЗ with what is paid.
+ * invoiced), the income for taxes, and the quarter's ЄСВ, ЄП and ВЗ with what is paid. On desktop (`row`) they are
+ * three cards side by side.
  */
-const { card, year, quarter } = defineProps<{
+const { card, year, quarter, row = false } = defineProps<{
     card: OverviewCard;
     year: number;
     quarter: number;
+    /** The desktop arrangement: three cards in a row (D-Accounting). */
+    row?: boolean;
 }>();
 
 const TAXES: TaxType[] = ['social_contribution', 'single_tax', 'military_levy'];
@@ -28,8 +31,8 @@ const cap = computed(() => formatMoney(card.cap.income_cap.replace(/\.00$/, ''),
 </script>
 
 <template>
-    <article class="flex flex-col overflow-hidden rounded-card border border-line bg-surface">
-        <div class="flex flex-col gap-2.5 bg-ink px-4 py-3.5 text-white">
+    <article :class="row ? 'grid grid-cols-3 items-stretch gap-4' : 'flex flex-col overflow-hidden rounded-card border border-line bg-surface'">
+        <div class="flex flex-col gap-2.5 bg-ink px-4 py-3.5 text-white" :class="row ? 'justify-between rounded-card' : ''">
             <div class="flex items-baseline justify-between">
                 <span class="text-13 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('shell.overview.incomeCapFor', { year }) }}</span>
                 <span class="num text-16 font-semibold" :class="capPercent >= 80 ? 'text-warning-on-ink' : ''">{{ card.cap.percent }} %</span>
@@ -45,7 +48,7 @@ const cap = computed(() => formatMoney(card.cap.income_cap.replace(/\.00$/, ''),
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 px-4 py-3.5">
+        <div class="flex flex-col gap-3 px-4 py-3.5" :class="row ? 'rounded-card border border-line bg-surface' : ''">
             <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.incomeIn', { quarter: quarterLabel(quarter) }) }}</span>
             <div v-for="income in card.income" :key="income.currency" class="flex flex-col gap-1.5">
                 <div class="flex items-baseline justify-between text-15 font-semibold">
@@ -68,7 +71,7 @@ const cap = computed(() => formatMoney(card.cap.income_cap.replace(/\.00$/, ''),
             </span>
         </div>
 
-        <div class="mx-4 flex flex-col gap-2.5 border-t border-divider py-3.5">
+        <div class="flex flex-col gap-2.5 py-3.5" :class="row ? 'rounded-card border border-line bg-surface px-4' : 'mx-4 border-t border-divider'">
             <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.taxesIn', { quarter: quarterLabel(quarter) }) }}</span>
             <div class="grid grid-cols-3 gap-2">
                 <div v-for="tax in TAXES" :key="tax" class="flex flex-col gap-[3px]">

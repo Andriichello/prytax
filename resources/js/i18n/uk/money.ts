@@ -306,4 +306,13 @@ export default {
     openingBalance: {
         hint: 'Скільки було на рахунку того дня. Баланс рахується від останнього такого залишку.',
     },
+
+    /** The receipts' table of desktop Облік */
+    receiptTable: {
+        invoice: 'Інвойс',
+        nbuRate: 'Курс НБУ',
+        income: 'Дохід',
+        singleTax: 'ЄП 5 %',
+        militaryLevy: 'ВЗ 1 %',
+    },
 } satisfies Messages;

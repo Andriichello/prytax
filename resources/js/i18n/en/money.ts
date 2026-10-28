@@ -295,4 +295,12 @@ export default {
     openingBalance: {
         hint: 'What the account held that day. The balance is counted from the latest such balance.',
     },
+
+    receiptTable: {
+        invoice: 'Invoice',
+        nbuRate: 'NBU rate',
+        income: 'Income',
+        singleTax: 'ЄП 5 %',
+        militaryLevy: 'ВЗ 1 %',
+    },
 } satisfies Translation<typeof uk>;

@@ -7,6 +7,7 @@ import PeriodExportSheet from '@/components/accounting/PeriodExportSheet.vue';
 import QuarterSummaryCard from '@/components/accounting/QuarterSummaryCard.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import MonthCard from '@/components/payment/MonthCard.vue';
+import ReceiptTable from '@/components/payment/ReceiptTable.vue';
 import ReceiptTaxCard from '@/components/payment/ReceiptTaxCard.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ExportBlock from '@/components/ui/ExportBlock.vue';
@@ -17,6 +18,8 @@ import NewPill from '@/components/ui/NewPill.vue';
 import PeriodFilterSheet, { type PeriodFilter } from '@/components/ui/PeriodFilterSheet.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SwitchTile from '@/components/ui/SwitchTile.vue';
+import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -46,6 +49,7 @@ const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const now = currentQuarter();
 const year = computed(() => Number(route.params.year) || now.year);
@@ -171,9 +175,14 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
             <NewPill v-if="can('create', 'payments')" :to="{ name: 'payment-pick' }" :label="t('core.common.receipt')" />
         </template>
         <template #filters>
-            <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4">
+            <div class="scrollbar-none flex items-center gap-2 overflow-x-auto" :class="isDesktop ? '' : '-mx-4 px-4'">
                 <FilterBadge :label="`${quarterLabel(quarter)} ${year}`" period @click="filterOpen = true" />
                 <FilterBadge :label="groupingOptions.find((option) => option.value === grouping)?.label ?? ''" @click="filterOpen = true" />
+                <template v-if="isDesktop">
+                    <span class="flex-1" />
+                    <label class="flex items-center gap-2 text-14 text-ink-2">{{ t('shell.nav.taxes') }} <ToggleSwitch v-model="showTaxes" /></label>
+                    <label class="ml-3 flex items-center gap-2 text-14 text-ink-2">{{ t('accounting.quarters.feesNet') }} <ToggleSwitch v-model="showFees" /></label>
+                </template>
             </div>
         </template>
 
@@ -181,18 +190,47 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
             <template v-if="data">
                 <section v-if="data.card" class="flex flex-col gap-2.5">
                     <SectionTitle>{{ t('accounting.quarters.summary') }}</SectionTitle>
-                    <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" />
+                    <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" :row="isDesktop" />
                 </section>
 
                 <section class="flex flex-col gap-2.5">
-                    <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div v-if="isDesktop" class="flex items-center justify-between gap-3">
+                        <SectionTitle>{{ t('core.common.receipts') }}</SectionTitle>
+                        <span class="flex gap-2">
+                            <ExportButton :href="exportQuarter" class="h-10! px-3.5!">{{ t('accounting.quarters.quarterCsv') }}</ExportButton>
+                            <ExportButton :href="exportYear" class="h-10! px-3.5!">{{ t('accounting.quarters.yearCsv') }}</ExportButton>
+                            <ExportButton v-if="can('export', 'backup-runs')" class="h-10! px-3.5!" @click="exportOpen = true">{{ t('accounting.export.title') }}</ExportButton>
+                        </span>
+                    </div>
+                    <SectionTitle v-else>{{ t('core.common.receipts') }}</SectionTitle>
+                    <div v-if="!isDesktop" class="grid grid-cols-2 gap-2">
                         <SwitchTile v-model="showTaxes" :label="t('shell.nav.taxes')" />
                         <SwitchTile v-model="showFees" :label="t('accounting.quarters.feesNet')" />
                     </div>
                     <p v-if="showFees && metricsError" class="m-0 text-13 text-negative" role="alert">{{ errorMessage(metricsError) }}</p>
 
                     <EmptyState v-if="data.receipts.length === 0" :text="t('accounting.quarters.noReceipts', { quarter: quarterLabel(quarter), year })" />
+
+                    <template v-else-if="isDesktop">
+                        <ReceiptTable
+                            v-if="grouping === 'none'"
+                            :receipts="data.receipts"
+                            :taxes="showTaxes"
+                            :fees-of="showFees ? feesOf : null"
+                        />
+                        <template v-else>
+                            <ReceiptTable
+                                v-for="group in groups"
+                                :key="group.key"
+                                :title="group.title"
+                                :count="group.count"
+                                :total="formatMoney(group.total, 'UAH')"
+                                :receipts="group.receipts"
+                                :taxes="showTaxes"
+                                :fees-of="showFees ? feesOf : null"
+                            />
+                        </template>
+                    </template>
 
                     <template v-else-if="grouping === 'none'">
                         <div class="flex items-baseline justify-between px-0.5">
@@ -227,7 +265,7 @@ const exportYear = computed(() => apiUrl(path(`accounting/${year.value}/export`)
                         </MonthCard>
                     </template>
 
-                    <ExportBlock>
+                    <ExportBlock v-if="!isDesktop">
                         <ExportButton :href="exportQuarter">{{ t('accounting.quarters.quarterCsv') }}</ExportButton>
                         <ExportButton :href="exportYear">{{ t('accounting.quarters.yearCsv') }}</ExportButton>
                         <ExportButton v-if="can('export', 'backup-runs')" class="col-span-2" @click="exportOpen = true">

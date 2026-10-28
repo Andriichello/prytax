@@ -220,5 +220,8 @@ export default {
             lastMonth: 'Минулий місяць',
             thisQuarter: 'Цей квартал',
         },
+        quick: 'Швидко',
+        startThenEnd: 'Початок, потім кінець',
+        futureShort: 'майбутні — недоступні',
     },
 } satisfies Messages;

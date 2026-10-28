@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
+import DatePickerPopover from '@/components/form/DatePickerPopover.vue';
 import DatePickerSheet from '@/components/form/DatePickerSheet.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { t } from '@/i18n';
 import type { PickedRange } from '@/utils/datePicker';
 import { formatDate, parseDisplayDate } from '@/utils/dates';
@@ -40,6 +42,9 @@ const to = defineModel<string>('to', { default: '' });
 
 const id = useId();
 const pickerOpen = ref(false);
+const anchor = ref<HTMLElement | null>(null);
+
+const { isDesktop } = useBreakpoint();
 const texts = ref({ from: formatDate(from.value), to: formatDate(to.value) });
 const touched = ref({ from: false, to: false });
 
@@ -85,7 +90,7 @@ function picked(range: PickedRange): void {
 
 /** A touch opens the picker without focusing a field, so the phone's keyboard stays down (as `DateField`). */
 function pressed(event: PointerEvent): void {
-    if (event.pointerType !== 'mouse') {
+    if (event.pointerType !== 'mouse' && !isDesktop.value) {
         event.preventDefault();
         (document.activeElement as HTMLElement | null)?.blur();
     }
@@ -137,7 +142,7 @@ const inputClass = (end: 'from' | 'to'): string => (pickerOpen.value
 
 <template>
     <div class="flex min-w-0 flex-col gap-1.5">
-        <div class="grid grid-cols-2 gap-3">
+        <div ref="anchor" class="grid grid-cols-2 gap-3" data-popover-keep>
             <div v-for="end in (['from', 'to'] as const)" :key="end" class="flex min-w-0 flex-col gap-1.5">
                 <label :for="`${id}-${end}`" class="text-13 font-medium text-ink-2">
                     {{ end === 'from' ? (fromLabel ?? t('shell.dateField.from')) : (toLabel ?? t('shell.dateField.to')) }}
@@ -168,7 +173,20 @@ const inputClass = (end: 'from' | 'to'): string => (pickerOpen.value
         <p v-if="note" :id="`${id}-note`" class="m-0 text-12" :class="errors.from || errors.to ? 'text-negative' : 'text-ink-3'">
             {{ note }}
         </p>
+        <DatePickerPopover
+            v-if="isDesktop"
+            v-model:open="pickerOpen"
+            :anchor="anchor"
+            mode="range"
+            :title="title"
+            :from="from"
+            :to="to"
+            :min="min"
+            :max="max"
+            @range="picked"
+        />
         <DatePickerSheet
+            v-else
             v-model:open="pickerOpen"
             mode="range"
             :title="title"

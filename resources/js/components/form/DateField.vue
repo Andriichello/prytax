@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
+import DatePickerPopover from '@/components/form/DatePickerPopover.vue';
 import DatePickerSheet from '@/components/form/DatePickerSheet.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { t } from '@/i18n';
 import { formatDate, parseDisplayDate } from '@/utils/dates';
 
@@ -36,6 +38,9 @@ const model = defineModel<string>({ default: '' });
 const id = useId();
 const text = ref(formatDate(model.value));
 const pickerOpen = ref(false);
+const anchor = ref<HTMLElement | null>(null);
+
+const { isDesktop } = useBreakpoint();
 const touched = ref(false);
 
 /* A value set from outside (a default, a reset, the calendar) shows as text; the text being typed keeps its form */
@@ -65,10 +70,11 @@ function picked(date: string): void {
 
 /**
  * A touch or a pen opens the picker without focusing the field, which would raise the phone's keyboard; the field
- * typed in before lets go of the focus, so the keyboard doesn't come back for it when the picker closes.
+ * typed in before lets go of the focus, so the keyboard doesn't come back for it when the picker closes. On desktop
+ * the picker is a popover, and the field keeps the focus.
  */
 function pressed(event: PointerEvent): void {
-    if (event.pointerType !== 'mouse') {
+    if (event.pointerType !== 'mouse' && !isDesktop.value) {
         event.preventDefault();
         (document.activeElement as HTMLElement | null)?.blur();
     }
@@ -116,6 +122,7 @@ const shownError = computed(() => error ?? ownError.value);
         <label :for="id" class="text-13 font-medium text-ink-2">{{ label }}</label>
         <input
             :id="id"
+            ref="anchor"
             :value="text"
             type="text"
             inputmode="numeric"
@@ -129,6 +136,7 @@ const shownError = computed(() => error ?? ownError.value);
             :aria-describedby="shownError || hint ? `${id}-note` : undefined"
             class="num h-13 w-full min-w-0 rounded-control bg-surface px-3.5 text-16 placeholder:text-ink-4 disabled:bg-muted"
             :class="pickerOpen ? 'border-2 border-accent px-[13px]' : shownError ? 'border border-negative' : 'border border-line-input'"
+            data-popover-keep
             @input="typed"
             @blur="left"
             @pointerdown="pressed"
@@ -138,6 +146,17 @@ const shownError = computed(() => error ?? ownError.value);
         <p v-if="shownError || hint" :id="`${id}-note`" class="m-0 text-12" :class="shownError ? 'text-negative' : 'text-ink-3'">
             {{ shownError ?? hint }}
         </p>
-        <DatePickerSheet v-model:open="pickerOpen" :title="label" :value="model" :min="min" :max="max" :note="pickerNote" @choose="picked" />
+        <DatePickerPopover
+            v-if="isDesktop"
+            v-model:open="pickerOpen"
+            :anchor="anchor"
+            :title="label"
+            :value="model"
+            :min="min"
+            :max="max"
+            :note="pickerNote ? t('shell.dateField.futureShort') : undefined"
+            @choose="picked"
+        />
+        <DatePickerSheet v-else v-model:open="pickerOpen" :title="label" :value="model" :min="min" :max="max" :note="pickerNote" @choose="picked" />
     </div>
 </template>

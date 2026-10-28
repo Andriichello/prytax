@@ -206,5 +206,8 @@ export default {
             lastMonth: 'Last month',
             thisQuarter: 'This quarter',
         },
+        quick: 'Quick',
+        startThenEnd: 'Start, then end',
+        futureShort: 'future dates: unavailable',
     },
 } satisfies Translation<typeof uk>;

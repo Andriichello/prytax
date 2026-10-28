@@ -11,7 +11,7 @@ import { calendarWeeks, dateOf, dateParts, daysInMonth, formatDayMonthWords, for
  * `min`–`max` grey and inert. The month's title turns to the months of its year, for a jump to a far month. The grid
  * is a `role="grid"` with one day in the tab order: the arrow keys move it (across months), Enter picks it.
  */
-const { selected = '', range = undefined, min = undefined, max = undefined, today, showNavigation = true } = defineProps<{
+const { selected = '', range = undefined, min = undefined, max = undefined, today, showNavigation = true, compact = false } = defineProps<{
     /** The chosen day of a single date. */
     selected?: string;
     /** The period of a range. */
@@ -21,6 +21,8 @@ const { selected = '', range = undefined, min = undefined, max = undefined, toda
     today: string;
     /** The arrows and the title; a second month of the desktop range shares the first one's. */
     showNavigation?: boolean;
+    /** The desktop popover's smaller days (34 px). */
+    compact?: boolean;
 }>();
 
 /** The month shown. */
@@ -203,7 +205,7 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
                 <Icon name="chevronRight" :size="18" />
             </button>
         </div>
-        <span v-else class="flex h-9 items-center justify-center text-16 font-semibold">{{ formatMonthYear(shown.year, shown.month) }}</span>
+        <span v-else class="flex h-9 items-center justify-center font-semibold" :class="compact ? 'text-14' : 'text-16'">{{ formatMonthYear(shown.year, shown.month) }}</span>
 
         <div
             v-if="view === 'days'"
@@ -222,7 +224,7 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
                     :class="index >= 5 ? 'text-ink-4' : 'text-ink-3'"
                 >{{ name }}</span>
             </div>
-            <div v-for="(week, index) in weeks" :key="index" role="row" class="grid h-11 grid-cols-7">
+            <div v-for="(week, index) in weeks" :key="index" role="row" class="grid grid-cols-7" :class="compact ? 'h-8.5' : 'h-11'">
                 <span v-for="(date, day) in week" :key="date ?? `blank-${day}`" role="gridcell" class="flex justify-center" :class="date ? bandClass(date) : ''">
                     <button
                         v-if="date"
@@ -233,8 +235,8 @@ async function onKeydown(event: KeyboardEvent): Promise<void> {
                         :aria-label="`${formatDayMonthWords(date)} ${dateParts(date).year}`"
                         :aria-pressed="isEnd(date) ? 'true' : 'false'"
                         :aria-current="date === today ? 'date' : undefined"
-                        class="num flex size-11 items-center justify-center rounded-full text-15 disabled:cursor-not-allowed"
-                        :class="dayClass(date)"
+                        class="num flex items-center justify-center rounded-full disabled:cursor-not-allowed"
+                        :class="[compact ? 'size-8.5 text-13' : 'size-11 text-15', dayClass(date)]"
                         @click="pick(date)"
                     >
                         {{ dateParts(date).day }}

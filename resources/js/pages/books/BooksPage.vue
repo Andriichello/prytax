@@ -28,7 +28,8 @@ import { formatAmount } from '@/utils/money';
  * books of a year, Доходи (the income book by month, with its receipts) and Податки (the year's taxes cumulative by
  * quarter, or by tax). The year chip and the grouping are the only controls; the tab, the year and the grouping live
  * in the URL (`?tab=income|taxes&year=&group=quarter|tax`). A year before the registration says so, with a way to the
- * first one. The foot exports the tab of the year as a PDF.
+ * first one. The foot exports the tab of the year as a PDF; on desktop its button stands at the right of the section's
+ * title, over the table or the cards.
  */
 type Tab = 'income' | 'taxes';
 type Grouping = 'quarter' | 'tax';
@@ -162,10 +163,13 @@ function chooseYear(event: Event): void {
                     <SegmentedControl v-model="group" class="w-50 shrink-0" :label="t('accounting.books.group')" :options="GROUPS" />
                 </div>
                 <template v-if="group === 'quarter'">
-                    <SectionTitle>
-                        {{ t('accounting.books.cumulativeTitle') }}
-                        <template #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
-                    </SectionTitle>
+                    <div class="flex items-center justify-between gap-3">
+                        <SectionTitle>
+                            {{ t('accounting.books.cumulativeTitle') }}
+                            <template v-if="!isDesktop" #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
+                        </SectionTitle>
+                        <ExportButton v-if="isDesktop" :href="pdf" class="h-10! px-3.5!">PDF</ExportButton>
+                    </div>
                     <div :class="isDesktop ? 'grid grid-cols-2 items-start gap-4' : 'contents'">
                         <TaxCumulativeCard v-for="period in taxes.cumulative" :key="period.to_quarter" :period="period" :year="year" />
                     </div>
@@ -176,10 +180,13 @@ function chooseYear(event: Event): void {
                     </p>
                 </template>
                 <template v-else>
-                    <SectionTitle>
-                        {{ t('accounting.books.byTaxes') }}
-                        <template #aside><span class="num text-ink-2">{{ year }}</span></template>
-                    </SectionTitle>
+                    <div class="flex items-center justify-between gap-3">
+                        <SectionTitle>
+                            {{ t('accounting.books.byTaxes') }}
+                            <template v-if="!isDesktop" #aside><span class="num text-ink-2">{{ year }}</span></template>
+                        </SectionTitle>
+                        <ExportButton v-if="isDesktop" :href="pdf" class="h-10! px-3.5!">PDF</ExportButton>
+                    </div>
                     <div class="flex gap-3.5 px-0.5 text-12 text-ink-2">
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-positive" />{{ t('accounting.books.legendPaid') }}</span>
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-sent-bar" />{{ t('accounting.books.legendSent') }}</span>
@@ -193,7 +200,7 @@ function chooseYear(event: Event): void {
                 </template>
             </template>
 
-            <ExportBlock v-if="(tab === 'income' && income && !(isDesktop && income.has_receipts)) || (tab === 'taxes' && taxes)">
+            <ExportBlock v-if="(tab === 'income' && income && !(isDesktop && income.has_receipts)) || (tab === 'taxes' && taxes && !isDesktop)">
                 <ExportButton :href="pdf">PDF</ExportButton>
             </ExportBlock>
         </LoadState>

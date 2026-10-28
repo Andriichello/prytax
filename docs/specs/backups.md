@@ -1,9 +1,40 @@
-# PryTax — Backups, data safety & retention (design v1.6)
+# PryTax — Backups, data safety & retention (design v1.7)
 
-Companion to `docs/specs/design.md` (v4). Covers (1) protecting the platform's data against loss,
+Companion to `docs/specs/design.md` (v5). Covers (1) protecting the platform's data against loss,
 (2) per-organization backups / exports that owners configure and download, and (3) data retention and deletion
 (§9). Stack: Laravel 13, PHP 8.5, MySQL 8, PHPUnit 12, queue workers, scheduler with `->onOneServer()`, Google Cloud
 Storage (private buckets).
+
+### Changes in v1.7 (as built on `feat/backups`, and the UI handoff)
+
+Layer B, retention and `prytax:verify-db` are built (2026-10-28, §7 steps 2–6); Layer A is infrastructure and not
+deployed yet. What the code does differently from v1.6:
+- **Registry:** `projects` and `charge_types` are `profile` tables (they have `profile_id`); the query builder exports
+  soft-deleted rows without `withTrashed()`; `tax_payments.receipt_tax_key` is a generated column too, and only
+  `VIRTUAL|STORED GENERATED` columns count as generated (`DEFAULT_GENERATED` is a default); the snapshot's
+  `signature_file_id` is rewritten after `files` is imported (a late rewrite); `tax_id` keys aren't row ids; the
+  module's own tables are excluded (`PryTaxTableRegistry::EXCLUDED`).
+- **Archive:** documents sit at `documents/{owner table}/{owner id}/{file id}-{name}`; timestamps are written in UTC
+  (the database keeps Kyiv time); no upcasters yet, so the importer refuses other format versions.
+- **Tables:** `backups` also keeps `file_name`, `manifest` and `snapshot_at`; runs keep their options, profile ids and
+  bundle columns.
+- **Downloads:** the audit entry has no subject (`audit_logs.subject_id` is an integer and backup ids are ULIDs): it is
+  named `models.backups.downloaded` with `metadata.backup_id`. A password download is repacked inside the request, not
+  by a job, so it answers `{url, expires_at}` at once (§4.6).
+- **Runs:** the job has `tries = 0`, `maxExceptions = 3` and `retryUntil` 12 h (`WithoutOverlapping`'s releases would
+  use up `tries`); manual runs don't skip unchanged ФОП.
+- **Retention:** a soft-deleted organization takes its final backups and is purged after 30 days, but its users are
+  soft-deleted with it, so nobody could download a final bundle: the bundle and its e-mail aren't built (§9.3), and
+  there is no organization delete endpoint.
+- **Tests not written yet:** a concurrent write during the snapshot (it needs a connection outside the test's
+  transaction), the engine's tests with a fake registry (DDL breaks `RefreshDatabase`), an upcaster.
+
+The UI follows Claude Design's «Backups» handoff (`storage/handoff-28-10-2026/prytax-backups-handoff/BACKUPS_UI.md`, 13
+mobile and 12 desktop boards), now §4.8; for what users see it wins, for the backend this document does. The owner's
+answers of 2026-10-28: the password switch of a download is off by default (an AES zip doesn't open in the built-in
+Windows and macOS archivers; the warning about decrypted data always shows); the organization bundle has no password;
+self-service restore and §5.3 stay open; sizes use the dot («4.2 МБ»); in-app notices go through api-core's per-user
+database notifications (`notifications`), shown in Сповіщення beside the ФОП's own.
 
 ### Changes in v1.6 (where Layer A's database copies live)
 
@@ -874,40 +905,107 @@ to `tmp/bundles/{run}/…zip`. No `maennchen/zipstream-php`: one run's archives 
 ### 4.6 Download with a password (optional)
 
 `POST …/backups/{backup}/download { password? }`. Without a password → signed URL to the stored object. With a password
-→ a queued job re-packs the archive into `tmp/` with AES-256 entry encryption (`ZipArchive::setEncryptionName(…,
-ZipArchive::EM_AES_256, $password)`), the password is never stored, and the link is valid 10 min. Stored archives are
+→ the archive is re-packed into `tmp/` with AES-256 entry encryption (`ZipArchive::setEncryptionName(…,
+ZipArchive::EM_AES_256, $password)`) inside the request (v1.7: a profile archive is small enough, and a queued job would
+have to carry the password), the password is never stored, and the link is valid 10 min. Stored archives are
 not password-protected: scheduled runs would have to keep the password, which defeats the purpose.
 
 ### 4.7 API (organization-level; not under `profiles/{profile}`)
 
+As built (ids are ULIDs; v1.7 adds what the UI needs, marked «UI»):
+
 ```
 GET    /api/organization/backup-policy                     owner, accountant (read)
-PUT    /api/organization/backup-policy                     owner
-GET    /api/organization/backups?profile_id=&tier=&cursor  owner, accountant
+PUT    /api/organization/backup-policy                     owner (one group's fields at a time is fine)
+GET    /api/organization/backup-runs?page[number]=         owner, accountant: runs, newest first, ?include=backups
 POST   /api/organization/backup-runs                       owner, accountant   {profiles: all|[ids]} → 202 {run_id}
-GET    /api/organization/backup-runs/{run}                 status + per-profile results
-POST   /api/organization/backups/{backup}/download         owner, accountant   {password?} → {url, expires_at} | 202
+GET    /api/organization/backup-runs/{run}                 status + per-profile results (?include=backups)
 POST   /api/organization/backup-runs/{run}/bundle          owner, accountant   → 202
 GET    /api/organization/backup-runs/{run}/bundle          → {status, url?, expires_at?}
+GET    /api/organization/backups?filter[profile_id]=       owner, accountant
+GET    /api/organization/backups/{backup}
+POST   /api/organization/backups/{backup}/download         owner, accountant   {password?} → {url, expires_at}
+DELETE /api/organization/backups/{backup}                  owner; manual runs only
+GET    /api/organization/backup-status                     UI: the status card (below)
+GET    /api/organization/deleted-profiles                  UI: ФОП in their grace (below)
 POST   /api/profiles/{profile}/exports                     owner, accountant   {from, to} → 202 (period export)
 GET    /api/profiles/{profile}/exports/{export}            → {status, url?}
-DELETE /api/organization/backups/{backup}                  owner; manual tier only
 ```
 
-Scoping: `backups` / `backup_runs` use api-core's organization scope (an organization bundle has no single profile).
-Policies: `BackupPolicyPolicy`, `BackupPolicy@download` (owner|accountant, same organization). Rate limits:
-manual runs 5/day/org, downloads 30/hour/user. Every download → `backup_downloads` + an `audit_logs` entry
-(`AuditLog::record('backup_downloaded', $backup)`).
+- Pagination is api-core's page numbers, as everywhere in the app (design.md decision 4), not a cursor.
+- **`keep_until`** (UI) on every backup: when the copy will disappear under the current policy, computed on read by a
+  dry run of the pruner's selection (§4.3): a scheduled copy kept as a day's, week's or month's keeper gets the date it
+  falls out of that window, with `keep_reason` `day|week|month`; the newest completed copy of a profile `null` (never
+  pruned); a manual copy `null` (until deleted; beyond 20 the oldest goes); an automatic one `created_at + 30 days`. An
+  estimate: changing the policy changes it.
+- **The status card** (UI): the latest run (with its profile count, size and failures), the policy's `enabled` and
+  `next_run_at`, the per-organization time of day (`crc32(org_id) % 240` minutes after 01:00 Kyiv), the size of each
+  included profile's newest completed archive summed, and `manual_runs_left` today (5 − today's manual runs).
+- **Deleted ФОП** (UI): the organization's soft-deleted profiles whose purge is planned, with `deleted_at`, the
+  purge's `due_at` and the automatic backup taken at deletion; `POST /api/profiles/{profile}/restore` (api-core's,
+  owners) cancels the purge.
+- Scoping: `backups` / `backup_runs` use api-core's organization scope (an organization bundle has no single profile).
+  Rate limits: manual runs 5/day/org, downloads 30/hour/user. Every download → `backup_downloads` + an `audit_logs`
+  entry (`models.backups.downloaded`, §v1.7).
+- **Notices** (UI): a partial or failed run, a ready bundle and a ready period export are api-core database
+  notifications (`notifications`, per user: the owners for runs, the requesting user for a bundle or an export), listed
+  through api-core's `NotificationController` and shown in Сповіщення. E-mails follow `notify` and carry no links.
 
-### 4.8 UI (Ще → Організація → Резервні копії; owner and accountant)
+### 4.8 UI (owner and accountant; the «Backups» handoff)
 
-- Status card: "Остання копія: сьогодні 02:37 · 3 ФОП · 4,2 МБ" · next scheduled run · last failure if any.
-- Policy (owner only): frequency, weekday/day, retention preset (Стандарт 7/4/12 · Мінімум 3/0/3 · Для архіву
-  7/4/36) with custom numbers, include documents, include audit log, profiles.
-- Buttons: "Створити копію зараз", "Завантажити все (ZIP)" (the bundle of the latest run).
-- List by run (newest first): date · kind chip (scheduled / manual / automatic) · per-ФОП rows (size, status: completed / без змін / помилка) ·
-  download per ФОП.
-- Period export lives on the ФОП's Облік screen ("Експорт за період"), not here.
+The screens follow `BACKUPS_UI.md` of the handoff (`storage/handoff-28-10-2026/prytax-backups-handoff/`; boards
+`M-BK-*` at 390 px, `D-BK-*` at 1440 px; exact copy in `screens/html`). They reuse design.md §16.6 and §17's
+components: accordion cards, the sheet or dialog, badges, the export block, the sidebar.
+- **Entry:** Ще › Організація › «Резервні копії» (between Користувачі й ролі and Мова застосунку; on the right the
+  time of the last copy) on mobile; a sidebar item under «Налаштування» on desktop. Routes `/backups` and
+  `/backups/policy` (`/settings/backups` redirects). Organization-level: it doesn't change with the current ФОП.
+  Viewers have no entry point and get 403.
+- **Status card** in five states: the last run OK (✓ green, «Остання копія · Сьогодні, 02:37 · 4 ФОП · 4.2 МБ · за
+  розкладом»), a run in progress (spinner, «Зараз · Створюється копія… · 2 з 4 ФОП», a bar), a partial run (⚠ red, the
+  failed ФОП named), no copies yet (clock, «Ще немає копій · Перша — сьогодні вночі ≈ 02:37, або створіть зараз»), the
+  schedule off (⚠ amber). «Наступна: Завтра ≈ 02:37» (or «—»). Mobile adds the link row «Розклад і зберігання · Щодня
+  · до 12 міс. ›»; desktop shows a policy summary card in the right column.
+- **Actions:** «+ Створити зараз» (primary) and «⤓ Усі ФОП · ZIP» (secondary); in the desktop header «+ Створити копію
+  зараз» with the bundle button before it.
+- **«Копії»:** the runs, newest first (4 on mobile, 5 on desktop, then «Показати старіші · N»). A run card: the date
+  and time (the time in mono) and the kind chip (За розкладом, white bordered; Вручну, accent-soft; Автоматично,
+  dashed); a line saying how long it is kept («зберігається до 03.11», «зберігається до 22.11 · остання копія тижня»,
+  «доки не видалите · Олена Коваленко», «перед видаленням ФОП … · зберігається до 23.11»), with «⤓ Усі ФОП · ZIP»
+  when the run has two ФОП or more, or «🗑 Видалити» on a manual run for owners; then a row per ФОП: the avatar (grey
+  when inactive), the name, the status chip (Готово green, Без змін grey, Помилка red, Створюється accent-soft, У черзі
+  dashed), the meta («1.8 МБ · 41 документ», «0.9 МБ · копія від 25.10», or the error in red) and a 40 px ⤓, or
+  «Повторити» on a failure (a manual run of that ФОП). «Без змін» downloads the profile's last completed archive.
+  Desktop grid `minmax(0,1fr) 100px 220px 72px`. The footnote (the side note on desktop, which also tells of Layer A's
+  30 days and points to Облік › Експорт).
+- **«Створити копію зараз»** (a sheet; a 480 px dialog): «Усі ФОП організації» (default) or «Лише поточний ФОП»; the
+  info «… До 5 ручних запусків на день — сьогодні ще N.», at 0 «Створити» disabled with «Ліміт на сьогодні вичерпано —
+  спробуйте завтра.»; [Скасувати] [Створити]. The new run appears on top running; the page polls the run every 3 s
+  while visible.
+- **Download** (a sheet; a 520 px dialog): who and what; the amber warning that the archive holds decrypted РНОКПП,
+  IBAN and account numbers; the switch «Захистити паролем» (off by default) with the password field and its hint;
+  [Скасувати] [⤓ Завантажити ZIP]; «Посилання діє 10 хвилин. Кожне завантаження записується в журнал організації.».
+  Errors (the hourly limit) inline. Deleting a manual copy asks «Видалити ручну копію від 26.10, 14:12? Цю дію не
+  можна скасувати.» and deletes each backup of the run.
+- **Розклад і зберігання** (`/backups/policy`): four accordion cards, one open at a time, each saving its own fields
+  (`PUT …/backup-policy`): Розклад (on/off, Щодня / Щотижня with a weekday / Щомісяця with a day 1–28; the time is the
+  organization's, no input), Зберігання (the preset Стандарт / Мінімум / Для архіву / Власний, derived from the three
+  numbers, and the steppers: days 0–31, weeks 0–12, months 0–36), Що входить (all ФОП including new ones, or chosen
+  ones, which can't be none; documents; the audit log; skip unchanged), Сповіщення (Лише про помилки / Завжди /
+  Ніколи). Accountants see it read-only with «Ви бачите налаштування, але змінює їх власник організації.».
+- **The organization bundle:** «Усі ФОП · ZIP» posts the bundle of the newest run (or of a run card's run); a banner
+  «Готуємо архів усіх ФОП …» turns into «✓ Архів готовий · 4 ФОП · 4.2 МБ» with «⤓ Завантажити ZIP» (a fresh link on
+  each click, for 24 h). No password.
+- **«Видалені ФОП»** (after the status card, or in the list column on desktop): per profile in its grace, the grey
+  avatar and the name, «Видалено 20.10 · дані й копії зітруться 19.11» in red, the text about the final copy, and
+  [Відновити ФОП] (owners, confirmed) [⤓ Фінальна копія] (the download dialog).
+- **«Архів за період»** on Облік (per ФОП, not here): Облік's export block gets a third button, «🗃 Архів» (desktop
+  «🗃 Архів ZIP»), with the hint «CSV і XLSX — таблиця надходжень. Архів — усі дані й PDF за період, ZIP.». The sheet
+  (a dialog on desktop): Рік / Квартал / Період (the range picker), by default Облік's quarter, with «IV квартал ще
+  триває — в архіві буде все до сьогодні.» while it runs; «Що буде в архіві · 01.10 – 27.10.2026» and its text; the
+  info «Це не резервна копія: з неї не відновити ФОП …»; [Скасувати] [Підготувати ZIP]; «Готуємо у фоні: архів
+  з’явиться в сповіщеннях, посилання діє 24 години.».
+- **Notices:** «Резервна копія: {N} з {M} ФОП не збережено» → `/backups`; «Архів організації готовий»; «Архів за період
+  готовий · {ФОП} · {період}»; «ФОП {name} видалено — фінальну копію можна завантажити до {date}».
 
 ---
 

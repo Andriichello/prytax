@@ -477,7 +477,9 @@ tmp/exports/{export_ulid}.zip
   the DR copy in another project (§1.1–1.2). A real writer/pruner split needs the pruner to run as its own deployment
   (a Cloud Run job with its own service account); revisit when that is worth its operations cost.
 - **Downloads**: V4 signed URLs, valid 10 min, `response-content-disposition: attachment; filename="…"`, issued only
-  by the API after a policy check; every issue is logged in `backup_downloads`.
+  by the API after a policy check; every issue is logged in `backup_downloads`. On a local disk (development) the
+  link is the app's signed route `backups.archive` (`/backups-storage/{path}?disk=…&name=…`), which saves the archive
+  under the same name.
 - Encryption at rest: Google-managed by default; CMEK (Cloud KMS) if a customer requires it.
 
 ### 3.4 Cost order of magnitude

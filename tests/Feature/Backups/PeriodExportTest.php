@@ -64,7 +64,7 @@ class PeriodExportTest extends TestCase
             ->assertJsonPath('data.scope.from', '2026-10-01');
 
         $archive = tempnam(sys_get_temp_dir(), 'test');
-        file_put_contents($archive, Storage::disk('backups')->get(substr((string) parse_url($response->json('data.url'), PHP_URL_PATH), 1)));
+        file_put_contents($archive, $this->get($response->json('data.url'))->assertOk()->streamedContent());
 
         $scope = fn (string $path) => collect($this->archiveRows($archive, $path))->pluck('in_scope', 'id')->all();
         $this->assertEquals([$earlier->id => '0', $receipt->id => '1'], $scope('data/payments.csv'));

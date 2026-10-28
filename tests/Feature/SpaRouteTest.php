@@ -2,15 +2,13 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 /**
  * Class SpaRouteTest.
  *
- * The SPA's page answers the paths, which the API links to, while the API, the served disks and the health check keep
- * their own responses.
+ * The SPA's page answers the paths, which the API links to, while the API, the links of files and the health check
+ * keep their own responses.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature
@@ -48,19 +46,16 @@ class SpaRouteTest extends TestCase
     }
 
     /**
-     * The signed links of the served disks (an archive's download) reach their files, not the app's page.
+     * The links of files (an archive's download, a file of the local disk) keep their routes: without a signature
+     * they are 403s, not the app's page.
      *
      * @return void
      */
-    public function testServesTheFilesOfSignedLinks(): void
+    public function testLeavesTheLinksOfFilesToTheirRoutes(): void
     {
-        Storage::fake('backups');
-        Storage::disk('backups')->put('tmp/downloads/copy.zip', 'archive');
-        $url = URL::temporarySignedRoute('storage.backups', now()->addMinutes(10), ['path' => 'tmp/downloads/copy.zip'], absolute: false);
-
-        $this->get($url)->assertOk()->assertStreamedContent('archive');
-        $this->get('/backups-storage/tmp/downloads/copy.zip')->assertForbidden();
-        $this->get('/storage/file.txt')->assertForbidden();
+        foreach (['/backups-storage/tmp/downloads/copy.zip', '/storage/file.txt'] as $path) {
+            $this->get($path)->assertForbidden();
+        }
     }
 
     /**

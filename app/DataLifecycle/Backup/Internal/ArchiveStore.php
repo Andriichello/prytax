@@ -4,16 +4,19 @@ namespace PryTax\DataLifecycle\Backup\Internal;
 
 use DateTimeInterface;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Filesystem\LocalFilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\HeaderUtils;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Class ArchiveStore.
  *
  * The archives' disk (backups.md §3): a private bucket in production, any disk elsewhere. An upload is streamed and
  * verified by the disk's checksum against the local file; a download is a short-lived signed URL, which saves the
- * file under its name.
+ * file under its name: the bucket's own, or, on a local disk, the module's route (`ArchiveController`).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Backup\Internal
@@ -99,7 +102,8 @@ final class ArchiveStore
     }
 
     /**
-     * Get a signed URL, which downloads the object under the name until the moment.
+     * Get a signed URL, which downloads the object under the name until the moment. Laravel's links of a local disk
+     * keep neither the name nor the attachment, so a local disk's link is the module's route.
      *
      * @param string $disk
      * @param string $path
@@ -110,9 +114,42 @@ final class ArchiveStore
      */
     public function url(string $disk, string $path, string $name, DateTimeInterface $expiresAt): string
     {
-        return $this->disk($disk)->temporaryUrl($path, $expiresAt, [
+        $adapter = $this->disk($disk);
+
+        if ($adapter instanceof LocalFilesystemAdapter) {
+            return URL::to(URL::temporarySignedRoute('backups.archive', $expiresAt, [
+                'path' => $path,
+                'disk' => $disk,
+                'name' => $name,
+            ], absolute: false));
+        }
+
+        return $adapter->temporaryUrl($path, $expiresAt, [
             'ResponseContentType' => 'application/zip',
             'ResponseContentDisposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $name, $name),
+        ]);
+    }
+
+    /**
+     * Get the download of an object under the name, or null when the object is missing.
+     *
+     * @param string $disk
+     * @param string $path
+     * @param string $name
+     *
+     * @return StreamedResponse|null
+     */
+    public function download(string $disk, string $path, string $name): ?StreamedResponse
+    {
+        $adapter = $this->disk($disk);
+
+        if (!$adapter->exists($path)) {
+            return null;
+        }
+
+        return $adapter->download($path, $name, [
+            'Content-Type' => 'application/zip',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
         ]);
     }
 

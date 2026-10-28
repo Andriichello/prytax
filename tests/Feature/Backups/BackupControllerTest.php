@@ -123,7 +123,8 @@ class BackupControllerTest extends TestCase
     }
 
     /**
-     * Test that a download is a short-lived signed link, logged with the user and audited.
+     * Test that a download is a short-lived signed link, which saves the archive under its name, logged with the user
+     * and audited.
      *
      * @return void
      */
@@ -132,11 +133,15 @@ class BackupControllerTest extends TestCase
         $backup = $this->backup();
         $user = $this->actAs($this->profile, 'accountant');
 
-        $this->postJson("/api/organization/backups/$backup->id/download")
+        $url = $this->postJson("/api/organization/backups/$backup->id/download")
             ->assertOk()
             ->assertJsonPath('data.url', fn (string $url) => str_contains($url, $backup->object_path))
-            ->assertJsonPath('data.expires_at', now()->addMinutes(10)->toIso8601String());
+            ->assertJsonPath('data.expires_at', now()->addMinutes(10)->toIso8601String())
+            ->json('data.url');
 
+        $this->get($url)->assertOk()->assertDownload($backup->file_name);
+        $this->travel(11)->minutes();
+        $this->get($url)->assertForbidden();
         $download = BackupDownload::query()->withoutGlobalScopes()->sole();
         $this->assertSame([$backup->id, $user->id, 'profile'], [$download->backup_id, $download->user_id, $download->kind]);
         $entry = AuditLog::query()->where('event', 'backup_downloaded')->sole();
@@ -157,10 +162,10 @@ class BackupControllerTest extends TestCase
             ->assertOk()
             ->json('data.url');
 
-        $path = substr((string) parse_url($url, PHP_URL_PATH), 1);
-        $this->assertStringStartsWith('tmp/downloads/', $path);
+        $this->assertCount(1, Storage::disk('backups')->files('tmp/downloads'));
+        $response = $this->get($url)->assertOk()->assertDownload($backup->file_name);
         $local = tempnam(sys_get_temp_dir(), 'test');
-        file_put_contents($local, Storage::disk('backups')->get($path));
+        file_put_contents($local, $response->streamedContent());
         $zip = new ZipArchive;
         $zip->open($local);
 
@@ -287,7 +292,7 @@ class BackupControllerTest extends TestCase
             ->json('data.url');
 
         $local = tempnam(sys_get_temp_dir(), 'test');
-        file_put_contents($local, Storage::disk('backups')->get(substr((string) parse_url($url, PHP_URL_PATH), 1)));
+        file_put_contents($local, $this->get($url)->assertOk()->streamedContent());
         $zip = new ZipArchive;
         $zip->open($local);
         $manifest = json_decode($zip->getFromName('manifest.json'), true);

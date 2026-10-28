@@ -47,13 +47,11 @@ return [
             'report' => false,
         ],
 
-        // Archives of the backups and the exports (docs/specs/backups.md §3): private, downloaded through signed URLs.
-        // Production points BACKUPS_DISK at the bucket `prytax-backups-<env>`
+        // Archives of the backups and the exports (docs/specs/backups.md §3): private, downloaded through signed URLs,
+        // here of the route `backups.archive`. Production points BACKUPS_DISK at the bucket `prytax-backups-<env>`
         'backups' => [
             'driver' => 'local',
             'root' => storage_path('app/backups'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/') . '/backups-storage',
-            'serve' => true,
             'throw' => true,
             'report' => false,
         ],

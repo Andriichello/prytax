@@ -89,7 +89,7 @@ const retry = (): void => window.location.reload();
                     </KeepAlive>
                 </RouterView>
             </div>
-            <RecordPanel v-if="inPanel" :wide="route.meta.panel?.wide" @close="closePanel">
+            <RecordPanel v-if="inPanel" :wide="route.meta.panel?.wide" :dialog="route.meta.panel?.dialog" @close="closePanel">
                 <RouterView />
             </RecordPanel>
         </template>

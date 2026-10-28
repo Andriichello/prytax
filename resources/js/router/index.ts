@@ -23,9 +23,10 @@ declare module 'vue-router' {
         record?: (params: RouteParamsGeneric) => string;
         /**
          * On desktop, a record's page opens in the panel over the page it came from (design.md §17.1): `of` is the page
-         * under it when it is opened directly; `wide` is the invoice editor's 760 px.
+         * under it when it is opened directly; `wide` is the invoice editor's 760 px; `dialog` a centred dialog instead
+         * (Інвойс для надходження).
          */
-        panel?: { of: string; wide?: boolean };
+        panel?: { of: string; wide?: boolean; dialog?: boolean };
         /** A page of the sidebar on desktop: its header has no back arrow. */
         section?: boolean;
     }
@@ -64,7 +65,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/invoices/:id(\\d+)', name: 'invoice', component: () => import('@/pages/invoices/InvoiceDetailPage.vue'), meta: { record: record('invoices'), panel: { of: '/invoices' } } },
     { path: '/invoices/:id(\\d+)/edit', name: 'invoice-edit', component: () => import('@/pages/invoices/InvoiceEditPage.vue'), meta: { can: ['update', 'invoices'], denied: 'invoice', record: record('invoices'), panel: { of: '/invoices', wide: true } } },
 
-    { path: '/payments/pick', name: 'payment-pick', component: () => import('@/pages/payments/PaymentInvoicePickPage.vue'), meta: { can: ['create', 'payments'], denied: 'accounting' } },
+    { path: '/payments/pick', name: 'payment-pick', component: () => import('@/pages/payments/PaymentInvoicePickPage.vue'), meta: { can: ['create', 'payments'], denied: 'accounting', panel: { of: '/accounting', dialog: true } } },
     { path: '/payments/new', name: 'payment-new', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['create', 'payments'], denied: 'home', panel: { of: '/accounting' } } },
     { path: '/payments/:id(\\d+)', name: 'payment', component: () => import('@/pages/payments/PaymentDetailPage.vue'), meta: { record: record('payments'), panel: { of: '/accounting' } } },
     { path: '/payments/:id(\\d+)/edit', name: 'payment-edit', component: () => import('@/pages/payments/PaymentFormPage.vue'), meta: { can: ['update', 'payments'], denied: 'payment', record: record('payments'), panel: { of: '/accounting' } } },

@@ -132,6 +132,35 @@ class BackupScheduleTest extends TestCase
     }
 
     /**
+     * Test the estimate of how long each backup stays under the policy: the newest and the manual ones until deleted,
+     * a scheduled one until the latest of its windows ends (its day, ISO week or month plus the window, less a day),
+     * one, which no window keeps, until the next prune, and an automatic one until it expires.
+     *
+     * @return void
+     */
+    public function testEstimatesHowLongEachBackupStays(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-20 12:00', 'Europe/Kyiv'));
+        $dates = ['2026-10-20', '2026-10-19', '2026-10-18', '2026-10-17', '2026-09-28', '2026-08-31', '2026-07-01'];
+        $backups = array_combine($dates, array_map(fn (string $date) => $this->backupAt($date), $dates));
+        $automatic = $this->backupAt('2026-10-02', BackupKind::Automatic, expiresAt: '2026-11-01 10:00:00');
+        $manual = $this->backupAt('2026-09-01', BackupKind::Manual);
+        $this->retention(3, 2, 4);
+
+        $estimates = app(Pruner::class)->keepUntil($this->profile->organization_id);
+        $of = fn (Backup $backup) => [$estimates[$backup->id]['until'], $estimates[$backup->id]['reason']];
+
+        $this->assertSame([null, 'newest'], $of($backups['2026-10-20']));
+        $this->assertSame(['2026-10-21', 'day'], $of($backups['2026-10-19']));
+        $this->assertSame(['2026-10-25', 'week'], $of($backups['2026-10-18']));
+        $this->assertSame(['2026-10-20', 'next_prune'], $of($backups['2026-10-17']));
+        $this->assertSame(['2026-12-31', 'month'], $of($backups['2026-09-28']));
+        $this->assertSame(['2026-10-31', 'month'], $of($backups['2026-07-01']));
+        $this->assertSame(['2026-11-01', 'expires'], $of($automatic));
+        $this->assertSame([null, 'manual'], $of($manual));
+    }
+
+    /**
      * Test that the newest archive of a profile stays whatever the retention, manual backups stay up to the cap, and
      * automatic ones go once they expire.
      *

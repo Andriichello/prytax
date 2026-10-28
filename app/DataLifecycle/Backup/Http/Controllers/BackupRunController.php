@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
+use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Http\Requests\BundleRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreBackupRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunCollection;
@@ -20,7 +21,9 @@ use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunResource;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveStore;
 use PryTax\DataLifecycle\Backup\Internal\BundleBuilder;
 use PryTax\DataLifecycle\Backup\Jobs\BuildOrganizationBundle;
+use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
+use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
 use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\DataLifecycle\Backup\Policies\BackupRunPolicy;
 use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
@@ -63,6 +66,7 @@ class BackupRunController extends CrudController
         'store' => StoreBackupRunRequest::class,
         'bundle' => BundleRunRequest::class,
         'bundleStatus' => BundleRunRequest::class,
+        'status' => IndexRequest::class,
     ];
 
     /**
@@ -89,11 +93,56 @@ class BackupRunController extends CrudController
      */
     public static function routes(): void
     {
+        Route::get('backup-status', [static::class, 'status'])->name('backup-status');
         Route::get('backup-runs', [static::class, 'index'])->name('backup-runs.index');
         Route::post('backup-runs', [static::class, 'store'])->name('backup-runs.store');
         Route::get('backup-runs/{id}', [static::class, 'show'])->name('backup-runs.show');
         Route::post('backup-runs/{id}/bundle', [static::class, 'bundle'])->name('backup-runs.bundle');
         Route::get('backup-runs/{id}/bundle', [static::class, 'bundleStatus'])->middleware('throttle:30,60')->name('backup-runs.bundle.show');
+    }
+
+    /**
+     * Handle the `status` operation: what the status card of «Резервні копії» shows (backups.md §4.7, §4.8) — the
+     * latest run (not an export) with its backups, the schedule (on or off, the next run, the organization's time of
+     * day), the size of the newest completed archive of every profile summed, and the manual runs left today.
+     *
+     * @param IndexRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleStatus(IndexRequest $request): ApiResponse
+    {
+        $organizationId = $request->orgId();
+        $policy = BackupPolicy::of($organizationId);
+        $latest = BackupRun::query()
+            ->where('kind', '!=', BackupKind::Export)
+            ->with('backups')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        $newest = Backup::query()
+            ->where('status', BackupStatus::Completed)
+            ->where('tier', '!=', BackupKind::Export)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['id', 'profile_id', 'bytes', 'created_at'])
+            ->unique('profile_id');
+        $today = BackupRun::query()->where('kind', BackupKind::Manual)->where('created_at', '>=', now()->startOfDay())->count();
+
+        return ApiResponse::ok(['data' => [
+            'policy' => [
+                'enabled' => $policy->enabled,
+                'frequency' => $policy->frequency,
+                'next_run_at' => $policy->enabled ? $policy->next_run_at?->toIso8601String() : null,
+                'time_of_day' => $policy->nextRunAfter(now())->format('H:i'),
+                'retention_monthly' => $policy->retention_monthly,
+            ],
+            'latest_run' => $latest ? (new BackupRunResource($latest))->toArray($request) : null,
+            'last_completed_at' => $newest->max('created_at')?->toIso8601String(),
+            'profiles' => $newest->count(),
+            'bytes' => (int) $newest->sum('bytes'),
+            'manual_runs_left' => max(0, (int) config('data-lifecycle.backups.manual_per_day') - $today),
+        ]]);
     }
 
     /**

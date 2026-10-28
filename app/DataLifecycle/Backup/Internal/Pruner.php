@@ -3,6 +3,7 @@
 namespace PryTax\DataLifecycle\Backup\Internal;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
@@ -109,6 +110,89 @@ final class Pruner
         }
 
         return $pruned;
+    }
+
+    /**
+     * Estimate how long each completed backup of an organization stays under its current policy (backups.md §4.7):
+     * the newest of a profile and the manual ones stay until deleted (`until` null); automatic ones and exports until
+     * they expire; a scheduled one, which grandfather-father-son keeps, until its last day, week or month falls out of
+     * its window as the schedule goes on (the latest of them, with its `reason`), or else until the next prune.
+     *
+     * @param int $organizationId
+     * @param CarbonImmutable|null $now
+     *
+     * @return array<string, array{until: string|null, reason: string}> By backup id; `until` is a `Y-m-d`.
+     */
+    public function keepUntil(int $organizationId, ?CarbonImmutable $now = null): array
+    {
+        $now ??= CarbonImmutable::now();
+        $timezone = config('app.timezone');
+        $policy = BackupPolicy::of($organizationId);
+        $backups = Backup::query()->withoutGlobalScopes()
+            ->where('organization_id', $organizationId)
+            ->where('status', BackupStatus::Completed)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $estimates = [];
+
+        foreach ($backups->groupBy('profile_id') as $ofProfile) {
+            $newest = $ofProfile->whereIn('tier', [BackupKind::Scheduled, BackupKind::Manual, BackupKind::Automatic])->first();
+            $kept = $this->scheduledKeepers($ofProfile->where('tier', BackupKind::Scheduled), $policy);
+
+            foreach ($ofProfile as $backup) {
+                $estimates[$backup->id] = match (true) {
+                    $backup->id === $newest?->id => ['until' => null, 'reason' => 'newest'],
+                    $backup->tier === BackupKind::Manual => ['until' => null, 'reason' => 'manual'],
+                    $backup->tier === BackupKind::Scheduled => isset($kept[$backup->id])
+                        ? $kept[$backup->id]
+                        : ['until' => $now->setTimezone($timezone)->toDateString(), 'reason' => 'next_prune'],
+                    default => ['until' => $backup->expires_at?->setTimezone($timezone)->toDateString(), 'reason' => 'expires'],
+                };
+            }
+        }
+
+        return $estimates;
+    }
+
+    /**
+     * Get the scheduled backups, which grandfather-father-son keeps, each with the last day it stays: the start of its
+     * day, ISO week or month plus the window, less a day, the latest of the windows, which keep it.
+     *
+     * @param Collection<int, Backup> $backups Newest first.
+     * @param BackupPolicy $policy
+     *
+     * @return array<string, array{until: string, reason: string}>
+     */
+    private function scheduledKeepers(Collection $backups, BackupPolicy $policy): array
+    {
+        $timezone = config('app.timezone');
+        $windows = [
+            'day' => [$policy->retention_daily, fn (CarbonImmutable $at) => $at->startOfDay(), fn (CarbonImmutable $start, int $count) => $start->addDays($count)],
+            'week' => [$policy->retention_weekly, fn (CarbonImmutable $at) => $at->startOfWeek(CarbonInterface::MONDAY), fn (CarbonImmutable $start, int $count) => $start->addWeeks($count)],
+            'month' => [$policy->retention_monthly, fn (CarbonImmutable $at) => $at->startOfMonth(), fn (CarbonImmutable $start, int $count) => $start->addMonthsNoOverflow($count)],
+        ];
+        $kept = [];
+
+        foreach ($windows as $reason => [$count, $startOf, $end]) {
+            $newest = [];
+
+            foreach ($backups as $backup) {
+                $start = $startOf(CarbonImmutable::instance($backup->created_at)->setTimezone($timezone));
+                $newest[$start->toDateString()] ??= [$backup->id, $start];
+            }
+
+            foreach (array_slice(array_values($newest), 0, $count) as [$id, $start]) {
+                $until = $end($start, $count)->subDay()->toDateString();
+
+                if (!isset($kept[$id]) || $until > $kept[$id]['until']) {
+                    $kept[$id] = ['until' => $until, 'reason' => $reason];
+                }
+            }
+        }
+
+        return $kept;
     }
 
     /**

@@ -305,6 +305,28 @@ class BackupControllerTest extends TestCase
     }
 
     /**
+     * Test that the status of the backups tells the latest run, the size of the newest archives, the manual runs left
+     * today and the schedule's time of day, and that a run's backups say how long they stay.
+     *
+     * @return void
+     */
+    public function testReportsTheStatusOfTheBackups(): void
+    {
+        $backup = $this->backup();
+        $this->actAs($this->profile, 'accountant');
+
+        $status = $this->getJson('/api/organization/backup-status')->assertOk()->json('data');
+
+        $this->assertSame([4, 1, 'manual'], [$status['manual_runs_left'], $status['profiles'], $status['latest_run']['kind']]);
+        $this->assertSame($backup->bytes, $status['bytes']);
+        $this->assertMatchesRegularExpression('/^0[1-4]:\d\d$/', $status['policy']['time_of_day']);
+        $this->getJson("/api/organization/backup-runs/$backup->run_id?include=backups")
+            ->assertOk()
+            ->assertJsonPath('data.backups.0.keep_reason', 'newest')
+            ->assertJsonPath('data.backups.0.keep_until', null);
+    }
+
+    /**
      * Back up the organization's ФОП manually.
      *
      * @return Backup

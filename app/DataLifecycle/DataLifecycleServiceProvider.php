@@ -6,6 +6,7 @@ use Core\Providers\MorphServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use PryTax\DataLifecycle\Backup\Internal\RetentionEstimate;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
 use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
@@ -57,6 +58,7 @@ class DataLifecycleServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/config/data-lifecycle.php', 'data-lifecycle');
 
         $this->app->tag([TechnicalHandler::class], RetentionFamilyHandler::TAG);
+        $this->app->scoped(RetentionEstimate::class);
     }
 
     /**

@@ -56,6 +56,14 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
   the read-only policy.
 - **Checking:** `act.mjs` takes `WIDTH`/`HEIGHT`/`SCALE` (desktop from 1024) and a `clear-cache` step; maria
   (accountant) has `uk`, olena `en`; the sign-in screen keeps the device's language (click «Українська» in the sheet).
+- **Follow-ups of 2026-10-28** (merged into `dev` and `main`, not pushed): backup downloads on a local disk opened the
+  SPA's "not found" (its catch-all route took `/backups-storage/…`); local archive links are now the module's signed
+  route `backups.archive` (`ArchiveController`), which saves the archive under its name (backups.md §3.3). The record
+  panel's header holds the record's title, sub-line, badges and «✎ Змінити» (`SubScreen`'s `record`/`sub`/`badges`/
+  `edit`, `usePanel()`). Tables and card rows follow their own width by container queries, and the desktop shell is a
+  centred 1440 px box (design.md §17.6); every desktop page was measured at 1024/1280/1440/2560 px with no overlap,
+  spill, clipping or truncation. Still open there: ⋯ as a popover, the tax payment's view panel (board 037), «✎ Змінити»
+  beside the name on Рахунок/Клієнт, Інвойси's search.
 
 ## Where things stand
 

@@ -35,6 +35,7 @@ use PryTax\Rules\NoteTextRequired;
 use PryTax\Rules\TaxPaymentAccounts;
 use PryTax\Services\Invoices\InvoiceSettingsResolver;
 use PryTax\Services\Invoices\PaymentPurposeRenderer;
+use PryTax\Services\Reports\ProfileStatus;
 
 /**
  * Class Profile.
@@ -67,6 +68,7 @@ use PryTax\Services\Invoices\PaymentPurposeRenderer;
  * @property Carbon|null $deleted_at
  *
  * @property-read string $tax_id_masked
+ * @property-read array{taxes_to_pay: string, overdue_invoices: int, esv_due_at: string|null} $status
  * @property-read string $short_name
  * @property-read string $initials
  *
@@ -478,6 +480,17 @@ class Profile extends BaseModel implements HasFilesInterface, HasSettingsInterfa
                 ->unreadBy($user)
                 ->count() : 0;
         });
+    }
+
+    /**
+     * The status line of the profile on «ФОП організації»: the taxes it still has to pay, its overdue invoices and the
+     * next deadline of its ЄСВ (`ProfileStatus`).
+     *
+     * @return Attribute
+     */
+    protected function status(): Attribute
+    {
+        return Attribute::get(fn () => app(ProfileStatus::class)->forProfile($this));
     }
 
     /**

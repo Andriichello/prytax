@@ -6,8 +6,10 @@ use Core\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use PryTax\Helpers\Decimal;
 use PryTax\Models\Alert;
 use PryTax\Models\EsvObligation;
+use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Taxes\EsvObligationScheduler;
@@ -159,5 +161,37 @@ class ProfileControllerTest extends TestCase
         $months = EsvObligation::query()->withoutGlobalScopes()->where('profile_id', $profile->id)->where('year', 2026)->pluck('month')->all();
         $this->assertSame([1, 2, 3, 4, 5, 6], $months);
         $this->assertFalse($open());
+    }
+
+    /**
+     * Test that the list appends each profile's status line: the taxes it has to pay (a receipt's unpaid ЄП and ВЗ on
+     * top of the ЄСВ, which both owe), its overdue invoices and the earliest deadline of its unpaid ЄСВ (I кв.'s,
+     * 20.04.2026, as nothing paid it).
+     *
+     * @return void
+     */
+    public function testAppendsTheStatusLineOfEachProfile(): void
+    {
+        Storage::fake('local');
+        $this->travelTo('2026-10-20 10:00:00');
+        $organization = Organization::factory()->create();
+        $busy = $this->createProfile($organization);
+        $calm = $this->createProfile($organization);
+        Sanctum::actingAs($this->userOf($organization));
+        $account = $this->createAccount($busy);
+        $this->createFrozenInvoice($busy, $account, ['due_at' => '2026-10-10']);
+        $this->inProfile($busy, fn () => Payment::factory()->create([
+            'profile_id' => $busy->id, 'received_at' => '2026-10-05', 'received_to_account_id' => $account->id,
+        ]));
+
+        $rows = collect($this->getJson('/api/profiles?append=status')->assertOk()->json('data'))->keyBy('id');
+
+        $this->assertSame(1, $rows[$busy->id]['status']['overdue_invoices']);
+        $this->assertSame(0, $rows[$calm->id]['status']['overdue_invoices']);
+        $this->assertSame(
+            '2460.00',
+            Decimal::money(Decimal::of($rows[$busy->id]['status']['taxes_to_pay'])->minus($rows[$calm->id]['status']['taxes_to_pay']))
+        );
+        $this->assertSame('2026-04-20', $rows[$calm->id]['status']['esv_due_at']);
     }
 }

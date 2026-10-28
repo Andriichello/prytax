@@ -74,7 +74,10 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 | 9. QA of «Minimal»: every flow in the browser as owner, accountant and viewer, uk and en | **Merged into `dev`** (2026-10-25), 10 fixes + the owner's decisions; see "QA of Minimal" |
 | 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
 | 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed, in `dev` and `main`** (2026-10-27), reviewed twice against the code; see "Backups spec" |
-| 12. Backups, data safety and retention: the build (Layer B, retention, `verify-db`, the SPA screens) | **On branch `feat/backups`** (2026-10-28), not merged, not pushed; the SPA not checked in a browser yet; see "Backups build" |
+| 12. Backups, data safety and retention: the build (Layer B, retention, `verify-db`, the SPA screens) | **Merged into `dev`** (2026-10-28, not `main`, not pushed); see "Backups build" |
+| 13. Mobile delta 3: ФОП switching, Книги обліку, the date picker, the language sheet, rules 1–10 | **On `feat/minimal-delta-3`** (2026-10-28), but XLSX (blocked on the package); see "Handoffs of 2026-10-28" |
+| 14. Desktop layout («Minimal (Desktop)») | **On `feat/desktop`** (from delta 3, 2026-10-28); design.md §17.6 |
+| 15. The backups screens of the backups handoff | **On `feat/backups-ui`** (from desktop, 2026-10-28); backups.md §4.8 "As built" |
 
 - **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
   the invoice settings and styles (pushed on 2026-10-24). **`main` = `dev`** (checked out) = that + Minimal (specs,
@@ -104,13 +107,13 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 
 ### First steps of the next session
 
-1. Continue the backups build on `feat/backups` (see "Backups build", its "Next" list): run the full PHP suite, then check
-   the Резервні копії screen and the period export in headless Chrome (with a queue worker), update the spec to v1.7 as
-   built, and update this file. Then ask the user about merging `feat/backups` into `dev` (and `main`), pushing, the
-   spec's §5.3 open decision, the GCS adapter approval and the open points under "Backups build". Also still open from
-   before: deleting the merged branches (feat/minimal, feat/invoice-v2, feat/tax-ledger), undoing ngrok in `.env` (see
-   "Tax ledger"), and the backlog: the open points of "QA of Minimal", docs/specs/suggestions.md §1, XLSX exports and the
-   yearly PDF summary (a package, so approval), pixel polish against the boards, `SheetImporter`.
+1. The three handoffs of 2026-10-28 are built on stacked branches (`feat/minimal-delta-3` → `feat/desktop` →
+   `feat/backups-ui`, none merged or pushed). Ask the user about merging `feat/backups-ui` into `dev` (and `main`) and
+   pushing. Open: XLSX (the user is to run `php8.5 $(which composer) require openspout/openspout`; then the books' and
+   Облік's XLSX exports), the in-app notices of backups (api-core's `notifications` in Сповіщення), the desktop panel
+   header anatomy (badges, «✎ Змінити», ⋯ in the header), Інвойси's search, the remaining spec decisions (§5.3, the
+   GCS adapter), deleting the merged branches, and the backlog: the open points of "QA of Minimal",
+   docs/specs/suggestions.md §1, the yearly PDF summary, `SheetImporter`.
 2. On 2026-10-28 MySQL was running (on 2026-10-27 it wasn't: `systemctl is-active mysql`; starting it needs sudo, so
    ask the user), but neither the dev server (8010, `php8.5`) nor the headless Chrome (9223) were; check with
    `ss -ltnp | grep -E ':3306|:8010|:9223'` and start them (commands under "Frontend" and "Checking the UI").

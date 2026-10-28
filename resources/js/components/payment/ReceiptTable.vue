@@ -14,9 +14,10 @@ import { receiptTaxPayment } from '@/utils/taxes';
  * invoice, its count and its total), then a table, whose columns keep their widths (owner #70–#72): Інвойс (the
  * number and the client) · Дата · Сума (on a green pill) · Курс НБУ · Дохід ₴ · ЄП 5 % · ВЗ 1 %. ЄП and ВЗ show the
  * amount with the status badge under it, so a long badge never meets Дохід; each opens its payment, the row the
- * receipt. With `fees`, a line under each receipt tells its fees and net income in the same grid. The columns follow
- * the table's own width (a container query): under 920 px the date goes under the invoice, and the income in hryvnias
- * and the NBU rate under the amount.
+ * receipt. With `fees`, a line under each receipt in the same grid: the net income under the amount, and the fees
+ * under ЄП, each with its short label, in the receipt's currency. The columns follow the table's own width (a
+ * container query): under 920 px the date goes under the invoice, and the income in hryvnias and the NBU rate under
+ * the amount.
  */
 const { receipts, title = undefined, count = undefined, total = undefined, taxes: showTaxes = true, feesOf = null } = defineProps<{
     receipts: Payment[];
@@ -104,10 +105,18 @@ function tax(receipt: Payment, type: ReceiptTax) {
                 <template v-else><span /><span /></template>
             </div>
             <div v-if="feesOf && feesOf(receipt)" class="grid items-center gap-4 bg-paper-light px-5 py-2 text-13" :class="columns">
-                <span class="text-ink-3">{{ t('money.receiptCard.feesShort') }} · {{ t('money.receiptCard.netShort') }}</span>
-                <span /><span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" />
-                <span class="num text-right">{{ feesOf(receipt)?.fees !== null ? formatCompact(feesOf(receipt)!.fees!, receipt.currency) : '—' }}</span>
-                <span class="num text-right font-semibold text-positive">{{ feesOf(receipt)?.net !== null ? formatCompact(feesOf(receipt)!.net!, receipt.currency) : '—' }}</span>
+                <span />
+                <span class="hidden @min-[920px]:block" />
+                <span class="num text-right font-semibold whitespace-nowrap text-positive">
+                    <span class="font-sans text-12 font-normal text-ink-3">{{ t('money.receiptCard.netShort') }}</span>
+                    {{ feesOf(receipt)?.net !== null ? formatCompact(feesOf(receipt)!.net!, receipt.currency) : '—' }}
+                </span>
+                <span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" />
+                <span class="num text-right whitespace-nowrap">
+                    <span class="font-sans text-12 text-ink-3">{{ t('money.receiptCard.feesShort') }}</span>
+                    {{ feesOf(receipt)?.fees !== null ? formatCompact(feesOf(receipt)!.fees!, receipt.currency) : '—' }}
+                </span>
+                <span />
             </div>
         </template>
     </section>

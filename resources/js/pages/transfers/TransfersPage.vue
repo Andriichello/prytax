@@ -64,7 +64,7 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
 </script>
 
 <template>
-    <SubScreen title="" muted :back="{ name: 'more' }">
+    <SubScreen title="" muted width="list" :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.transfers.title') }}</h1>

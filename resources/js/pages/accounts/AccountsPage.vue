@@ -8,6 +8,7 @@ import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -36,6 +37,7 @@ function limitText(period: LimitPeriod): string {
 
 const { profileId, path, settings } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const { data: accounts, error, loading, reload } = useLoader(async (signal) => {
     return api.all<Account>(path('accounts'), { append: ['balance', 'limit_progress', 'late_holdings'] }, signal);
@@ -77,7 +79,7 @@ function caption(account: Account): string {
 </script>
 
 <template>
-    <SubScreen title="" muted :back="{ name: 'more' }">
+    <SubScreen title="" muted width="full" :back="{ name: 'more' }">
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.accounts.title') }}</h1>
@@ -95,7 +97,8 @@ function caption(account: Account): string {
                 </RouterLink>
             </EmptyState>
 
-            <section v-for="group in groups" :key="group.kind" class="flex flex-col gap-2" :aria-label="ACCOUNT_KINDS[group.kind].group">
+            <div :class="isDesktop ? 'columns-2 gap-5' : 'contents'">
+            <section v-for="group in groups" :key="group.kind" class="flex break-inside-avoid flex-col gap-2" :class="isDesktop ? 'mb-5' : ''" :aria-label="ACCOUNT_KINDS[group.kind].group">
                 <SectionTitle>{{ ACCOUNT_KINDS[group.kind].group }}</SectionTitle>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <RouterLink
@@ -133,6 +136,7 @@ function caption(account: Account): string {
                     </RouterLink>
                 </div>
             </section>
+            </div>
         </LoadState>
     </SubScreen>
 </template>

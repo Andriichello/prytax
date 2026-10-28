@@ -19,6 +19,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import Translated from '@/components/ui/Translated.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -245,6 +246,10 @@ const masked = (value: string | null): string | null => (value ? `•••• $
         :title="isNew ? t('money.accountForm.newAccount') : account?.name ?? t('money.account.account')"
         :back="isNew ? { name: 'accounts' } : { name: 'account', params: { id: accountId } }"
     >
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.account')" />
+        </template>
+
         <template v-if="isNew">
             <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
                 <AccountMainFields v-model="form" is-new :name-error="fieldError(saveError, 'name')" />

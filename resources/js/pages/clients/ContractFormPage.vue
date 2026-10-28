@@ -14,6 +14,7 @@ import SwitchCard from '@/components/form/SwitchCard.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -147,6 +148,10 @@ const generalError = computed(() => (saveError.value && !Object.values(errors.va
 
 <template>
     <SubScreen :title="isNew ? t('clients.contract.newContract') : t('core.common.contract')" :subtitle="data?.client.name" :back="{ name: 'client', params: { id: clientId } }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.contract')" />
+        </template>
+
         <LoadState :loading="loading && !data" :error="loadError" @retry="reload">
             <template v-if="isNew && data">
                 <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">

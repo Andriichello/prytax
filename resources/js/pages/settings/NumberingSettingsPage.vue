@@ -9,6 +9,7 @@ import SubScreen from '@/components/layout/SubScreen.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -203,6 +204,10 @@ const generalError = computed(() => counterBack.value
 
 <template>
     <SubScreen :title="t('settings.numbering.title')" :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.numbering')" />
+        </template>
+
         <LoadState :loading="loading && !saved" :error="loadError" @retry="reload">
             <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-ink p-4 text-white">
                 <span class="text-14 text-on-ink-2">

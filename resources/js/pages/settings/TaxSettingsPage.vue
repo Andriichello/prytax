@@ -16,6 +16,7 @@ import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -296,6 +297,10 @@ async function saveRequisite(): Promise<void> {
 
 <template>
     <SubScreen :title="t('settings.taxes.title')" :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.taxes')" />
+        </template>
+
         <LoadState :loading="loading && !settings" :error="loadError" @retry="reload">
             <template v-if="settings">
                 <AccordionGroup

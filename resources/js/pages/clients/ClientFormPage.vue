@@ -17,6 +17,7 @@ import InvoiceDocumentTexts from '@/components/invoice/InvoiceDocumentTexts.vue'
 import SubScreen from '@/components/layout/SubScreen.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { type InheritedDocument, useInvoiceDocument } from '@/composables/useInvoiceDocument';
@@ -320,6 +321,10 @@ const addressLines = computed(() => {
         :title="isNew ? t('clients.form.newClient') : existing?.name ?? t('core.common.client')"
         :back="isNew ? { name: 'clients' } : { name: 'client', params: { id: clientId } }"
     >
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.client')" />
+        </template>
+
         <LoadState :loading="loading && !profile" :error="loadError" @retry="reload">
             <template v-if="isNew">
                 <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">

@@ -238,4 +238,16 @@ export default {
         notifyAlways: 'After every backup',
         notifyNever: 'Never',
     },
+
+    sideNotes: {
+        howItWorks: 'How it works',
+        oneGroup: 'One group is open at a time; the others are dimmed until you save or cancel.',
+        profile: 'The taxpayer, the address and the contacts go into every new invoice. Frozen invoices keep a snapshot of them as of freezing.',
+        taxes: 'The accounts of «Tax payments» come first in the payment forms of ЄП, ВЗ and ЄСВ.',
+        numbering: 'A number is given when an invoice is frozen. The preview on top shows the next number with the saved settings.',
+        document: 'A client or a single invoice may have their own values. Changes apply to new invoices and drafts; frozen ones don’t change.',
+        client: 'Empty fields take the ФОП’s settings, labelled «as for the ФОП».',
+        account: 'The details go into the invoice’s payment block when the account is chosen as the receiving one.',
+        contract: 'Rates apply from their «from» date: a new invoice takes the rate in force at the end of its service period.',
+    },
 } satisfies Translation<typeof uk>;

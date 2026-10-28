@@ -9,6 +9,7 @@ import InvoiceDocumentLook from '@/components/invoice/InvoiceDocumentLook.vue';
 import InvoiceDocumentTexts from '@/components/invoice/InvoiceDocumentTexts.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { type InheritedDocument, useInvoiceDocument } from '@/composables/useInvoiceDocument';
@@ -171,6 +172,10 @@ const generalError = computed(() => (saveError.value && !Object.values(fieldErro
 
 <template>
     <SubScreen :title="t('settings.document.title')" :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.document')" />
+        </template>
+
         <LoadState :loading="loading && !profile" :error="loadError" @retry="reload">
             <Dimmable>
                 <p class="m-0 text-15 leading-normal text-ink-2">{{ t('settings.document.explained') }}</p>

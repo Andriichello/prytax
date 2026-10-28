@@ -69,7 +69,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
 </script>
 
 <template>
-    <SubScreen title="" muted :back="{ name: 'more' }">
+    <SubScreen title="" muted width="list" :back="{ name: 'more' }">
         <div class="-mt-1 flex items-center justify-between gap-3">
             <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('core.common.clients') }}</h1>
             <NewPill v-if="can('create', 'clients')" :to="{ name: 'client-new' }" />

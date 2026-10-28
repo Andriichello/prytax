@@ -17,6 +17,7 @@ import ProfilePersonFields from '@/components/profile/ProfilePersonFields.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { provideAccordion } from '@/composables/useAccordion';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -210,6 +211,10 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
 
 <template>
     <SubScreen :title="isNew ? t('settings.profile.newFop') : t('settings.profile.fopProfile')" :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.profile')" />
+        </template>
+
         <LoadState :loading="loading && !isNew && !profile" :error="loadError" @retry="reload">
             <Dimmable>
                 <p class="m-0 rounded-control border border-line bg-surface px-3.5 py-3 text-14 font-medium">{{ t('settings.profile.groupBanner') }}</p>

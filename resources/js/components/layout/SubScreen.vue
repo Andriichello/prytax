@@ -7,6 +7,7 @@ import Icon from '@/components/ui/Icon.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { usePanel } from '@/composables/usePanel';
 import { t } from '@/i18n';
+import { panelBackground } from '@/router';
 
 /**
  * A sub-page: the back header, the content, and an optional sticky footer (the `footer` slot) for a form's primary
@@ -41,6 +42,9 @@ const route = useRoute();
 const router = useRouter();
 const { isDesktop, isWide } = useBreakpoint();
 const panel = usePanel();
+
+/** The page's route: under the record panel, the page the panel was opened over (the current route is the panel's). */
+const pageMeta = computed(() => (!panel && route.meta.panel && panelBackground.value ? router.resolve(panelBackground.value).meta : route.meta));
 
 /** In the panel, ← goes back to the record this one was opened from. */
 const backInPanel = computed(() => {
@@ -109,7 +113,7 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
     <div v-else-if="isDesktop" class="flex min-h-dvh flex-col">
         <header class="flex items-start gap-4 px-10 pt-7 pb-5">
             <button
-                v-if="!route.meta.section && !closable"
+                v-if="!pageMeta.section && !closable"
                 type="button"
                 :aria-label="t('shell.nav.back')"
                 class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full border border-line-input bg-surface text-ink"

@@ -124,6 +124,13 @@
     white-space: nowrap;
 }
 
+/* The thin scrollbar of a dialog's scrolling part, in the line colour, with its room kept so the content doesn't move */
+@utility scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-input) transparent;
+    scrollbar-gutter: stable;
+}
+
 /* A row that scrolls sideways by swiping, without a scrollbar (the filter badges of the root screens) */
 @utility scrollbar-none {
     scrollbar-width: none;

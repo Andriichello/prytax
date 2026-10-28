@@ -8,14 +8,19 @@ import { t } from '@/i18n';
 /**
  * A screen over the whole page, which keeps the page (and its form) as it is underneath: a header with its title and
  * an optional subtitle, and a back arrow before them or a ✕ after them (the modal header, design.md §16.6, rule 7),
- * its scrolling content, and an optional sticky `footer`. On desktop it is a centred dialog, 560 px wide, with its
- * backdrop (design.md §17.3). Escape and the header's button close it; the page behind is inert while it is open, and one over another closes first.
+ * its scrolling content, and an optional sticky `footer`. On desktop it is a centred dialog with rounded corners and
+ * its backdrop (design.md §17.3), 560 px wide, or `wide` (up to 1120 × 960 px, for a document's preview, whose
+ * content lays itself out and scrolls by itself); the header, the content and the footer span the dialog, so the
+ * footer fills its rounded bottom and the scrollbar keeps to its edge. Escape and the header's button close it; the
+ * page behind is inert while it is open, and one over another closes first.
  */
-const { title, subtitle = undefined, dismiss = 'back' } = defineProps<{
+const { title, subtitle = undefined, dismiss = 'back', size = 'default' } = defineProps<{
     title: string;
     subtitle?: string;
     /** The header's button: an arrow back (a screen opened from a field) or a cross (a preview). */
     dismiss?: 'back' | 'close';
+    /** The desktop dialog's size. */
+    size?: 'default' | 'wide';
 }>();
 const open = defineModel<boolean>('open', { required: true });
 
@@ -47,11 +52,16 @@ const { isDesktop } = useBreakpoint();
                 :aria-labelledby="titleId"
                 tabindex="-1"
                 class="fixed flex flex-col bg-paper outline-none"
-                :class="isDesktop ? 'inset-x-0 top-1/2 mx-auto max-h-[88dvh] w-140 -translate-y-1/2 overflow-hidden rounded-3xl shadow-[0_24px_64px_rgb(23_25_31/0.28)]' : 'inset-0'"
+                :class="isDesktop
+                    ? ['inset-x-0 top-1/2 mx-auto -translate-y-1/2 overflow-hidden rounded-3xl shadow-[0_24px_64px_rgb(23_25_31/0.28)]', size === 'wide' ? 'h-[min(960px,calc(100dvh-64px))] w-[min(1120px,calc(100vw-64px))]' : 'max-h-[88dvh] w-140']
+                    : 'inset-0'"
                 :style="{ zIndex: 50 + layer * 10 }"
             >
-                <div class="mx-auto flex w-full max-w-120 min-h-0 flex-1 flex-col">
-                    <header class="flex items-center gap-1 pt-2" :class="dismiss === 'close' ? 'pr-2 pl-4' : 'px-2'">
+                <div class="flex min-h-0 w-full flex-1 flex-col" :class="isDesktop ? '' : 'mx-auto max-w-120'">
+                    <header
+                        class="flex shrink-0 items-center gap-1"
+                        :class="[isDesktop ? 'border-b border-line pt-4 pb-3' : 'pt-2', dismiss === 'close' ? (isDesktop ? 'pr-4 pl-6' : 'pr-2 pl-4') : (isDesktop ? 'pr-6 pl-3' : 'px-2')]"
+                    >
                         <button
                             v-if="dismiss === 'back'"
                             type="button"
@@ -75,12 +85,16 @@ const { isDesktop } = useBreakpoint();
                             <Icon name="close" :size="22" />
                         </button>
                     </header>
-                    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-3 pb-8">
+                    <div v-if="isDesktop && size === 'wide'" class="flex min-h-0 flex-1 flex-col">
+                        <slot />
+                    </div>
+                    <div v-else class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto" :class="isDesktop ? 'scrollbar-thin py-5 pr-4 pl-6' : 'px-4 pt-3 pb-8'">
                         <slot />
                     </div>
                     <footer
                         v-if="$slots.footer"
-                        class="border-t border-line bg-surface px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+                        class="shrink-0 border-t border-line bg-surface"
+                        :class="isDesktop ? 'px-6 py-4' : 'px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]'"
                     >
                         <slot name="footer" />
                     </footer>

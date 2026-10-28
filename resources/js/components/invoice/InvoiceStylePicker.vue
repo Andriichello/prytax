@@ -136,7 +136,7 @@ function chooseFromPreview(style: InvoiceStyle): void {
                     type="button"
                     role="radio"
                     :aria-checked="selected === style.key ? 'true' : 'false'"
-                    class="relative flex flex-col gap-2 rounded-card border bg-surface p-2.5 text-left"
+                    class="relative flex flex-col gap-2 rounded-card border bg-surface p-2 text-left"
                     :class="selected === style.key ? 'border-accent ring-2 ring-accent' : 'border-line'"
                     @click="selected = style.key"
                 >
@@ -144,9 +144,9 @@ function chooseFromPreview(style: InvoiceStyle): void {
                         :src="styleThumbnail(style.key, locale)"
                         :alt="style.name"
                         loading="lazy"
-                        class="aspect-[210/297] w-full rounded-[3px] border border-line bg-white object-cover"
+                        class="aspect-[210/297] w-full rounded-lg border border-line bg-white object-cover"
                     >
-                    <span class="flex items-center justify-between gap-1.5 px-0.5">
+                    <span class="flex items-center justify-between gap-1.5 px-1 pb-0.5">
                         <span class="truncate text-15 font-medium">{{ style.name }}</span>
                         <span v-if="style.key === DEFAULT_INVOICE_STYLE" class="shrink-0 rounded-badge bg-muted px-2 py-0.5 text-12 text-ink-2">
                             {{ t('invoices.document.asDefault') }}
@@ -155,7 +155,7 @@ function chooseFromPreview(style: InvoiceStyle): void {
                     <span
                         v-if="selected === style.key"
                         aria-hidden="true"
-                        class="absolute top-4 right-4 flex size-7 items-center justify-center rounded-full bg-accent text-white"
+                        class="absolute top-3.5 right-3.5 flex size-7 items-center justify-center rounded-full bg-accent text-white shadow-[0_0_0_2px_white]"
                     >
                         <Icon name="check" :size="16" />
                     </span>

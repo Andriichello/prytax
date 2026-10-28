@@ -1695,7 +1695,11 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   in the panel the pages leave out their own heading (`usePanel()`). A frozen invoice has no «Змінити». The ⋯ menus
   are still the bottom sheets (a centred dialog on desktop), not popovers, and a tax payment opens its form, not the
   view panel of board 037.
-- **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px); `Popover` (anchored,
+- **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px, their header,
+  content and footer spanning the rounded card, with a thin scrollbar; `FullScreenSheet size="wide"` is up to
+  1120 × 960 px: Перегляд стилю, the page about 760 px wide on the left and its controls on the right, with «Лупа»: a
+  click on the page turns on a 2.5× lens that follows the pointer, a click again or Escape turns it off, as does
+  another style or language; on touch a tap turns it on, a drag moves it, a tap turns it off); `Popover` (anchored,
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
   the date pickers (`DatePickerPopover`).

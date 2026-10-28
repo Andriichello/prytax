@@ -6,12 +6,13 @@ import TextField from '@/components/form/TextField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import Avatar from '@/components/ui/Avatar.vue';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
-import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { locale, t } from '@/i18n';
@@ -54,6 +55,7 @@ const ROLES: { value: RoleName; readonly label: string; readonly text: string; t
 ];
 
 const { user: me, can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const { data: users, error, loading, reload } = useLoader(async (signal) => {
     const { data } = await api.get<Paginated<OrganizationUser>>('users', { page: { size: 50 } }, signal);
@@ -127,19 +129,21 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
 </script>
 
 <template>
-    <SubScreen title="" muted width="list" :back="{ name: 'more' }">
-        <div class="-mt-1 flex flex-col gap-1">
+    <SubScreen
+        :title="isDesktop ? t('settings.users.users') : ''"
+        :muted="!isDesktop"
+        :subtitle="isDesktop ? t('settings.users.accessNote') : undefined"
+        width="list"
+        :back="{ name: 'more' }"
+    >
+        <template v-if="isDesktop && can('create', 'users')" #action>
+            <NewPill :label="t('settings.users.invite')" @click="open(null)" />
+        </template>
+
+        <div v-if="!isDesktop" class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('settings.users.users') }}</h1>
-                <button
-                    v-if="can('create', 'users')"
-                    type="button"
-                    class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white hover:bg-accent-hover"
-                    @click="open(null)"
-                >
-                    <Icon name="plus" :size="20" />
-                    {{ t('settings.users.invite') }}
-                </button>
+                <NewPill v-if="can('create', 'users')" :label="t('settings.users.invite')" @click="open(null)" />
             </div>
             <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('settings.users.accessNote') }}</p>
         </div>

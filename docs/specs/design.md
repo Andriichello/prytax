@@ -1672,6 +1672,12 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
   tables and cards keep the boards' widths (1112 px of content); the record panel opens at its right edge. A page's
   title keeps its width, and its actions go under it when they don't fit beside it.
+- **Primary actions:** a page's own action («+ Новий інвойс», «+ Надходження», «+ Новий», «Запросити», «Створити
+  копію зараз») is a `NewPill` in the page header, left of the 📖 | 🔔 capsule, on every desktop page (Рахунки,
+  Клієнти, Перекази, Користувачі and ФОП pass their title, sub-line and pill to the header there; on mobile they keep
+  the title row in the content); a secondary one sits left of it as an outlined button. What finishes a form or a
+  record («Зберегти», «Додати надходження») stays in the footer of its panel, dialog or form, and an action inside a
+  section («+ Додати», «+ Договір») stays a blue text link.
 - **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
   beside Головна's 360 px column from 1280 px: Інвойси's table puts the period under the client and the payment
   under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date

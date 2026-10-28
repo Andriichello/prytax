@@ -39,7 +39,7 @@ onBeforeUnmount(() => observer?.disconnect());
 <template>
     <div v-if="isDesktop" class="flex min-h-dvh flex-col">
         <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 px-10 pt-7 pb-5">
-            <div class="flex max-w-full min-w-0 flex-col gap-1">
+            <div class="flex max-w-full min-w-min flex-1 flex-col gap-1">
                 <h1 class="m-0 text-30 font-semibold tracking-[-0.02em]">{{ title }}</h1>
                 <slot name="subtitle" />
             </div>

@@ -16,11 +16,12 @@ import { panelBackground } from '@/router';
  * On desktop (design.md §17.2–§17.3) a page gets the page header (a round back button, unless it is a sidebar's page
  * — `meta.section` —, the title, the action and the 📖 | 🔔 capsule) over a column of `width`: 760 px for settings
  * and records, 880 px for lists, or the whole page, with the `aside` slot (the side note «Як це працює») as a 300 px
- * sticky column beside it, under it below 1280 px. The title keeps its width, and the actions go under it when they
- * don't fit beside it. In the record panel it gets the panel's header (← back to the record it came from; the kind of
- * record, `title`, over the record's own title, `record`, with the `sub` line and the `badges` under it; «✎ Змінити»
- * to `edit` when the record can be edited; the action, ⋯; ✕), a scrolling body and the footer. `record`, `sub`,
- * `badges` and `edit` are the panel's only: a page shows the record's heading in its content.
+ * sticky column beside it, under it below 1280 px. The page's primary action (`NewPill`) is the `action`, left of the
+ * capsule; the title keeps its width, the sub-line wraps, and the actions go under the title when they don't fit. In
+ * the record panel it gets the panel's header (← back to the record it came from; the kind of record, `title`, over
+ * the record's own title, `record`, with the `sub` line and the `badges` under it; «✎ Змінити» to `edit` when the
+ * record can be edited; the action, ⋯; ✕), a scrolling body and the footer. `record`, `sub`, `badges` and `edit` are
+ * the panel's only: a page shows the record's heading in its content.
  */
 const { title, back, heading, muted = false, subtitle = undefined, closable = false, width = 'column', record = undefined, edit = undefined } = defineProps<{
     title: string;
@@ -122,9 +123,9 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
             >
                 <Icon name="back" :size="20" />
             </button>
-            <div class="flex max-w-full min-w-0 flex-[1_0_auto] flex-col gap-1">
+            <div class="flex max-w-full min-w-min flex-1 flex-col gap-1">
                 <h1 v-if="heading || (title && !muted)" class="m-0 truncate text-30 font-semibold tracking-[-0.02em]">{{ heading ?? title }}</h1>
-                <span v-if="subtitle" class="truncate text-14 text-ink-3">{{ subtitle }}</span>
+                <span v-if="subtitle" class="text-14 leading-[1.45] text-ink-3">{{ subtitle }}</span>
             </div>
             <div class="ml-auto flex shrink-0 items-center gap-3">
                 <slot name="action" />

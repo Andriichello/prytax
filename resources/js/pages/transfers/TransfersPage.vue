@@ -8,7 +8,9 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import InfiniteSentinel from '@/components/ui/InfiniteSentinel.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
@@ -26,6 +28,7 @@ defineOptions({ name: 'TransfersPage' });
 
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const year = currentQuarter().year;
 
@@ -64,18 +67,21 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
 </script>
 
 <template>
-    <SubScreen title="" muted width="list" :back="{ name: 'more' }">
-        <div class="-mt-1 flex flex-col gap-1">
+    <SubScreen
+        :title="isDesktop ? t('money.transfers.title') : ''"
+        :muted="!isDesktop"
+        :subtitle="isDesktop ? t('money.transfers.intro') : undefined"
+        width="list"
+        :back="{ name: 'more' }"
+    >
+        <template v-if="isDesktop && can('create', 'account-transfers')" #action>
+            <NewPill :to="{ name: 'transfer-new' }" />
+        </template>
+
+        <div v-if="!isDesktop" class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.transfers.title') }}</h1>
-                <RouterLink
-                    v-if="can('create', 'account-transfers')"
-                    :to="{ name: 'transfer-new' }"
-                    class="flex h-11 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
-                >
-                    <Icon name="plus" :size="20" />
-                    {{ t('core.common.new') }}
-                </RouterLink>
+                <NewPill v-if="can('create', 'account-transfers')" :to="{ name: 'transfer-new' }" />
             </div>
             <p class="m-0 text-14 text-ink-3">{{ t('money.transfers.intro') }}</p>
         </div>

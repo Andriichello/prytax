@@ -7,6 +7,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -21,6 +22,7 @@ import { compareAmounts, formatMoney } from '@/utils/money';
  */
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const search = ref('');
 const showInactive = ref(false);
@@ -69,8 +71,12 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
 </script>
 
 <template>
-    <SubScreen title="" muted width="list" :back="{ name: 'more' }">
-        <div class="-mt-1 flex items-center justify-between gap-3">
+    <SubScreen :title="isDesktop ? t('core.common.clients') : ''" :muted="!isDesktop" width="list" :back="{ name: 'more' }">
+        <template v-if="isDesktop && can('create', 'clients')" #action>
+            <NewPill :to="{ name: 'client-new' }" />
+        </template>
+
+        <div v-if="!isDesktop" class="-mt-1 flex items-center justify-between gap-3">
             <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('core.common.clients') }}</h1>
             <NewPill v-if="can('create', 'clients')" :to="{ name: 'client-new' }" />
         </div>

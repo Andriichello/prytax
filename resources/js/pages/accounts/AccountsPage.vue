@@ -79,8 +79,18 @@ function caption(account: Account): string {
 </script>
 
 <template>
-    <SubScreen title="" muted width="full" :back="{ name: 'more' }">
-        <div class="-mt-1 flex flex-col gap-1">
+    <SubScreen
+        :title="isDesktop ? t('money.accounts.title') : ''"
+        :muted="!isDesktop"
+        :subtitle="isDesktop ? t('money.accounts.balancesNote') : undefined"
+        width="full"
+        :back="{ name: 'more' }"
+    >
+        <template v-if="isDesktop && can('create', 'accounts')" #action>
+            <NewPill :to="{ name: 'account-new' }" />
+        </template>
+
+        <div v-if="!isDesktop" class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.accounts.title') }}</h1>
                 <NewPill v-if="can('create', 'accounts')" :to="{ name: 'account-new' }" />

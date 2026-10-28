@@ -11,6 +11,7 @@ import Avatar from '@/components/ui/Avatar.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import NewPill from '@/components/ui/NewPill.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
@@ -253,13 +254,7 @@ const previousOf = (profileId: number): string | null => {
             <SecondaryButton class="h-11! w-auto! px-4! text-15!" :disabled="!bundleRun" @click="prepareBundle(bundleRun)">
                 <Icon name="download" :size="18" /> {{ t('settings.backups.allZip') }}
             </SecondaryButton>
-            <button
-                type="button"
-                class="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-accent pr-4 pl-3 text-15 font-semibold text-white hover:bg-accent-hover"
-                @click="runOpen = true"
-            >
-                <Icon name="plus" :size="20" /> {{ t('settings.backups.createCopyNow') }}
-            </button>
+            <NewPill :label="t('settings.backups.createCopyNow')" @click="runOpen = true" />
         </template>
 
         <template v-if="isDesktop" #aside>

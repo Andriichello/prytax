@@ -1,5 +1,6 @@
 import { reactive, ref } from 'vue';
 import { START_LOCATION, createRouter, createWebHistory, type RouteParamsGeneric, type RouteRecordRaw } from 'vue-router';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useSession } from '@/composables/useSession';
 
@@ -132,10 +133,18 @@ const routes: RouteRecordRaw[] = [
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { public: true } },
 ];
 
+const { isDesktop } = useBreakpoint();
+
 export const router = createRouter({
     history: createWebHistory(),
     routes,
-    scrollBehavior: (to, _from, savedPosition) => {
+    scrollBehavior: (to, from, savedPosition) => {
+        // On desktop a record's panel lies over its page, which keeps its place while the panel opens, moves to
+        // another record and closes back to it
+        if (isDesktop.value && (to.meta.panel || (from.meta.panel && to.fullPath === leavingBackground))) {
+            return false;
+        }
+
         if (savedPosition) {
             return savedPosition;
         }
@@ -189,6 +198,13 @@ router.afterEach((to, _from, failure) => {
  * off a record. The mobile layout ignores it.
  */
 export const panelBackground = ref<string | null>(null);
+
+/** The page under the panel while a navigation leaves it: `panelBackground` is cleared before the scroll is set. */
+let leavingBackground: string | null = null;
+
+router.beforeEach(() => {
+    leavingBackground = panelBackground.value;
+});
 
 router.afterEach((to, from, failure) => {
     if (failure) {

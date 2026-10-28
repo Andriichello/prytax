@@ -2,6 +2,7 @@
 import { computed, shallowRef, watch } from 'vue';
 import { loadRouteLocation, type RouteLocationNormalizedLoaded, useRoute, useRouter } from 'vue-router';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
+import PageRoute from '@/components/layout/PageRoute.vue';
 import RecordPanel from '@/components/layout/RecordPanel.vue';
 import Sidebar from '@/components/layout/Sidebar.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
@@ -42,9 +43,27 @@ const shell = computed(() => isDesktop.value && Boolean(user.value) && !route.me
 /** The page under the panel, loaded (its component may not be, when the record was opened directly). */
 const base = shallowRef<RouteLocationNormalizedLoaded | null>(null);
 
+/**
+ * The page last shown without a panel. A panel opened from it lies over it at once: waiting for it to load would
+ * unmount the page (and the pages kept alive with it) for a moment, which loads it again and loses its scroll.
+ */
+let lastPage: RouteLocationNormalizedLoaded | null = null;
+
+watch(() => router.currentRoute.value, (current) => {
+    if (!current.meta.panel) {
+        lastPage = current;
+    }
+}, { immediate: true });
+
 watch(panelBackground, async (path) => {
     if (!path) {
         base.value = null;
+
+        return;
+    }
+
+    if (lastPage?.fullPath === path) {
+        base.value = lastPage;
 
         return;
     }
@@ -84,13 +103,15 @@ const retry = (): void => window.location.reload();
         <template v-else-if="shell">
             <div class="mx-auto flex w-full max-w-360">
                 <Sidebar class="sticky top-0 self-start min-[1441px]:shadow-[-1px_0_0_var(--color-line)]" />
-                <div class="min-w-0 flex-1">
-                    <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">
-                        <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">
-                            <component :is="Component" />
-                        </KeepAlive>
-                    </RouterView>
-                </div>
+                <PageRoute :route="inPanel ? base : null">
+                    <div class="min-w-0 flex-1">
+                        <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">
+                            <KeepAlive :key="sessionKey" :include="KEPT_ALIVE">
+                                <component :is="Component" />
+                            </KeepAlive>
+                        </RouterView>
+                    </div>
+                </PageRoute>
             </div>
             <RecordPanel v-if="inPanel" :wide="route.meta.panel?.wide" :dialog="route.meta.panel?.dialog" @close="closePanel">
                 <RouterView />

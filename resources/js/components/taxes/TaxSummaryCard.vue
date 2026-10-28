@@ -15,7 +15,8 @@ import { TAX_TYPES } from '@/utils/statuses';
  * «Підсумок за період» of Податки (design.md §16.5): with two taxes or more, the black «Усього податків» band (the
  * share paid, a bar split by quarter, the three columns); then ЄСВ, ЄП and ВЗ, each with its deadline, or «✓ закрито»
  * once all of it is paid, a bar split by month (ЄСВ) or by quarter, the three columns, and the failed payments apart.
- * On desktop (D-Taxes, §17.4) it is a table: tax · bar · Нараховано · Надіслано · Сплачено.
+ * On desktop (D-Taxes, §17.4) it is a table: tax · bar · Нараховано · Надіслано · Сплачено, whose columns narrow under
+ * 760 px of its width (a container query).
  */
 const { summary, quarters } = defineProps<{
     summary: TaxLedger['summary'];
@@ -36,18 +37,20 @@ const paidShare = computed(() => {
 
 const { isDesktop } = useBreakpoint();
 
+const columns = 'grid-cols-[150px_minmax(0,1fr)_100px_100px_100px] gap-4 @min-[760px]:grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] @min-[760px]:gap-5';
+
 const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compareAmounts(row.accrued, '0') > 0 && compareAmounts(row.paid, row.accrued) >= 0;
 </script>
 
 <template>
-    <article v-if="isDesktop" class="overflow-hidden rounded-card border border-line bg-surface">
-        <div class="grid grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] gap-5 border-b border-line px-5 py-2.5 text-12 text-ink-3">
+    <article v-if="isDesktop" class="@container overflow-hidden rounded-card border border-line bg-surface">
+        <div class="grid border-b border-line px-5 py-2.5 text-12 text-ink-3" :class="columns">
             <span /><span />
             <span class="text-right">{{ t('accounting.taxes.accrued') }}</span>
             <span class="text-right">{{ t('accounting.taxes.sent') }}</span>
             <span class="text-right">{{ t('accounting.taxes.paid') }}</span>
         </div>
-        <div v-if="rows.length > 1" class="grid grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] items-center gap-5 bg-ink px-5 py-3.5 text-white">
+        <div v-if="rows.length > 1" class="grid items-center bg-ink px-5 py-3.5 text-white" :class="columns">
             <span class="flex flex-col">
                 <span class="text-12 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('accounting.taxes.total') }}</span>
                 <span class="text-12">
@@ -59,7 +62,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(summary.total.sent, '0') > 0 ? 'text-warning-on-ink' : ''">{{ formatAmount(summary.total.sent) }}</span>
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(summary.total.paid, '0') > 0 ? 'text-positive-on-ink' : ''">{{ formatAmount(summary.total.paid) }}</span>
         </div>
-        <div v-for="row in rows" :key="row.tax_type" class="grid grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] items-center gap-5 border-t border-divider px-5 py-3">
+        <div v-for="row in rows" :key="row.tax_type" class="grid items-center border-t border-divider px-5 py-3" :class="columns">
             <span class="flex flex-col">
                 <span class="text-15 font-semibold">{{ TAX_TYPES[row.tax_type] }}</span>
                 <span v-if="isClosed(row)" class="flex items-center gap-1 text-12 text-positive"><Icon name="check" :size="14" /> {{ t('accounting.taxes.closed') }}</span>

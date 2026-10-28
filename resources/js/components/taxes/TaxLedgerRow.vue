@@ -15,7 +15,8 @@ import { TAX_TYPES } from '@/utils/statuses';
  * and the status; then what it is for (the receipt's invoice and client, or ЄСВ's month); then, owed, when the money
  * came and the deadline, or, paid, the date and the account. It opens the payment: a payment's own form, or, owed, a
  * new one for the receipt's tax or for ЄСВ's month, for a user who can record it (`canPay`). On desktop (D-Taxes,
- * §17.4) it is one line: tax · amount · what it is for · when · status.
+ * §17.4) it is one line: tax · amount · what it is for · when · status, or, under 960 px of the month's width (a
+ * container query), with «when» under «what it is for».
  */
 const { item, canPay } = defineProps<{
     item: TaxLedgerItem;
@@ -55,6 +56,14 @@ const paidLine = computed(() => {
 });
 
 const dueLine = computed(() => t('accounting.taxPayment.payBy', { date: formatDate(item.due_at) }));
+/** «When» of a desktop row: paid, the date and the account; owed, when the money came and the deadline. */
+const whenLine = computed(() => {
+    if (item.kind === 'payment') {
+        return paidLine.value;
+    }
+
+    return item.receipt ? `${t('accounting.taxes.receivedOn', { date: formatDayMonthWords(item.receipt.received_at) })} · ${dueLine.value}` : dueLine.value;
+});
 
 const { isDesktop } = useBreakpoint();
 </script>
@@ -64,27 +73,26 @@ const { isDesktop } = useBreakpoint();
         :is="to ? RouterLink : 'div'"
         v-if="isDesktop"
         :to="to ?? undefined"
-        class="grid grid-cols-[48px_130px_minmax(0,1.2fr)_minmax(0,1fr)_150px] items-center gap-4 border-t border-divider px-5 py-2.5 text-ink no-underline hover:bg-paper-light hover:text-ink"
+        class="grid grid-cols-[48px_130px_minmax(0,1fr)_120px] items-center gap-4 border-t @min-[960px]:grid-cols-[48px_130px_minmax(0,1.2fr)_minmax(0,1fr)_150px] border-divider px-5 py-2.5 text-ink no-underline hover:bg-paper-light hover:text-ink"
     >
         <span class="text-13 font-semibold text-ink-2">{{ TAX_TYPES[item.tax_type] }}</span>
         <span class="num text-right text-15 font-bold" :class="item.status === 'failed' ? 'text-tick line-through' : ''">{{ formatAmount(item.amount) }}</span>
-        <span class="flex min-w-0 items-center gap-1.5 text-13 text-ink-2">
-            <template v-if="item.tax_type === 'social_contribution' || !item.receipt">
-                {{ t('accounting.taxes.forMonth', { month: item.period_month ? monthNameInText(item.period_month) : quarterLabel(item.quarter.quarter) }) }}
-            </template>
-            <template v-else>
-                <VirtualMarker v-if="item.receipt.invoice_source === 'virtual'" size="sm" />
-                <span v-else-if="item.receipt.invoice_number" class="num text-ink">{{ item.receipt.invoice_number }}</span>
-                <span class="truncate">
-                    <template v-if="item.receipt.invoice_number || item.receipt.invoice_source === 'virtual'">· </template>{{ item.receipt.client_name ?? item.receipt.description }}
-                </span>
-            </template>
+        <span class="flex min-w-0 flex-col gap-0.5">
+            <span class="flex min-w-0 items-center gap-1.5 text-13 text-ink-2">
+                <template v-if="item.tax_type === 'social_contribution' || !item.receipt">
+                    {{ t('accounting.taxes.forMonth', { month: item.period_month ? monthNameInText(item.period_month) : quarterLabel(item.quarter.quarter) }) }}
+                </template>
+                <template v-else>
+                    <VirtualMarker v-if="item.receipt.invoice_source === 'virtual'" size="sm" />
+                    <span v-else-if="item.receipt.invoice_number" class="num text-ink">{{ item.receipt.invoice_number }}</span>
+                    <span class="truncate">
+                        <template v-if="item.receipt.invoice_number || item.receipt.invoice_source === 'virtual'">· </template>{{ item.receipt.client_name ?? item.receipt.description }}
+                    </span>
+                </template>
+            </span>
+            <span class="truncate text-12 text-ink-3 @min-[960px]:hidden">{{ whenLine }}</span>
         </span>
-        <span class="truncate text-12 text-ink-3">
-            <template v-if="item.kind === 'payment'">{{ paidLine }}</template>
-            <template v-else-if="item.receipt">{{ t('accounting.taxes.receivedOn', { date: formatDayMonthWords(item.receipt.received_at) }) }} · {{ dueLine }}</template>
-            <template v-else>{{ dueLine }}</template>
-        </span>
+        <span class="hidden truncate text-12 text-ink-3 @min-[960px]:block">{{ whenLine }}</span>
         <span class="flex justify-end"><TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" short /></span>
     </component>
     <component :is="to ? RouterLink : 'div'" v-else :to="to ?? undefined" class="flex flex-col gap-1.5 border-t border-divider px-4 py-3 text-ink no-underline hover:text-ink">

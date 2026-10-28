@@ -27,7 +27,7 @@ const title = computed(() => {
 </script>
 
 <template>
-    <section class="flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="title">
+    <section class="@container flex flex-col overflow-hidden rounded-card border border-line bg-surface" :aria-label="title">
         <header class="-mb-px flex bg-ink py-3.5 text-white" :class="isDesktop ? 'items-center justify-between gap-6 px-5' : 'flex-col gap-2.5 px-4'">
             <h3 class="m-0 text-17 font-semibold">{{ title }}</h3>
             <TaxFigures :figures="month" dark :class="isDesktop ? 'w-110' : ''" />

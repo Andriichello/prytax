@@ -14,7 +14,9 @@ import { receiptTaxPayment } from '@/utils/taxes';
  * invoice, its count and its total), then a table, whose columns keep their widths (owner #70–#72): Інвойс (the
  * number and the client) · Дата · Сума (on a green pill) · Курс НБУ · Дохід ₴ · ЄП 5 % · ВЗ 1 %. ЄП and ВЗ show the
  * amount with the status badge under it, so a long badge never meets Дохід; each opens its payment, the row the
- * receipt. With `fees`, a line under each receipt tells its fees and net income in the same grid.
+ * receipt. With `fees`, a line under each receipt tells its fees and net income in the same grid. The columns follow
+ * the table's own width (a container query): under 920 px the date goes under the invoice, and the income in hryvnias
+ * and the NBU rate under the amount.
  */
 const { receipts, title = undefined, count = undefined, total = undefined, taxes: showTaxes = true, feesOf = null } = defineProps<{
     receipts: Payment[];
@@ -31,7 +33,7 @@ const { can } = useSession();
 type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
 const TAXES: ReceiptTax[] = ['single_tax', 'military_levy'];
-const columns = 'grid-cols-[minmax(0,1fr)_96px_130px_96px_150px_136px_136px]';
+const columns = 'grid-cols-[minmax(0,1fr)_132px_116px_116px] @min-[920px]:grid-cols-[minmax(0,1fr)_72px_124px_72px_124px_116px_116px]';
 
 function tax(receipt: Payment, type: ReceiptTax) {
     const taxPayment = receiptTaxPayment(receipt.taxPayments, type);
@@ -47,7 +49,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
 </script>
 
 <template>
-    <section class="overflow-hidden rounded-card border border-line bg-surface" :aria-label="title">
+    <section class="@container overflow-hidden rounded-card border border-line bg-surface" :aria-label="title">
         <div v-if="title" class="flex items-center justify-between bg-ink px-5 py-3.5 text-white">
             <span class="flex flex-col">
                 <span class="text-17 font-semibold">{{ title }}</span>
@@ -57,10 +59,10 @@ function tax(receipt: Payment, type: ReceiptTax) {
         </div>
         <div class="grid gap-4 border-b border-line px-5 py-2.5 text-12 text-ink-3" :class="columns">
             <span>{{ t('money.receiptTable.invoice') }}</span>
-            <span>{{ t('core.common.date') }}</span>
+            <span class="hidden @min-[920px]:block">{{ t('core.common.date') }}</span>
             <span class="text-right">{{ t('invoices.table.amount') }}</span>
-            <span class="text-right">{{ t('money.receiptTable.nbuRate') }}</span>
-            <span class="text-right">{{ t('money.receiptTable.income') }}</span>
+            <span class="hidden text-right @min-[920px]:block">{{ t('money.receiptTable.nbuRate') }}</span>
+            <span class="hidden text-right @min-[920px]:block">{{ t('money.receiptTable.income') }}</span>
             <span class="text-right">{{ showTaxes ? t('money.receiptTable.singleTax') : '' }}</span>
             <span class="text-right">{{ showTaxes ? t('money.receiptTable.militaryLevy') : '' }}</span>
         </div>
@@ -73,13 +75,18 @@ function tax(receipt: Payment, type: ReceiptTax) {
                     <VirtualMarker v-if="receipt.invoice?.source === 'virtual'" class="self-start" />
                     <span v-else class="num truncate text-14 font-semibold">{{ receipt.invoice?.number ?? '—' }}</span>
                     <span class="truncate text-13 text-ink-2">{{ receipt.invoice?.client?.name }}</span>
+                    <span class="text-12 text-ink-3 @min-[920px]:hidden">{{ formatDayMonthWords(receipt.received_at) }}</span>
                 </RouterLink>
-                <span class="text-13 text-ink-2">{{ formatDayMonthWords(receipt.received_at) }}</span>
-                <span class="text-right">
-                    <span class="num rounded-badge bg-positive-soft px-2 py-0.5 text-13 font-semibold text-positive">{{ formatMoney(receipt.amount, receipt.currency) }}</span>
+                <span class="hidden text-13 text-ink-2 @min-[920px]:block">{{ formatDayMonthWords(receipt.received_at) }}</span>
+                <span class="flex flex-col items-end gap-1">
+                    <span class="num rounded-badge bg-positive-soft px-2 py-0.5 text-13 font-semibold whitespace-nowrap text-positive">{{ formatMoney(receipt.amount, receipt.currency) }}</span>
+                    <template v-if="receipt.currency !== 'UAH'">
+                        <span class="num text-14 font-bold whitespace-nowrap @min-[920px]:hidden">{{ formatMoney(receipt.uah_amount, 'UAH') }}</span>
+                        <span class="num text-11 text-ink-3 @min-[920px]:hidden">{{ formatAmount(receipt.nbu_rate) }} ₴</span>
+                    </template>
                 </span>
-                <span class="num text-right text-12 text-ink-3">{{ receipt.currency !== 'UAH' ? `${formatAmount(receipt.nbu_rate)} ₴` : '—' }}</span>
-                <span class="num text-right text-15 font-bold">{{ formatMoney(receipt.uah_amount, 'UAH') }}</span>
+                <span class="num hidden text-right text-12 text-ink-3 @min-[920px]:block">{{ receipt.currency !== 'UAH' ? `${formatAmount(receipt.nbu_rate)} ₴` : '—' }}</span>
+                <span class="num hidden text-right text-15 font-bold @min-[920px]:block">{{ formatMoney(receipt.uah_amount, 'UAH') }}</span>
                 <template v-if="showTaxes">
                     <component
                         :is="tax(receipt, type).to ? RouterLink : 'span'"
@@ -98,7 +105,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
             </div>
             <div v-if="feesOf && feesOf(receipt)" class="grid items-center gap-4 bg-paper-light px-5 py-2 text-13" :class="columns">
                 <span class="text-ink-3">{{ t('money.receiptCard.feesShort') }} · {{ t('money.receiptCard.netShort') }}</span>
-                <span /><span /><span /><span />
+                <span /><span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" /><span class="hidden @min-[920px]:block" />
                 <span class="num text-right">{{ feesOf(receipt)?.fees !== null ? formatCompact(feesOf(receipt)!.fees!, receipt.currency) : '—' }}</span>
                 <span class="num text-right font-semibold text-positive">{{ feesOf(receipt)?.net !== null ? formatCompact(feesOf(receipt)!.net!, receipt.currency) : '—' }}</span>
             </div>

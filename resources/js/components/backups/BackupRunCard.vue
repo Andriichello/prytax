@@ -117,7 +117,7 @@ const downloadable = (backup: BackupRecord | null): boolean => Boolean(backup &&
 </script>
 
 <template>
-    <article class="flex flex-col rounded-card border border-line bg-surface px-4">
+    <article class="@container flex flex-col rounded-card border border-line bg-surface px-4">
         <header class="flex flex-col gap-1 py-3.5">
             <div class="flex items-center justify-between gap-3">
                 <span class="flex min-w-0 items-center gap-2">
@@ -145,7 +145,7 @@ const downloadable = (backup: BackupRecord | null): boolean => Boolean(backup &&
             v-for="row in rows"
             :key="row.id"
             class="items-center gap-3 border-t border-divider py-3"
-            :class="isDesktop ? 'grid grid-cols-[minmax(0,1fr)_100px_220px_72px]' : 'flex'"
+            :class="isDesktop ? 'grid grid-cols-[minmax(0,1fr)_100px_72px] @min-[720px]:grid-cols-[minmax(0,1fr)_100px_220px_72px]' : 'flex'"
         >
             <span class="flex min-w-0 items-center gap-3" :class="isDesktop ? '' : 'flex-1'">
                 <Avatar :initials="row.profile?.initials ?? '?'" :variant="row.profile && !row.profile.is_active ? 'light' : 'dark'" :size="36" :class="row.profile && !row.profile.is_active ? 'opacity-70' : ''" />
@@ -155,12 +155,15 @@ const downloadable = (backup: BackupRecord | null): boolean => Boolean(backup &&
                         <span class="shrink-0 rounded-[6px] px-1.5 py-0.5 text-11 font-semibold" :class="chipOf(row.backup).class">{{ chipOf(row.backup).label }}</span>
                         <span class="truncate text-12" :class="row.backup?.status === 'failed' ? 'text-negative' : 'text-ink-3'">{{ metaOf(row.backup) }}</span>
                     </span>
-                    <span v-else-if="row.profile && !row.profile.is_active" class="text-12 text-ink-3">{{ t('settings.backups.inactive') }}</span>
+                    <template v-else>
+                        <span class="truncate text-12 @min-[720px]:hidden" :class="row.backup?.status === 'failed' ? 'text-negative' : 'text-ink-3'">{{ metaOf(row.backup) }}</span>
+                        <span v-if="row.profile && !row.profile.is_active" class="text-12 text-ink-3">{{ t('settings.backups.inactive') }}</span>
+                    </template>
                 </span>
             </span>
             <template v-if="isDesktop">
                 <span><span class="rounded-[6px] px-1.5 py-0.5 text-11 font-semibold" :class="chipOf(row.backup).class">{{ chipOf(row.backup).label }}</span></span>
-                <span class="truncate text-13" :class="row.backup?.status === 'failed' ? 'text-negative' : 'text-ink-3'">{{ metaOf(row.backup) }}</span>
+                <span class="hidden truncate text-13 @min-[720px]:block" :class="row.backup?.status === 'failed' ? 'text-negative' : 'text-ink-3'">{{ metaOf(row.backup) }}</span>
             </template>
             <span class="flex shrink-0 justify-end">
                 <button

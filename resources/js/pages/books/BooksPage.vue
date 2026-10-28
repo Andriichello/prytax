@@ -185,8 +185,10 @@ function chooseYear(event: Event): void {
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-sent-bar" />{{ t('accounting.books.legendSent') }}</span>
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[2px] bg-line-input" />{{ t('accounting.books.legendUnpaid') }}</span>
                     </div>
-                    <div :class="isDesktop ? 'grid grid-cols-3 items-start gap-4' : 'contents'">
-                        <TaxBookCard v-for="tax in taxes.by_tax" :key="tax.tax_type" :tax="tax" />
+                    <div :class="isDesktop ? '@container' : 'contents'">
+                        <div :class="isDesktop ? 'grid grid-cols-1 items-start gap-4 @min-[620px]:grid-cols-2 @min-[940px]:grid-cols-3' : 'contents'">
+                            <TaxBookCard v-for="tax in taxes.by_tax" :key="tax.tax_type" :tax="tax" />
+                        </div>
                     </div>
                 </template>
             </template>

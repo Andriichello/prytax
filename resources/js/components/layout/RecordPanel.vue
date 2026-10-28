@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { provide, ref } from 'vue';
 import { useOverlay } from '@/composables/useOverlay';
+import type { RecordPanelContext } from '@/composables/usePanel';
 import { t } from '@/i18n';
 
 /**
@@ -9,7 +10,7 @@ import { t } from '@/i18n';
  * scrim close it (`close`); the focus moves into it, the page behind is inert, and a sheet or a dialog opened in it
  * lies over it. 560 px wide, 760 px for the invoice editor (`wide`), or a centred 520 px dialog (`dialog`, a short
  * step such as «Інвойс для надходження»). The page inside renders its desktop header and footer for a panel
- * (`SubScreen`, which reads `inPanel`).
+ * (`SubScreen`, which reads `usePanel()`).
  */
 const { wide = false, dialog = false } = defineProps<{ wide?: boolean; dialog?: boolean }>();
 
@@ -24,7 +25,7 @@ function close(): void {
 
 const { layer } = useOverlay(open, close, panel);
 
-provide('inPanel', { close });
+provide<RecordPanelContext>('inPanel', { close });
 </script>
 
 <template>

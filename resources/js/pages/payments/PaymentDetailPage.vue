@@ -17,6 +17,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { usePanel } from '@/composables/usePanel';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { formatDate, monthNameInText, quarterLabel } from '@/utils/dates';
@@ -35,6 +36,7 @@ const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const panel = usePanel();
 
 const id = computed(() => Number(route.params.id));
 
@@ -53,6 +55,14 @@ const payment = computed(() => data.value?.payment ?? null);
 const flow = computed(() => data.value?.flow ?? null);
 
 const isVirtual = computed(() => payment.value?.invoice?.source === 'virtual');
+const periodLabel = computed(() => (payment.value
+    ? `${quarterLabel(payment.value.period_quarter)} ${payment.value.period_year} · ${monthNameInText(payment.value.period_month)}`
+    : ''));
+/** The panel's header (design.md §17.3): the amount, and «✎ Змінити» for a receipt, which can be edited. */
+const record = computed(() => (payment.value ? { title: formatMoney(payment.value.amount, payment.value.currency), mono: true } : undefined));
+const edit = computed(() => (payment.value && payment.value.kind !== 'fx_gain' && can('update', 'payments')
+    ? { name: 'payment-edit', params: { id: id.value } }
+    : undefined));
 const ratePercent = (rate: string | undefined): string => (rate ? `${Number((Number(rate) * 100).toFixed(2))} %` : '');
 
 const onPlatform = computed(() => flow.value?.holdings.find((holding) => holding.kind !== 'fop_bank' && compareAmounts(holding.amount, '0') > 0) ?? null);
@@ -182,7 +192,17 @@ async function removeRefund(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="t('core.common.receipt')" muted :back="payment?.invoice_id ? { name: 'invoice', params: { id: payment.invoice_id } } : { name: 'accounting' }">
+    <SubScreen
+        :title="t('core.common.receipt')"
+        muted
+        :back="payment?.invoice_id ? { name: 'invoice', params: { id: payment.invoice_id } } : { name: 'accounting' }"
+        :record="record"
+        :edit="edit"
+    >
+        <template v-if="payment" #sub>
+            <template v-if="payment.currency !== 'UAH'"><span class="num">{{ formatMoney(payment.uah_amount, 'UAH') }}</span> · </template>{{ formatDate(payment.received_at) }}<template v-if="payment.receivedToAccount"> · {{ payment.receivedToAccount.name }}</template>
+        </template>
+        <template v-if="payment" #badges><StatusBadge :label="periodLabel" tone="info" /></template>
         <template #action>
             <button
                 v-if="payment && can('update', 'payments')"
@@ -202,15 +222,17 @@ async function removeRefund(): Promise<void> {
                         <template #number><span class="num">{{ unpaid }}</span></template>
                     </Translated>
                 </p>
-                <div class="flex flex-col gap-1.5">
-                    <span class="num text-32 font-semibold tracking-[-0.03em]">{{ formatMoney(payment.amount, payment.currency) }}</span>
-                    <span v-if="payment.currency !== 'UAH'" class="num text-16 font-light text-ink-2">{{ formatMoney(payment.uah_amount, 'UAH') }}</span>
-                    <div class="mt-1 flex gap-2">
-                        <StatusBadge :label="`${quarterLabel(payment.period_quarter)} ${payment.period_year} · ${monthNameInText(payment.period_month)}`" tone="info" />
+                <template v-if="!panel">
+                    <div class="flex flex-col gap-1.5">
+                        <span class="num text-32 font-semibold tracking-[-0.03em]">{{ formatMoney(payment.amount, payment.currency) }}</span>
+                        <span v-if="payment.currency !== 'UAH'" class="num text-16 font-light text-ink-2">{{ formatMoney(payment.uah_amount, 'UAH') }}</span>
+                        <div class="mt-1 flex gap-2">
+                            <StatusBadge :label="periodLabel" tone="info" />
+                        </div>
                     </div>
-                </div>
 
-                <div class="mt-2.5 mb-0.5 border-t border-dashed border-line-input" />
+                    <div class="mt-2.5 mb-0.5 border-t border-dashed border-line-input" />
+                </template>
 
                 <RouterLink
                     v-if="payment.invoice"
@@ -317,7 +339,7 @@ async function removeRefund(): Promise<void> {
         <BottomSheet v-model:open="menuOpen" :title="t('money.payment.receiptActions')">
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                 <RouterLink
-                    v-if="payment?.kind !== 'fx_gain'"
+                    v-if="payment?.kind !== 'fx_gain' && !panel"
                     :to="{ name: 'payment-edit', params: { id } }"
                     class="flex min-h-13 items-center gap-3 text-15 text-ink no-underline hover:text-ink"
                 >

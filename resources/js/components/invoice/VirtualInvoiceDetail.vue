@@ -15,6 +15,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { usePanel } from '@/composables/usePanel';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { formatDate, formatDayMonth, formatPeriod } from '@/utils/dates';
@@ -34,12 +35,17 @@ const emit = defineEmits<{ changed: [] }>();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const panel = usePanel();
 
 const payment = computed(() => invoice.payments?.[0] ?? null);
 /** The receipt, with its invoice as the receipt card names it. */
 const receipt = computed(() => (payment.value ? { ...payment.value, invoice: { ...invoice, payments: undefined } } : null));
+const paidLabel = computed(() => `${t('core.invoiceStatus.paid')} ${formatDayMonth(invoice.paid_at)}`);
 
 const menuOpen = ref(false);
+
+/** «✎ Змінити» of the panel's header: the receipt's form, since the record follows its receipt. */
+const edit = computed(() => (payment.value && can('update', 'payments') ? { name: 'payment-edit', params: { id: payment.value.id } } : undefined));
 
 /* The number, which issuing would give: the next one of the client's counter, by the payment date */
 const { data: nextNumber } = useLoader(async (signal) => {
@@ -94,7 +100,12 @@ async function attach(target: Invoice): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="t('invoices.virtual.record')" muted :back="{ name: 'invoices' }">
+    <SubScreen :title="t('invoices.virtual.record')" muted :back="{ name: 'invoices' }" :record="{ title: t('invoices.virtual.byContract') }" :edit="edit">
+        <template #sub>{{ invoice.client?.name }}</template>
+        <template #badges>
+            <VirtualMarker />
+            <StatusBadge :label="paidLabel" tone="positive" />
+        </template>
         <template v-if="payment" #action>
             <button
                 type="button"
@@ -106,10 +117,10 @@ async function attach(target: Invoice): Promise<void> {
             </button>
         </template>
 
-        <div class="flex flex-col gap-1.5">
+        <div v-if="!panel" class="flex flex-col gap-1.5">
             <span class="flex items-center gap-2">
                 <VirtualMarker />
-                <StatusBadge :label="`${t('core.invoiceStatus.paid')} ${formatDayMonth(invoice.paid_at)}`" tone="positive" />
+                <StatusBadge :label="paidLabel" tone="positive" />
             </span>
             <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('invoices.virtual.byContract') }}</h1>
             <span class="text-16 text-ink">{{ invoice.client?.name }}</span>
@@ -181,7 +192,7 @@ async function attach(target: Invoice): Promise<void> {
                     <Icon name="ledger" :size="20" /> {{ t('invoices.virtual.openReceipt') }}
                 </RouterLink>
                 <RouterLink
-                    v-if="can('update', 'payments')"
+                    v-if="can('update', 'payments') && !panel"
                     :to="{ name: 'payment-edit', params: { id: payment.id } }"
                     class="flex min-h-13 items-center gap-3 text-15 text-ink no-underline hover:text-ink"
                 >

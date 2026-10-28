@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BarActions from '@/components/layout/BarActions.vue';
 import SubHeader from '@/components/layout/SubHeader.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
+import { usePanel } from '@/composables/usePanel';
 import { t } from '@/i18n';
 
 /**
@@ -15,9 +16,11 @@ import { t } from '@/i18n';
  * — `meta.section` —, the title, the action and the 📖 | 🔔 capsule) over a column of `width`: 760 px for settings
  * and records, 880 px for lists, or the whole page, with the `aside` slot (the side note «Як це працює») as a 300 px
  * sticky column beside it, under it below 1280 px. In the record panel it gets the panel's header (← back to the
- * record it came from, the kind of record over the title, the action, ✕), a scrolling body and the footer.
+ * record it came from; the kind of record, `title`, over the record's own title, `record`, with the `sub` line and the
+ * `badges` under it; «✎ Змінити» to `edit` when the record can be edited; the action, ⋯; ✕), a scrolling body and the
+ * footer. `record`, `sub`, `badges` and `edit` are the panel's only: a page shows the record's heading in its content.
  */
-const { title, back, heading, muted = false, subtitle = undefined, closable = false, width = 'column' } = defineProps<{
+const { title, back, heading, muted = false, subtitle = undefined, closable = false, width = 'column', record = undefined, edit = undefined } = defineProps<{
     title: string;
     back?: RouteLocationRaw;
     heading?: string;
@@ -28,12 +31,16 @@ const { title, back, heading, muted = false, subtitle = undefined, closable = fa
     closable?: boolean;
     /** The desktop column: 760 px, 880 px (lists) or the whole width. */
     width?: 'column' | 'list' | 'full';
+    /** The record's title in the panel's header: in mono for a number or an amount, struck through when cancelled. */
+    record?: { title: string; mono?: boolean; struck?: boolean };
+    /** Where «✎ Змінити» of the panel's header leads, when the record can be edited. */
+    edit?: RouteLocationRaw;
 }>();
 
 const route = useRoute();
 const router = useRouter();
 const { isDesktop, isWide } = useBreakpoint();
-const panel = inject<{ close: () => void } | null>('inPanel', null);
+const panel = usePanel();
 
 /** In the panel, ← goes back to the record this one was opened from. */
 const backInPanel = computed(() => {
@@ -55,7 +62,7 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
 
 <template>
     <div v-if="panel" class="flex min-h-0 flex-1 flex-col">
-        <header class="flex shrink-0 items-start gap-2 border-b border-line bg-surface py-4 pr-4 pl-6">
+        <header class="flex shrink-0 items-start gap-1.5 border-b border-line bg-surface pt-4 pr-3 pb-3.5 pl-6">
             <button
                 v-if="backInPanel"
                 type="button"
@@ -66,10 +73,23 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
                 <Icon name="back" :size="20" />
             </button>
             <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span v-if="heading || muted" class="truncate text-12 text-ink-3">{{ title }}</span>
-                <h2 v-if="heading || !muted" class="m-0 truncate text-22 font-semibold tracking-[-0.01em]">{{ heading ?? title }}</h2>
-                <span v-if="subtitle" class="truncate text-13 text-ink-3">{{ subtitle }}</span>
+                <span v-if="heading || muted || record" class="truncate text-12 text-ink-3">{{ title }}</span>
+                <h2 v-if="record" class="m-0 text-22 font-bold" :class="[record.mono ? 'num truncate' : 'tracking-[-0.01em] text-balance', record.struck ? 'line-through' : '']">
+                    {{ record.title }}
+                </h2>
+                <h2 v-else-if="heading || !muted" class="m-0 truncate text-22 font-semibold tracking-[-0.01em]">{{ heading ?? title }}</h2>
+                <span v-if="$slots.sub || subtitle" class="truncate text-14 text-ink-2"><slot name="sub">{{ subtitle }}</slot></span>
+                <div v-if="$slots.badges" class="mt-1 flex flex-wrap items-center gap-1.5">
+                    <slot name="badges" />
+                </div>
             </div>
+            <RouterLink
+                v-if="edit"
+                :to="edit"
+                class="mr-1 ml-2 flex h-10 shrink-0 items-center gap-2 rounded-control border border-line-input bg-surface px-3.5 text-14 font-medium whitespace-nowrap text-ink no-underline hover:text-ink"
+            >
+                <Icon name="pen" :size="16" /> {{ t('core.common.edit') }}
+            </RouterLink>
             <slot name="action" />
             <button type="button" :aria-label="t('shell.ui.close')" class="flex size-10 shrink-0 items-center justify-center text-ink" @click="panel.close()">
                 <Icon name="close" :size="20" />

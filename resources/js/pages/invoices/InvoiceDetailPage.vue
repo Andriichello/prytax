@@ -5,6 +5,7 @@ import { api, apiUrl } from '@/api/client';
 import type { ApiResponse, Invoice } from '@/api/types';
 import DateField from '@/components/form/DateField.vue';
 import TextAreaField from '@/components/form/TextAreaField.vue';
+import InvoiceBadges from '@/components/invoice/InvoiceBadges.vue';
 import InvoiceItemCard from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceStepper from '@/components/invoice/InvoiceStepper.vue';
 import VirtualInvoiceDetail from '@/components/invoice/VirtualInvoiceDetail.vue';
@@ -19,15 +20,14 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
-import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { usePanel } from '@/composables/usePanel';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { formatDate, formatDayMonth, formatPeriod, kyivDate, today } from '@/utils/dates';
+import { formatDate, formatPeriod, today } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 import { compareAmounts, formatAmount, formatMoney, percentOf, subtractAmounts } from '@/utils/money';
-import { INVOICE_STATUSES } from '@/utils/statuses';
 
 /**
  * Інвойс (S-InvoiceDetail): status and how much is received, the receipts, the dates, items and document, an
@@ -41,6 +41,7 @@ const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const panel = usePanel();
 
 const id = computed(() => Number(route.params.id));
 
@@ -65,17 +66,10 @@ const percent = computed(() => (invoice.value ? percentOf(paid.value, invoice.va
 const isOpen = computed(() => invoice.value?.status === 'ready' || invoice.value?.status === 'sent');
 const covered = computed(() => invoice.value !== null && compareAmounts(paid.value, invoice.value.total) >= 0);
 const overdue = computed(() => isOpen.value && !covered.value && invoice.value?.due_at != null && invoice.value.due_at < today());
-const statusDate = computed(() => {
-    const value = invoice.value;
-
-    if (!value) {
-        return '';
-    }
-
-    const date = { sent: value.sent_at, paid: value.paid_at, cancelled: value.cancelled_at }[value.status as 'sent' | 'paid' | 'cancelled'];
-
-    return date ? ` ${formatDayMonth(date)}` : '';
-});
+/** The panel's header (design.md §17.3): the number, struck through when cancelled. */
+const record = computed(() => (invoice.value
+    ? { title: invoice.value.number ?? t('invoices.detail.noNumber'), mono: true, struck: invoice.value.status === 'cancelled' }
+    : undefined));
 const sortedPayments = computed(() => [...(invoice.value?.payments ?? [])].sort((a, b) => b.received_at.localeCompare(a.received_at) || b.id - a.id));
 const fileSize = computed(() => {
     const size = invoice.value?.primaryFile?.size;
@@ -190,10 +184,12 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
 
 <template>
     <VirtualInvoiceDetail v-if="invoice?.source === 'virtual'" :invoice="invoice" @changed="reload" />
-    <SubScreen v-else :title="t('core.common.invoice')" muted :back="{ name: 'invoices' }">
+    <SubScreen v-else :title="t('core.common.invoice')" muted :back="{ name: 'invoices' }" :record="record">
+        <template v-if="invoice" #sub>{{ invoice.client?.name }}</template>
+        <template v-if="invoice" #badges><InvoiceBadges :invoice="invoice" /></template>
         <template #action>
             <a
-                v-if="invoice?.primary_file_id"
+                v-if="invoice?.primary_file_id && !panel"
                 :href="pdfUrl"
                 download
                 :aria-label="t('invoices.detail.downloadPdf')"
@@ -214,16 +210,9 @@ const confirms = computed<Record<Action, { title: string; label: string; text: s
 
         <LoadState :loading="loading && !invoice" :error="error" @retry="reload">
             <template v-if="invoice && (invoice.status !== 'draft' || !can('update', 'invoices'))">
-                <div class="flex flex-col gap-2">
+                <div v-if="!panel" class="flex flex-col gap-2">
                     <div class="flex flex-wrap items-center gap-2.5">
-                        <StatusBadge :label="INVOICE_STATUSES[invoice.status].label + statusDate" :tone="INVOICE_STATUSES[invoice.status].tone" />
-                        <span v-if="invoice.locked_at" class="flex items-center gap-1 text-12 text-ink-3">
-                            <Icon name="lock" :size="14" />
-                            {{ t('invoices.detail.frozenOn', { date: formatDate(kyivDate(invoice.locked_at)) }) }}
-                        </span>
-                        <span v-if="invoice.source === 'external'" class="rounded-md border border-line-input px-1.5 py-0.5 text-11 font-semibold text-ink-2">
-                            {{ t('invoices.list.external') }}
-                        </span>
+                        <InvoiceBadges :invoice="invoice" />
                     </div>
                     <h1 class="num m-0 text-30 font-bold tracking-[-0.02em]" :class="invoice.status === 'cancelled' ? 'line-through' : ''">
                         {{ invoice.number ?? t('invoices.detail.noNumber') }}

@@ -1675,9 +1675,12 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   `meta.panel.of` for a deep link —, which a `RouterView :route` keeps mounted under the scrim (`loadRouteLocation`
   loads it first). This replaces the handoff's nested routes with the same behaviour. Closing goes back through the
   history when the page came from there. «Інвойс для надходження» is the 520 px dialog variant. The record pages
-  render their mobile content in the panel with the panel's header (the kind of record over the title, ← to the
-  previous record, ✕); the full header anatomy (badges, «✎ Змінити» and ⋯ in the header) is not done yet, and the
-  pages keep their own.
+  render their mobile content in the panel with the panel's header (§3.1 of the handoff): ← to the previous record,
+  the kind of record over the record's title (`SubScreen`'s `record`: 22 px bold, mono for a number or an amount), the
+  `sub` line and the `badges`, «✎ Змінити» (`edit`) on a receipt, a «Без інвойсу» record and a transfer, then ⋯ and ✕;
+  in the panel the pages leave out their own heading (`usePanel()`). A frozen invoice has no «Змінити». The ⋯ menus
+  are still the bottom sheets (a centred dialog on desktop), not popovers, and a tax payment opens its form, not the
+  view panel of board 037.
 - **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px); `Popover` (anchored,
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and

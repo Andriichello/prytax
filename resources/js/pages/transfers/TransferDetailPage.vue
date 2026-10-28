@@ -13,6 +13,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
+import { usePanel } from '@/composables/usePanel';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { accountLabel } from '@/utils/accounts';
@@ -28,6 +29,7 @@ const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const panel = usePanel();
 
 const id = computed(() => Number(route.params.id));
 
@@ -41,6 +43,11 @@ const { data: transfer, error, loading, reload } = useLoader(async (signal) => {
 }, [profileId, id]);
 
 const isSale = computed(() => !!transfer.value && transfer.value.currency_sent !== transfer.value.currency_received);
+/** The panel's header (design.md §17.3): the route, and «✎ Змінити». */
+const record = computed(() => (transfer.value
+    ? { title: `${accountLabel(transfer.value.fromAccount?.name, transfer.value.currency_sent)} → ${accountLabel(transfer.value.toAccount?.name, transfer.value.currency_received)}` }
+    : undefined));
+const edit = computed(() => (transfer.value && can('update', 'account-transfers') ? { name: 'transfer-edit', params: { id: id.value } } : undefined));
 /** The receipts the transfer moved, the newest first. */
 const allocations = computed(() => [...(transfer.value?.allocations ?? [])]
     .sort((a, b) => (b.payment?.received_at ?? '').localeCompare(a.payment?.received_at ?? '') || b.payment_id - a.payment_id));
@@ -81,10 +88,14 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-    <SubScreen :title="t('money.transfer.transfer')" muted :back="{ name: 'transfers' }">
+    <SubScreen :title="t('money.transfer.transfer')" muted :back="{ name: 'transfers' }" :record="record" :edit="edit">
+        <template v-if="transfer" #sub>
+            <span class="num">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }} → {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span> · {{ formatDate(transfer.received_at) }}
+        </template>
+        <template v-if="isSale" #badges><StatusBadge :label="t('money.transfers.currencySale')" tone="info" /></template>
         <template #action>
             <RouterLink
-                v-if="transfer && can('update', 'account-transfers')"
+                v-if="edit && !panel"
                 :to="{ name: 'transfer-edit', params: { id } }"
                 class="flex min-h-11 items-center px-3 text-15 font-medium no-underline"
             >
@@ -94,17 +105,19 @@ async function remove(): Promise<void> {
 
         <LoadState :loading="loading && !transfer" :error="error" @retry="reload">
             <template v-if="transfer">
-                <div class="flex flex-col gap-1.5">
-                    <StatusBadge v-if="isSale" :label="t('money.transfers.currencySale')" tone="info" class="self-start" />
-                    <span class="num text-30 font-semibold tracking-[-0.02em]">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }}</span>
-                    <span class="num text-16 font-light text-ink-2">→ {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span>
-                </div>
+                <template v-if="!panel">
+                    <div class="flex flex-col gap-1.5">
+                        <StatusBadge v-if="isSale" :label="t('money.transfers.currencySale')" tone="info" class="self-start" />
+                        <span class="num text-30 font-semibold tracking-[-0.02em]">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }}</span>
+                        <span class="num text-16 font-light text-ink-2">→ {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span>
+                    </div>
 
-                <p class="m-0 text-16">
-                    {{ accountLabel(transfer.fromAccount?.name, transfer.currency_sent) }}
-                    <span class="text-ink-3">→</span>
-                    {{ accountLabel(transfer.toAccount?.name, transfer.currency_received) }}
-                </p>
+                    <p class="m-0 text-16">
+                        {{ accountLabel(transfer.fromAccount?.name, transfer.currency_sent) }}
+                        <span class="text-ink-3">→</span>
+                        {{ accountLabel(transfer.toAccount?.name, transfer.currency_received) }}
+                    </p>
+                </template>
 
                 <section class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <InfoRow v-if="transfer.sent_at" :label="t('money.transfer.sent')" figure>{{ formatDate(transfer.sent_at) }}</InfoRow>

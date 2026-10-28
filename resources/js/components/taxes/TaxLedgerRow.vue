@@ -15,8 +15,8 @@ import { TAX_TYPES } from '@/utils/statuses';
  * and the status; then what it is for (the receipt's invoice and client, or ЄСВ's month); then, owed, when the money
  * came and the deadline, or, paid, the date and the account. It opens the payment: a payment's own form, or, owed, a
  * new one for the receipt's tax or for ЄСВ's month, for a user who can record it (`canPay`). On desktop (D-Taxes,
- * §17.4) it is one line: tax · amount · what it is for · when · status, or, under 960 px of the month's width (a
- * container query), with «when» under «what it is for».
+ * §17.4) it is a row: tax · the amount with the status under it (as Облік's ЄП and ВЗ) · what it is for · when, or,
+ * under 960 px of the month's width (a container query), with «when» under «what it is for».
  */
 const { item, canPay } = defineProps<{
     item: TaxLedgerItem;
@@ -73,10 +73,13 @@ const { isDesktop } = useBreakpoint();
         :is="to ? RouterLink : 'div'"
         v-if="isDesktop"
         :to="to ?? undefined"
-        class="grid grid-cols-[48px_130px_minmax(0,1fr)_120px] items-center gap-4 border-t @min-[960px]:grid-cols-[48px_130px_minmax(0,1.2fr)_minmax(0,1fr)_150px] border-divider px-5 py-2.5 text-ink no-underline hover:bg-paper-light hover:text-ink"
+        class="grid grid-cols-[48px_130px_minmax(0,1fr)] items-center gap-4 border-t border-divider px-5 py-3 text-ink no-underline hover:bg-paper-light hover:text-ink @min-[960px]:grid-cols-[48px_130px_minmax(0,1.2fr)_minmax(0,1fr)]"
     >
         <span class="text-13 font-semibold text-ink-2">{{ TAX_TYPES[item.tax_type] }}</span>
-        <span class="num text-right text-15 font-bold" :class="item.status === 'failed' ? 'text-tick line-through' : ''">{{ formatAmount(item.amount) }}</span>
+        <span class="flex flex-col items-end gap-1">
+            <span class="num text-15 font-bold" :class="item.status === 'failed' ? 'text-tick line-through' : ''">{{ formatAmount(item.amount) }}</span>
+            <TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" short />
+        </span>
         <span class="flex min-w-0 flex-col gap-0.5">
             <span class="flex min-w-0 items-center gap-1.5 text-13 text-ink-2">
                 <template v-if="item.tax_type === 'social_contribution' || !item.receipt">
@@ -93,7 +96,6 @@ const { isDesktop } = useBreakpoint();
             <span class="truncate text-12 text-ink-3 @min-[960px]:hidden">{{ whenLine }}</span>
         </span>
         <span class="hidden truncate text-12 text-ink-3 @min-[960px]:block">{{ whenLine }}</span>
-        <span class="flex justify-end"><TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" short /></span>
     </component>
     <component :is="to ? RouterLink : 'div'" v-else :to="to ?? undefined" class="flex flex-col gap-1.5 border-t border-divider px-4 py-3 text-ink no-underline hover:text-ink">
         <span class="flex items-center gap-2.5">

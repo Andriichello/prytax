@@ -125,6 +125,8 @@ export default {
         appLanguageNote: 'Only the screens, and only for you. The language of invoices is in Invoice document and on the client’s card.',
         appLanguageGuestNote: 'We will remember it on this device. After signing in, change it in More › App language.',
         appLanguageShortNote: 'Only the screens. The language of invoices is in Invoice document and on the client’s card.',
+        desktopTagline: 'The limit, ЄП, ВЗ and ЄСВ are counted from every receipt. The income book is always ready.',
+        appLanguageBrowserNote: 'We will remember it in this browser. After signing in, it is at the foot of the sidebar.',
     },
 
     alerts: {

@@ -2,13 +2,15 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 /**
  * Class SpaRouteTest.
  *
- * The SPA's page answers the paths, which the API links to, while the API and the health check keep their own
- * responses.
+ * The SPA's page answers the paths, which the API links to, while the API, the served disks and the health check keep
+ * their own responses.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature
@@ -43,6 +45,22 @@ class SpaRouteTest extends TestCase
             $response->assertNotFound();
             $response->assertJsonStructure(['message']);
         }
+    }
+
+    /**
+     * The signed links of the served disks (an archive's download) reach their files, not the app's page.
+     *
+     * @return void
+     */
+    public function testServesTheFilesOfSignedLinks(): void
+    {
+        Storage::fake('backups');
+        Storage::disk('backups')->put('tmp/downloads/copy.zip', 'archive');
+        $url = URL::temporarySignedRoute('storage.backups', now()->addMinutes(10), ['path' => 'tmp/downloads/copy.zip'], absolute: false);
+
+        $this->get($url)->assertOk()->assertStreamedContent('archive');
+        $this->get('/backups-storage/tmp/downloads/copy.zip')->assertForbidden();
+        $this->get('/storage/file.txt')->assertForbidden();
     }
 
     /**

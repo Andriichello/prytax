@@ -1698,7 +1698,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px, their header,
   content and footer spanning the rounded card, with a thin scrollbar; `FullScreenSheet size="wide"` is up to
   1120 × 960 px: Перегляд стилю, the page about 760 px wide on the left and its controls on the right, with «Лупа»: a
-  click on the page turns on a 2.5× lens that follows the pointer, a click again or Escape turns it off, as does
+  click on the page turns on a 1.5× lens that follows the pointer, a click again or Escape turns it off, as does
   another style or language; on touch a tap turns it on, a drag moves it, a tap turns it off); `Popover` (anchored,
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and

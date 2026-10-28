@@ -20,7 +20,7 @@ import { adjacentStyle, INVOICE_STYLES, styleIndex, styleName } from '@/utils/in
  * 760 px wide, scrolls on the left, and the controls stay on the right.
  *
  * Лупа: a click on the page (or the «Лупа» button) turns on a round lens, which follows the pointer and shows the
- * page 2.5× from a sharper drawing of it, made the first time; a click again, or Escape (which leaves the dialog
+ * page 1.5× from a sharper drawing of it, made the first time; a click again, or Escape (which leaves the dialog
  * open), turns it off, and so does another style or language. Off the page the lens hides until the pointer is back.
  * On a touch screen a tap turns it on, a drag moves it (and doesn't scroll), and another tap turns it off.
  */
@@ -49,7 +49,7 @@ const failed = ref(false);
 const pdfUrl = ref<string | null>(null);
 
 /** How much the lens magnifies, and the widest drawing it copies from (in canvas pixels). */
-const ZOOM = 2.5;
+const ZOOM = 1.5;
 const MAX_ZOOMED_WIDTH = 4096;
 /** A press that moves farther than this is a drag (it moves the lens), not a tap (which turns it on or off). */
 const TAP_SLOP = 6;

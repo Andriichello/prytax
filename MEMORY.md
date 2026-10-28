@@ -1,6 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are being built** (see "Handoffs of 2026-10-28").
+Status as of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
+fast-forwarded to `feat/backups-ui` (9daa066) when the user asked, **not pushed** (see "Handoffs of 2026-10-28").
 `feat/backups` passed the full suite (484) and was fast-forwarded into `dev` (not `main`); **`origin/main` =
 `origin/dev` = a6c7ec3** (pushed by the user before this session: the backups spec, not the build). The mobile delta 3
 is built on branch **`feat/minimal-delta-3`** (from `dev`, not merged, not pushed) but for XLSX; the desktop layout on
@@ -75,9 +76,9 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 | 10. The second Minimal handoff: Податки as one tax ledger; ЄП, ВЗ, ЄСВ and ФОП untranslated in English | **Merged into `dev` and `main`** (2026-10-27), not pushed; see "Tax ledger" |
 | 11. Backups, data safety and retention: the spec (`docs/specs/backups.md`) | **Spec v1.6 committed, in `dev` and `main`** (2026-10-27), reviewed twice against the code; see "Backups spec" |
 | 12. Backups, data safety and retention: the build (Layer B, retention, `verify-db`, the SPA screens) | **Merged into `dev`** (2026-10-28, not `main`, not pushed); see "Backups build" |
-| 13. Mobile delta 3: ФОП switching, Книги обліку, the date picker, the language sheet, rules 1–10 | **On `feat/minimal-delta-3`** (2026-10-28), but XLSX (blocked on the package); see "Handoffs of 2026-10-28" |
-| 14. Desktop layout («Minimal (Desktop)») | **On `feat/desktop`** (from delta 3, 2026-10-28); design.md §17.6 |
-| 15. The backups screens of the backups handoff | **On `feat/backups-ui`** (from desktop, 2026-10-28); backups.md §4.8 "As built" |
+| 13. Mobile delta 3: ФОП switching, Книги обліку, the date picker, the language sheet, rules 1–10 | **Merged into `dev` and `main`** (2026-10-28, not pushed), but XLSX (blocked on the package); see "Handoffs of 2026-10-28" |
+| 14. Desktop layout («Minimal (Desktop)») | **Merged into `dev` and `main`** (2026-10-28, not pushed); design.md §17.6 |
+| 15. The backups screens of the backups handoff | **Merged into `dev` and `main`** (2026-10-28, not pushed); backups.md §4.8 "As built" |
 
 - **Branches:** `origin/main` = `origin/dev` = backend + frontend + QA pass + follow-ups + English + translation keys +
   the invoice settings and styles (pushed on 2026-10-24). **`main` = `dev`** (checked out) = that + Minimal (specs,
@@ -107,9 +108,8 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
 
 ### First steps of the next session
 
-1. The three handoffs of 2026-10-28 are built on stacked branches (`feat/minimal-delta-3` → `feat/desktop` →
-   `feat/backups-ui`, none merged or pushed). Ask the user about merging `feat/backups-ui` into `dev` (and `main`) and
-   pushing. Open: XLSX (the user is to run `php8.5 $(which composer) require openspout/openspout`; then the books' and
+1. The three handoffs of 2026-10-28 are built and merged into `dev` and `main` (fast-forwarded to `feat/backups-ui`,
+   not pushed; `git log --oneline origin/main..main`). Ask the user about pushing. Open: XLSX (the user is to run `php8.5 $(which composer) require openspout/openspout`; then the books' and
    Облік's XLSX exports), the in-app notices of backups (api-core's `notifications` in Сповіщення), the desktop panel
    header anatomy (badges, «✎ Змінити», ⋯ in the header), Інвойси's search, the remaining spec decisions (§5.3, the
    GCS adapter), deleting the merged branches, and the backlog: the open points of "QA of Minimal",

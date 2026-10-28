@@ -10,7 +10,8 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
  * with the title, its action (`title-action`), an optional subtitle, a mode switch (`switcher`) and the filter badges
  * (`filters`) sticks to the top, with a rule and a soft shadow once stuck. Then the content and the tab bar. On
  * desktop (§17.2) the page header holds the title with its sub-line on the left and the action with the 📖 | 🔔
- * capsule on the right; the switch and the filters follow it, and the sidebar replaces the tab bar.
+ * capsule on the right (under the title, when they don't fit beside it); the switch and the filters follow it, and
+ * the sidebar replaces the tab bar.
  */
 const { title } = defineProps<{ title: string }>();
 
@@ -37,12 +38,12 @@ onBeforeUnmount(() => observer?.disconnect());
 
 <template>
     <div v-if="isDesktop" class="flex min-h-dvh flex-col">
-        <header class="flex items-start justify-between gap-6 px-10 pt-7 pb-5">
-            <div class="flex min-w-0 flex-col gap-1">
+        <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 px-10 pt-7 pb-5">
+            <div class="flex max-w-full min-w-0 flex-col gap-1">
                 <h1 class="m-0 text-30 font-semibold tracking-[-0.02em]">{{ title }}</h1>
                 <slot name="subtitle" />
             </div>
-            <div class="flex shrink-0 items-center gap-3">
+            <div class="ml-auto flex shrink-0 items-center gap-3">
                 <slot name="title-action" />
                 <BarActions />
             </div>

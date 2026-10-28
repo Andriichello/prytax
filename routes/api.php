@@ -14,6 +14,7 @@ use PryTax\Http\Controllers\AccountMovementController;
 use PryTax\Http\Controllers\AccountOpeningBalanceController;
 use PryTax\Http\Controllers\AccountTransferController;
 use PryTax\Http\Controllers\AlertController;
+use PryTax\Http\Controllers\BooksController;
 use PryTax\Http\Controllers\ChargeTypeController;
 use PryTax\Http\Controllers\ClientController;
 use PryTax\Http\Controllers\ContractController;
@@ -160,6 +161,10 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('accounting/{year}/export', [AccountingController::class, 'exportYear'])->name('accounting.export-year');
                     Route::get('esv/{year}', [AccountingController::class, 'esv'])->name('esv');
                     Route::get('fees/{year}', [AccountingController::class, 'fees'])->name('fees');
+                    Route::get('books/{year}/income', [BooksController::class, 'income'])->whereNumber('year')->name('books.income');
+                    Route::get('books/{year}/taxes', [BooksController::class, 'taxes'])->whereNumber('year')->name('books.taxes');
+                    Route::get('books/{year}/{book}/export', [BooksController::class, 'export'])
+                        ->whereNumber('year')->whereIn('book', ['income', 'taxes'])->name('books.export');
                     Route::get('income-book/{year}', [AccountingController::class, 'incomeBook'])->name('income-book');
                     Route::get('income-book/{year}/export', [AccountingController::class, 'exportIncomeBook'])
                         ->name('income-book.export');

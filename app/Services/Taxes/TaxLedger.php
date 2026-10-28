@@ -97,20 +97,14 @@ class TaxLedger
         array $statuses = [],
         ?CarbonInterface $today = null
     ): array {
-        $today = CarbonImmutable::parse(($today ?? now())->toDateString());
         $quarters = $quarters === [] ? [1, 2, 3, 4] : array_values(array_unique($quarters));
         sort($quarters);
         $types = $types === [] ? TaxType::cases() : $types;
         $typeValues = array_map(fn (TaxType $type) => $type->value, $types);
         $statuses = $statuses === [] ? self::STATUSES : $statuses;
 
-        $items = collect([
-            ...$this->receiptObligations($profile, $year, $quarters),
-            ...$this->esvObligations($profile, $year, $quarters, $today),
-            ...$this->payments($profile, $year, $quarters),
-        ])
-            ->filter(fn (array $item) => in_array($item['tax_type'], $typeValues, true) && in_array($item['status'], $statuses, true))
-            ->map(fn (array $item) => [...$item, 'due_at' => $this->dueAt($profile, $item)]);
+        $items = $this->items($profile, $year, $quarters, $today)
+            ->filter(fn (array $item) => in_array($item['tax_type'], $typeValues, true) && in_array($item['status'], $statuses, true));
 
         $inPeriod = fn (int $itemYear, int $quarter) => $itemYear === $year && in_array($quarter, $quarters, true);
 
@@ -125,6 +119,29 @@ class TaxLedger
                 $items->filter(fn (array $item) => $inPeriod((int) substr($item['month'], 0, 4), intdiv((int) substr($item['month'], 5, 2) - 1, 3) + 1))
             ),
         ];
+    }
+
+    /**
+     * Get every item of the period's quarters, each with its deadline: the obligations, which nothing paid yet, and the
+     * payments of every status. Книги обліку sum them by quarter and by month (design.md §16.7).
+     *
+     * @param Profile $profile
+     * @param int $year
+     * @param array<int, int> $quarters The period's quarters; none is the whole year.
+     * @param CarbonInterface|null $today
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function items(Profile $profile, int $year, array $quarters = [], ?CarbonInterface $today = null): Collection
+    {
+        $today = CarbonImmutable::parse(($today ?? now())->toDateString());
+        $quarters = $quarters === [] ? [1, 2, 3, 4] : $quarters;
+
+        return collect([
+            ...$this->receiptObligations($profile, $year, $quarters),
+            ...$this->esvObligations($profile, $year, $quarters, $today),
+            ...$this->payments($profile, $year, $quarters),
+        ])->map(fn (array $item) => [...$item, 'due_at' => $this->dueAt($profile, $item)]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace PryTax\Providers;
 
 use Native\Desktop\Contracts\ProvidesPhpIni;
 use Native\Desktop\Facades\Window;
+use PryTax\Services\Desktop\LaunchCatchUp;
 
 /**
  * Class NativeAppServiceProvider.
@@ -17,12 +18,14 @@ use Native\Desktop\Facades\Window;
 class NativeAppServiceProvider implements ProvidesPhpIni
 {
     /**
-     * Open the window, once the native application has booted.
+     * Open the window, once the native application has booted, and catch up on what the night would have done.
      *
      * @return void
      */
     public function boot(): void
     {
+        app(LaunchCatchUp::class)->dispatch();
+
         Window::open()
             ->title('PryTax')
             ->width(1280)

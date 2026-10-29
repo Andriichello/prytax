@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { api } from '@/api/client';
-import type { ApiResponse, AppEnvironment, RecoveryKit, SavedRecoveryKit } from '@/api/types';
+import type { ApiResponse, AppEnvironment, RecoveryKit, RestoreChoice, SavedRecoveryKit } from '@/api/types';
 
 /**
  * The desktop app (APP-BUILDS-PLAN.md, phase 3): whether the SPA runs in its window, and the installation's recovery
@@ -80,6 +80,24 @@ async function needsRecoveryKit(): Promise<boolean> {
     return kitSaved.value === false;
 }
 
+/**
+ * Choose the recovery kit (`kit`) or the old computer's database (`database`) in a native open dialog, to restore
+ * from; a kit, which isn't one, is a 422.
+ */
+async function chooseRestoreFile(kind: 'kit' | 'database'): Promise<RestoreChoice> {
+    const { data } = await api.post<ApiResponse<RestoreChoice>>(`desktop/restore/${kind}`);
+
+    return data;
+}
+
+/**
+ * Restore the installation from the kit and the database, which relaunches the app; a key, which doesn't open the
+ * database, is a 422.
+ */
+async function restore(kit: string, database: string): Promise<void> {
+    await api.post('desktop/restore', { kit, database });
+}
+
 export function useDesktopApp() {
-    return { isDesktopApp, needsRecoveryKit, recoveryKit, saveRecoveryKit, confirmRecoveryKit };
+    return { isDesktopApp, needsRecoveryKit, recoveryKit, saveRecoveryKit, confirmRecoveryKit, chooseRestoreFile, restore };
 }

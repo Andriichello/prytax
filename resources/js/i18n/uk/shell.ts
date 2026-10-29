@@ -69,6 +69,19 @@ export default {
         join: 'Приєднатися',
     },
 
+    /** Restoring the desktop app on a new computer */
+    restore: {
+        link: 'Відновити з копії іншого комп’ютера',
+        title: 'Відновлення',
+        explained:
+            'Оберіть набір відновлення і файл бази даних зі старого комп’ютера (його шлях указано в наборі; копіюйте його, коли PryTax закрито). Ключ набору має відкривати базу: інакше нічого не зміниться.',
+        chooseKit: 'Обрати набір відновлення…',
+        chooseDatabase: 'Обрати файл бази даних…',
+        restore: 'Відновити',
+        relaunching: 'Відновлено. PryTax перезапускається…',
+        backToRegister: 'Повернутися до реєстрації',
+    },
+
     /** The desktop app's recovery kit */
     recoveryKit: {
         title: 'Набір відновлення',

@@ -63,6 +63,18 @@ export default {
         join: 'Join',
     },
 
+    restore: {
+        link: 'Restore from another computer',
+        title: 'Restore',
+        explained:
+            'Choose the recovery kit and the database file of the old computer (the kit names its path; copy it while PryTax is closed). The kit’s key must open the database, or nothing changes.',
+        chooseKit: 'Choose the recovery kit…',
+        chooseDatabase: 'Choose the database file…',
+        restore: 'Restore',
+        relaunching: 'Restored. PryTax is relaunching…',
+        backToRegister: 'Back to registration',
+    },
+
     recoveryKit: {
         title: 'Recovery kit',
         explained:

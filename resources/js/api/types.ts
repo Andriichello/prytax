@@ -273,6 +273,12 @@ export interface RecoveryKit {
     saved_at: DateTimeString | null;
 }
 
+/** A file chosen in a native open dialog to restore from: its path and name, or nulls, when it was cancelled. */
+export interface RestoreChoice {
+    path: string | null;
+    name: string | null;
+}
+
 /** The kit after the native save dialog: where it was saved, or null, when the dialog was cancelled. */
 export interface SavedRecoveryKit extends RecoveryKit {
     path: string | null;

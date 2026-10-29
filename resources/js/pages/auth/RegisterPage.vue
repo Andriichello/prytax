@@ -5,19 +5,22 @@ import type { Registration } from '@/api/types';
 import TextField from '@/components/form/TextField.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import { useDesktopApp } from '@/composables/useDesktopApp';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
  * Реєстрація: a new organization and its owner, who is signed in at once, when the installation allows it (otherwise
- * back to Вхід). On the installation's first launch (the desktop app's), Вхід opens it at once, without its way back.
+ * back to Вхід). On the installation's first launch (the desktop app's), Вхід opens it at once, without its way back,
+ * and the desktop app offers restoring another computer's PryTax instead.
  */
 const router = useRouter();
 const { registrationStatus, register } = useSession();
 
 const form = reactive<Registration>({ organization: '', name: '', email: '', password: '', password_confirmation: '' });
 const firstOwner = ref(false);
+const restorable = ref(false);
 const busy = ref(false);
 const error = ref<unknown>(null);
 
@@ -33,6 +36,7 @@ onMounted(async () => {
     }
 
     firstOwner.value = status.first_owner;
+    restorable.value = status.first_owner && (await useDesktopApp().isDesktopApp());
 });
 
 async function submit(): Promise<void> {
@@ -99,6 +103,9 @@ async function submit(): Promise<void> {
                 {{ errorMessage(error) }}
             </p>
             <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.register.submit') }}</PrimaryButton>
+            <RouterLink v-if="restorable" :to="{ name: 'restore' }" class="flex min-h-11 items-center justify-center text-15 font-medium no-underline">
+                {{ t('shell.restore.link') }}
+            </RouterLink>
             <p v-if="!firstOwner" class="m-0 flex min-h-11 flex-wrap items-center justify-center gap-x-1.5 text-15 text-ink-2">
                 {{ t('shell.register.haveAccount') }}
                 <RouterLink :to="{ name: 'login' }" class="font-medium no-underline">{{ t('shell.login.signIn') }}</RouterLink>

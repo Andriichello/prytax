@@ -61,6 +61,7 @@ class AccountingView
             ->withPaidAmount()
             ->whereKey($rows->pluck('invoice_id')->filter()->unique()->all())
             ->with('client')
+            ->orderBy('invoices.id')
             ->get()
             ->map(fn (Invoice $invoice) => [
                 'id' => $invoice->id,

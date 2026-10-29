@@ -6,6 +6,8 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
 use PryTax\DataLifecycle\Backup\RunSpec;
 use PryTax\DataLifecycle\Contracts\ArchiveChecks;
+use PryTax\Helpers\Decimal;
+use PryTax\Helpers\Sql;
 
 /**
  * Class AccountingArchiveChecks.
@@ -30,12 +32,14 @@ final class AccountingArchiveChecks implements ArchiveChecks
      */
     public function compute(int $tenantId, ConnectionInterface $db, RunSpec $spec): array
     {
+        $quarter = fn (string $date) => Sql::concat([Sql::year($date, $db->getName()), "'-Q'", Sql::quarter($date, $db->getName())], $db->getName());
         $byQuarter = fn (string $table, string $date) => $this->inPeriod($db->table($table), $date, $spec)
             ->where('profile_id', $tenantId)
-            ->selectRaw("CONCAT(YEAR($date), '-Q', QUARTER($date)) AS quarter, SUM(uah_amount) AS total")
+            ->selectRaw($quarter($date) . ' AS quarter, SUM(uah_amount) AS total')
             ->groupBy('quarter')
             ->orderBy('quarter')
             ->pluck('total', 'quarter')
+            ->map($this->amount(...))
             ->all();
 
         return [
@@ -47,12 +51,26 @@ final class AccountingArchiveChecks implements ArchiveChecks
                 ->groupBy('currency')
                 ->orderBy('currency')
                 ->pluck('total', 'currency')
+                ->map($this->amount(...))
                 ->all(),
-            'tax_payments_paid_uah' => (string) ($this->inPeriod($db->table('tax_payments'), 'paid_at', $spec)
+            'tax_payments_paid_uah' => $this->amount($this->inPeriod($db->table('tax_payments'), 'paid_at', $spec)
                 ->where('profile_id', $tenantId)
                 ->where('status', 'paid')
-                ->sum('amount') ?: '0.00'),
+                ->sum('amount')),
         ];
+    }
+
+    /**
+     * Get a sum as an amount with two decimals: MySQL sums decimals as strings (`1234.50`), SQLite as floats (`1234.5`),
+     * and an archive made on one must check out on the other.
+     *
+     * @param float|int|string|null $sum
+     *
+     * @return string
+     */
+    private function amount(float|int|string|null $sum): string
+    {
+        return Decimal::money((string) ($sum ?? 0));
     }
 
     /**

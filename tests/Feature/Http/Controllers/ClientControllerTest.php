@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\Models\Client;
 use PryTax\Models\Profile;
@@ -71,6 +72,25 @@ class ClientControllerTest extends TestCase
 
         $response->assertCreated()->assertJsonPath('data.abbreviation', 'BL2');
         $this->assertDatabaseHas('clients', ['profile_id' => $profile->id, 'name' => 'Brightline Labs LLC', 'abbreviation' => 'BL2']);
+    }
+
+    /**
+     * Test that a client, whose invoice references it, isn't deleted: the foreign key restricts it, and the API answers
+     * 422 instead of an error, on MySQL and SQLite alike.
+     *
+     * @return void
+     */
+    public function testReturns422ForDeletingAClientWithAnInvoice(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        $this->actAs($profile);
+
+        $response = $this->deleteJson($this->profilePath($profile, "clients/$invoice->client_id"));
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['id']);
+        $this->assertDatabaseHas('clients', ['id' => $invoice->client_id]);
     }
 
     /**

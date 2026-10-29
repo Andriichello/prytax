@@ -16,6 +16,7 @@ use PryTax\Enums\InvoiceLocale;
 use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Helpers\Decimal;
+use PryTax\Helpers\Sql;
 use PryTax\Http\Requests\Invoices\CancelInvoiceRequest;
 use PryTax\Http\Requests\Invoices\FindDuplicateFilesRequest;
 use PryTax\Http\Requests\Invoices\FreezeInvoiceRequest;
@@ -439,7 +440,7 @@ class InvoiceController extends TenantController
             ->all();
 
         return ApiResponse::ok(['data' => [
-            'years' => array_map(fn (array $year) => [...$year, 'year' => (int) $year['year']], $count('YEAR(issued_at)', 'year')),
+            'years' => array_map(fn (array $year) => [...$year, 'year' => (int) $year['year']], $count(Sql::year('issued_at'), 'year')),
             'currencies' => $count('currency', 'currency'),
             // The statuses of the documents; the records of payments without an invoice are counted apart
             'statuses' => $count('status', 'status', true),

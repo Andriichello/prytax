@@ -11,6 +11,7 @@ use Illuminate\Validation\ValidationException;
 use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\ItemUnit;
 use PryTax\Helpers\Decimal;
+use PryTax\Helpers\Sql;
 use PryTax\Models\Account;
 use PryTax\Models\ChargeType;
 use PryTax\Models\Client;
@@ -309,7 +310,7 @@ class InvoiceWriter
                 }
             });
         } catch (QueryException $exception) {
-            if (str_contains($exception->getMessage(), 'invoices_profile_id_number_unique')) {
+            if (Sql::violatesUnique($exception, 'invoices_profile_id_number_unique', 'invoices', ['profile_id', 'active_number'])) {
                 throw ValidationException::withMessages(['number' => [__('Another invoice has this number already.')]]);
             }
 

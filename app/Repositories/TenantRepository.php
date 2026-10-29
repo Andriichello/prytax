@@ -7,6 +7,7 @@ use Core\Repositories\CrudRepository;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 use PryTax\Helpers\CurrentProfile;
+use PryTax\Helpers\Sql;
 use PryTax\Http\Middleware\ResolveProfile;
 use PryTax\Models\Profile;
 use PryTax\Services\Alerts\AlertSync;
@@ -79,8 +80,7 @@ abstract class TenantRepository extends CrudRepository
 
             return $deleted;
         } catch (QueryException $exception) {
-            // 1451: a foreign key restricts the delete
-            if (($exception->errorInfo[1] ?? null) === 1451) {
+            if (Sql::restrictsDelete($exception)) {
                 throw ValidationException::withMessages([
                     'id' => [__('Other records reference it, so it can\'t be deleted. Deactivate it instead.')],
                 ]);

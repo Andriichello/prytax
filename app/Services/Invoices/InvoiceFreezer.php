@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use PryTax\Enums\InvoiceStatus;
 use PryTax\Enums\InvoiceStyle;
 use PryTax\Enums\SettingSource;
+use PryTax\Helpers\Sql;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
@@ -101,7 +102,7 @@ class InvoiceFreezer
                 ])->save();
             }, 3);
         } catch (QueryException $exception) {
-            if (str_contains($exception->getMessage(), 'invoices_profile_id_number_unique')) {
+            if (Sql::violatesUnique($exception, 'invoices_profile_id_number_unique', 'invoices', ['profile_id', 'active_number'])) {
                 throw ValidationException::withMessages([
                     'number' => [__('Another invoice has the number :number already.', ['number' => $invoice->number])],
                 ]);

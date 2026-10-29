@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\Sql;
 
 return new class extends Migration
 {
@@ -53,7 +54,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
             // The number of a deleted draft is free again
-            $table->string('active_number', 64)->nullable()->storedAs('IF(`deleted_at` IS NULL, `number`, NULL)');
+            $table->string('active_number', 64)->nullable()->storedAs(Sql::when('`deleted_at` IS NULL', '`number`'));
 
             $table->unique(['profile_id', 'active_number'], 'invoices_profile_id_number_unique');
             $table->index(['profile_id', 'client_id', 'status']);

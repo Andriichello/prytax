@@ -2,8 +2,9 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\CheckConstraint;
+use PryTax\Helpers\Sql;
 
 return new class extends Migration
 {
@@ -48,9 +49,9 @@ return new class extends Migration
             $table->decimal('single_tax_uah', 15, 2);
             $table->decimal('military_levy_uah', 15, 2);
 
-            $table->unsignedSmallInteger('period_year')->storedAs('YEAR(`received_at`)');
-            $table->unsignedTinyInteger('period_quarter')->storedAs('QUARTER(`received_at`)');
-            $table->unsignedTinyInteger('period_month')->storedAs('MONTH(`received_at`)');
+            $table->unsignedSmallInteger('period_year')->storedAs(Sql::year('`received_at`'));
+            $table->unsignedTinyInteger('period_quarter')->storedAs(Sql::quarter('`received_at`'));
+            $table->unsignedTinyInteger('period_month')->storedAs(Sql::month('`received_at`'));
 
             $table->timestamp('repatriation_ack_at')->nullable();
             // The FX transfer, of which a synthetic fx_gain row is made (deleted with it)
@@ -63,11 +64,8 @@ return new class extends Migration
             $table->index('receipt_group_id');
         });
 
-        DB::statement(
-            'ALTER TABLE payments ADD CONSTRAINT payments_invoice_of_invoice_kind'
-            . " CHECK (kind <> 'invoice' OR invoice_id IS NOT NULL)"
-        );
-        DB::statement('ALTER TABLE payments ADD CONSTRAINT payments_positive_amount CHECK (amount > 0)');
+        CheckConstraint::add('payments', 'payments_invoice_of_invoice_kind', "kind <> 'invoice' OR invoice_id IS NOT NULL");
+        CheckConstraint::add('payments', 'payments_positive_amount', 'amount > 0');
     }
 
     /**

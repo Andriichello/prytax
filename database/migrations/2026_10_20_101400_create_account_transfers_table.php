@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\CheckConstraint;
 
 return new class extends Migration
 {
@@ -41,14 +41,8 @@ return new class extends Migration
             $table->index(['profile_id', 'received_at']);
         });
 
-        DB::statement(
-            'ALTER TABLE account_transfers ADD CONSTRAINT account_transfers_distinct_accounts'
-            . ' CHECK (from_account_id <> to_account_id)'
-        );
-        DB::statement(
-            'ALTER TABLE account_transfers ADD CONSTRAINT account_transfers_positive_amounts'
-            . ' CHECK (amount_sent > 0 AND amount_received >= 0)'
-        );
+        CheckConstraint::add('account_transfers', 'account_transfers_distinct_accounts', 'from_account_id <> to_account_id');
+        CheckConstraint::add('account_transfers', 'account_transfers_positive_amounts', 'amount_sent > 0 AND amount_received >= 0');
     }
 
     /**

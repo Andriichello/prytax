@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\CheckConstraint;
 
 return new class extends Migration
 {
@@ -23,9 +23,7 @@ return new class extends Migration
             $table->unique(['transfer_id', 'payment_id']);
         });
 
-        DB::statement(
-            'ALTER TABLE transfer_allocations ADD CONSTRAINT transfer_allocations_positive_amount CHECK (amount > 0)'
-        );
+        CheckConstraint::add('transfer_allocations', 'transfer_allocations_positive_amount', 'amount > 0');
     }
 
     /**

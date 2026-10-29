@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\CheckConstraint;
 
 return new class extends Migration
 {
@@ -50,7 +50,7 @@ return new class extends Migration
             'tax_payments_positive_amount' => 'amount > 0',
             'tax_payments_date_of_paid' => "status <> 'paid' OR paid_at IS NOT NULL",
         ] as $name => $check) {
-            DB::statement("ALTER TABLE tax_payments ADD CONSTRAINT $name CHECK ($check)");
+            CheckConstraint::add('tax_payments', $name, $check);
         }
     }
 

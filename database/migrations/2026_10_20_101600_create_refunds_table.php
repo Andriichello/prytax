@@ -2,8 +2,9 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PryTax\Helpers\CheckConstraint;
+use PryTax\Helpers\Sql;
 
 return new class extends Migration
 {
@@ -33,16 +34,16 @@ return new class extends Migration
             $table->foreignId('tax_rule_id')->constrained()->restrictOnDelete();
             $table->text('reason')->nullable();
 
-            $table->unsignedSmallInteger('period_year')->storedAs('YEAR(`refunded_at`)');
-            $table->unsignedTinyInteger('period_quarter')->storedAs('QUARTER(`refunded_at`)');
-            $table->unsignedTinyInteger('period_month')->storedAs('MONTH(`refunded_at`)');
+            $table->unsignedSmallInteger('period_year')->storedAs(Sql::year('`refunded_at`'));
+            $table->unsignedTinyInteger('period_quarter')->storedAs(Sql::quarter('`refunded_at`'));
+            $table->unsignedTinyInteger('period_month')->storedAs(Sql::month('`refunded_at`'));
 
             $table->timestamps();
 
             $table->index(['profile_id', 'period_year', 'period_quarter']);
         });
 
-        DB::statement('ALTER TABLE refunds ADD CONSTRAINT refunds_positive_amount CHECK (amount > 0)');
+        CheckConstraint::add('refunds', 'refunds_positive_amount', 'amount > 0');
     }
 
     /**

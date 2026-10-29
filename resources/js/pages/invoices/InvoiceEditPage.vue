@@ -584,10 +584,19 @@ function removeItem(key: number): void {
     keepDraft();
 }
 
-/** A draft made in PryTax is saved after each change of its items; an external one waits for «Зберегти». */
+/**
+ * A stored draft made in PryTax is saved after each change of its items or number; a new one keeps them in the form
+ * until «Зберегти чернетку», and an external one waits for «Зберегти».
+ */
 function keepDraft(): void {
-    if (form.source === 'generated') {
+    if (form.source !== 'generated') {
+        return;
+    }
+
+    if (existing.value) {
         void save();
+    } else {
+        pending.value = true;
     }
 }
 
@@ -687,6 +696,25 @@ const saving = ref(false);
 const saveError = ref<unknown>(null);
 const savedAt = ref<string | null>(null);
 
+/** Changes of a new invoice made in PryTax, which only «Зберегти чернетку» stores. */
+const pending = ref(false);
+
+/** What a new draft needs before it can be stored: its client, period and the account it's paid to. */
+const missing = computed(() => [
+    form.client_id === null ? t('invoices.editor.needs.client') : null,
+    !form.period_start || !form.period_end ? t('invoices.editor.needs.period') : null,
+    form.receiving_account_id === null ? t('invoices.editor.needs.account') : null,
+].filter((item): item is string => item !== null));
+
+/** The footer's line: what a new invoice still needs, that it isn't stored yet, or when the draft was saved. */
+const draftState = computed(() => {
+    if (existing.value) {
+        return `${savedAt.value ? t('invoices.editor.draftSaved', { time: savedAt.value }) : t('invoices.editor.draftStored')} ${t('invoices.editor.savesPerGroup')}`;
+    }
+
+    return missing.value.length > 0 ? t('invoices.editor.toSave', { missing: missing.value.join(', ') }) : t('invoices.editor.notSavedYet');
+});
+
 function payload(): Record<string, unknown> {
     const external = form.source === 'external';
 
@@ -777,6 +805,7 @@ async function save(): Promise<Invoice | null> {
         }
 
         dirty.value = pendingFile.value !== null;
+        pending.value = false;
         savedAt.value = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' }).format(new Date());
 
         if (isNew.value) {
@@ -792,6 +821,7 @@ async function save(): Promise<Invoice | null> {
         return existing.value;
     } catch (caught) {
         saveError.value = caught;
+        revealErrors();
 
         return null;
     } finally {
@@ -801,7 +831,9 @@ async function save(): Promise<Invoice | null> {
 
 /* Leaving with unsaved changes asks first (saving, freezing and deleting leave without asking) */
 onBeforeRouteLeave((to) => {
-    const unsaved = form.source === 'generated' ? accordion.open.value !== null && dirty.value : dirty.value;
+    const unsaved = form.source === 'generated'
+        ? (existing.value === null && pending.value) || (accordion.open.value !== null && dirty.value)
+        : dirty.value;
 
     if (!unsaved || to.name === 'invoice-edit') {
         return true;
@@ -887,9 +919,46 @@ function cancelGroup(): void {
 }
 
 async function saveGroup(): Promise<void> {
+    // A new invoice keeps the group in the form: «Зберегти чернетку» stores it, once it has what a draft needs
+    if (!existing.value) {
+        pending.value ||= dirty.value;
+        saveError.value = null;
+        accordion.open.value = null;
+
+        return;
+    }
+
     if (await save()) {
         accordion.open.value = null;
     }
+}
+
+/** The fields of the groups, so a refused save opens the group whose fields are wrong, where they show in red. */
+const GROUP_FIELDS: Record<string, string[]> = {
+    client: ['client_id', 'contract_id', 'currency'],
+    dates: ['period_start', 'period_end', 'issued_at', 'due_at'],
+    pay: ['receiving_account_id'],
+    document: [
+        'locale', 'style', 'payment_purpose_template', 'show_contract', 'act_note', 'act_note_enabled', 'payment_note',
+        'payment_note_enabled', 'other_note', 'other_note_enabled',
+    ],
+    internal: ['notes'],
+};
+
+/** Open the first group with a refused field, unless the open one has one, keeping the form as it is to cancel to. */
+function revealErrors(): void {
+    if (form.source !== 'generated') {
+        return;
+    }
+
+    const groups = Object.entries(GROUP_FIELDS).filter(([, fields]) => fields.some((field) => fieldError(saveError.value, field)));
+
+    if (groups.length === 0 || groups.some(([group]) => group === accordion.open.value)) {
+        return;
+    }
+
+    backup = JSON.stringify({ form, touched });
+    accordion.open.value = groups[0][0];
 }
 
 /** The quick periods of the month the period starts in: its halves and the whole month. */
@@ -1229,11 +1298,6 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
 
                 <Dimmable class="flex flex-col gap-2">
                     <p v-if="generalError && !accordion.open.value" class="m-0 text-14 text-negative" role="alert">{{ generalError }}</p>
-                    <p v-else-if="savedAt && !saving" class="m-0 text-13 text-ink-3" role="status">
-                        <Translated :text="t('invoices.editor.draftSaved')">
-                            <template #time><span class="num">{{ savedAt }}</span></template>
-                        </Translated>
-                    </p>
                     <button
                         v-if="existing && can('delete', 'invoices')"
                         type="button"
@@ -1379,8 +1443,17 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
 
         <template v-if="can(isNew ? 'create' : 'update', 'invoices')" #footer>
             <Dimmable v-if="form.source === 'generated'" class="flex flex-col gap-2">
-                <p class="m-0 text-center text-12 text-ink-3">{{ t('invoices.editor.savesPerGroup') }}</p>
-                <PrimaryButton :disabled="loading || saving || form.client_id === null" @click="askFreeze">
+                <p class="m-0 text-center text-12 text-ink-3" role="status">{{ draftState }}</p>
+                <div v-if="!existing" class="grid grid-cols-[1fr_1.4fr] gap-2.5">
+                    <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || saving || missing.length > 0" @click="save">
+                        {{ t('invoices.editor.saveDraft') }}
+                    </SecondaryButton>
+                    <PrimaryButton :disabled="loading || saving || missing.length > 0" @click="askFreeze">
+                        <Icon name="lock" :size="20" />
+                        {{ t('invoices.editor.freeze') }}
+                    </PrimaryButton>
+                </div>
+                <PrimaryButton v-else :disabled="loading || saving" @click="askFreeze">
                     <Icon name="lock" :size="20" />
                     {{ t('invoices.editor.freeze') }}
                 </PrimaryButton>

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
+use Native\Desktop\Http\Middleware\PreventRegularBrowserAccess;
 use PryTax\Helpers\Desktop;
 use PryTax\Helpers\MorphMap;
 use PryTax\Helpers\SqliteFunctions;
@@ -144,9 +145,17 @@ class AppServiceProvider extends ServiceProvider
             DB::purge('nativephp');
         }
 
-        // The desktop app's roles follow its migrations, which NativePHP runs on the first launch and after updates
         if (Desktop::isRunning()) {
+            // The desktop app's roles follow its migrations, which NativePHP runs on the first launch and after updates
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], SyncRolesAfterMigrations::class);
+
+            // Only the window (its cookie or secret) reaches the app on 127.0.0.1, not other programs or web pages:
+            // NativePHP pushes this guard onto a kernel of its own (the concrete class), never the app's
+            $this->callAfterResolving(HttpKernel::class, function (HttpKernel $kernel) {
+                if ($kernel instanceof Kernel) {
+                    $kernel->prependMiddleware(PreventRegularBrowserAccess::class);
+                }
+            });
         }
 
         // The profile is looked up within the organization, which api-core's middleware sets before it

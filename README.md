@@ -71,6 +71,42 @@ tables.
    php artisan schedule:work
    ```
 
+### Running with Docker
+
+`compose.yaml` runs one image (`Dockerfile`) as three services: `app` (FrankenPHP serving the SPA and the API on port
+8080, in classic mode), `worker` (the queue: backups, bundles and period exports) and `scheduler`. The image builds
+api-core from `../api-core`, which has to be checked out next to PryTax, as above. The SPA is built inside the image,
+so neither PHP nor Node is needed on the host.
+
+1. Create `.env` from `.env.docker.example` and pick the database: MySQL in a container (`DB_HOST=mysql`, the
+   `mysql` profile), or an external MySQL 8.0.13+ (its host and credentials; the host machine's is
+   `host.docker.internal`, if it listens on Docker's bridge rather than only on 127.0.0.1). Generate the application
+   key and put it in `APP_KEY`; keep it safe, as it encrypts the tax IDs and IBANs:
+
+   ```bash
+   cp .env.docker.example .env
+   docker compose run --rm --no-deps app php artisan key:generate --show
+   ```
+
+2. Start it; the `app` service migrates the database and seeds the roles on every start:
+
+   ```bash
+   docker compose --profile mysql up -d --build   # MySQL in a container
+   docker compose up -d --build                   # an external MySQL
+   ```
+
+3. Create the organization and its owner, then sign in at `APP_URL`:
+
+   ```bash
+   docker compose exec app php artisan prytax:create-owner
+   ```
+
+In a development checkout, whose `.env` is the local one, save the settings as `.env.docker` with
+`PRYTAX_ENV_FILE=.env.docker` in it, and add `--env-file .env.docker` to every `docker compose` command. Behind a TLS
+proxy, set `APP_URL` to the `https://` address, `SANCTUM_STATEFUL_DOMAINS` to its host, `SESSION_SECURE_COOKIE` to
+`true` and `TRUSTED_PROXIES` to the proxy's address (or `*`). The files, backups and logs live in the `storage`
+volume.
+
 ### api-core
 
 `composer.json` requires `andriichello/api-core:dev-dev` from a path repository, which symlinks

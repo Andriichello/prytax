@@ -117,6 +117,7 @@ export default {
         barActions: 'Accounting books and notifications',
         booksShort: 'Books',
         settings: 'Settings',
+        management: 'Management',
         profileDetails: 'Profile and details',
         sidebar: 'Sidebar',
         recordPanel: 'Record',

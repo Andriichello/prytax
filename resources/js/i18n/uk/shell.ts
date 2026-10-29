@@ -128,6 +128,7 @@ export default {
         barActions: 'Книги обліку й сповіщення',
         booksShort: 'Книги',
         settings: 'Налаштування',
+        management: 'Керування',
         profileDetails: 'Профіль і реквізити',
         sidebar: 'Бічне меню',
         recordPanel: 'Запис',

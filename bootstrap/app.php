@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        // Behind a TLS proxy (Docker, README.md): its X-Forwarded-* headers make the links https; the middleware is
+        // configured before the config is loaded, hence env()
+        if ($proxies = env('TRUSTED_PROXIES')) {
+            $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+        }
         // Messages in the language of the request (api-core.locales): Ukrainian for the SPA
         $middleware->api(append: ['locale']);
     })

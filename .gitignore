@@ -28,3 +28,4 @@ Homestead.yaml
 Thumbs.db
 /storage/handoff
 /storage/handoff-*
+/nativephp/electron/dist

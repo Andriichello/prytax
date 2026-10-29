@@ -105,6 +105,14 @@ return [
         'docker',
         '.idea',
         '.claude',
+        // The development installation's key and its kit's record, beside its database
+        'database/*.sqlite.key',
+        'database/*.sqlite.recovery',
+        // api-core is copied through its link in vendor/: its own dependencies and history aren't PryTax's
+        'vendor/andriichello/api-core/vendor',
+        'vendor/andriichello/api-core/.git',
+        'vendor/andriichello/api-core/node_modules',
+        'vendor/andriichello/api-core/storage',
         // Development data and notes
         'storage/app/private',
         'storage/app/backups',
@@ -193,7 +201,8 @@ return [
      * Define your own scripts to run before and after the build process.
      */
     'prebuild' => [
-        // 'npm run build',
+        // The SPA's assets, which the bundle serves
+        'npm run build',
     ],
 
     'postbuild' => [

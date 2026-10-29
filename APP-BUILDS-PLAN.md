@@ -179,6 +179,41 @@ databases that already exist are unaffected.
      archive made on one driver that imports on the other.
 
 ## Phase 3: Desktop with NativePHP, branch `feat/desktop`
+**Spike results** (2026-10-29). `nativephp/desktop` 2.4.0 is installed: the user ran the require, then I pinned it to
+`^2.4`. `native:install` added `native:dev` and a `post-update-cmd` hook to `composer.json`, `config/nativephp.php` and
+the provider, which moved to `PryTax\Providers`.
+
+| Question | Answer |
+|---|---|
+| The bundled PHP | 8.5.12, static musl. Has zip with AES-256, gd, mbstring, dom, iconv, fileinfo, intl, bcmath, pdo_sqlite (`Pdo\Sqlite`, SQLite 3.45.2). No pcntl, so the queue worker can't enforce job timeouts. No xmlwriter or xmlreader: PHPUnit can't run on it, and openspout (XLSX) must be checked before it ships. Composer's platform check passes. |
+| PryTax on it | Migrations, `DemoSeeder`, a PDF, a backup and a period export all work. The 76 report responses are identical to the MySQL demo's. |
+| Port | The first free port from 8100 (`get-port`), so 8100 unless another app has it. localStorage stays put between launches. |
+| Storage and database | Production: `<userData>/storage` and `<userData>/database/database.sqlite`. userData is `~/.config/<app>`, `%APPDATA%\<app>` or `~/Library/Application Support/<app>`. In debug: the project's `storage/` and `database/nativephp.sqlite`. |
+| `.env` and `APP_KEY` | The build copies `.env`, drops `cleanup_env_keys` and forces the log settings. The key is never generated per install, so step 5 stands. |
+| Scheduler | Electron runs `artisan schedule:run` every minute and stops during sleep, so no `schedule:work` process is needed (step 3). |
+| Migrations | `artisan migrate --force` on the first launch of each new app version (production only). |
+
+**What NativePHP overrides when it runs** (`NativeServiceProvider`):
+- **The database:** `database.default` becomes its own `nativephp` connection, with `PRAGMA journal_mode=WAL` and
+  `busy_timeout=5000` but none of our `transaction_mode`.
+  - Step 4 sets `IMMEDIATE` on that connection, then purges it.
+  - Our connector still registers `LOWER`/`UPPER`/`LIKE`, because the driver is SQLite.
+- **Sessions** go to files; the **queue** is `database`.
+- **Queue workers** come from `queue_workers`. The default listens only on `default`, so step 2 adds `backups` and
+  `retention`.
+- **`PreventRegularBrowserAccess`** answers 403 without the `_php_native` cookie or secret header. Only the Electron
+  window gets in.
+
+**Not done: booting the window.**
+- `native:run` built Electron and started it, but Chromium aborted: `chrome-sandbox` must be owned by root with mode
+  4755.
+- Running without the sandbox was denied by the tool permissions, so it needs the user. Either:
+  - `sudo chown root:root vendor/nativephp/desktop/resources/electron/node_modules/electron/dist/chrome-sandbox &&
+    sudo chmod 4755` that file (it resets on each `npm install`); or
+  - allow `ELECTRON_DISABLE_SANDBOX=1` for development runs.
+- Linux builds will face the same thing: a `.deb` installs the helper as setuid, while an AppImage usually needs
+  `--no-sandbox` on Ubuntu 24.04+.
+
 1. **Spike first.** Run `composer require nativephp/desktop` (v2.4+; approving this plan approves the dependency),
    then `php artisan native:install` and `native:run`. Confirm:
    - The bundled PHP 8.5 has zip with AES-256, plus gd, mbstring, dom, iconv, fileinfo and pdo_sqlite.

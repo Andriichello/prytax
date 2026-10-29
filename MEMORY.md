@@ -78,14 +78,18 @@ Its departures are under "Status" in the plan.
 - **Next:**
   - Then Phase 3, the NativePHP desktop app, starting with its spike (`composer require nativephp/desktop`, approved
     with the plan).
-  - **Blocked on 2026-10-29:** `php8.5 $(which composer) require nativephp/desktop` resolved v2.4.0 but failed to
-    download with "Could not authenticate against github.com". Composer's global `github-oauth.github.com` token is
-    rejected; openspout failed the same way.
-    - `composer.json` and `composer.lock` were restored.
-    - The same update also moves api-core's lock to its working tree's newer commit (68947fc → bd4c533), which is
-      expected.
-    - The user is to renew or remove the token, or run the require themselves; then start the spike on
-      `feat/desktop`.
+  - **The spike** (2026-10-29, branch `feat/desktop` from `dev`, not merged): the user ran `composer require
+    nativephp/desktop` themselves (Composer's GitHub token is rejected for me), and I pinned it to `^2.4`.
+    - `native:install` added the `native:dev` script, a `post-update-cmd` hook, `config/nativephp.php`, and the
+      provider, which is now `PryTax\Providers\NativeAppServiceProvider`.
+    - The answers are under "Spike results" in the plan. In short: the bundled PHP 8.5 runs PryTax (76 responses
+      identical to MySQL; PDF, backup and export work); it has no pcntl or xmlwriter, so PHPUnit can't run on it.
+      Port 8100. Storage and the database live in Electron's userData. `.env` is bundled with its `APP_KEY`.
+      Electron runs `schedule:run` every minute. NativePHP swaps in its own `nativephp` connection without
+      `IMMEDIATE`.
+    - **The window hasn't booted yet:** Chromium's `chrome-sandbox` needs root ownership and mode 4755 (sudo), or
+      `ELECTRON_DISABLE_SANDBOX=1`, which the tool permissions denied me. Ask the user.
+    - Then build steps 2–9 of Phase 3.
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

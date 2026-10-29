@@ -108,6 +108,14 @@ Its departures are under "Status" in the plan.
     - The user's first desktop session registered, saved the recovery kit through the native dialog, created a ФОП and
       downloaded a backup zip through Electron's own handling. The other downloads (invoice PDF, Облік CSV, Книги PDF,
       the style preview) are still to check, and the `useDownload` layer is built only if one fails.
+    - **Відновити з архіву** (the user asked, 2026-10-29, on `feat/desktop`):
+      - `POST organization/backups/import` (`BackupController::handleImport`, `ImportBackupRequest`, the owners' new
+        `import` permission on backups) uploads a ФОП's backup archive. It takes an optional password (the importer
+        now opens AES archives), and `dry_run` tells whose it is and what it holds.
+      - The ФОП is imported as a NEW ФОП of the organization, never in place. One the organization has (by tax id) is
+        refused with a translated message; so are a run's bundle and a period's export.
+      - SPA: `BackupImportPage` (`/backups/import`), linked from Резервні копії.
+      - Rebuild the SPA, and sync the roles (the permission is new), before trying it in the window.
     - Next: the user's check of downloads and of the editor fixes in the window, then signing, the Windows and macOS
       builds (CI), and asking about merging `feat/desktop`.
 

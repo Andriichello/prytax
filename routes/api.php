@@ -30,6 +30,7 @@ use PryTax\Http\Controllers\ProfileController;
 use PryTax\Http\Controllers\ProfileSettingController;
 use PryTax\Http\Controllers\ProfileSignatureController;
 use PryTax\Http\Controllers\ProjectController;
+use PryTax\Http\Controllers\RecoveryKitController;
 use PryTax\Http\Controllers\RefundController;
 use PryTax\Http\Controllers\RegistrationController;
 use PryTax\Http\Controllers\TaxOpeningBalanceController;
@@ -78,6 +79,8 @@ Route::get('environment', [EnvironmentController::class, 'show'])->name('environ
 Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use ($crud, $all) {
     UserController::routes();
     NotificationController::routes();
+    // The desktop installation's recovery kit, for its owners
+    RecoveryKitController::routes();
 
     Route::middleware('organization')
         ->where(['id' => '[0-9]+', 'profile' => '[0-9]+', 'year' => '20[0-9]{2}', 'quarter' => '[1-4]'])

@@ -1,0 +1,79 @@
+# The desktop app's installers (APP-BUILDS-PLAN.md, phase 3, step 9): Linux (AppImage, deb), Windows (NSIS) and macOS
+# (dmg), unsigned for now. Run it by hand (Actions → Desktop builds → Run workflow) or by pushing a `desktop-v*` tag.
+#
+# api-core is private: the `API_CORE_TOKEN` secret is a fine-grained token, which may read Andriichello/api-core.
+# PryTax takes it from the path repository `../api-core`, so it's checked out beside PryTax.
+name: Desktop builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['desktop-v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, os: linux, arch: x64 }
+          - { runner: windows-latest, os: win, arch: x64 }
+          - { runner: macos-latest, os: mac, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: prytax
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: prytax
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Andriichello/api-core
+          ref: dev
+          path: api-core
+          token: ${{ secrets.API_CORE_TOKEN }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_sqlite, zip, gd, bcmath, intl, mbstring, fileinfo
+          tools: composer:v2
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: prytax/package-lock.json
+
+      - name: PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: The SPA's dependencies
+        run: npm ci
+
+      # The build bundles a cleaned copy of it: no key (each installation makes its own), registration on
+      - name: The bundle's .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: NativePHP's Electron
+        run: php artisan native:install --force --no-interaction
+
+      - name: Build
+        run: php artisan native:build ${{ matrix.os }} ${{ matrix.arch }} --no-interaction
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prytax-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            prytax/nativephp/electron/dist/*.AppImage
+            prytax/nativephp/electron/dist/*.deb
+            prytax/nativephp/electron/dist/*.exe
+            prytax/nativephp/electron/dist/*.dmg
+          if-no-files-found: error

@@ -59,6 +59,27 @@ class InstallationKey
     }
 
     /**
+     * Replace the key with a recovery kit's, for the database restored with it.
+     *
+     * @param string $key
+     *
+     * @return void
+     */
+    public function replace(string $key): void
+    {
+        $temporary = tempnam(dirname($this->path()), 'key');
+        file_put_contents($temporary, $key);
+        chmod($temporary, 0600);
+
+        // Windows renames over no existing file
+        if (PHP_OS_FAMILY === 'Windows' && is_file($this->path())) {
+            unlink($this->path());
+        }
+
+        rename($temporary, $this->path());
+    }
+
+    /**
      * Get when the owner kept the recovery kit, or null, until they do.
      *
      * @return CarbonImmutable|null

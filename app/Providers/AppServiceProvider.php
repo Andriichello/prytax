@@ -44,6 +44,7 @@ use PryTax\Models\TaxPaymentRequisite;
 use PryTax\Models\TaxPeriod;
 use PryTax\Models\TaxRule;
 use PryTax\Models\TransferAllocation;
+use PryTax\Services\Desktop\DatabaseRestore;
 use PryTax\Services\Desktop\InstallationKey;
 use PryTax\Services\Desktop\RecoveryKit;
 
@@ -102,6 +103,7 @@ class AppServiceProvider extends ServiceProvider
         // The desktop installation's own key and its recovery kit, beside its database
         $this->app->singleton(InstallationKey::class, fn () => new InstallationKey((string) Desktop::databasePath()));
         $this->app->singleton(RecoveryKit::class, fn ($app) => new RecoveryKit($app->make(InstallationKey::class), (string) Desktop::databasePath()));
+        $this->app->singleton(DatabaseRestore::class, fn ($app) => new DatabaseRestore($app->make(InstallationKey::class), (string) Desktop::databasePath()));
 
         // The desktop app (APP-BUILDS-PLAN.md, phase 3): NativePHP runs it in a window of its own on 127.0.0.1
         if (Desktop::isRunning()) {

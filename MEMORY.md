@@ -95,8 +95,21 @@ Its departures are under "Status" in the plan.
     - Development quirks are in the plan: run `native:migrate` once after the first boot; the `native:*` database
       commands need `CACHE_STORE=file`.
     - Verify the `PreventRegularBrowserAccess` 403 in a production build.
-    - Next: steps 5–9 (per-install key and recovery kit, setup and restore, catching up, native downloads,
-      builds).
+    - Later on 2026-10-29 (`feat/desktop`, `dev` merged in twice: registration, then the editor fixes), the rest of
+      Phase 3 was built. The plan's "Built so far" and step 9 list it:
+      - the window and the bundle's settings;
+      - the per-install key and the required recovery kit (Набір відновлення);
+      - restore from the kit and an old database;
+      - catching up on launch (`FetchRatesJob`);
+      - the roles synced after NativePHP's migrations (registration failed without roles);
+      - the guard against other clients, which NativePHP broke;
+      - a Linux AppImage and deb;
+      - the CI workflow (needs the `API_CORE_TOKEN` secret, untested).
+    - The user's first desktop session registered, saved the recovery kit through the native dialog, created a ФОП and
+      downloaded a backup zip through Electron's own handling. The other downloads (invoice PDF, Облік CSV, Книги PDF,
+      the style preview) are still to check, and the `useDownload` layer is built only if one fails.
+    - Next: the user's check of downloads and of the editor fixes in the window, then signing, the Windows and macOS
+      builds (CI), and asking about merging `feat/desktop`.
 
 **Registration** (2026-10-29, branch `feat/registration`; the user asked, so `dev` was fast-forwarded to it, d2b0aed; not `main`, not pushed). The user asked for a way to register
 a new organization from the sign-in screen, and chose:

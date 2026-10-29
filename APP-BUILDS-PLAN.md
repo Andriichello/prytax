@@ -199,7 +199,26 @@ databases that already exist are unaffected.
   30 minutes for up to 12 hours, and `schedule-tax-periods` and `sync-alerts`. Backups catch up by themselves.
 - **Step 8.** The user's first session saved a backup zip through Electron's own download handling, with no code of
   ours. The other downloads are still to be checked; the `useDownload` layer is built only if one of them fails.
-- **Step 9 (builds)** remains.
+- **Step 9 (builds).**
+  - `php artisan native:build linux x64` makes `nativephp/electron/dist/PryTax-0.1.0.AppImage` (161 MB) and
+    `prytax_0.1.0_amd64.deb` (123 MB). Run it with Node 24 on the PATH, and with a `php` that is 8.5, for the build's
+    own `composer install --no-dev`.
+  - The build copies the app with symlinks followed: api-core arrives as a real folder, without its `vendor/`, `.git`,
+    `node_modules` and `storage` (excluded), and that `composer install` only removes the dev packages. `npm run
+    build` runs first (`prebuild`).
+  - **Bundle checked:** the `.env` is cleaned (no `APP_KEY`, `DB_*`, `MAIL_*`, `SANCTUM_*`). No database, key, kit
+    record or `storage/app` is shipped; storage is the skeleton and the PDF fonts.
+  - **First launch checked without Electron** (the bundle's PHP, Electron's production variables, a stub of its API):
+    `migrate` ran 61 migrations, the roles were synced, and a fresh key (0600), not the development one, was made.
+  - **The guard against other clients was broken:** `PreventRegularBrowserAccess` answered 200 without the window's
+    secret. NativePHP pushes it onto a kernel it makes itself (`make(Foundation\Http\Kernel::class)`). The app's
+    kernel now prepends it under NativePHP: 403 without the secret, 200 with its header (which Electron adds to the
+    window's every request) or cookie; a cross-site form POST to registration is a 403.
+  - **CI:** `.github/workflows/desktop.yml` builds Linux, Windows and macOS (unsigned), by hand or on a
+    `desktop-v*` tag. It checks api-core out beside PryTax with the `API_CORE_TOKEN` secret (api-core is private).
+    Untested until it's pushed and the secret is set.
+  - **Running the AppImage on Ubuntu 24.04+** needs `--no-sandbox` (its `chrome-sandbox` can't be setuid inside the
+    image); the `.deb` installs it properly. Signing (macOS notarization, Windows) needs certificates.
 
 **Spike results** (2026-10-29). `nativephp/desktop` 2.4.0 is installed: the user ran the require, then I pinned it to
 `^2.4`. `native:install` added `native:dev` and a `post-update-cmd` hook to `composer.json`, `config/nativephp.php` and

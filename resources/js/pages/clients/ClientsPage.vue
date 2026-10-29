@@ -7,6 +7,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -71,7 +72,11 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
 </script>
 
 <template>
-    <SubScreen :title="isDesktop ? t('core.common.clients') : ''" :muted="!isDesktop" width="list" :back="{ name: 'more' }">
+    <SubScreen :title="isDesktop ? t('core.common.clients') : ''" :muted="!isDesktop" :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.clients')" :accordion="false" />
+        </template>
+
         <template v-if="isDesktop && can('create', 'clients')" #action>
             <NewPill :to="{ name: 'client-new' }" />
         </template>

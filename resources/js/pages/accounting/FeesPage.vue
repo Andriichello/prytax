@@ -9,6 +9,7 @@ import SubScreen from '@/components/layout/SubScreen.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -74,6 +75,10 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
 
 <template>
     <SubScreen title="" muted :back="{ name: 'more' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.fees')" :accordion="false" />
+        </template>
+
         <div class="-mt-1 flex flex-col gap-1">
             <div class="flex items-center justify-between gap-3">
                 <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ t('money.transfers.fees') }}</h1>

@@ -11,6 +11,7 @@ import NewPill from '@/components/ui/NewPill.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useLoader } from '@/composables/useLoader';
@@ -133,9 +134,11 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
         :title="isDesktop ? t('settings.users.users') : ''"
         :muted="!isDesktop"
         :subtitle="isDesktop ? t('settings.users.accessNote') : undefined"
-        width="list"
         :back="{ name: 'more' }"
     >
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.users')" :accordion="false" />
+        </template>
         <template v-if="isDesktop && can('create', 'users')" #action>
             <NewPill :label="t('settings.users.invite')" @click="open(null)" />
         </template>

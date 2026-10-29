@@ -10,6 +10,7 @@ import InfiniteSentinel from '@/components/ui/InfiniteSentinel.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import NewPill from '@/components/ui/NewPill.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -71,9 +72,11 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
         :title="isDesktop ? t('money.transfers.title') : ''"
         :muted="!isDesktop"
         :subtitle="isDesktop ? t('money.transfers.intro') : undefined"
-        width="list"
         :back="{ name: 'more' }"
     >
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.transfers')" :accordion="false" />
+        </template>
         <template v-if="isDesktop && can('create', 'account-transfers')" #action>
             <NewPill :to="{ name: 'transfer-new' }" />
         </template>

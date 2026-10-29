@@ -36,11 +36,13 @@ const { can, user } = useSession();
 const { profiles, profile } = useCurrentProfile();
 const { isDesktop } = useBreakpoint();
 
-// In the desktop app, its owner reaches the installation's recovery kit here
+// In the desktop app, its owner reaches the installation's recovery kit here, and the note says what this computer keeps
+const desktopApp = ref(false);
 const showsRecoveryKit = ref(false);
 
 onMounted(async () => {
-    showsRecoveryKit.value = (user.value?.roles.includes('owner') ?? false) && (await useDesktopApp().isDesktopApp());
+    desktopApp.value = await useDesktopApp().isDesktopApp();
+    showsRecoveryKit.value = desktopApp.value && (user.value?.roles.includes('owner') ?? false);
 });
 
 const canRun = computed(() => can('create', 'backup-runs'));
@@ -257,7 +259,7 @@ const previousOf = (profileId: number): string | null => {
 </script>
 
 <template>
-    <SubScreen :title="t('settings.backups.title')" :back="{ name: 'more' }" :width="isDesktop ? 'list' : 'column'">
+    <SubScreen :title="t('settings.backups.title')" :back="{ name: 'more' }">
         <template v-if="isDesktop && canRun" #action>
             <SecondaryButton class="h-11! w-auto! px-4! text-15!" :disabled="!bundleRun" @click="prepareBundle(bundleRun)">
                 <Icon name="download" :size="18" /> {{ t('settings.backups.allZip') }}
@@ -267,7 +269,7 @@ const previousOf = (profileId: number): string | null => {
 
         <template v-if="isDesktop" #aside>
             <h2 class="m-0 text-14 font-semibold">{{ t('settings.sideNotes.howItWorks') }}</h2>
-            <p class="m-0 text-13 leading-[1.5] text-ink-2">{{ t('settings.backups.sideNote') }}</p>
+            <p class="m-0 text-13 leading-[1.5] text-ink-2">{{ desktopApp ? t('settings.backups.sideNoteDesktop') : t('settings.backups.sideNote') }}</p>
             <RouterLink :to="{ name: 'backup-policy' }" class="text-13 font-medium no-underline">{{ t('settings.backups.policy') }} ›</RouterLink>
         </template>
 

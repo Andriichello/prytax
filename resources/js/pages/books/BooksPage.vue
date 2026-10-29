@@ -15,6 +15,7 @@ import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
@@ -96,7 +97,11 @@ function chooseYear(event: Event): void {
 </script>
 
 <template>
-    <SubScreen :title="t('accounting.books.title')" :subtitle="subtitle" :back="{ name: 'home' }" :width="isDesktop ? 'full' : 'column'">
+    <SubScreen :title="t('accounting.books.title')" :subtitle="subtitle" :back="{ name: 'home' }">
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.books')" :accordion="false" />
+        </template>
+
         <template #action>
             <label class="relative mr-2 flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-line-input bg-surface pr-3 pl-3.5 text-15 font-medium">
                 <Icon name="calendar" :size="18" />

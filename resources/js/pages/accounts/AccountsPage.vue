@@ -8,6 +8,7 @@ import NewPill from '@/components/ui/NewPill.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SideNote from '@/components/ui/SideNote.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
@@ -83,9 +84,11 @@ function caption(account: Account): string {
         :title="isDesktop ? t('money.accounts.title') : ''"
         :muted="!isDesktop"
         :subtitle="isDesktop ? t('money.accounts.balancesNote') : undefined"
-        width="full"
         :back="{ name: 'more' }"
     >
+        <template #aside>
+            <SideNote :text="t('settings.sideNotes.accounts')" :accordion="false" />
+        </template>
         <template v-if="isDesktop && can('create', 'accounts')" #action>
             <NewPill :to="{ name: 'account-new' }" />
         </template>
@@ -107,8 +110,7 @@ function caption(account: Account): string {
                 </RouterLink>
             </EmptyState>
 
-            <div :class="isDesktop ? 'columns-2 gap-5' : 'contents'">
-            <section v-for="group in groups" :key="group.kind" class="flex break-inside-avoid flex-col gap-2" :class="isDesktop ? 'mb-5' : ''" :aria-label="ACCOUNT_KINDS[group.kind].group">
+            <section v-for="group in groups" :key="group.kind" class="flex flex-col gap-2" :aria-label="ACCOUNT_KINDS[group.kind].group">
                 <SectionTitle>{{ ACCOUNT_KINDS[group.kind].group }}</SectionTitle>
                 <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
                     <RouterLink
@@ -146,7 +148,6 @@ function caption(account: Account): string {
                     </RouterLink>
                 </div>
             </section>
-            </div>
         </LoadState>
     </SubScreen>
 </template>

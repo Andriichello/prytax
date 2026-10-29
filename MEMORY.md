@@ -1,6 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
+Status as of 2026-10-29: **Docker (phase 1 of `APP-BUILDS-PLAN.md`) is built on branch `feat/docker`**, not merged, not
+pushed (see "App builds"); SQLite and the NativePHP desktop app come next. As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
 fast-forwarded to `feat/backups-ui` (9daa066) when the user asked, and **pushed by the user** (`origin` = 335dcda; see
 "Handoffs of 2026-10-28").
 They were built on stacked branches, delta 3 (`feat/minimal-delta-3`, from `dev` after `feat/backups` was merged) →
@@ -14,6 +15,47 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## App builds (2026-10-29, `APP-BUILDS-PLAN.md`; phase 1 on branch `feat/docker`, not merged, not pushed)
+
+The user asked how PryTax could run as a cross-platform desktop app, and for Docker for the web. The plan, written
+down at their request in `APP-BUILDS-PLAN.md` (repo root), has three phases: (1) Docker, (2) SQLite support, (3) a
+desktop app with NativePHP. The user chose NativePHP, a first-run setup screen and that order, and reviewed the plan:
+a required recovery kit for the desktop `APP_KEY`, rates retried when offline, FrankenPHP in classic mode, and native
+save dialogs. I added a "Restore on a new machine" flow. The audits behind it are summarised in the plan's "What the
+audits found".
+
+**Phase 1 (Docker) is built and checked** on `feat/docker`. Its departures are under "Status" in the plan.
+- **Files:**
+  - `Dockerfile`: node:24 assets, then Composer in the PHP 8.5 stage (`dunglas/frankenphp:1-php8.5` plus pdo_mysql,
+    pdo_sqlite, zip, gd, pcntl, bcmath, opcache), then the app.
+  - `docker/Caddyfile`: classic mode.
+  - `docker/php.ini`, `docker/entrypoint.sh`.
+  - `compose.yaml`: app, worker and scheduler, plus a `mysql` profile.
+  - `.env.docker.example`, `.dockerignore`.
+  - README's "Running with Docker".
+  - Opt-in `TRUSTED_PROXIES` in `bootstrap/app.php`.
+- **First owner:** `prytax:create-owner` on `PryTax\Services\Setup\InstallationSetup`, which Phase 3's `/api/setup`
+  will reuse.
+- **api-core in builds:** `composer.lock` pins the path repository's symlink, so `COMPOSER_MIRROR_PATH_REPOS` doesn't
+  work. The build replaces the link in `vendor/` with a copy, and the desktop builds must do the same.
+- **Checked:**
+  - **With the `mysql` profile:** migrations and seeding, `create-owner` (through `script` for a terminal), a session
+    login as the SPA does it, `DemoSeeder`, an invoice PDF, a manual backup finished by the worker, the scheduler's
+    11 tasks, and the login page in headless Chrome.
+  - **Without the profile,** against a MySQL on the host through `host.docker.internal`.
+  - **`TRUSTED_PROXIES`:** `https` asset links only when it is set.
+- **Local setup for these checks:**
+  - The local `.env.docker` (git-ignored) holds a generated key and DB password. The stack's volumes `prytax_mysql`
+    and `prytax_storage` keep the demo data: start it with `docker compose --env-file .env.docker --profile mysql up
+    -d`, sign in as olena@example.com / password at `http://localhost:8080`.
+  - The system MySQL wasn't running, so the tests ran against a throwaway container: `docker run -d --name
+    prytax-test-mysql -p 127.0.0.1:3307:3306 --tmpfs /var/lib/mysql -e MYSQL_ROOT_PASSWORD=secret -e
+    MYSQL_DATABASE=prytax_test mysql:8.4`, then `DB_PORT=3307 DB_USERNAME=root DB_PASSWORD=secret php8.5 artisan
+    test`.
+- **Next:**
+  - Ask about merging `feat/docker`.
+  - Then Phase 2 (SQLite) on `feat/sqlite`.
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

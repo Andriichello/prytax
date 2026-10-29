@@ -4,6 +4,7 @@ namespace Tests\Feature\Console\Commands;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -44,12 +45,14 @@ class VerifyDatabaseTest extends TestCase
     {
         $profile = $this->createProfile();
         $account = $this->createAccount($profile);
-        DB::statement('SET FOREIGN_KEY_CHECKS = 0');
-        DB::table('account_movements')->insert([
+        // SQLite can't turn the checks off inside the test's transaction, but defers them to its commit, which never comes
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('PRAGMA defer_foreign_keys = ON');
+        }
+        Schema::withoutForeignKeyConstraints(fn () => DB::table('account_movements')->insert([
             'profile_id' => $profile->id, 'account_id' => $account->id + 1000, 'direction' => 'in', 'amount' => '1.00',
             'booked_at' => '2026-10-01', 'category' => 'other',
-        ]);
-        DB::statement('SET FOREIGN_KEY_CHECKS = 1');
+        ]));
         DB::table('profiles')->where('id', $profile->id)->update(['tax_id' => 'not a ciphertext']);
 
         $this->artisan('prytax:verify-db')

@@ -21,7 +21,8 @@ tables.
 
 - PHP 8.5 with the `pdo_mysql` and `fileinfo` extensions, and Composer.
 - MySQL 8.0.13 or newer, for both the application and its tests (the schema uses generated columns, `CHECK`s and
-  indexes over expressions). MariaDB isn't supported.
+  indexes over expressions). MariaDB isn't supported. SQLite 3.38 or newer works too (the desktop app's database, see
+  `APP-BUILDS-PLAN.md`): `PryTax\Helpers\Sql` and `CheckConstraint` write what the two say differently.
 - api-core checked out next to this repository, in `../api-core`: Composer symlinks it from there (see below).
 - Node 20.19 or newer, for the frontend's Vite 8.
 
@@ -163,7 +164,7 @@ php artisan test
 ```
 
 The tests run on the MySQL database `prytax_test` (set in `phpunit.xml`), with the credentials from `.env`, and
-refresh it on every run. Format the code with `vendor/bin/pint`, whose `pint.json` is api-core's house style.
+refresh it on every run. `composer test:sqlite` runs them on SQLite, in memory; both must pass. Format the code with `vendor/bin/pint`, whose `pint.json` is api-core's house style.
 
 ### AI agents
 

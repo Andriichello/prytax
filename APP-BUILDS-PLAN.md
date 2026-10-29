@@ -107,6 +107,33 @@ The SPA uses relative URLs only (`resources/js/api/client.ts:42`) and logs in wi
 Goal: the full suite passes on both MySQL and SQLite. On MySQL the generated SQL must stay byte-identical, so
 databases that already exist are unaffected.
 
+**Status: built and checked** (2026-10-29). The departures from the plan below:
+- **Floats in `Decimal`.** PHP coerces a float passed to an `int|string` parameter into an int, so `3892.5` becomes
+  `3892`.
+  - SQLite returns decimals as floats, so `Invoice::$paid_amount`, client stats and alerts lost their kopecks.
+  - `Decimal` and `MoneyFormatter` now take floats and read them to six places.
+- **Error checks.** `Sql::violatesUnique()` (MySQL names the index, SQLite lists its columns) and
+  `Sql::restrictsDelete()` (MySQL's 1451, SQLite's `FOREIGN KEY constraint failed`) replace the MySQL-only checks in
+  `InvoiceFreezer`, `InvoiceWriter` and `TenantRepository`.
+- **The DataLifecycle engine stays self-contained.** Its driver switches are its own, not `PryTax\Helpers\Sql`.
+  - `SchemaInspector` keeps its single `information_schema` query on MySQL and uses the schema builder on SQLite.
+  - SQLite declares JSON columns as `text`, so its archives keep JSON as stored, without compacting it.
+  - `Values::export` is unchanged. A column's scale isn't known on SQLite, and the manifest's checks are now
+    fixed-scale strings, which is what lets archives move between the drivers.
+- **`LIKE` is replaced too, not just `LOWER`/`UPPER`.** api-core's plain `like` filters ignore case on MySQL, so they
+  do on SQLite now as well. A connector bound in `AppServiceProvider` registers the functions on every SQLite PDO,
+  reconnections included.
+- **The accounting view's invoices** are ordered by id. MySQL returned them in that order by chance; SQLite doesn't.
+- **Dates** are stored as `Y-m-d` on SQLite as well (checked), so date comparisons behave as on MySQL.
+- **Checked:**
+  - The demo practice was seeded into both databases, and 76 report responses (Облік, Податки, the books, ЄСВ, fees,
+    declarations, invoices, payments, accounts, clients; four ФОП) are identical.
+  - On SQLite:
+    - The screens render in uk and en.
+    - An invoice PDF downloads.
+    - A manual backup and a period export complete through a queue worker.
+    - Cyrillic `like` filters ignore case.
+
 1. **New `PryTax\Helpers\Sql`** (next to `Decimal`, `DocumentDate`). It returns driver-specific expressions: `year()`,
    `quarter()` and `month()` (`YEAR(x)` vs `CAST(strftime('%Y', x) AS INTEGER)`) and `concat()` (`CONCAT` vs `||`).
    It uses `CASE` instead of `IF`, so the app doesn't depend on SQLite 3.44 or 3.48 functions.

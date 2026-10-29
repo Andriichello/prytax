@@ -1,7 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-29: **Docker (phase 1 of `APP-BUILDS-PLAN.md`) is built on branch `feat/docker`**, not merged, not
-pushed (see "App builds"); SQLite and the NativePHP desktop app come next. As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
+Status as of 2026-10-29: **Docker and SQLite (phases 1 and 2 of `APP-BUILDS-PLAN.md`) are built on branches `feat/docker` → `feat/sqlite`**, not merged, not
+pushed (see "App builds"); the NativePHP desktop app comes next. As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
 fast-forwarded to `feat/backups-ui` (9daa066) when the user asked, and **pushed by the user** (`origin` = 335dcda; see
 "Handoffs of 2026-10-28").
 They were built on stacked branches, delta 3 (`feat/minimal-delta-3`, from `dev` after `feat/backups` was merged) →
@@ -16,7 +16,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## App builds (2026-10-29, `APP-BUILDS-PLAN.md`; phase 1 on branch `feat/docker`, not merged, not pushed)
+## App builds (2026-10-29, `APP-BUILDS-PLAN.md`; phases 1–2 on `feat/docker` → `feat/sqlite`, not merged, not pushed)
 
 The user asked how PryTax could run as a cross-platform desktop app, and for Docker for the web. The plan, written
 down at their request in `APP-BUILDS-PLAN.md` (repo root), has three phases: (1) Docker, (2) SQLite support, (3) a
@@ -53,9 +53,30 @@ audits found".
     prytax-test-mysql -p 127.0.0.1:3307:3306 --tmpfs /var/lib/mysql -e MYSQL_ROOT_PASSWORD=secret -e
     MYSQL_DATABASE=prytax_test mysql:8.4`, then `DB_PORT=3307 DB_USERNAME=root DB_PASSWORD=secret php8.5 artisan
     test`.
+**Phase 2 (SQLite) is built and checked** on `feat/sqlite`, stacked on `feat/docker`; neither is merged or pushed.
+Its departures are under "Status" in the plan.
+- **New helpers:**
+  - `PryTax\Helpers\Sql`: year, quarter, month, when, concat, `violatesUnique()`, `restrictsDelete()`.
+  - `CheckConstraint`: a CHECK on MySQL, two triggers on SQLite.
+  - `SqliteFunctions`: Unicode-aware `LOWER`, `UPPER` and `LIKE`, registered by a connector bound in
+    `AppServiceProvider`.
+- **Migrations:** the seven that used MySQL-only SQL now go through the helpers. On MySQL they produce the same SQL as
+  before.
+- **SQLite connection:** WAL, `busy_timeout` 5000, `IMMEDIATE` transactions.
+- **Backup engine:** the snapshot is `BEGIN DEFERRED` on SQLite, `SchemaInspector` uses the schema builder there, and
+  the archive checks are fixed-scale strings.
+- **Floats:** `Decimal` and `MoneyFormatter` take floats, which PHP otherwise truncates to an int in `int|string`
+  unions. That was a real bug on SQLite.
+- **Tests:** `composer test:sqlite` runs the suite in memory. MySQL is still the default (`composer test`), and both
+  must pass.
+- **Don't run two suites at once,** even on different databases: they share `storage/framework/testing/disks`, which
+  `Storage::fake()` wipes.
+- **Checked:** 76 report responses are identical between the Docker MySQL demo and a SQLite demo. Screens, a PDF, a
+  backup and a period export work on SQLite.
 - **Next:**
-  - Ask about merging `feat/docker`.
-  - Then Phase 2 (SQLite) on `feat/sqlite`.
+  - Ask about merging `feat/docker` and `feat/sqlite`.
+  - Then Phase 3, the NativePHP desktop app, starting with its spike (`composer require nativephp/desktop`, approved
+    with the plan).
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

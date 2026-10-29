@@ -1,7 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-29: **Docker and SQLite (phases 1 and 2 of `APP-BUILDS-PLAN.md`) are merged into `dev`** (fast-forward to
-`feat/sqlite`, the user asked; not `main`, not pushed; see "App builds"); the NativePHP desktop app comes next. As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
+Status as of 2026-10-30: **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is built on `feat/desktop`**, 42
+commits ahead of `dev` (767663c), not merged, not pushed; with it, the user's feedback from the desktop window
+(compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes). Last runs: 545 tests on MySQL and on
+SQLite, 719 SPA tests. See "App builds" → "Layout and numbering" and "Open on `feat/desktop`". As of 2026-10-29:
+**Docker and SQLite (phases 1 and 2) are merged into `dev`** (fast-forward to `feat/sqlite`, the user asked; not
+`main`, not pushed; see "App builds"). As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
 fast-forwarded to `feat/backups-ui` (9daa066) when the user asked, and **pushed by the user** (`origin` = 335dcda; see
 "Handoffs of 2026-10-28").
 They were built on stacked branches, delta 3 (`feat/minimal-delta-3`, from `dev` after `feat/backups` was merged) →
@@ -16,7 +20,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## App builds (2026-10-29, `APP-BUILDS-PLAN.md`; phases 1–2 merged into `dev`, not `main`, not pushed)
+## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`; phases 1–2 merged into `dev`, not `main`, not pushed; phase 3 on `feat/desktop`, not merged)
 
 The user asked how PryTax could run as a cross-platform desktop app, and for Docker for the web. The plan, written
 down at their request in `APP-BUILDS-PLAN.md` (repo root), has three phases: (1) Docker, (2) SQLite support, (3) a
@@ -134,8 +138,26 @@ Its departures are under "Status" in the plan.
         Книги's income PDF stands top right in an empty year too; the kit shows the time it was kept.
       - To drive the dev window from scripts: run `native:run` with `REMOTE_DEBUGGING_PORT=9333`; `act.mjs` takes
         `CDP`, `BASE`, `NO_EMULATION` and the `clear-emulation`, `type` and `key` steps.
-    - Next: the user's check of downloads and of the editor fixes in the window, then signing, the Windows and macOS
-      builds (CI), and asking about merging `feat/desktop`.
+    - **Running the desktop app in development:**
+      - `chrome-sandbox` (`vendor/nativephp/desktop/resources/electron/node_modules/electron/dist/`) must be owned by
+        root with mode 4755; the user runs `sudo chown root:root … && sudo chmod 4755 …` (both), again after every
+        `npm install` or `native:build` of NativePHP's Electron. Bypassing the sandbox is denied to me.
+      - Run: `PATH=<dir with php → php8.5>:~/.nvm/versions/node/v24.21.0/bin:$PATH php8.5 artisan native:run
+        --no-dependencies` (add `REMOTE_DEBUGGING_PORT=9333` to drive it). The `php` symlink dir was
+        `/tmp/prytax-php85-bin`, which doesn't survive a reboot: `mkdir -p /tmp/prytax-php85-bin && ln -sf
+        /usr/bin/php8.5 /tmp/prytax-php85-bin/php`. Its database is `database/nativephp.sqlite` (the user's «Особиста»
+        and the demo «Практика Коваленко», olena@example.com / password), its storage `~/.config/prytax-dev/storage`.
+      - After SPA changes, `npm run build` and Ctrl+R in the window; PHP changes to providers or jobs need a restart
+        (the queue worker keeps its code). DevTools may be docked in the window, which leaves the page ~150 px wide.
+      - Build: the same PATH, `php8.5 artisan native:build linux x64` → `nativephp/electron/dist/` (AppImage, deb).
+    - **Open on `feat/desktop`** (as of 2026-10-30):
+      - The user's check in the window: the downloads (invoice PDF, Облік CSV, Книги PDF, backup zip; the style
+        preview now renders), the new-invoice flow and «Змінити»; the `useDownload` layer only if a download fails.
+      - Not changed yet: mobile «Ще» still lists Users and Backups under Settings (only the sidebar has «Керування»);
+        `docs/specs/design.md` §17.1 still says the desktop layout starts at 1024 px.
+      - Asked earlier, no answer: narrow Головна, Інвойси, Облік and Податки to a column like the other pages?
+      - Later: signing, the Windows and macOS builds (CI, needs the `API_CORE_TOKEN` secret), then asking about
+        merging `feat/desktop` into `dev` (and pushing, only when asked).
 
 **Registration** (2026-10-29, branch `feat/registration`; the user asked, so `dev` was fast-forwarded to it, d2b0aed; not `main`, not pushed). The user asked for a way to register
 a new organization from the sign-in screen, and chose:

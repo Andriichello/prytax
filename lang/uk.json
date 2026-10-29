@@ -43,6 +43,7 @@
     "An FX gain follows its transfer, so it is deleted with the transfer.": "Курсовий дохід видаляється разом із переказом.",
     "An FX gain isn't client money, so it isn't refunded.": "Курсовий дохід не є коштами клієнта, його не повертають.",
     "Another invoice has the number :number already.": "Інвойс з номером :number уже є.",
+    "Another invoice has the counter :number already.": "Лічильник :number уже має інший інвойс.",
     "An account with this e-mail exists already. Sign in instead.": "Обліковий запис із цією e-mail уже є. Увійдіть натомість.",
     "Another invoice has this number already.": "Інвойс з таким номером уже є.",
     "Another ФОП of the organization has this tax id.": "Інший ФОП організації вже має цей податковий номер.",

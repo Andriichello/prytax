@@ -230,6 +230,100 @@ class InvoiceNumberGeneratorTest extends TestCase
     }
 
     /**
+     * Test that a draft numbered with the counter the user chose previews and freezes with it, and the counter goes on
+     * after it.
+     *
+     * @return void
+     */
+    public function testNumbersADraftWithTheCounterTheUserChoseAndContinuesAfterIt(): void
+    {
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+        $brightline = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+
+        $draft = $this->draftFor($profile, $account, $brightline, ['sequence_number' => 20]);
+        $preview = $this->inProfile($profile, fn () => app(InvoiceNumberGenerator::class)->preview($profile, $draft));
+        $chosen = $this->inProfile($profile, fn () => app(InvoiceFreezer::class)->freeze($profile, $draft));
+        $next = $this->freezeFor($profile, $account, $brightline);
+
+        $this->assertSame('BL-2026-10-31-20', $preview);
+        $this->assertSame('BL-2026-10-31-20', $chosen->number);
+        $this->assertSame('BL-2026-09-30-21', $next->number);
+    }
+
+    /**
+     * Test that a counter another invoice holds can't be chosen, and that the next number skips one a draft chose.
+     *
+     * @return void
+     */
+    public function testRefusesACounterAnotherInvoiceHoldsAndSkipsOneADraftChose(): void
+    {
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+        $brightline = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $this->freezeFor($profile, $account, $brightline);
+        $this->draftFor($profile, $account, $brightline, ['sequence_number' => 2]);
+
+        try {
+            $this->draftFor($profile, $account, $brightline, ['sequence_number' => 1]);
+            $this->fail('A counter another invoice holds was chosen.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(['Another invoice has the counter 1 already.'], $exception->errors()['sequence_number']);
+        }
+
+        $this->assertSame('BL-2026-09-30-3', $this->freezeFor($profile, $account, $brightline)->number);
+    }
+
+    /**
+     * Test that null gives a chosen counter back to the generator, while a draft frozen before keeps the one it got.
+     *
+     * @return void
+     */
+    public function testGivesAChosenCounterBackButKeepsTheOneOfADraftFrozenBefore(): void
+    {
+        $profile = $this->createProfile();
+        $account = $this->createAccount($profile);
+        $brightline = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $frozen = $this->freezeFor($profile, $account, $brightline);
+
+        [$chosen, $unfrozen] = $this->inProfile($profile, function () use ($profile, $account, $brightline, $frozen) {
+            $writer = app(InvoiceWriter::class);
+            $chosen = $writer->update($profile, $this->draftFor($profile, $account, $brightline, ['sequence_number' => 20]), ['sequence_number' => null]);
+            $unfrozen = $writer->update($profile, app(InvoiceFreezer::class)->unfreeze($profile, $frozen), ['sequence_number' => null]);
+
+            return [$chosen->append('number_preview')->toArray(), $unfrozen->append('number_preview')->toArray()];
+        });
+
+        $this->assertNull($chosen['sequence_number']);
+        $this->assertSame('BL-2026-10-31-2', $chosen['number_preview']);
+        $this->assertSame(1, $unfrozen['sequence_number']);
+        $this->assertSame('BL-2026-09-30-1', $unfrozen['number_preview']);
+    }
+
+    /**
+     * Create a draft of the client and contract for the second half of October 2026.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     * @param array $client The client and its contract, as `createClientWithContract()` returns them.
+     * @param array $data
+     *
+     * @return Invoice
+     */
+    private function draftFor(Profile $profile, Account $account, array $client, array $data = []): Invoice
+    {
+        return $this->inProfile($profile, fn () => app(InvoiceWriter::class)->create($profile, [
+            'client_id' => $client[0]->id,
+            'contract_id' => $client[1]->id,
+            'receiving_account_id' => $account->id,
+            'period_start' => '2026-10-15',
+            'period_end' => '2026-10-31',
+            'items' => [['quantity' => '1', 'unit_price' => '100.00', 'description' => 'Work']],
+            ...$data,
+        ]));
+    }
+
+    /**
      * Freeze an invoice of the client and contract, with the defaults of `createFrozenInvoice()` otherwise.
      *
      * @param Profile $profile

@@ -22,9 +22,10 @@ use PryTax\Models\Profile;
  * `BL-2026-10-14-13` (Brightline Labs' invoice 13, for the period ending on 14 October), or `{n}`, each with the
  * client's abbreviation in front or without it. The counter is per client (by default) or one per profile, restarting
  * never or yearly; counters are api-core sequences of the profile, keyed by the client's id (so a changed abbreviation
- * keeps its counter), allocated under a row lock within the freeze's transaction. A draft only previews its number. A
- * re-freeze rebuilds a generated number's abbreviation and date with the same `{n}`, unless the counter's scope
- * changed; a number the user typed is never touched.
+ * keeps its counter), allocated under a row lock within the freeze's transaction. A draft only previews its number, or
+ * holds the counter the user chose for it (`{n}` of the format), which no other invoice may hold and which the freeze
+ * moves the counter past. A re-freeze rebuilds a generated number's abbreviation and date with the same `{n}`, unless
+ * the counter's scope changed; a number the user typed is never touched.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Invoices
@@ -149,17 +150,26 @@ class InvoiceNumberGenerator
             return $this->format($profile, $invoice, $invoice->sequence_number);
         }
 
-        return $this->format($profile, $invoice, Sequence::peek($profile, self::KEY_PREFIX . $scope));
+        $next = Sequence::peek($profile, self::KEY_PREFIX . $scope);
+
+        // The next number skips the counters drafts chose, as the freeze does
+        while ($this->holderOf($profile, $scope, $next, $invoice) !== null) {
+            $next++;
+        }
+
+        return $this->format($profile, $invoice, $next);
     }
 
     /**
      * Give the invoice its number, within the caller's transaction: keep a typed one, rebuild a generated one with
-     * its `{n}` when its scope is the same, or else allocate the next one of the scope (the old one stays a gap).
+     * its `{n}` when its scope is the same, or else allocate the next one of the scope (the old one stays a gap). The
+     * next one skips the counters drafts chose, and a chosen one ahead of the counter moves the counter past it.
      *
      * @param Profile $profile
      * @param Invoice $invoice
      *
      * @return void
+     * @throws ValidationException
      */
     public function assign(Profile $profile, Invoice $invoice): void
     {
@@ -168,18 +178,66 @@ class InvoiceNumberGenerator
         }
 
         $scope = $this->scopeKey($profile, $invoice);
+        $key = self::KEY_PREFIX . $scope;
 
         // The client's abbreviation as it is now, rather than as the invoice was loaded with
         $invoice->load('client');
 
         if ($invoice->sequence_number === null || $invoice->sequence_scope_key !== $scope) {
-            $invoice->forceFill([
-                'sequence_scope_key' => $scope,
-                'sequence_number' => Sequence::next($profile, self::KEY_PREFIX . $scope),
-            ]);
+            do {
+                $next = Sequence::next($profile, $key);
+            } while ($this->holderOf($profile, $scope, $next, $invoice) !== null);
+
+            $invoice->forceFill(['sequence_scope_key' => $scope, 'sequence_number' => $next]);
+        } else {
+            $this->assertCounterFree($profile, $scope, $invoice->sequence_number, $invoice);
+
+            if ($invoice->sequence_number >= Sequence::peek($profile, $key)) {
+                Sequence::setNext($profile, $key, $invoice->sequence_number + 1);
+            }
         }
 
         $invoice->number = $this->format($profile, $invoice, $invoice->sequence_number);
+    }
+
+    /**
+     * Make sure no other invoice of the profile holds the counter's number, frozen or chosen for a draft, so no `{n}`
+     * is given twice.
+     *
+     * @param Profile $profile
+     * @param string $scope
+     * @param int $number
+     * @param Invoice $invoice
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    public function assertCounterFree(Profile $profile, string $scope, int $number, Invoice $invoice): void
+    {
+        if ($this->holderOf($profile, $scope, $number, $invoice) !== null) {
+            throw ValidationException::withMessages(['sequence_number' => [__('Another invoice has the counter :number already.', ['number' => $number])]]);
+        }
+    }
+
+    /**
+     * Get the other invoice of the profile, which holds the counter's number, if any.
+     *
+     * @param Profile $profile
+     * @param string $scope
+     * @param int $number
+     * @param Invoice $invoice
+     *
+     * @return Invoice|null
+     */
+    protected function holderOf(Profile $profile, string $scope, int $number, Invoice $invoice): ?Invoice
+    {
+        return Invoice::query()
+            ->withoutGlobalScope(Invoice::PROFILE_SCOPE)
+            ->where('profile_id', $profile->getKey())
+            ->where('sequence_scope_key', $scope)
+            ->where('sequence_number', $number)
+            ->when($invoice->exists, fn ($query) => $query->whereKeyNot($invoice->getKey()))
+            ->first(['id']);
     }
 
     /**

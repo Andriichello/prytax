@@ -57,7 +57,8 @@ class InvoiceWriter
      */
     public function __construct(
         protected AlertSync $alerts,
-        protected InvoiceSettingsResolver $settings
+        protected InvoiceSettingsResolver $settings,
+        protected InvoiceNumberGenerator $numbers
     ) {}
 
     /**
@@ -298,6 +299,8 @@ class InvoiceWriter
         // A typed number bypasses the generator
         if (array_key_exists('number', $data) && $data['number'] !== null && $data['number'] !== $invoice->getOriginal('number')) {
             $invoice->forceFill(['sequence_scope_key' => null, 'sequence_number' => null]);
+        } elseif ($source === InvoiceSource::Generated && array_key_exists('sequence_number', $data)) {
+            $this->chooseCounter($profile, $invoice, $data['sequence_number']);
         }
 
         try {
@@ -320,6 +323,39 @@ class InvoiceWriter
         $this->alerts->syncAfterCommit($profile);
 
         return $invoice->refresh()->load('items');
+    }
+
+    /**
+     * Number the generated draft with the counter the user chose (`{n}` of the format, in the counter of its client
+     * and dates), rather than the next one of the counter, which no other invoice of the counter may hold; or, with
+     * null, give a chosen counter back to the generator. A counter a draft got when it was frozen before stays.
+     *
+     * @param Profile $profile
+     * @param Invoice $invoice
+     * @param int|null $number
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function chooseCounter(Profile $profile, Invoice $invoice, ?int $number): void
+    {
+        if ($number === null) {
+            if ($invoice->number === null) {
+                $invoice->forceFill(['sequence_scope_key' => null, 'sequence_number' => null]);
+            }
+
+            return;
+        }
+
+        $scope = $this->numbers->scopeKey($profile, $invoice);
+
+        if ($invoice->sequence_number === $number && $invoice->sequence_scope_key === $scope) {
+            return;
+        }
+
+        $this->numbers->assertCounterFree($profile, $scope, $number, $invoice);
+
+        $invoice->forceFill(['number' => null, 'sequence_scope_key' => $scope, 'sequence_number' => $number]);
     }
 
     /**

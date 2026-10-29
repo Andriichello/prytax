@@ -38,6 +38,8 @@ trait InvoiceRules
             'contract_id' => ['sometimes', 'nullable', 'integer', $this->existsInProfile('contracts')],
             'receiving_account_id' => ['sometimes', 'nullable', 'integer', $this->existsInProfile('accounts')],
             'number' => ['sometimes', 'nullable', 'string', 'max:64'],
+            // The counter chosen for a generated draft, `{n}` of its number; null gives the draft back to the counter
+            'sequence_number' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:4294967295'],
             'period_start' => [$presence, 'date'],
             'period_end' => [$presence, 'date', 'after_or_equal:period_start'],
             'issued_at' => ['sometimes', 'nullable', 'date'],

@@ -858,6 +858,35 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that a draft takes the counter the user chose for its number, which is a positive whole number.
+     *
+     * @return void
+     */
+    public function testCreatesADraftWithTheCounterTheUserChose(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $draft = [
+            'client_id' => $client->id,
+            'contract_id' => $contract->id,
+            'period_start' => '2026-10-15',
+            'period_end' => '2026-10-31',
+            'items' => [['quantity' => '1']],
+        ];
+
+        $this->postJson($this->profilePath($profile, 'invoices'), [...$draft, 'sequence_number' => 0])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['sequence_number' => 'The sequence number field must be at least 1.']);
+        $this->postJson($this->profilePath($profile, 'invoices') . '?append=number_preview', [...$draft, 'sequence_number' => 13])
+            ->assertCreated()
+            ->assertJsonPath('data.number', null)
+            ->assertJsonPath('data.sequence_number', 13)
+            ->assertJsonPath('data.number_preview', 'BL-2026-10-31-13');
+    }
+
+    /**
      * Test that with one counter per ФОП, restarting yearly, the list has this year's counter before its first invoice.
      *
      * @return void

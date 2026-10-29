@@ -204,15 +204,28 @@ the provider, which moved to `PryTax\Providers`.
 - **`PreventRegularBrowserAccess`** answers 403 without the `_php_native` cookie or secret header. Only the Electron
   window gets in.
 
-**Not done: booting the window.**
-- `native:run` built Electron and started it, but Chromium aborted: `chrome-sandbox` must be owned by root with mode
-  4755.
-- Running without the sandbox was denied by the tool permissions, so it needs the user. Either:
-  - `sudo chown root:root vendor/nativephp/desktop/resources/electron/node_modules/electron/dist/chrome-sandbox &&
-    sudo chmod 4755` that file (it resets on each `npm install`); or
-  - allow `ELECTRON_DISABLE_SANDBOX=1` for development runs.
-- Linux builds will face the same thing: a `.deb` installs the helper as setuid, while an AppImage usually needs
-  `--no-sandbox` on Ubuntu 24.04+.
+**Booting the window** (`native:run`, after the user made `chrome-sandbox` root-owned with mode 4755):
+- Electron opens the SPA on `127.0.0.1:8100` from `~/.config/prytax-dev/storage`.
+- From the window's origin:
+  - Signing in creates a session, not a token, so `Sanctum::$currentRequestHostPlaceholder` works.
+  - Облік and an invoice PDF answer.
+  - A backup completes in 3 s through the app's own queue worker.
+  - Electron runs `schedule:run` every minute.
+- The sandbox fix resets with every `npm install` of NativePHP's Electron. Linux builds face it too: a `.deb`
+  installs the helper as setuid, while an AppImage usually needs `--no-sandbox` on Ubuntu 24.04+.
+
+**What the boot showed** (step 4's settings were built for it, see `AppServiceProvider`):
+- **Cache.** A `database` cache store is bound to the configured (MySQL) connection before NativePHP replaces it,
+  which NativePHP's PHP has no driver for. Under NativePHP the cache is files (they lock too), mail goes to the log,
+  and `sanctum.stateful` takes the request's host.
+- **Development-only quirks:**
+  - NativePHP's automatic migration (`database/nativephp.sqlite`) runs while its provider boots, before
+    DataLifecycle registers its five migrations, so run `php artisan native:migrate` once after the first
+    `native:run`. A production launch runs `artisan migrate` after a full boot.
+  - `native:migrate`, `native:seed` and `native:migrate:fresh` run outside NativePHP's runtime, so they need
+    `CACHE_STORE=file`, plus `LARAVEL_STORAGE_PATH=~/.config/prytax-dev/storage` for seeders that store files.
+- **To verify in a production build:** `PreventRegularBrowserAccess` didn't stop a plain request in development
+  (200 without the secret). Without it, anything on the machine can reach `127.0.0.1:8100`.
 
 1. **Spike first.** Run `composer require nativephp/desktop` (v2.4+; approving this plan approves the dependency),
    then `php artisan native:install` and `native:run`. Confirm:

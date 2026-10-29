@@ -87,9 +87,16 @@ Its departures are under "Status" in the plan.
       Port 8100. Storage and the database live in Electron's userData. `.env` is bundled with its `APP_KEY`.
       Electron runs `schedule:run` every minute. NativePHP swaps in its own `nativephp` connection without
       `IMMEDIATE`.
-    - **The window hasn't booted yet:** Chromium's `chrome-sandbox` needs root ownership and mode 4755 (sudo), or
-      `ELECTRON_DISABLE_SANDBOX=1`, which the tool permissions denied me. Ask the user.
-    - Then build steps 2–9 of Phase 3.
+    - **The window boots.** The user made `chrome-sandbox` root-owned with mode 4755; it resets with every
+      `npm install` of NativePHP's Electron.
+    - Sign-in (session), PDFs, backups through the app's own worker, and the scheduler all work.
+    - Step 4's settings are built in `AppServiceProvider`: file cache, log mail, the request's host stateful, and
+      `IMMEDIATE` on NativePHP's connection. The worker takes backups and retention.
+    - Development quirks are in the plan: run `native:migrate` once after the first boot; the `native:*` database
+      commands need `CACHE_STORE=file`.
+    - Verify the `PreventRegularBrowserAccess` 403 in a production build.
+    - Next: steps 5–9 (per-install key and recovery kit, setup and restore, catching up, native downloads,
+      builds).
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

@@ -77,6 +77,14 @@ Its departures are under "Status" in the plan.
   - Ask about merging `feat/docker` and `feat/sqlite`.
   - Then Phase 3, the NativePHP desktop app, starting with its spike (`composer require nativephp/desktop`, approved
     with the plan).
+  - **Blocked on 2026-10-29:** `php8.5 $(which composer) require nativephp/desktop` resolved v2.4.0 but failed to
+    download with "Could not authenticate against github.com". Composer's global `github-oauth.github.com` token is
+    rejected; openspout failed the same way.
+    - `composer.json` and `composer.lock` were restored.
+    - The same update also moves api-core's lock to its working tree's newer commit (68947fc → bd4c533), which is
+      expected.
+    - The user is to renew or remove the token, or run the require themselves; then start the spike on
+      `feat/desktop`.
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

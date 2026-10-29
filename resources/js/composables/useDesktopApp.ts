@@ -4,7 +4,7 @@ import type { ApiResponse, AppEnvironment, RecoveryKit, RestoreChoice, SavedReco
 
 /**
  * The desktop app (APP-BUILDS-PLAN.md, phase 3): whether the SPA runs in its window, and the installation's recovery
- * kit, which its owner keeps before working. Not the desktop layout (≥ 1024 px), which `useBreakpoint` tells.
+ * kit, which its owner keeps before working. Not the desktop layout (≥ 600 px), which `useBreakpoint` tells.
  */
 let environment: Promise<AppEnvironment> | null = null;
 

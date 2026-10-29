@@ -131,6 +131,7 @@ export default {
         management: 'Керування',
         profileDetails: 'Профіль і реквізити',
         sidebar: 'Бічне меню',
+        openMenu: 'Відкрити меню',
         recordPanel: 'Запис',
     },
 

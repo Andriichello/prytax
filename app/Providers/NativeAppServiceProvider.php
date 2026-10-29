@@ -9,8 +9,9 @@ use PryTax\Services\Desktop\LaunchCatchUp;
 /**
  * Class NativeAppServiceProvider.
  *
- * The desktop app's window (APP-BUILDS-PLAN.md, phase 3), which NativePHP opens once it has booted: at least 1024 px
- * wide, so the desktop layout (design.md §17.6) always applies, and as the user left it.
+ * The desktop app's window (APP-BUILDS-PLAN.md, phase 3), which NativePHP opens once it has booted: at least 600 px
+ * wide, so the desktop layout (design.md §17.6) always applies (with the sidebar a rail of icons below 1024 px), and
+ * as the user left it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Providers
@@ -30,7 +31,7 @@ class NativeAppServiceProvider implements ProvidesPhpIni
             ->title('PryTax')
             ->width(1280)
             ->height(800)
-            ->minWidth(1024)
+            ->minWidth(600)
             ->minHeight(640)
             // Chromium's PDF viewer, for the invoice's preview, which opens its PDF in a window of its own
             ->webPreferences(['plugins' => true])

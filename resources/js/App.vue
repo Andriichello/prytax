@@ -15,7 +15,8 @@ import { errorMessage } from '@/utils/errors';
 
 /**
  * The app's frame. On mobile, one centred column, at most 480 px wide (the designs are drawn at 390 px); on desktop
- * (from 1024 px, design.md §17), the sidebar and the page beside it, at most 1440 px wide (the boards' width) and
+ * (from 600 px, design.md §17; the sidebar a rail of icons below 1024 px), the sidebar and the page beside it, at
+ * most 1440 px wide (the boards' width) and
  * centred on a wider screen, and a record's page in the panel on the right, over the page it was opened from
  * (`panelBackground`), which stays mounted under it. When the app can't start (no
  * connection, the server failed), it says so with a retry instead of a blank page. The infinite lists and Податки

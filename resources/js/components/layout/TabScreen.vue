@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import BarActions from '@/components/layout/BarActions.vue';
 import TabBar from '@/components/layout/TabBar.vue';
 import TopHeader from '@/components/layout/TopHeader.vue';
@@ -15,7 +15,10 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
  */
 const { title } = defineProps<{ title: string }>();
 
-const { isDesktop } = useBreakpoint();
+const { isDesktop, isCompact } = useBreakpoint();
+
+/** The page's sides: 40 px, or 24 px while the sidebar is a rail (below 1024 px). */
+const gutter = computed(() => (isCompact.value ? 'px-6' : 'px-10'));
 
 const sentinel = ref<HTMLElement | null>(null);
 const stuck = ref(false);
@@ -38,7 +41,7 @@ onBeforeUnmount(() => observer?.disconnect());
 
 <template>
     <div v-if="isDesktop" class="flex min-h-dvh flex-col">
-        <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 px-10 pt-7 pb-5">
+        <header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pt-7 pb-5" :class="gutter">
             <div class="flex max-w-full min-w-min flex-1 flex-col gap-1">
                 <h1 class="m-0 text-30 font-semibold tracking-[-0.02em]">{{ title }}</h1>
                 <slot name="subtitle" />
@@ -48,11 +51,11 @@ onBeforeUnmount(() => observer?.disconnect());
                 <BarActions />
             </div>
         </header>
-        <div v-if="$slots.switcher || $slots.filters" class="flex flex-col gap-3.5 px-10 pb-5">
+        <div v-if="$slots.switcher || $slots.filters" class="flex flex-col gap-3.5 pb-5" :class="gutter">
             <slot name="switcher" />
             <slot name="filters" />
         </div>
-        <main class="flex flex-1 flex-col gap-5 px-10 pb-12">
+        <main class="flex flex-1 flex-col gap-5 pb-12" :class="gutter">
             <slot />
         </main>
     </div>

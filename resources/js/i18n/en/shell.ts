@@ -120,6 +120,7 @@ export default {
         management: 'Management',
         profileDetails: 'Profile and details',
         sidebar: 'Sidebar',
+        openMenu: 'Open the menu',
         recordPanel: 'Record',
     },
 

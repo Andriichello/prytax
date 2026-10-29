@@ -57,7 +57,8 @@ import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } f
 
 /**
  * Новий інвойс / чернетка (M-InvoiceEdit, M-InvoiceExternal, design.md §16.5): an invoice made in PryTax, or an
- * external PDF with its total typed in. One made in PryTax shows the number its freeze will give, then accordion
+ * external PDF with its total typed in. One made in PryTax shows the number its freeze will give — the generator's,
+ * one with the counter the user chose, or one typed in whole, prefilled with the preview —, then accordion
  * groups — Клієнт і договір, Період і дати, Отримання коштів, Документ (its style, language, contract section, payment
  * purpose, act note and the two notes, each the client's unless the invoice has its own) and Внутрішня примітка —
  * and its items, which aren't a group. The draft is saved after each group and each item; «Зафіксувати» asks before
@@ -87,7 +88,9 @@ const form = reactive({
     client_id: null as number | null,
     contract_id: null as number | null,
     receiving_account_id: null as number | null,
-    customNumber: false,
+    numberMode: 'auto' as NumberMode,
+    /** `{n}` of the number, which the user chose instead of the next one of the counter. */
+    counter: '',
     number: '',
     period_start: '',
     period_end: '',
@@ -132,6 +135,21 @@ function dayAfter(date: string): string {
     return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
+/** How the invoice is numbered: by the generator, with a counter the user chose, or with a number typed in whole. */
+type NumberMode = 'auto' | 'counter' | 'custom';
+
+/**
+ * The numbering of a saved draft: a number without a counter is typed, a counter without a number was chosen (a
+ * draft frozen before has both, from the generator).
+ */
+function numberModeOf(invoice: Invoice): NumberMode {
+    if (invoice.number !== null && invoice.sequence_number === null) {
+        return 'custom';
+    }
+
+    return invoice.number === null && invoice.sequence_number !== null ? 'counter' : 'auto';
+}
+
 /**
  * Fill the form from a saved draft.
  */
@@ -141,7 +159,8 @@ function fill(invoice: Invoice): void {
         client_id: invoice.client_id,
         contract_id: invoice.contract_id,
         receiving_account_id: invoice.receiving_account_id,
-        customNumber: invoice.number !== null && invoice.sequence_number === null,
+        numberMode: numberModeOf(invoice),
+        counter: invoice.number === null && invoice.sequence_number !== null ? String(invoice.sequence_number) : '',
         number: invoice.number ?? '',
         period_start: invoice.period_start,
         period_end: invoice.period_end,
@@ -371,7 +390,7 @@ const contract = computed(() => contracts.value.find((item) => item.id === form.
 
 /** The invoice of the form, on which the payment purpose is previewed. */
 const purposeSample = computed<PurposeSample>(() => ({
-    number: (form.customNumber ? form.number.trim() : numberPreview.value) || null,
+    number: numberPreview.value || null,
     issuedAt: form.issued_at || null,
     periodStart: form.period_start || null,
     periodEnd: form.period_end || null,
@@ -420,32 +439,79 @@ const purposeWarned = computed(() => {
 const rates = computed(() => (contract.value?.currency === form.currency ? contract.value.rates ?? [] : []));
 const numbering = computed(() => settings.value?.invoice.numbering ?? null);
 
-/**
- * The number the freeze would give: the saved draft's while its client and dates are as saved; a draft, which was
- * frozen before, keeps its counter's number while the counter is the same (only the client's abbreviation and the
- * date in it change); else the next number for the form's client and dates.
- */
-const numberPreview = computed(() => {
-    const saved = existing.value;
+/** What a number of the form's client and dates starts with, before its `{n}`: «BL-2026-10-31-», «BL-» or nothing. */
+const numberHead = computed(() => {
+    if (!numbering.value) {
+        return '';
+    }
 
-    if (saved && saved.client_id === form.client_id && saved.period_end === form.period_end && saved.issued_at === form.issued_at) {
+    const date = numbering.value.date_source === 'issued_at' ? form.issued_at : form.period_end;
+    const abbreviation = clients.value.find((client) => client.id === form.client_id)?.abbreviation;
+    const prefix = numbering.value.prefix === 'client_abbreviation' && abbreviation ? `${abbreviation}-` : '';
+
+    return prefix + (numbering.value.strategy === 'sequence' ? '' : `${date}-`);
+});
+
+/**
+ * The number the generator would give at the freeze: the saved draft's while its client and dates are as saved; a
+ * draft, which was frozen before, keeps its counter's number while the counter is the same (only the client's
+ * abbreviation and the date in it change); else the next number for the form's client and dates. A counter the user
+ * chose for the draft isn't the generator's.
+ */
+const generatedPreview = computed(() => {
+    const saved = existing.value;
+    const chosen = saved?.number === null && saved.sequence_number !== null;
+
+    if (saved && !chosen && saved.client_id === form.client_id && saved.period_end === form.period_end && saved.issued_at === form.issued_at) {
         return saved.number_preview ?? null;
     }
 
-    if (saved?.sequence_number != null && numbering.value) {
+    if (saved?.sequence_number != null && !chosen && numbering.value) {
         const date = numbering.value.date_source === 'issued_at' ? form.issued_at : form.period_end;
         const scope = (numbering.value.scope === 'global' ? 'global' : `client:${form.client_id}`)
             + (numbering.value.reset === 'yearly' && date ? `:${date.slice(0, 4)}` : '');
-        const abbreviation = clients.value.find((client) => client.id === form.client_id)?.abbreviation;
-        const prefix = numbering.value.prefix === 'client_abbreviation' && abbreviation ? `${abbreviation}-` : '';
 
         if (date && scope === saved.sequence_scope_key) {
-            return prefix + (numbering.value.strategy === 'sequence' ? String(saved.sequence_number) : `${date}-${saved.sequence_number}`);
+            return numberHead.value + saved.sequence_number;
         }
     }
 
-    return defaults.value?.number_preview ?? saved?.number_preview ?? null;
+    return defaults.value?.number_preview ?? (chosen ? null : saved?.number_preview) ?? null;
 });
+
+/** The number the freeze will give: the generator's, the one with the chosen counter, or the one typed in whole. */
+const numberPreview = computed(() => {
+    if (form.numberMode === 'custom') {
+        return form.number.trim() || null;
+    }
+
+    if (form.numberMode === 'counter') {
+        return /^\d+$/.test(form.counter) ? numberHead.value + Number(form.counter) : null;
+    }
+
+    return generatedPreview.value;
+});
+
+/**
+ * Number the invoice another way, which the draft keeps at once: a typed number starts as the number shown, a counter
+ * as the generator's next one.
+ */
+function chooseNumberMode(mode: NumberMode): void {
+    if (mode === 'custom') {
+        form.number = numberPreview.value ?? '';
+    } else if (mode === 'counter') {
+        form.counter = generatedPreview.value?.split('-').pop() ?? '';
+    }
+
+    form.numberMode = mode;
+    keepDraft();
+}
+
+const numberModes = computed<{ value: NumberMode; label: string }[]>(() => [
+    { value: 'auto', label: t('invoices.editor.automatic') },
+    { value: 'counter', label: t('invoices.editor.counter') },
+    { value: 'custom', label: t('invoices.editor.custom') },
+]);
 
 const numberHint = computed(() => {
     const parts = [
@@ -715,6 +781,27 @@ const draftState = computed(() => {
     return missing.value.length > 0 ? t('invoices.editor.toSave', { missing: missing.value.join(', ') }) : t('invoices.editor.notSavedYet');
 });
 
+/**
+ * The number of the draft as the save sends it: the typed one, the chosen counter (a field that isn't a whole number
+ * is sent as it is, for the API to refuse), or back to the generator, clearing a typed number or a chosen counter.
+ */
+function numberPayload(external: boolean): Record<string, unknown> {
+    if (external || form.numberMode === 'custom') {
+        return { number: form.number.trim() || null };
+    }
+
+    if (form.numberMode === 'counter') {
+        return { number: null, sequence_number: /^\d+$/.test(form.counter) ? Number(form.counter) : form.counter };
+    }
+
+    const saved = existing.value;
+
+    return {
+        ...(saved?.number && saved.sequence_number === null ? { number: null } : {}),
+        ...(saved?.number === null && saved.sequence_number !== null ? { sequence_number: null } : {}),
+    };
+}
+
 function payload(): Record<string, unknown> {
     const external = form.source === 'external';
 
@@ -742,10 +829,7 @@ function payload(): Record<string, unknown> {
         payment_note: form.document.payment_note?.trim() || null,
         other_note_enabled: form.document.other_note_enabled,
         other_note: form.document.other_note?.trim() || null,
-        ...(external || form.customNumber
-            ? { number: form.number.trim() || null }
-            // Back to the generator: clear a number typed before
-            : existing.value?.number && existing.value.sequence_number === null ? { number: null } : {}),
+        ...numberPayload(external),
         ...(external ? { total: parseAmount(form.total) ?? form.total } : {}),
         items: form.items.map((item) => ({
             project_id: item.project_id,
@@ -989,7 +1073,7 @@ const generalError = computed(() => {
     }
 
     const fields = [
-        'client_id', 'contract_id', 'receiving_account_id', 'number', 'period_start', 'period_end', 'issued_at', 'due_at', 'total',
+        'client_id', 'contract_id', 'receiving_account_id', 'number', 'sequence_number', 'period_start', 'period_end', 'issued_at', 'due_at', 'total',
         'adjustment_amount', 'locale', 'payment_purpose_template', 'act_note',
     ];
     const shown = fields.some((field) => fieldError(saveError.value, field));
@@ -1018,21 +1102,47 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
             <!-- Made in PryTax: the number the freeze will give, then the groups, which save the draft one by one -->
             <template v-if="form.source === 'generated'">
                 <section class="flex flex-col gap-2 rounded-card bg-ink px-4 py-3.5 text-on-ink">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                         <span class="text-13 text-on-ink-2">{{ t('invoices.editor.numberPreviewTitle') }}</span>
-                        <button type="button" class="min-h-9 text-14 font-medium text-on-ink" @click="form.customNumber = !form.customNumber">
-                            {{ form.customNumber ? t('invoices.editor.automatic') : t('invoices.editor.enterOwn') }}
-                        </button>
-                    </div>
-                    <div v-if="form.customNumber" class="flex flex-col gap-2 rounded-control bg-surface p-3 text-ink">
-                        <TextField
-                            v-model="form.number"
-                            :label="t('invoices.editor.customNumber')"
-                            class="num"
-                            :error="fieldError(saveError, 'number')"
-                            @change="keepDraft"
+                        <SegmentedControl
+                            :model-value="form.numberMode"
+                            tone="ink"
+                            class="w-full sm:w-84"
+                            :label="t('invoices.editor.numberMode')"
+                            :options="numberModes"
+                            @update:model-value="chooseNumberMode"
                         />
                     </div>
+                    <template v-if="form.numberMode === 'counter'">
+                        <label class="num flex flex-wrap items-center gap-x-1 text-22 font-semibold">
+                            <span v-if="numberHead">{{ numberHead }}</span>
+                            <input
+                                v-model="form.counter"
+                                inputmode="numeric"
+                                :aria-label="t('invoices.editor.counterOfInvoice')"
+                                :aria-invalid="fieldError(saveError, 'sequence_number') ? 'true' : undefined"
+                                class="num h-11 w-28 rounded-control border bg-white/10 px-3 text-22 font-semibold text-on-ink outline-none focus:border-on-ink-2 focus:bg-white/15"
+                                :class="fieldError(saveError, 'sequence_number') ? 'border-warning-on-ink' : 'border-white/25'"
+                                @change="keepDraft"
+                            >
+                        </label>
+                        <p class="m-0 text-13 leading-[1.45]" :class="fieldError(saveError, 'sequence_number') ? 'text-warning-on-ink' : 'text-on-ink-2'" :role="fieldError(saveError, 'sequence_number') ? 'alert' : undefined">
+                            {{ fieldError(saveError, 'sequence_number') ?? t('invoices.editor.counterHint') }}
+                        </p>
+                    </template>
+                    <template v-else-if="form.numberMode === 'custom'">
+                        <input
+                            v-model="form.number"
+                            :aria-label="t('invoices.editor.customNumber')"
+                            :aria-invalid="fieldError(saveError, 'number') ? 'true' : undefined"
+                            class="num h-11 w-full rounded-control border bg-white/10 px-3 text-22 font-semibold text-on-ink outline-none focus:border-on-ink-2 focus:bg-white/15"
+                            :class="fieldError(saveError, 'number') ? 'border-warning-on-ink' : 'border-white/25'"
+                            @change="keepDraft"
+                        >
+                        <p class="m-0 text-13 leading-[1.45]" :class="fieldError(saveError, 'number') ? 'text-warning-on-ink' : 'text-on-ink-2'" :role="fieldError(saveError, 'number') ? 'alert' : undefined">
+                            {{ fieldError(saveError, 'number') ?? t('invoices.editor.customNumberHint') }}
+                        </p>
+                    </template>
                     <template v-else>
                         <span class="num text-22 font-semibold">{{ numberPreview ?? '—' }}</span>
                         <p class="m-0 text-13 leading-[1.45] text-on-ink-2">{{ numberHint }}</p>

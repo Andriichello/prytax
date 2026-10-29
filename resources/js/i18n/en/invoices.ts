@@ -119,8 +119,12 @@ export default {
         invoiceDraft: 'Invoice draft',
         invoiceSource: 'Invoice source',
         automatic: 'Automatic',
-        enterOwn: 'Enter your own',
+        counter: 'Counter',
+        custom: 'Custom',
+        numberMode: 'How to number the invoice',
         customNumber: 'Custom number',
+        counterOfInvoice: 'Counter of this invoice',
+        counterHint: 'The rest of the number follows the numbering settings; the next invoices continue after this counter.',
         externalExplained:
             'For past invoices, or when the client issues the invoice themselves. The uploaded PDF becomes the main document; you enter the amount by hand.',
         checkingDuplicates: 'Checking for duplicates…',

@@ -14,8 +14,8 @@ import { datedInvoiceStatus } from '@/utils/statuses';
  * (Головна): Номер · the client with the period and the due date under it · Сума (with «3 100.00 · 80 %» under a sent
  * one's) · Статус. A row opens the invoice (its panel), a draft its editor. The columns follow the table's own width
  * (a container query), so the client keeps its room between 1024 and 1440 px and beside Головна's right column: under
- * 1020 px Інвойси puts the period under the client and the payment under the amount; under 690 px Головна puts the
- * status under the amount.
+ * 1020 px Інвойси puts the period under the client and the payment under the amount; under 690 px Головна, and under
+ * 600 px Інвойси, put the status under the amount.
  */
 const { invoices, variant = 'list' } = defineProps<{
     invoices: Invoice[];
@@ -23,7 +23,7 @@ const { invoices, variant = 'list' } = defineProps<{
 }>();
 
 const columns = variant === 'list'
-    ? 'grid-cols-[190px_minmax(0,1fr)_140px_130px] @min-[1020px]:grid-cols-[190px_minmax(0,1fr)_150px_130px_150px_130px]'
+    ? 'grid-cols-[190px_minmax(0,1fr)_140px] @min-[600px]:grid-cols-[190px_minmax(0,1fr)_140px_130px] @min-[1020px]:grid-cols-[190px_minmax(0,1fr)_150px_130px_150px_130px]'
     : 'grid-cols-[190px_minmax(0,1fr)_150px] @min-[690px]:grid-cols-[190px_minmax(0,1fr)_150px_140px]';
 
 /** The «Оплата» of a row: «до 14.11», «прострочено, до 19.10», or null for a paid, cancelled or «Без інвойсу» one. */
@@ -52,7 +52,7 @@ function paymentNote(invoice: Invoice): { text: string; overdue: boolean } | nul
             <span v-if="variant === 'list'" class="hidden @min-[1020px]:block">{{ t('core.common.period') }}</span>
             <span class="text-right">{{ t('invoices.table.amount') }}</span>
             <span v-if="variant === 'list'" class="hidden @min-[1020px]:block">{{ t('invoices.table.payment') }}</span>
-            <span class="text-right" :class="variant === 'home' ? 'hidden @min-[690px]:block' : ''">{{ t('core.common.status') }}</span>
+            <span class="text-right" :class="variant === 'home' ? 'hidden @min-[690px]:block' : 'hidden @min-[600px]:block'">{{ t('core.common.status') }}</span>
         </div>
         <RouterLink
             v-for="(invoice, index) in invoices"
@@ -100,12 +100,12 @@ function paymentNote(invoice: Invoice): { text: string; overdue: boolean } | nul
                 >
                     {{ paymentNote(invoice)?.text }}
                 </span>
-                <span v-if="variant === 'home'" class="mt-1 @min-[690px]:hidden"><StatusBadge v-bind="datedInvoiceStatus(invoice)" /></span>
+                <span class="mt-1" :class="variant === 'home' ? '@min-[690px]:hidden' : '@min-[600px]:hidden'"><StatusBadge v-bind="datedInvoiceStatus(invoice)" /></span>
             </span>
             <span v-if="variant === 'list'" class="hidden text-13 whitespace-nowrap @min-[1020px]:block" :class="paymentNote(invoice)?.overdue ? 'text-negative' : 'text-ink-2'">
                 {{ paymentNote(invoice)?.text ?? '—' }}
             </span>
-            <span class="justify-end" :class="variant === 'home' ? 'hidden @min-[690px]:flex' : 'flex'"><StatusBadge v-bind="datedInvoiceStatus(invoice)" /></span>
+            <span class="hidden justify-end" :class="variant === 'home' ? '@min-[690px]:flex' : '@min-[600px]:flex'"><StatusBadge v-bind="datedInvoiceStatus(invoice)" /></span>
         </RouterLink>
     </section>
 </template>

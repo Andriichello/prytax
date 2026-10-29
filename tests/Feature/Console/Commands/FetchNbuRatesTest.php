@@ -4,6 +4,7 @@ namespace Tests\Feature\Console\Commands;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use PryTax\Models\AccountTransfer;
 use PryTax\Models\Payment;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
@@ -50,5 +51,25 @@ class FetchNbuRatesTest extends TestCase
         $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-10-20', 'rate' => '42.0870']);
         $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-07-07', 'rate' => '41.8710']);
         Http::assertSentCount(2);
+    }
+
+    /**
+     * Test that the day of a transfer's foreign fee is fetched when no receipt was saved at a manual rate.
+     *
+     * @return void
+     */
+    public function testFetchesTheDayOfAForeignFeeWithoutManualReceipts(): void
+    {
+        Http::fake([
+            'bank.gov.ua/*date=20261020*' => Http::response('[{"rate":42.0870,"cc":"USD"}]'),
+            'bank.gov.ua/*date=20261010*' => Http::response('[{"rate":41.9500,"cc":"USD"}]'),
+        ]);
+        $profile = $this->createProfile();
+        $this->createAccount($profile);
+        $this->inProfile($profile, fn () => AccountTransfer::factory()->create(['profile_id' => $profile->id, 'received_at' => '2026-10-10']));
+
+        $this->artisan('prytax:fetch-rates', ['--date' => '2026-10-20'])->assertSuccessful();
+
+        $this->assertDatabaseHas('exchange_rates', ['currency' => 'USD', 'rate_date' => '2026-10-10', 'rate' => '41.9500']);
     }
 }

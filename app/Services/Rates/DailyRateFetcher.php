@@ -129,6 +129,7 @@ class DailyRateFetcher
             ->get(['fee_currency', 'received_at'])
             ->map(fn (AccountTransfer $transfer) => [$transfer->fee_currency, $transfer->received_at->toDateString()]);
 
-        return $payments->merge($refunds)->merge($transfers)->merge($fees)->values();
+        // Plain collections: an empty Eloquent one stays Eloquent after `map`, and its `merge` takes arrays for models
+        return $payments->toBase()->merge($refunds)->merge($transfers)->merge($fees)->values();
     }
 }

@@ -6,6 +6,7 @@ import type { Account, AccountStatement, ApiResponse, StatementEntry, StatementM
 import MovementSheet from '@/components/account/MovementSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import CopyRow from '@/components/ui/CopyRow.vue';
+import EditLink from '@/components/ui/EditLink.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
@@ -14,6 +15,7 @@ import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import Translated from '@/components/ui/Translated.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -32,6 +34,7 @@ import { TAX_TYPES } from '@/utils/statuses';
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const id = computed(() => Number(route.params.id));
 const now = currentQuarter().year;
@@ -114,7 +117,7 @@ function entryLink(entry: StatementEntry) {
 
 <template>
     <SubScreen :title="t('money.account.account')" muted :back="{ name: 'accounts' }">
-        <template #action>
+        <template v-if="!isDesktop" #action>
             <RouterLink
                 v-if="account && can('update', 'accounts')"
                 :to="{ name: 'account-edit', params: { id } }"
@@ -131,7 +134,10 @@ function entryLink(entry: StatementEntry) {
                         <StatusBadge :label="`${ACCOUNT_KINDS[account.kind].label} · ${account.currency}`" />
                         <StatusBadge v-if="!account.is_active" :label="t('core.common.inactive')" tone="negative" />
                     </div>
-                    <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]">{{ account.name }}</h1>
+                    <div class="flex items-start gap-3">
+                        <h1 class="m-0 min-w-0 flex-1 text-28 font-semibold tracking-[-0.02em]">{{ account.name }}</h1>
+                        <EditLink v-if="isDesktop && can('update', 'accounts')" :to="{ name: 'account-edit', params: { id } }" />
+                    </div>
                 </div>
 
                 <section class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('money.account.balance')">

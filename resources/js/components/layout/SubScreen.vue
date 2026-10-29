@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BarActions from '@/components/layout/BarActions.vue';
 import SubHeader from '@/components/layout/SubHeader.vue';
+import EditLink from '@/components/ui/EditLink.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { usePanel } from '@/composables/usePanel';
@@ -89,13 +90,7 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
                     <slot name="badges" />
                 </div>
             </div>
-            <RouterLink
-                v-if="edit"
-                :to="edit"
-                class="mr-1 ml-2 flex h-10 shrink-0 items-center gap-2 rounded-control border border-line-input bg-surface px-3.5 text-14 font-medium whitespace-nowrap text-ink no-underline hover:text-ink"
-            >
-                <Icon name="pen" :size="16" /> {{ t('core.common.edit') }}
-            </RouterLink>
+            <EditLink v-if="edit" :to="edit" class="mr-1 ml-2" />
             <slot name="action" />
             <button type="button" :aria-label="t('shell.ui.close')" class="flex size-10 shrink-0 items-center justify-center text-ink" @click="panel.close()">
                 <Icon name="close" :size="20" />

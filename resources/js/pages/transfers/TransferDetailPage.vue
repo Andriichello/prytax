@@ -6,11 +6,13 @@ import type { AccountTransfer, ApiResponse } from '@/api/types';
 import TextAreaField from '@/components/form/TextAreaField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
+import EditLink from '@/components/ui/EditLink.vue';
 import InfoRow from '@/components/ui/InfoRow.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { usePanel } from '@/composables/usePanel';
@@ -29,6 +31,7 @@ const route = useRoute();
 const router = useRouter();
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 const panel = usePanel();
 
 const id = computed(() => Number(route.params.id));
@@ -93,7 +96,7 @@ async function remove(): Promise<void> {
             <span class="num">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }} → {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span> · {{ formatDate(transfer.received_at) }}
         </template>
         <template v-if="isSale" #badges><StatusBadge :label="t('money.transfers.currencySale')" tone="info" /></template>
-        <template #action>
+        <template v-if="!isDesktop" #action>
             <RouterLink
                 v-if="edit && !panel"
                 :to="{ name: 'transfer-edit', params: { id } }"
@@ -108,7 +111,10 @@ async function remove(): Promise<void> {
                 <template v-if="!panel">
                     <div class="flex flex-col gap-1.5">
                         <StatusBadge v-if="isSale" :label="t('money.transfers.currencySale')" tone="info" class="self-start" />
-                        <span class="num text-30 font-semibold tracking-[-0.02em]">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }}</span>
+                        <div class="flex items-start gap-3">
+                            <span class="num min-w-0 flex-1 text-30 font-semibold tracking-[-0.02em]">{{ formatMoney(transfer.amount_sent, transfer.currency_sent) }}</span>
+                            <EditLink v-if="isDesktop && edit" :to="edit" />
+                        </div>
                         <span class="num text-16 font-light text-ink-2">→ {{ formatMoney(transfer.amount_received, transfer.currency_received) }}</span>
                     </div>
 

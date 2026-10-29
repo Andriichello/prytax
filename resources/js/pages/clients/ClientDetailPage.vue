@@ -5,11 +5,13 @@ import { api } from '@/api/client';
 import type { ApiResponse, ChargeType, Client, ClientStats, Contract, Project } from '@/api/types';
 import ClientItemSheet from '@/components/client/ClientItemSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
+import EditLink from '@/components/ui/EditLink.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
@@ -31,6 +33,7 @@ const route = useRoute();
 const router = useRouter();
 const { profile, profileId, path } = useCurrentProfile();
 const { can } = useSession();
+const { isDesktop } = useBreakpoint();
 
 const id = computed(() => Number(route.params.id));
 
@@ -162,7 +165,7 @@ const addressLines = computed(() => {
 
 <template>
     <SubScreen :title="t('core.common.client')" muted :back="{ name: 'clients' }">
-        <template #action>
+        <template v-if="!isDesktop" #action>
             <RouterLink
                 v-if="client && can('update', 'clients')"
                 :to="{ name: 'client-edit', params: { id } }"
@@ -174,11 +177,14 @@ const addressLines = computed(() => {
 
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="client && stats">
-                <div class="-mt-1 flex flex-col gap-1">
-                    <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]" :class="client.is_active ? '' : 'text-ink-3'">{{ client.name }}</h1>
-                    <span class="text-15 text-ink-3">
-                        <span class="num">{{ client.abbreviation }}</span> · {{ [client.legal_name, countryName(client.country)].filter(Boolean).join(' · ') }}<template v-if="!client.is_active"> · {{ t('clients.detail.inactive') }}</template>
-                    </span>
+                <div class="-mt-1 flex items-start gap-3">
+                    <div class="flex min-w-0 flex-1 flex-col gap-1">
+                        <h1 class="m-0 text-28 font-semibold tracking-[-0.02em]" :class="client.is_active ? '' : 'text-ink-3'">{{ client.name }}</h1>
+                        <span class="text-15 text-ink-3">
+                            <span class="num">{{ client.abbreviation }}</span> · {{ [client.legal_name, countryName(client.country)].filter(Boolean).join(' · ') }}<template v-if="!client.is_active"> · {{ t('clients.detail.inactive') }}</template>
+                        </span>
+                    </div>
+                    <EditLink v-if="isDesktop && can('update', 'clients')" :to="{ name: 'client-edit', params: { id } }" />
                 </div>
 
                 <section

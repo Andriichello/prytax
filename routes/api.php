@@ -30,6 +30,7 @@ use PryTax\Http\Controllers\ProfileSettingController;
 use PryTax\Http\Controllers\ProfileSignatureController;
 use PryTax\Http\Controllers\ProjectController;
 use PryTax\Http\Controllers\RefundController;
+use PryTax\Http\Controllers\RegistrationController;
 use PryTax\Http\Controllers\TaxOpeningBalanceController;
 use PryTax\Http\Controllers\TaxPaymentController;
 use PryTax\Http\Controllers\TaxPaymentRequisiteController;
@@ -66,6 +67,9 @@ $crud = function (string $uri, string $controller, array $operations, string $na
 $all = ['index', 'store', 'show', 'update', 'destroy'];
 
 Route::prefix('auth')->group(fn () => AuthController::routes());
+
+// A new organization from the sign-in page, when `prytax.registration` allows it
+RegistrationController::routes();
 
 Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use ($crud, $all) {
     UserController::routes();

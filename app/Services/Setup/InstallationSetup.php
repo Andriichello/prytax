@@ -2,10 +2,8 @@
 
 namespace PryTax\Services\Setup;
 
-use Core\Models\Organization;
 use Core\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use PryTax\Exceptions\InstallationAlreadySetUpException;
 
 /**
@@ -20,6 +18,13 @@ use PryTax\Exceptions\InstallationAlreadySetUpException;
  */
 class InstallationSetup
 {
+    /**
+     * InstallationSetup constructor.
+     *
+     * @param OrganizationRegistrar $registrar
+     */
+    public function __construct(protected OrganizationRegistrar $registrar) {}
+
     /**
      * Determine whether the installation still needs its first owner: no user exists, deleted ones included.
      *
@@ -49,23 +54,7 @@ class InstallationSetup
                 throw new InstallationAlreadySetUpException('The installation already has users; invite more from the app.');
             }
 
-            $record = Organization::query()->create(['slug' => Str::slug($organization) ?: 'organization', 'name' => $organization]);
-            $record->forceFill(['activated_at' => now()])->save();
-
-            $user = new User([
-                'name' => $name,
-                'email' => Str::lower($email),
-                'password' => $password,
-                'timezone' => config('app.timezone'),
-                'locale' => $locale,
-            ]);
-            $user->forceFill([
-                'organization_id' => $record->id,
-                'email_verified_at' => now(),
-                'password_updated_at' => now(),
-            ])->save();
-
-            return $user->assignRole('owner');
+            return $this->registrar->register($organization, $name, $email, $password, $locale);
         });
     }
 }

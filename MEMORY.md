@@ -87,7 +87,7 @@ Its departures are under "Status" in the plan.
     - The user is to renew or remove the token, or run the require themselves; then start the spike on
       `feat/desktop`.
 
-**Registration** (2026-10-29, branch `feat/registration` from `dev`, not merged). The user asked for a way to register
+**Registration** (2026-10-29, branch `feat/registration`; the user asked, so `dev` was fast-forwarded to it, d2b0aed; not `main`, not pushed). The user asked for a way to register
 a new organization from the sign-in screen, and chose:
 - an env switch (`PRYTAX_REGISTRATION`: off on servers by default, on in local development and the desktop app);
 - signing in at once, without e-mail verification;
@@ -110,8 +110,8 @@ What was built:
   - Tests on MySQL and SQLite.
   - A browser pass at 390 and 1440 px, in uk and en: first launch → register → Новий ФОП, the link on Вхід, a reused
     e-mail refused.
-- **Left for the desktop** (`feat/desktop`): turn registration on under NativePHP, and add the recovery-kit step
-  after registering.
+- **Left for the desktop:** turn registration on under NativePHP, and add the recovery-kit step after registering.
+  `feat/desktop` branched before registration, so merge `dev` into it first.
 
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 

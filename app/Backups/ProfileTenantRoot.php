@@ -108,7 +108,8 @@ final class ProfileTenantRoot implements TenantRoot
             return null;
         }
 
-        return "The organization has the ФОП of this tax id already (profile $existing->id"
-            . ($existing->deleted_at ? ', deleted' : '') . '): import it into another organization, or purge that profile first.';
+        return $existing->deleted_at
+            ? __('The organization has this ФОП already, deleted (profile :id): purge it first, or restore into another organization.', ['id' => $existing->id])
+            : __('The organization has this ФОП already (profile :id): restore it into another organization.', ['id' => $existing->id]);
     }
 }

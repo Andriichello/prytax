@@ -40,6 +40,18 @@ class BackupPolicy extends CrudPolicy
     }
 
     /**
+     * Determine whether the user can restore a profile from its archive, as a new profile of the organization.
+     *
+     * @param mixed $user
+     *
+     * @return bool
+     */
+    public function import(mixed $user): bool
+    {
+        return $this->hasAnyRole($user);
+    }
+
+    /**
      * Determine whether the user can delete the backup: a manual archive only.
      *
      * @param mixed $user

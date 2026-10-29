@@ -98,11 +98,12 @@ final class ArchiveImporter
      * @param string $path Local path of the archive.
      * @param int $organizationId
      * @param bool $dryRun
+     * @param string|null $password The password of an archive downloaded with one.
      *
      * @return ImportResult
      * @throws ImportException
      */
-    public function import(string $path, int $organizationId, bool $dryRun = false): ImportResult
+    public function import(string $path, int $organizationId, bool $dryRun = false, ?string $password = null): ImportResult
     {
         $this->maps = $this->deferred = $this->lateRewrites = $this->uploaded = [];
         $this->positions = [];
@@ -114,10 +115,11 @@ final class ArchiveImporter
         $this->zip = new ZipArchive;
 
         if ($this->zip->open($path, ZipArchive::RDONLY) !== true) {
-            throw new ImportException("$path isn't a zip archive.");
+            throw new ImportException('The file isn\'t a zip archive.');
         }
 
         try {
+            $this->unlock($password);
             $manifest = $this->manifest();
             $data = $this->data($manifest);
             $rootRow = $data[$this->root->table()][0] ?? throw new ImportException('The archive has no tenant.');
@@ -162,6 +164,33 @@ final class ArchiveImporter
     }
 
     /**
+     * Open an archive, which was downloaded with a password (its entries are encrypted), with the password.
+     *
+     * @param string|null $password
+     *
+     * @return void
+     * @throws ImportException When it has one, but none or another was given.
+     */
+    private function unlock(?string $password): void
+    {
+        $encrypted = ($this->zip->statName('manifest.json')['encryption_method'] ?? ZipArchive::EM_NONE) !== ZipArchive::EM_NONE;
+
+        if (!$encrypted) {
+            return;
+        }
+
+        if ($password === null || $password === '') {
+            throw new ImportException('The archive is protected by a password.');
+        }
+
+        $this->zip->setPassword($password);
+
+        if ($this->zip->getFromName('manifest.json') === false) {
+            throw new ImportException('The password doesn\'t open the archive.');
+        }
+    }
+
+    /**
      * Read and validate the manifest.
      *
      * @return array<string, mixed>
@@ -174,6 +203,10 @@ final class ArchiveImporter
             $manifest = $json === false ? null : json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             $manifest = null;
+        }
+
+        if (is_array($manifest) && ($manifest['format'] ?? null) === ArchiveWriter::FORMAT . '-bundle') {
+            throw new ImportException('The archive holds every profile of a backup: download the backup of the one profile, and import that.');
         }
 
         if (!is_array($manifest) || ($manifest['format'] ?? null) !== ArchiveWriter::FORMAT) {
@@ -341,7 +374,15 @@ final class ArchiveImporter
         $tenantId = (int) $this->maps[$this->root->table()][(string) $data[$this->root->table()][0]['id']];
         $this->verify($tenantId, $rows, $schema, $db, $manifest);
 
-        return new ImportResult($dryRun ? null : $tenantId, $rows, $documents, $skipped, $manifest['checks'] ?? [], $dryRun);
+        return new ImportResult(
+            $dryRun ? null : $tenantId,
+            $rows,
+            $documents,
+            $skipped,
+            $manifest['checks'] ?? [],
+            $dryRun,
+            $manifest[$this->root->manifestKey()] ?? [],
+        );
     }
 
     /**

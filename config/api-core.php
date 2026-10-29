@@ -91,7 +91,8 @@ return [
                 ...$finance,
                 ...$backups,
                 BackupPolicy::class => ['viewAny', 'configure'],
-                Backup::class => ['viewAny', 'view', 'download', 'delete'],
+                // Restoring a profile from its archive, as a new profile of the organization
+                Backup::class => ['viewAny', 'view', 'download', 'delete', 'import'],
             ],
         ],
         [

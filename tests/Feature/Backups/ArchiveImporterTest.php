@@ -207,7 +207,7 @@ class ArchiveImporterTest extends TestCase
             app(ArchiveImporter::class)->import($archive, $this->profile->organization_id);
             $this->fail('The ФОП was imported next to itself.');
         } catch (ImportException $exception) {
-            $this->assertStringContainsString("(profile {$this->profile->id}, deleted)", $exception->getMessage());
+            $this->assertStringContainsString("already, deleted (profile {$this->profile->id})", $exception->getMessage());
         }
 
         $zip = new ZipArchive;

@@ -22,6 +22,7 @@ final class ImportResult
      * @param int $skippedFiles Rows of documents, which the archive doesn't hold.
      * @param array<string, mixed> $checks
      * @param bool $dryRun
+     * @param array<string, mixed> $tenant The tenant, as the archive's manifest describes it.
      */
     public function __construct(
         public readonly ?int $tenantId,
@@ -30,5 +31,6 @@ final class ImportResult
         public readonly int $skippedFiles,
         public readonly array $checks,
         public readonly bool $dryRun,
+        public readonly array $tenant = [],
     ) {}
 }

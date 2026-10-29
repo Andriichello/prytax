@@ -30,7 +30,7 @@ import { formatAmount } from '@/utils/money';
  * quarter, or by tax). The year chip and the grouping are the only controls; the tab, the year and the grouping live
  * in the URL (`?tab=income|taxes&year=&group=quarter|tax`). A year before the registration says so, with a way to the
  * first one. The foot exports the tab of the year as a PDF; on desktop its button stands at the right of the section's
- * title, over the table or the cards.
+ * title, over the table, the cards or the note of a year without receipts.
  */
 type Tab = 'income' | 'taxes';
 type Grouping = 'quarter' | 'tax';
@@ -144,20 +144,18 @@ function chooseYear(event: Event): void {
                     :left="income.limit.left"
                     :group="profile?.tax_group ?? 3"
                 />
+                <div v-if="income.has_receipts || isDesktop" class="flex items-center justify-between gap-3">
+                    <SectionTitle>
+                        {{ t('accounting.books.incomeBook') }}
+                        <template v-if="!isDesktop" #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
+                    </SectionTitle>
+                    <ExportButton v-if="isDesktop" :href="pdf" class="h-10! px-3.5!">PDF</ExportButton>
+                </div>
                 <section v-if="!income.has_receipts" class="flex flex-col gap-1.5 rounded-card border border-line bg-surface p-4">
                     <h2 class="m-0 text-16 font-semibold">{{ t('accounting.books.emptyYear', { year }) }}</h2>
                     <p class="m-0 text-14 leading-[1.45] text-ink-3">{{ t('accounting.books.emptyYearHint') }}</p>
                 </section>
-                <template v-else>
-                    <div class="flex items-center justify-between gap-3">
-                        <SectionTitle>
-                            {{ t('accounting.books.incomeBook') }}
-                            <template v-if="!isDesktop" #aside><span class="num text-ink-2">{{ t('accounting.books.newestFirst') }}</span></template>
-                        </SectionTitle>
-                        <ExportButton v-if="isDesktop" :href="pdf" class="h-10! px-3.5!">PDF</ExportButton>
-                    </div>
-                    <IncomeBookTable :book="income" :wide="isDesktop" />
-                </template>
+                <IncomeBookTable v-else :book="income" :wide="isDesktop" />
                 <p class="m-0 px-0.5 text-13 leading-[1.45] text-ink-3">{{ t('accounting.books.incomeNote') }}</p>
             </template>
 
@@ -205,7 +203,7 @@ function chooseYear(event: Event): void {
                 </template>
             </template>
 
-            <ExportBlock v-if="(tab === 'income' && income && !(isDesktop && income.has_receipts)) || (tab === 'taxes' && taxes && !isDesktop)">
+            <ExportBlock v-if="!isDesktop && ((tab === 'income' && income) || (tab === 'taxes' && taxes))">
                 <ExportButton :href="pdf">PDF</ExportButton>
             </ExportBlock>
         </LoadState>

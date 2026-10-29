@@ -183,7 +183,9 @@ class InvoiceNumberGenerator
     }
 
     /**
-     * Get the profile's counters with their last allocated numbers, and the clients they count for.
+     * Get the profile's counters with their last allocated numbers, and the clients they count for: the ones that
+     * numbered invoices, and those of the numbering as it is now (each active client's, or the profile's one, this
+     * year's when it restarts yearly), at 0 until their first invoice, so they can be set before it.
      *
      * @param Profile $profile
      *
@@ -191,25 +193,54 @@ class InvoiceNumberGenerator
      */
     public function counters(Profile $profile): Collection
     {
-        $sequences = $profile->sequences()
+        $clients = Client::query()->get(['id', 'name', 'abbreviation', 'is_active'])->keyBy('id');
+
+        $nextNumbers = $profile->sequences()
             ->where('key', 'like', self::KEY_PREFIX . '%')
-            ->orderBy('key')
-            ->get();
+            ->get()
+            ->mapWithKeys(fn (Sequence $sequence) => [substr($sequence->key, strlen(self::KEY_PREFIX)) => (int) $sequence->next_number])
+            ->all();
 
-        $clients = Client::query()->get(['id', 'name', 'abbreviation'])->keyBy('id');
+        foreach ($this->currentScopes($profile, $clients) as $scope) {
+            $nextNumbers[$scope] ??= 1;
+        }
 
-        return $sequences->map(function (Sequence $sequence) use ($clients) {
-            $scope = substr($sequence->key, strlen(self::KEY_PREFIX));
+        ksort($nextNumbers, SORT_NATURAL);
+
+        return collect($nextNumbers)->map(function (int $next, string $scope) use ($clients) {
             $clientId = preg_match('/^client:(\d+)/', $scope, $match) ? (int) $match[1] : null;
 
             return [
                 'scope_key' => $scope,
-                'last_number' => (int) $sequence->next_number - 1,
+                'last_number' => $next - 1,
                 'client_id' => $clientId,
                 'client_name' => $clientId ? $clients->get($clientId)?->name : null,
                 'client_abbreviation' => $clientId ? $clients->get($clientId)?->abbreviation : null,
             ];
         })->values();
+    }
+
+    /**
+     * Get the scopes of the counters, which the numbering as it is now counts with: each active client's, or the
+     * profile's one, with this year when they restart yearly.
+     *
+     * @param Profile $profile
+     * @param Collection<int, Client> $clients
+     *
+     * @return array<int, string>
+     */
+    protected function currentScopes(Profile $profile, Collection $clients): array
+    {
+        $year = $profile->setting('invoice.numbering.reset') === NumberingReset::Yearly->value ? ':' . now()->year : '';
+
+        if ($profile->setting('invoice.numbering.scope') === NumberingScope::Global->value) {
+            return ['global' . $year];
+        }
+
+        return $clients->where('is_active', true)
+            ->map(fn (Client $client) => 'client:' . $client->getKey() . $year)
+            ->values()
+            ->all();
     }
 
     /**

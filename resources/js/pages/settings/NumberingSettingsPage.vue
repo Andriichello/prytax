@@ -22,7 +22,8 @@ import { errorMessage, fieldError } from '@/utils/errors';
  * Нумерація інвойсів (M-NumberingSettings, design.md §5, §16.5): the dark «Наступний номер» card, which never dims,
  * then the groups: «Формат номера» (the client's abbreviation in front or none, date and number or the number only,
  * the date in it), «Лічильник» (one per ФОП or per client, its yearly reset) and «Поточні лічильники» (the last number
- * of each, which moves forward only; read-only, they show as disabled fields). Then the rules and a link to the
+ * of each, which moves forward only, every active client's from 0 before its first invoice; read-only, they show as
+ * disabled fields). Then the rules and a link to the
  * invoices' notes, which moved to Документ інвойсу.
  */
 const { can } = useSession();

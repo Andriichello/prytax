@@ -831,6 +831,54 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that an active client's counter is listed at 0 before its first invoice, and set there to continue the
+     * numbering of another system; a deactivated client's isn't listed.
+     *
+     * @return void
+     */
+    public function testListsAndSetsAClientsCounterBeforeItsFirstInvoice(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        [$client] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
+        $this->createClientWithContract($profile, ['name' => 'Old Client', 'abbreviation' => 'OC', 'is_active' => false]);
+
+        $this->getJson($this->profilePath($profile, 'invoices/counters'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.scope_key', 'client:' . $client->id)
+            ->assertJsonPath('data.0.last_number', 0)
+            ->assertJsonPath('data.0.client_abbreviation', 'BL');
+        $this->patchJson($this->profilePath($profile, 'invoices/counters'), ['scope_key' => 'client:' . $client->id, 'next_number' => 13])
+            ->assertOk()
+            ->assertJsonPath('data.0.last_number', 12);
+        $this->getJson($this->profilePath($profile, 'invoices/number-preview?client_id=' . $client->id . '&period_end=2026-10-31'))
+            ->assertOk()
+            ->assertJsonPath('data.number', 'BL-2026-10-31-13');
+    }
+
+    /**
+     * Test that with one counter per ФОП, restarting yearly, the list has this year's counter before its first invoice.
+     *
+     * @return void
+     */
+    public function testListsThisYearsCounterOfTheFopBeforeItsFirstInvoice(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->inProfile($profile, fn () => $profile->updateSettings(['invoice.numbering.scope' => 'global', 'invoice.numbering.reset' => 'yearly']));
+        $this->actAs($profile);
+        $this->createClientWithContract($profile);
+
+        $this->getJson($this->profilePath($profile, 'invoices/counters'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.scope_key', 'global:2026')
+            ->assertJsonPath('data.0.last_number', 0)
+            ->assertJsonPath('data.0.client_id', null);
+    }
+
+    /**
      * Test that the list is filtered by an issue range, clients and currencies, newest first, and paged.
      *
      * @return void

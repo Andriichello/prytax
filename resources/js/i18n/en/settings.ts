@@ -75,7 +75,7 @@ export default {
             'Without a prefix, different clients’ counters give the same numbers for the same date — such an invoice can’t be frozen.',
         counterReset: 'Counter reset',
         currentCounters: 'Current counters',
-        noCountersYet: 'No counters yet: the first one appears with the first frozen invoice.',
+        noCountersYet: 'No counters yet: each client gets one as soon as it is added.',
         explained:
             'The number is assigned when the invoice is frozen. If the date or the client’s abbreviation changed after it went back to draft, only they are updated; the sequence number stays. Issued numbers keep their abbreviation. A number typed by hand doesn’t change. Gaps after cancellations are normal.',
         noteMoved: 'Now in “Invoice document”',

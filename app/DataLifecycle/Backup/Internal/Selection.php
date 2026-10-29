@@ -2,6 +2,7 @@
 
 namespace PryTax\DataLifecycle\Backup\Internal;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
 use LogicException;
@@ -96,7 +97,7 @@ final class Selection
             TableSpec::CHILD => $query->whereIn($table->parent()['column'], $this->ids($this->spec($table->parent()['table']))),
             TableSpec::MORPH => $this->constrainMorph($query, $table),
             TableSpec::PROFILE_JSON => $query->whereRaw(
-                'CAST(JSON_UNQUOTE(JSON_EXTRACT(' . $query->getGrammar()->wrap($table->json()['column']) . ', ?)) AS UNSIGNED) = ?',
+                $this->jsonInteger($query, $table->json()['column']) . ' = ?',
                 [$table->json()['path'], $this->tenantId]
             ),
             TableSpec::REFERENCE => $this->constrainReference($query, $table),
@@ -165,12 +166,34 @@ final class Selection
             return;
         }
 
-        $grammar = $query->getGrammar();
-        [$year, $part] = [$grammar->wrap($filter['year']), $grammar->wrap($filter['part'])];
-        $unit = $filter['type'] === 'quarter' ? 'QUARTER' : 'MONTH';
-        $start = "MAKEDATE($year, 1) + INTERVAL ($part - 1) $unit";
+        // The quarters (or months) from the one of the period's first day to the one of its last day
+        $part = fn (CarbonInterface $date) => $filter['type'] === 'quarter' ? $date->quarter : $date->month;
+        [$fromYear, $fromPart, $toYear, $toPart] = [$this->spec->from->year, $part($this->spec->from), $this->spec->to->year, $part($this->spec->to)];
 
-        $query->whereRaw("$start <= ? AND $start + INTERVAL 1 $unit > ?", [$to, $from]);
+        $query
+            ->where(fn (Builder $query) => $query
+                ->where($filter['year'], '>', $fromYear)
+                ->orWhere(fn (Builder $query) => $query->where($filter['year'], $fromYear)->where($filter['part'], '>=', $fromPart)))
+            ->where(fn (Builder $query) => $query
+                ->where($filter['year'], '<', $toYear)
+                ->orWhere(fn (Builder $query) => $query->where($filter['year'], $toYear)->where($filter['part'], '<=', $toPart)));
+    }
+
+    /**
+     * Get the SQL of an integer at a JSON path (the `?` binding) in the column, stored as a number or a string.
+     *
+     * @param Builder $query
+     * @param string $column
+     *
+     * @return string
+     */
+    private function jsonInteger(Builder $query, string $column): string
+    {
+        $column = $query->getGrammar()->wrap($column);
+
+        return $query->getConnection()->getDriverName() === 'sqlite'
+            ? "CAST(json_extract($column, ?) AS INTEGER)"
+            : "CAST(JSON_UNQUOTE(JSON_EXTRACT($column, ?)) AS UNSIGNED)";
     }
 
     /**

@@ -80,7 +80,10 @@ final class TenantPurger
         $tables = $this->registry->tables();
 
         return $db->transaction(function () use ($db, $selection, $tables) {
-            $db->statement('SET SESSION innodb_lock_wait_timeout = 30');
+            // SQLite has one writer at a time, which waits for the connection's busy timeout instead
+            if ($db->getDriverName() !== 'sqlite') {
+                $db->statement('SET SESSION innodb_lock_wait_timeout = 30');
+            }
 
             foreach ($tables as $table) {
                 $columns = $table->deferredColumns();

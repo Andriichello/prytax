@@ -5,7 +5,7 @@ namespace PryTax\DataLifecycle\Registry;
 /**
  * Class Column.
  *
- * A column of a table, as `information_schema.COLUMNS` describes it.
+ * A column of a table, as `information_schema.COLUMNS` (MySQL) or the schema builder (SQLite) describes it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Registry

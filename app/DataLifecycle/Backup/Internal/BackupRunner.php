@@ -81,7 +81,7 @@ final class BackupRunner
         $outcomes = [];
 
         $snapshotAt = $this->inSnapshot($db, function () use ($db, $tenants, $spec, $context, $previous, &$archives, &$outcomes) {
-            $snapshotAt = $db->selectOne('SELECT UTC_TIMESTAMP() AS now')->now;
+            $snapshotAt = $db->selectOne($db->getDriverName() === 'sqlite' ? "SELECT datetime('now') AS now" : 'SELECT UTC_TIMESTAMP() AS now')->now;
             $context['snapshot_at'] = str_replace(' ', 'T', $snapshotAt) . 'Z';
 
             foreach ($tenants as $tenant) {
@@ -353,7 +353,9 @@ final class BackupRunner
 
     /**
      * Run the callback inside a consistent, read-only snapshot of the connection, with a time limit on its
-     * statements. A connection inside a transaction already (a test's) reads inside that one.
+     * statements. A connection inside a transaction already (a test's) reads inside that one. On SQLite the snapshot
+     * is a deferred transaction, which reads one version of the database in WAL mode without blocking its writers,
+     * and has no time limit.
      *
      * @template TResult
      *
@@ -366,6 +368,16 @@ final class BackupRunner
     {
         if ($db->transactionLevel() > 0) {
             return $callback();
+        }
+
+        if ($db->getDriverName() === 'sqlite') {
+            $db->unprepared('BEGIN DEFERRED');
+
+            try {
+                return $callback();
+            } finally {
+                $db->unprepared('COMMIT');
+            }
         }
 
         $db->unprepared('SET SESSION MAX_EXECUTION_TIME = ' . self::STATEMENT_TIMEOUT);

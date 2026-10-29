@@ -7,8 +7,10 @@ use Illuminate\Database\ConnectionInterface;
 /**
  * Class SchemaInspector.
  *
- * Reads the tables, columns and foreign keys of the connection's database from `information_schema` (MySQL), once,
- * for the registry's tests (completeness, order, generated columns), its column snapshot and the archives.
+ * Reads the tables, columns and foreign keys of the connection's database, once, for the registry's tests
+ * (completeness, order, generated columns), its column snapshot and the archives: from `information_schema` on MySQL,
+ * through Laravel's schema builder (SQLite's pragmas) on SQLite. SQLite declares JSON columns as `text`, so there
+ * they aren't JSON to the archives, which then keep their values as stored.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Registry
@@ -136,6 +138,18 @@ final class SchemaInspector
      */
     public function foreignKeys(string $table): array
     {
+        if ($this->foreignKeys === null && $this->isSqlite()) {
+            $this->foreignKeys = [];
+
+            foreach ($this->tables() as $name) {
+                foreach ($this->db->getSchemaBuilder()->getForeignKeys($name) as $key) {
+                    foreach ($key['columns'] as $column) {
+                        $this->foreignKeys[$name][$column] = $key['foreign_table'];
+                    }
+                }
+            }
+        }
+
         if ($this->foreignKeys === null) {
             $this->foreignKeys = [];
 
@@ -153,12 +167,34 @@ final class SchemaInspector
     }
 
     /**
+     * Determine if the connection is SQLite's.
+     *
+     * @return bool
+     */
+    private function isSqlite(): bool
+    {
+        return $this->db->getDriverName() === 'sqlite';
+    }
+
+    /**
      * Load the columns of every table.
      *
      * @return array<string, array<string, Column>>
      */
     private function allColumns(): array
     {
+        if ($this->columns === null && $this->isSqlite()) {
+            $this->columns = [];
+            $tables = array_column($this->db->getSchemaBuilder()->getTables(), 'name');
+            sort($tables);
+
+            foreach ($tables as $name) {
+                foreach ($this->db->getSchemaBuilder()->getColumns($name) as $column) {
+                    $this->columns[$name][$column['name']] = new Column($column['name'], strtolower($column['type_name']), $column['nullable'], $column['generation'] !== null);
+                }
+            }
+        }
+
         if ($this->columns === null) {
             $this->columns = [];
 

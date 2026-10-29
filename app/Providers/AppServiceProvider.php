@@ -6,9 +6,12 @@ use Core\Http\Middleware\RequireUpdatedPassword;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Connectors\SQLiteConnector;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Events\MigrationsEnded;
+use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
 use PryTax\Helpers\Desktop;
@@ -16,6 +19,7 @@ use PryTax\Helpers\MorphMap;
 use PryTax\Helpers\SqliteFunctions;
 use PryTax\Http\Middleware\HandleIdempotencyKey;
 use PryTax\Http\Middleware\ResolveProfile;
+use PryTax\Listeners\SyncRolesAfterMigrations;
 use PryTax\Models\Account;
 use PryTax\Models\AccountMovement;
 use PryTax\Models\AccountOpeningBalance;
@@ -136,6 +140,11 @@ class AppServiceProvider extends ServiceProvider
                 ...Arr::only(config('database.connections.sqlite'), ['busy_timeout', 'journal_mode', 'synchronous', 'transaction_mode']),
             ]]);
             DB::purge('nativephp');
+        }
+
+        // The desktop app's roles follow its migrations, which NativePHP runs on the first launch and after updates
+        if (Desktop::isRunning()) {
+            Event::listen([MigrationsEnded::class, NoPendingMigrations::class], SyncRolesAfterMigrations::class);
         }
 
         // The profile is looked up within the organization, which api-core's middleware sets before it

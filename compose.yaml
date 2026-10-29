@@ -1,0 +1,73 @@
+# PryTax for the web (APP-BUILDS-PLAN.md, phase 1): the app, the queue worker and the scheduler run one image.
+#
+#   MySQL in a container:   DB_HOST=mysql in .env, then `docker compose --profile mysql up -d --build`
+#   An external MySQL:      DB_HOST and the credentials in .env, then `docker compose up -d --build`
+#
+# The settings come from .env (see .env.docker.example). In a development checkout, whose .env is the local one, keep
+# them in .env.docker with PRYTAX_ENV_FILE=.env.docker in it, and add `--env-file .env.docker` to every command.
+# README.md ("Running with Docker") has the first owner.
+
+x-prytax: &prytax
+  image: prytax:latest
+  env_file: ${PRYTAX_ENV_FILE:-.env}
+  restart: unless-stopped
+  volumes:
+    - storage:/app/storage
+  extra_hosts:
+    - host.docker.internal:host-gateway
+
+services:
+  app:
+    <<: *prytax
+    build:
+      context: .
+      additional_contexts:
+        api-core: ../api-core
+    environment:
+      RUN_MIGRATIONS: "true"
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+
+  worker:
+    <<: *prytax
+    command: ["php", "artisan", "queue:work", "--queue=backups,retention,default", "--sleep=3", "--max-time=3600"]
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+
+  scheduler:
+    <<: *prytax
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    profiles: [mysql]
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-prytax}
+      MYSQL_USER: ${DB_USERNAME:-prytax}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$$MYSQL_USER\" -p\"$$MYSQL_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  storage:
+  mysql:

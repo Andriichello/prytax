@@ -1,0 +1,22 @@
+# Built inside the image, or not part of it
+.git
+.idea
+.claude
+.mcp.json
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+public/fonts-manifest.dev.json
+storage/*
+bootstrap/cache/*.php
+.phpunit.result.cache
+.phpunit.cache
+Dockerfile
+compose.yaml
+tests
+docs

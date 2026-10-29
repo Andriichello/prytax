@@ -116,6 +116,24 @@ Its departures are under "Status" in the plan.
         refused with a translated message; so are a run's bundle and a period's export.
       - SPA: `BackupImportPage` (`/backups/import`), linked from Резервні копії.
       - Rebuild the SPA, and sync the roles (the permission is new), before trying it in the window.
+    - **Layout and numbering, 2026-10-29/30** (the user's feedback from the window, all on `feat/desktop`):
+      - Breakpoints (`useBreakpoint`): the desktop design from 600 px; below 1024 px the sidebar is a 64 px rail
+        (`isCompact`) whose ☰ opens the whole sidebar over the page; mobile below 600 px. The window's `minWidth` is
+        600. `AuthLayout` splits only from 1024 px, and `meta.bare` routes (recovery kit, change password, no
+        profile) skip the frame. Pages have 24 px sides in the compact range. Narrow-width fixes: Облік's switches
+        wrap, `ReceiptTable` and `InvoiceTable` (status under the amount) and `TaxSummaryCard` (no bar) give way.
+      - Sidebar: no logo; Users and Backups in their own «Керування» group. `SubScreen`: the header row spans the
+        page, with the record's kind beside ← («← Рахунок»); the column (+ the side note beside it from 1280 px)
+        is centred under it; the note spans the column when it wraps under it.
+      - Numbering: «Поточні лічильники» lists every active client's counter (or the ФОП's) from 0, settable before
+        the first invoice. The editor's number card: Автоматичний | Лічильник | Власний (dark inputs). A chosen
+        counter is `sequence_number` without `number` on the draft; no other invoice may hold it; the freeze moves
+        the counter past it; automatic numbers and previews skip counters drafts hold.
+      - Fixes: `FetchRatesJob` failed when no receipt had a manual rate (Eloquent `merge` of arrays); the style
+        preview uses pdf.js's legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`);
+        Книги's income PDF stands top right in an empty year too; the kit shows the time it was kept.
+      - To drive the dev window from scripts: run `native:run` with `REMOTE_DEBUGGING_PORT=9333`; `act.mjs` takes
+        `CDP`, `BASE`, `NO_EMULATION` and the `clear-emulation`, `type` and `key` steps.
     - Next: the user's check of downloads and of the editor fixes in the window, then signing, the Windows and macOS
       builds (CI), and asking about merging `feat/desktop`.
 

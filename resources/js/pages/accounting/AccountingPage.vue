@@ -174,14 +174,14 @@ const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${qua
             <NewPill v-if="can('create', 'payments')" :to="{ name: 'payment-pick' }" :label="t('core.common.receipt')" />
         </template>
         <template #filters>
-            <div class="scrollbar-none flex items-center gap-2 overflow-x-auto" :class="isDesktop ? '' : '-mx-4 px-4'">
+            <div class="flex items-center gap-2" :class="isDesktop ? 'flex-wrap' : 'scrollbar-none -mx-4 overflow-x-auto px-4'">
                 <FilterBadge :label="`${quarterLabel(quarter)} ${year}`" period @click="openFilterAt($event, 'period')" />
                 <FilterBadge :label="groupingOptions.find((option) => option.value === grouping)?.label ?? ''" @click="openFilterAt($event, 'grouping')" />
-                <template v-if="isDesktop">
-                    <span class="flex-1" />
-                    <label class="flex items-center gap-2 text-14 text-ink-2">{{ t('shell.nav.taxes') }} <ToggleSwitch v-model="showTaxes" /></label>
-                    <label class="ml-3 flex items-center gap-2 text-14 text-ink-2">{{ t('accounting.quarters.feesNet') }} <ToggleSwitch v-model="showFees" /></label>
-                </template>
+                <!-- The switches keep to the right, under the chips when the row is narrow -->
+                <div v-if="isDesktop" class="ml-auto flex items-center gap-5">
+                    <label class="flex items-center gap-2 text-14 whitespace-nowrap text-ink-2">{{ t('shell.nav.taxes') }} <ToggleSwitch v-model="showTaxes" /></label>
+                    <label class="flex items-center gap-2 text-14 whitespace-nowrap text-ink-2">{{ t('accounting.quarters.feesNet') }} <ToggleSwitch v-model="showFees" /></label>
+                </div>
             </div>
         </template>
 

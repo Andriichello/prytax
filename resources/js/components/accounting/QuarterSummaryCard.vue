@@ -43,9 +43,9 @@ const cap = computed(() => formatMoney(card.cap.income_cap.replace(/\.00$/, ''),
                     <span class="absolute top-0 left-[80%] h-full w-0.5 bg-white/40" aria-hidden="true" />
                     <span class="absolute top-0 left-[90%] h-full w-0.5 bg-white/40" aria-hidden="true" />
                 </div>
-                <div class="flex justify-between text-13">
-                    <span class="num">{{ formatMoney(card.cap.ytd_income, 'UAH') }}</span>
-                    <span class="num text-on-ink-2">{{ t('shell.overview.ofTotal', { total: cap }) }}</span>
+                <div class="flex flex-wrap justify-between gap-x-3 text-13">
+                    <span class="num whitespace-nowrap">{{ formatMoney(card.cap.ytd_income, 'UAH') }}</span>
+                    <span class="num whitespace-nowrap text-on-ink-2">{{ t('shell.overview.ofTotal', { total: cap }) }}</span>
                 </div>
             </div>
 

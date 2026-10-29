@@ -19,7 +19,7 @@ import { receiptTaxPayment } from '@/utils/taxes';
  * too; once for a hryvnia receipt), and the fees under ЄП. The row with its line is one block, which a solid divider
  * parts from the next, with one hover, and opens the receipt wherever it is clicked. The columns follow the table's
  * own width (a container query): under 920 px the date goes under the invoice, and the income in hryvnias and the NBU
- * rate under the amount (and the net in hryvnias under the net).
+ * rate under the amount (and the net in hryvnias under the net); under 560 px the columns narrow.
  */
 const { receipts, title = undefined, count = undefined, total = undefined, taxes: showTaxes = true, feesOf = null } = defineProps<{
     receipts: Payment[];
@@ -36,7 +36,7 @@ const { can } = useSession();
 type ReceiptTax = Extract<TaxType, 'single_tax' | 'military_levy'>;
 
 const TAXES: ReceiptTax[] = ['single_tax', 'military_levy'];
-const columns = 'grid-cols-[minmax(0,1fr)_132px_116px_116px] @min-[920px]:grid-cols-[minmax(0,1fr)_72px_124px_72px_124px_116px_116px]';
+const columns = 'grid-cols-[minmax(0,1fr)_116px_88px_88px] gap-3 @min-[560px]:grid-cols-[minmax(0,1fr)_132px_116px_116px] @min-[560px]:gap-4 @min-[920px]:grid-cols-[minmax(0,1fr)_72px_124px_72px_124px_116px_116px]';
 
 /** A receipt's net income in hryvnias: its own for a hryvnia receipt, else at its NBU rate; null when unknown. */
 function netUah(receipt: Payment, net: string | null | undefined): string | null {
@@ -73,7 +73,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
             </span>
             <span v-if="total" class="num text-18 font-bold">{{ total }}</span>
         </div>
-        <div class="grid gap-4 border-b border-line px-5 py-2.5 text-12 text-ink-3" :class="columns">
+        <div class="grid border-b border-line px-5 py-2.5 text-12 text-ink-3" :class="columns">
             <span>{{ t('money.receiptTable.invoice') }}</span>
             <span class="hidden @min-[920px]:block">{{ t('core.common.date') }}</span>
             <span class="text-right">{{ t('invoices.table.amount') }}</span>
@@ -88,7 +88,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
             class="relative hover:bg-paper-light"
             :class="index > 0 ? 'border-t border-divider' : ''"
         >
-            <div class="grid items-center gap-4 px-5 py-3.5" :class="columns">
+            <div class="grid items-center px-5 py-3.5" :class="columns">
                 <RouterLink
                     :to="{ name: 'payment', params: { id: receipt.id } }"
                     class="flex min-w-0 flex-col gap-0.5 text-ink no-underline after:absolute after:inset-0 hover:text-ink"
@@ -125,7 +125,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
                 </template>
                 <template v-else><span /><span /></template>
             </div>
-            <div v-if="feesOf && feesOf(receipt)" class="grid items-center gap-4 border-t border-dashed border-line-input px-5 py-2 text-13" :class="columns">
+            <div v-if="feesOf && feesOf(receipt)" class="grid items-center border-t border-dashed border-line-input px-5 py-2 text-13" :class="columns">
                 <span />
                 <span class="hidden @min-[920px]:block" />
                 <span class="flex flex-col items-end gap-0.5">

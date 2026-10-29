@@ -16,7 +16,7 @@ import { TAX_TYPES } from '@/utils/statuses';
  * share paid, a bar split by quarter, the three columns); then ЄСВ, ЄП and ВЗ, each with its deadline, or «✓ закрито»
  * once all of it is paid, a bar split by month (ЄСВ) or by quarter, the three columns, and the failed payments apart.
  * On desktop (D-Taxes, §17.4) it is a table: tax · bar · Нараховано · Надіслано · Сплачено, whose columns narrow under
- * 760 px of its width (a container query).
+ * 760 px of its width, and which drops the bar under 600 px (container queries).
  */
 const { summary, quarters } = defineProps<{
     summary: TaxLedger['summary'];
@@ -37,7 +37,7 @@ const paidShare = computed(() => {
 
 const { isDesktop } = useBreakpoint();
 
-const columns = 'grid-cols-[150px_minmax(0,1fr)_100px_100px_100px] gap-4 @min-[760px]:grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] @min-[760px]:gap-5';
+const columns = 'grid-cols-[minmax(0,1fr)_96px_96px_96px] gap-3 @min-[600px]:grid-cols-[150px_minmax(0,1fr)_100px_100px_100px] @min-[600px]:gap-4 @min-[760px]:grid-cols-[180px_minmax(0,1fr)_140px_140px_140px] @min-[760px]:gap-5';
 
 const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compareAmounts(row.accrued, '0') > 0 && compareAmounts(row.paid, row.accrued) >= 0;
 </script>
@@ -45,7 +45,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
 <template>
     <article v-if="isDesktop" class="@container overflow-hidden rounded-card border border-line bg-surface">
         <div class="grid border-b border-line px-5 py-2.5 text-12 text-ink-3" :class="columns">
-            <span /><span />
+            <span /><span class="@max-[600px]:hidden" />
             <span class="text-right">{{ t('accounting.taxes.accrued') }}</span>
             <span class="text-right">{{ t('accounting.taxes.sent') }}</span>
             <span class="text-right">{{ t('accounting.taxes.paid') }}</span>
@@ -57,7 +57,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
                     <Translated :text="t('accounting.taxes.paidShare')"><template #percent><span class="num">{{ paidShare }}</span></template></Translated>
                 </span>
             </span>
-            <TaxBar :accrued="summary.total.accrued" :sent="summary.total.sent" :paid="summary.total.paid" :parts="quarters" dark />
+            <TaxBar :accrued="summary.total.accrued" :sent="summary.total.sent" :paid="summary.total.paid" :parts="quarters" dark class="@max-[600px]:hidden" />
             <span class="num text-right text-15 font-semibold">{{ formatAmount(summary.total.accrued) }}</span>
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(summary.total.sent, '0') > 0 ? 'text-warning-on-ink' : ''">{{ formatAmount(summary.total.sent) }}</span>
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(summary.total.paid, '0') > 0 ? 'text-positive-on-ink' : ''">{{ formatAmount(summary.total.paid) }}</span>
@@ -69,7 +69,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
                 <span v-else-if="row.due_at" class="text-12 text-ink-3">{{ t('accounting.taxes.dueBy', { date: formatDate(row.due_at) }) }}</span>
                 <span v-if="compareAmounts(row.failed, '0') > 0" class="text-12 text-negative">{{ t('accounting.taxes.failedNotCounted', { amount: formatAmount(row.failed) }) }}</span>
             </span>
-            <TaxBar :accrued="row.accrued" :sent="row.sent" :paid="row.paid" :parts="row.tax_type === 'social_contribution' ? quarters * 3 : quarters" />
+            <TaxBar :accrued="row.accrued" :sent="row.sent" :paid="row.paid" :parts="row.tax_type === 'social_contribution' ? quarters * 3 : quarters" class="@max-[600px]:hidden" />
             <span class="num text-right text-15 font-semibold">{{ formatAmount(row.accrued) }}</span>
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(row.sent, '0') > 0 ? 'text-warning' : ''">{{ formatAmount(row.sent) }}</span>
             <span class="num text-right text-15 font-semibold" :class="compareAmounts(row.paid, '0') > 0 ? 'text-positive' : ''">{{ formatAmount(row.paid) }}</span>

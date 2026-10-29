@@ -7,7 +7,10 @@ use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Database\Connectors\SQLiteConnector;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Http\Kernel;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 use PryTax\Helpers\MorphMap;
 use PryTax\Helpers\SqliteFunctions;
 use PryTax\Http\Middleware\HandleIdempotencyKey;
@@ -88,6 +91,17 @@ class AppServiceProvider extends ServiceProvider
                 return $pdo;
             }
         });
+
+        // The desktop app (APP-BUILDS-PLAN.md, phase 3): NativePHP runs it in a window of its own on 127.0.0.1
+        if (config('nativephp-internal.running')) {
+            config([
+                // Files, as a database store would be bound to the configured connection before NativePHP replaces it
+                'cache.default' => 'file',
+                'mail.default' => 'log',
+                // The window's host and port, which are free ports NativePHP picks, sign in with the session
+                'sanctum.stateful' => [...config('sanctum.stateful', []), Sanctum::$currentRequestHostPlaceholder],
+            ]);
+        }
     }
 
     /**
@@ -102,6 +116,16 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app['router']->aliasMiddleware(ResolveProfile::ALIAS, ResolveProfile::class);
         $this->app['router']->aliasMiddleware(HandleIdempotencyKey::ALIAS, HandleIdempotencyKey::class);
+
+        // NativePHP's own connection to the desktop's database, which its provider defines in booting, with the settings
+        // of the configured SQLite one (writers wait their turn)
+        if (config('nativephp-internal.running') && config('database.connections.nativephp')) {
+            config(['database.connections.nativephp' => [
+                ...config('database.connections.nativephp'),
+                ...Arr::only(config('database.connections.sqlite'), ['busy_timeout', 'journal_mode', 'synchronous', 'transaction_mode']),
+            ]]);
+            DB::purge('nativephp');
+        }
 
         // The profile is looked up within the organization, which api-core's middleware sets before it
         $this->callAfterResolving(HttpKernel::class, function (HttpKernel $kernel) {

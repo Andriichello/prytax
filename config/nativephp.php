@@ -153,10 +153,12 @@ return [
      * The queue workers that get auto-started on your application start.
      */
     'queue_workers' => [
+        // Backups and period exports run on their own queues, for up to 30 minutes (RunOrganizationBackup,
+        // BuildOrganizationBundle, RunRetentionJob)
         'default' => [
-            'queues' => ['default'],
-            'memory_limit' => 128,
-            'timeout' => 60,
+            'queues' => ['backups', 'retention', 'default'],
+            'memory_limit' => 512,
+            'timeout' => 1800,
             'sleep' => 3,
         ],
     ],

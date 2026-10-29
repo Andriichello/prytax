@@ -203,6 +203,23 @@ export default {
         dayTime: '{day}, {time}',
         policy: 'Schedule and retention',
         recoveryKit: 'Recovery kit',
+        import: {
+            title: 'Restore from an archive',
+            linkHint: 'A ФОП from the downloaded archive of its backup, as a new ФОП',
+            explained:
+                'Choose the archive of a ФОП’s backup (the ZIP, as downloaded). “Check” tells whose archive it is and what it holds without changing anything; “Restore” adds it as a new ФОП of the organization.',
+            sideNote:
+                'Restoring never overwrites an existing ФОП: one the organization has can’t be restored here. The archive of every ФОП of a backup won’t do — download the backup of the one ФОП.',
+            chooseArchive: 'Choose the archive (.zip)',
+            password: 'The archive’s password',
+            passwordHint: 'Only if it was downloaded with a password',
+            check: 'Check',
+            checkedTitle: 'In the archive',
+            holds: '{rows} records · documents: {documents}',
+            restore: 'Restore as a new ФОП',
+            restored: 'Restored: {name}',
+            open: 'Go to the ФОП',
+        },
         recoveryKitHint: 'This installation’s key, to open a copy of the database on another computer',
         policySummary: '{frequency} · up to {months} mo.',
         createNow: 'Back up now',

@@ -283,6 +283,18 @@ const previousOf = (profileId: number): string | null => {
                 <p v-if="!data.status.policy.enabled" class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.offText') }}</p>
 
                 <RouterLink
+                    v-if="can('import', 'backups')"
+                    :to="{ name: 'backup-import' }"
+                    class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"
+                >
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-15 font-semibold">{{ t('settings.backups.import.title') }}</span>
+                        <span class="text-13 text-ink-3">{{ t('settings.backups.import.linkHint') }}</span>
+                    </span>
+                    <Icon name="chevronRight" :size="18" />
+                </RouterLink>
+
+                <RouterLink
                     v-if="showsRecoveryKit"
                     :to="{ name: 'recovery-kit', query: { redirect: '/backups' } }"
                     class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"

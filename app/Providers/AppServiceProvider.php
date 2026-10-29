@@ -4,10 +4,12 @@ namespace PryTax\Providers;
 
 use Core\Http\Middleware\RequireUpdatedPassword;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Database\Connectors\SQLiteConnector;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Support\ServiceProvider;
 use PryTax\Helpers\MorphMap;
+use PryTax\Helpers\SqliteFunctions;
 use PryTax\Http\Middleware\HandleIdempotencyKey;
 use PryTax\Http\Middleware\ResolveProfile;
 use PryTax\Models\Account;
@@ -75,7 +77,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Every SQLite connection (the desktop app's) gets Unicode-aware LOWER(), UPPER() and LIKE, reconnections too
+        $this->app->bind('db.connector.sqlite', fn () => new class extends SQLiteConnector
+        {
+            public function connect(array $config)
+            {
+                $pdo = parent::connect($config);
+                SqliteFunctions::register($pdo);
+
+                return $pdo;
+            }
+        });
     }
 
     /**

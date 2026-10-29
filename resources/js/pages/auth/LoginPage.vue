@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import TextField from '@/components/form/TextField.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
@@ -10,17 +10,31 @@ import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
  * Вхід: e-mail and password only, and «Запам’ятати мене», which keeps the user signed in past the session (handoff
- * §6.1).
+ * §6.1). Where the installation allows registering a new organization, it links to Реєстрація, and opens it at once
+ * on the installation's first launch, which has no user yet (the desktop app's).
  */
 const route = useRoute();
 const router = useRouter();
-const { signIn } = useSession();
+const { signIn, registrationStatus } = useSession();
 
 const email = ref('');
 const password = ref('');
 const remember = ref(true);
 const busy = ref(false);
 const error = ref<unknown>(null);
+const registrationOpen = ref(false);
+
+onMounted(async () => {
+    const status = await registrationStatus().catch(() => null);
+
+    if (status?.first_owner) {
+        await router.replace({ name: 'register' });
+
+        return;
+    }
+
+    registrationOpen.value = status?.enabled ?? false;
+});
 
 async function submit(): Promise<void> {
     busy.value = true;
@@ -77,6 +91,10 @@ async function submit(): Promise<void> {
                 {{ errorMessage(error) }}
             </p>
             <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.login.signIn') }}</PrimaryButton>
+            <p v-if="registrationOpen" class="m-0 flex min-h-11 flex-wrap items-center justify-center gap-x-1.5 text-15 text-ink-2">
+                {{ t('shell.login.newHere') }}
+                <RouterLink :to="{ name: 'register' }" class="font-medium no-underline">{{ t('shell.login.register') }}</RouterLink>
+            </p>
         </form>
 
         <template #footer>

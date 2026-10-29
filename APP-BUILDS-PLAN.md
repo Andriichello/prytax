@@ -254,13 +254,18 @@ the provider, which moved to `PryTax\Providers`.
      tax ID, IBAN and invoice snapshot is then lost for good.
    - **Recovery kit:** a small text file holding the key, the date, the organization's name and restore
      instructions. It is never sent anywhere.
-6. **First-run setup:**
-   - `GET /api/setup` returns `{ needsSetup }`. `POST /api/setup` calls `InstallationSetup` and then logs in with the
-     session.
-   - Both are enabled only when `prytax.setup_enabled` is on (true on desktop; false on the web, where the first
-     visitor could otherwise claim the install) and no user exists.
-   - In the SPA, a router guard redirects to a new `/setup` page that uses the Minimal form style and uk/en i18n keys.
-     Login then uses "remember me".
+6. **First-run setup** (changed on 2026-10-29, at the user's request: it's the registration form):
+   - Registering a new organization from the sign-in page is built (branch `feat/registration`):
+     - `GET /api/registration` returns `{ enabled, first_owner }`.
+     - `POST /api/registration` creates the organization and its owner through `OrganizationRegistrar`, which
+       `InstallationSetup` and `prytax:create-owner` share, and signs the SPA in, as api-core's login does.
+     - Both are under api-core's auth rate limit.
+     - `PRYTAX_REGISTRATION` (`prytax.registration`) turns it on. It's off on servers by default, on in local
+       development; under NativePHP it's turned on, together with step 4's settings.
+   - On an installation without any user, Вхід opens Реєстрація at once, with a first-launch hint; that's the
+     desktop app's first launch. Otherwise Вхід links to it («Ще не працюєте в PryTax? Зареєструвати організацію»).
+   - Left for the desktop: the recovery-kit step right after registering (below), and turning registration on under
+     NativePHP.
    - **The recovery kit is required, not optional.** After the account is created, setup can't continue until the
      user does one of these:
      - Saves the kit through a native save dialog (`Dialog::new()->save()`, defaulting to Documents).

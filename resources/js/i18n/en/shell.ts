@@ -18,6 +18,18 @@ export default {
         signIn: 'Sign in',
         accessNote: 'Access is given by the organization’s owner.',
         accountantNote: 'An accountant sees every ФОП of their practice.',
+        newHere: 'New to PryTax?',
+        register: 'Register an organization',
+    },
+
+    register: {
+        title: 'New organization',
+        hint: 'Create an organization — your own ФОП or an accountant’s practice — as its owner. You’ll invite the others later.',
+        firstOwnerHint: 'This is PryTax’s first launch: create the organization and its owner to start.',
+        organization: 'Organization name',
+        name: 'Your name',
+        submit: 'Register',
+        haveAccount: 'Already have an account?',
     },
 
     forgotPassword: {

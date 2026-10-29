@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { api, ApiError, fetchCsrfCookie } from '@/api/client';
-import type { ApiResponse, Me } from '@/api/types';
-import { isLocale, type Locale, setLocale } from '@/i18n';
+import type { ApiResponse, Me, Registration, RegistrationStatus } from '@/api/types';
+import { isLocale, type Locale, locale, setLocale } from '@/i18n';
 
 /**
  * The signed-in user of the SPA's session cookie, shared by the whole app.
@@ -75,6 +75,35 @@ async function signIn(email: string, password: string, rememberMe = false): Prom
 }
 
 /**
+ * Whether a new organization may be registered here, and whether it'd be the installation's first (`GET
+ * registration`): the desktop app's first launch opens the form at once.
+ */
+async function registrationStatus(): Promise<RegistrationStatus> {
+    const { data } = await api.get<ApiResponse<RegistrationStatus>>('registration');
+
+    return data;
+}
+
+/**
+ * Register a new organization (`POST registration`), whose owner is signed in to the session at once, remembered, in
+ * the language of the screens. A 422 carries the messages of the fields.
+ */
+async function register(registration: Registration): Promise<Me> {
+    await fetchCsrfCookie();
+
+    const { data } = await api.post<ApiResponse<{ user: Me }>>('registration', {
+        ...registration,
+        locale: locale.value,
+        remember: true,
+    });
+
+    chosenLocale = null;
+    loading = Promise.resolve(data.user);
+
+    return remember(data.user);
+}
+
+/**
  * Switch the screens to the language and, when signed in, keep it as the user's own (`PATCH auth/me`), so the API,
  * the e-mails and the user's other devices follow it. Before signing in, it is kept for the account that signs in.
  */
@@ -123,6 +152,8 @@ export function useSession() {
         isSignedIn: computed(() => user.value !== null),
         load,
         signIn,
+        registrationStatus,
+        register,
         signOut,
         forget,
         can,

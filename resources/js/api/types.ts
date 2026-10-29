@@ -245,6 +245,21 @@ export interface TokenLogin extends TokenPair {
     user: Me;
 }
 
+/** Whether a new organization may be registered here (`GET registration`), and whether it'd be the first one. */
+export interface RegistrationStatus {
+    enabled: boolean;
+    first_owner: boolean;
+}
+
+/** What registering a new organization takes (`POST registration`): its name, its owner's name and credentials. */
+export interface Registration {
+    organization: string;
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+}
+
 // ---- Files ----
 
 /** Collections of files: an invoice's rendered PDFs, its uploaded ones, and a profile's signature image. */

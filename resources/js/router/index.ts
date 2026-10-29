@@ -52,6 +52,7 @@ const keptScroll = new Map<string, { path: string; top: number }>();
 const routes: RouteRecordRaw[] = [
     { path: '/login', name: 'login', component: () => import('@/pages/auth/LoginPage.vue'), meta: { guest: true } },
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/auth/ForgotPasswordPage.vue'), meta: { guest: true } },
+    { path: '/register', name: 'register', component: () => import('@/pages/auth/RegisterPage.vue'), meta: { guest: true } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
     { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue') },

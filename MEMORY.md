@@ -87,6 +87,32 @@ Its departures are under "Status" in the plan.
     - The user is to renew or remove the token, or run the require themselves; then start the spike on
       `feat/desktop`.
 
+**Registration** (2026-10-29, branch `feat/registration` from `dev`, not merged). The user asked for a way to register
+a new organization from the sign-in screen, and chose:
+- an env switch (`PRYTAX_REGISTRATION`: off on servers by default, on in local development and the desktop app);
+- signing in at once, without e-mail verification;
+- the same form as the desktop's first-run setup.
+
+What was built:
+- **Backend:**
+  - `config/prytax.php` (`registration`).
+  - `OrganizationRegistrar`, shared by `InstallationSetup` and `prytax:create-owner`. It gives a second organization
+    of the same name its own slug (`praktika-2`).
+  - `RegistrationController`: `GET` and `POST /api/registration`, under api-core's auth throttle. It signs in the way
+    api-core's login does.
+  - `RegisterRequest`: an e-mail any account has is refused with "…Sign in instead."
+- **SPA:**
+  - `RegisterPage.vue` (`/register`), and `useSession().register()` and `registrationStatus()`.
+  - Вхід links to it when registration is on, and opens it at once when no user exists (with a first-launch hint).
+  - After registering, the app routes to `/profiles/new`.
+  - The local `.env` has `PRYTAX_REGISTRATION=true`.
+- **Checked:**
+  - Tests on MySQL and SQLite.
+  - A browser pass at 390 and 1440 px, in uk and en: first launch → register → Новий ФОП, the link on Вхід, a reused
+    e-mail refused.
+- **Left for the desktop** (`feat/desktop`): turn registration on under NativePHP, and add the recovery-kit step
+  after registering.
+
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 
 Claude Design's three bundles are in `storage/handoff-28-10-2026/` (git-ignored; the zips are extracted there):

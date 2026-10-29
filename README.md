@@ -135,6 +135,12 @@ examples.
 | `API_CORE_PASSWORD_RESET_URL`     | `http://localhost:5173/reset-password`         | SPA page of the password reset link.                                |
 | `API_CORE_EMAIL_VERIFICATION_URL` | `http://localhost:5173/verify-email`           | SPA page of the email verification link.                            |
 | `API_CORE_INVITATION_URL`         | `http://localhost:5173/accept-invitation`      | SPA page of the invitation link.                                    |
+| `PRYTAX_REGISTRATION`             | `true` (`false` in `.env.docker.example`)      | Whether the sign-in page offers registering a new organization.     |
+
+With `PRYTAX_REGISTRATION` on, the sign-in page links to a form that registers a new organization with its owner, who
+is signed in at once (`GET`/`POST /api/registration`); an installation without any user opens it at once. It's off by
+default, as anyone reaching a server could create organizations; then owners come from `prytax:create-owner` and
+invitations.
 
 Requests from other origins, such as integrations, sign in with tokens. api-core's other options are listed in
 `vendor/andriichello/api-core/docs/getting-started/03-configuration.md`.

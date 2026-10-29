@@ -17,7 +17,7 @@ import { panelBackground } from '@/router';
  * On desktop (design.md §17.2–§17.3) a page gets the page header (a round back button, unless it is a sidebar's page
  * — `meta.section` —, the title, the action and the 📖 | 🔔 capsule) over a column of `width`: 760 px for settings
  * and records, 880 px for lists, or the whole page, with the `aside` slot (the side note «Як це працює») as a 300 px
- * sticky column beside it, under it below 1280 px. The page's primary action (`NewPill`) is the `action`, left of the
+ * sticky column beside it, under it and as wide as the column below 1280 px. The page's primary action (`NewPill`) is the `action`, left of the
  * capsule; the title keeps its width, the sub-line wraps, and the actions go under the title when they don't fit. In
  * the record panel it gets the panel's header (← back to the record it came from; the kind of record, `title`, over
  * the record's own title, `record`, with the `sub` line and the `badges` under it; «✎ Змінити» to `edit` when the
@@ -134,7 +134,7 @@ const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '
             <main class="flex w-full min-w-0 flex-col gap-5" :class="column">
                 <slot />
             </main>
-            <aside v-if="$slots.aside" class="flex w-75 shrink-0 flex-col gap-2 rounded-card bg-muted p-4" :class="isWide ? 'sticky top-6' : ''">
+            <aside v-if="$slots.aside" class="flex flex-col gap-2 rounded-card bg-muted p-4" :class="isWide ? 'sticky top-6 w-75 shrink-0' : ['w-full', column]">
                 <slot name="aside" />
             </aside>
         </div>

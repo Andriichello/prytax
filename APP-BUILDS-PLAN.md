@@ -128,6 +128,8 @@ databases that already exist are unaffected.
 - **Checked:**
   - The demo practice was seeded into both databases, and 76 report responses (Облік, Податки, the books, ЄСВ, fees,
     declarations, invoices, payments, accounts, clients; four ФОП) are identical.
+  - Docker on SQLite (`DB_CONNECTION=sqlite`, no profile): the file is created on the first start, the demo seeds,
+    and the worker's container completes a backup while sharing the file in WAL mode.
   - On SQLite:
     - The screens render in uk and en.
     - An invoice PDF downloads.

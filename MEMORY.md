@@ -113,6 +113,27 @@ What was built:
 - **Left for the desktop:** turn registration on under NativePHP, and add the recovery-kit step after registering.
   `feat/desktop` branched before registration, so merge `dev` into it first.
 
+**Fixes from the user's desktop test** (2026-10-29, branch `fix/editor-and-edit-buttons` from `dev`, not merged).
+
+The user's decisions:
+- A new invoice is stored only by «Зберегти чернетку». Before, every group's «Зберегти» and every item created or
+  updated the draft.
+- On desktop, «Змінити» sits at the end of the record's title row, not by 📖/🔔.
+
+The invoice editor (`InvoiceEditPage.vue`):
+- A new invoice keeps its groups, items and number in the form (`pending`).
+- The footer has [Зберегти чернетку] [Зафіксувати], enabled once the client, the period and the account are set.
+- Its status line says what's missing, "not saved yet", or "saved at HH:MM" with "A group's changes are saved at once"
+  for a stored draft, which keeps saving group by group.
+- A refused save opens the group whose fields were refused (`GROUP_FIELDS`, `revealErrors()`). Before, "Check the
+  fields marked in red" showed with nothing red: saving one group of a new invoice was refused for another group's
+  `receiving_account_id`.
+
+«Змінити»: `components/ui/EditLink.vue` (the panel header's bordered ✎ button) ends the title row of the client,
+account and transfer pages on desktop; phones keep it in the header bar.
+
+Checked in the browser at 1440 and 390 px.
+
 ## Handoffs of 2026-10-28 (merged into `dev` and `main`, pushed)
 
 Claude Design's three bundles are in `storage/handoff-28-10-2026/` (git-ignored; the zips are extracted there):

@@ -44,12 +44,12 @@ class MoneyFormatter
     /**
      * Format the amount with two decimals, such as `1 234.99`; a negative one starts with a minus sign (U+2212).
      *
-     * @param BigNumber|int|string|null $amount
+     * @param BigNumber|int|float|string|null $amount
      * @param int $scale
      *
      * @return string
      */
-    public function amount(BigNumber|int|string|null $amount, int $scale = 2): string
+    public function amount(BigNumber|int|float|string|null $amount, int $scale = 2): string
     {
         $value = Decimal::round($amount, $scale);
         $negative = $value->isNegative();
@@ -77,12 +77,12 @@ class MoneyFormatter
     /**
      * Format the amount with its currency after it: `3 892.50 USD`, and `1 234.99 ₴` for UAH.
      *
-     * @param BigNumber|int|string|null $amount
+     * @param BigNumber|int|float|string|null $amount
      * @param string $currency
      *
      * @return string
      */
-    public function money(BigNumber|int|string|null $amount, string $currency): string
+    public function money(BigNumber|int|float|string|null $amount, string $currency): string
     {
         $symbol = strtoupper($currency) === 'UAH' ? '₴' : strtoupper($currency);
 

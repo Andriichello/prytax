@@ -48,4 +48,18 @@ class DecimalTest extends TestCase
     {
         $this->assertSame($shares, Decimal::split(str_replace(' ', '', $amount), $weights));
     }
+
+    /**
+     * Test that a float, as SQLite returns a decimal, is the decimal it stands for, not an int PHP truncates it to,
+     * and that a sum's float error is gone.
+     *
+     * @return void
+     */
+    public function testTakesAFloatAsTheDecimalItStandsFor(): void
+    {
+        $this->assertSame('3892.5', (string) Decimal::of(3892.5));
+        $this->assertSame('0.3', (string) Decimal::of(0.1 + 0.2));
+        $this->assertSame('3892.50', Decimal::money(3892.5));
+        $this->assertSame('-100', (string) Decimal::of(-100.0));
+    }
 }

@@ -8,14 +8,14 @@ return [
      * It is used to determine if the app needs to be updated.
      * Increment this value every time you release a new version of your app.
      */
-    'version' => env('NATIVEPHP_APP_VERSION', '1.0.0'),
+    'version' => env('NATIVEPHP_APP_VERSION', '0.1.0'),
 
     /**
      * The ID of your application. This should be a unique identifier
      * usually in the form of a reverse domain name.
      * For example: com.nativephp.app
      */
-    'app_id' => env('NATIVEPHP_APP_ID', 'com.nativephp.app'),
+    'app_id' => env('NATIVEPHP_APP_ID', 'com.prytax.desktop'),
 
     /**
      * If your application allows deep linking, you can specify the scheme
@@ -31,7 +31,7 @@ return [
     /**
      * The author of your application.
      */
-    'author' => env('NATIVEPHP_APP_AUTHOR'),
+    'author' => env('NATIVEPHP_APP_AUTHOR', 'Andrii Prykhodko'),
 
     /**
      * The copyright notice for your application.
@@ -41,12 +41,12 @@ return [
     /**
      * The description of your application.
      */
-    'description' => env('NATIVEPHP_APP_DESCRIPTION', 'An awesome app built with NativePHP'),
+    'description' => env('NATIVEPHP_APP_DESCRIPTION', 'Income records, invoices and taxes for Ukrainian sole proprietors (ФОП)'),
 
     /**
      * The Website of your application.
      */
-    'website' => env('NATIVEPHP_APP_WEBSITE', 'https://nativephp.com'),
+    'website' => env('NATIVEPHP_APP_WEBSITE', 'https://github.com/Andriichello/prytax'),
 
     /**
      * The default service provider for your application. This provider
@@ -61,6 +61,18 @@ return [
      * You may use wildcards to match multiple keys.
      */
     'cleanup_env_keys' => [
+        // Each installation generates its own key on the first launch (APP-BUILDS-PLAN.md, phase 3, step 5)
+        'APP_KEY',
+        // The development machine's database, mail, cache and proxy settings, which the desktop replaces
+        'DB_*',
+        'MAIL_*',
+        'REDIS_*',
+        'MEMCACHED_*',
+        'SANCTUM_*',
+        'CORS_*',
+        'TRUSTED_PROXIES',
+        'PRYTAX_ENV_FILE',
+        '*_PASSWORD',
         'AWS_*',
         'AZURE_*',
         'GITHUB_*',
@@ -88,6 +100,20 @@ return [
         'content',
         'node_modules',
         '*/tests',
+        'tests',
+        'docs',
+        'docker',
+        '.idea',
+        '.claude',
+        // Development data and notes
+        'storage/app/private',
+        'storage/app/backups',
+        'storage/handoff',
+        'storage/handoff-*',
+        'MEMORY.md',
+        'APP-BUILDS-PLAN.md',
+        'CLAUDE.md',
+        '.env.docker*',
     ],
 
     /**

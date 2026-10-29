@@ -11,6 +11,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
+use PryTax\Helpers\Desktop;
 use PryTax\Helpers\MorphMap;
 use PryTax\Helpers\SqliteFunctions;
 use PryTax\Http\Middleware\HandleIdempotencyKey;
@@ -93,8 +94,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // The desktop app (APP-BUILDS-PLAN.md, phase 3): NativePHP runs it in a window of its own on 127.0.0.1
-        if (config('nativephp-internal.running')) {
+        if (Desktop::isRunning()) {
             config([
+                // The window's first screen registers the organization (APP-BUILDS-PLAN.md, phase 3, step 6)
+                'prytax.registration' => true,
                 // Files, as a database store would be bound to the configured connection before NativePHP replaces it
                 'cache.default' => 'file',
                 'mail.default' => 'log',
@@ -119,7 +122,7 @@ class AppServiceProvider extends ServiceProvider
 
         // NativePHP's own connection to the desktop's database, which its provider defines in booting, with the settings
         // of the configured SQLite one (writers wait their turn)
-        if (config('nativephp-internal.running') && config('database.connections.nativephp')) {
+        if (Desktop::isRunning() && config('database.connections.nativephp')) {
             config(['database.connections.nativephp' => [
                 ...config('database.connections.nativephp'),
                 ...Arr::only(config('database.connections.sqlite'), ['busy_timeout', 'journal_mode', 'synchronous', 'transaction_mode']),

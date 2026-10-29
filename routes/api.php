@@ -19,6 +19,7 @@ use PryTax\Http\Controllers\ChargeTypeController;
 use PryTax\Http\Controllers\ClientController;
 use PryTax\Http\Controllers\ContractController;
 use PryTax\Http\Controllers\DeletedProfileController;
+use PryTax\Http\Controllers\EnvironmentController;
 use PryTax\Http\Controllers\EsvObligationController;
 use PryTax\Http\Controllers\ExchangeRateController;
 use PryTax\Http\Controllers\InvoiceController;
@@ -70,6 +71,9 @@ Route::prefix('auth')->group(fn () => AuthController::routes());
 
 // A new organization from the sign-in page, when `prytax.registration` allows it
 RegistrationController::routes();
+
+// Where the SPA runs: the desktop app's window, or a browser
+Route::get('environment', [EnvironmentController::class, 'show'])->name('environment');
 
 Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use ($crud, $all) {
     UserController::routes();

@@ -179,6 +179,28 @@ databases that already exist are unaffected.
      archive made on one driver that imports on the other.
 
 ## Phase 3: Desktop with NativePHP, branch `feat/desktop`
+**Built so far** (2026-10-29, `feat/desktop`):
+- **Steps 2–4.** `config/nativephp.php` sets the identity (`com.prytax.desktop`) and the cleanup lists: `APP_KEY`,
+  `DB_*` and `MAIL_*`, plus development data, docs and tests. The window is 1280×800, at least 1024 px wide, remembers
+  its state, and has Chromium's PDF viewer. Under NativePHP: file cache, log mail, the window's host is stateful,
+  `IMMEDIATE` transactions, registration on, and the roles synced after NativePHP's migrations
+  (`SyncRolesAfterMigrations`; without it the first owner couldn't register). `GET /api/environment` tells the SPA it's
+  in the desktop app.
+- **Step 5.** `InstallationKey` makes the key on the first launch and keeps it in `database.sqlite.key` (mode 0600).
+  The bundled key is kept only while developing, or for a database it encrypted.
+- **Step 6.**
+  - `RecoveryKit` and `GET`, `POST save` and `POST confirm` on `desktop/recovery-kit`, for owners. Набір відновлення
+    is required before working: the router guard sends the owner there. Резервні копії links back to it.
+  - Restore: on the first launch, Реєстрація links to Відновлення. `DesktopRestoreController` and `DatabaseRestore`
+    take the kit and the old database through native dialogs and check that the kit's key decrypts a tax ID. Then they
+    stop the worker, swap the file in and relaunch.
+  - Restoring from an in-app backup archive waits for §5.3.
+- **Step 7.** `LaunchCatchUp` runs when the window boots. It queues `FetchRatesJob`, which releases after 1, 5, 15 and
+  30 minutes for up to 12 hours, and `schedule-tax-periods` and `sync-alerts`. Backups catch up by themselves.
+- **Step 8.** The user's first session saved a backup zip through Electron's own download handling, with no code of
+  ours. The other downloads are still to be checked; the `useDownload` layer is built only if one of them fails.
+- **Step 9 (builds)** remains.
+
 **Spike results** (2026-10-29). `nativephp/desktop` 2.4.0 is installed: the user ran the require, then I pinned it to
 `^2.4`. `native:install` added `native:dev` and a `post-update-cmd` hook to `composer.json`, `config/nativephp.php` and
 the provider, which moved to `PryTax\Providers`.

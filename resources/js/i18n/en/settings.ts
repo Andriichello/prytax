@@ -202,6 +202,8 @@ export default {
         yesterday: 'Yesterday',
         dayTime: '{day}, {time}',
         policy: 'Schedule and retention',
+        recoveryKit: 'Recovery kit',
+        recoveryKitHint: 'This installation’s key, to open a copy of the database on another computer',
         policySummary: '{frequency} · up to {months} mo.',
         createNow: 'Back up now',
         createCopyNow: 'Back up now',

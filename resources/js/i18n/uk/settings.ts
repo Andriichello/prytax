@@ -206,6 +206,8 @@ export default {
         yesterday: 'Вчора',
         dayTime: '{day}, {time}',
         policy: 'Розклад і зберігання',
+        recoveryKit: 'Набір відновлення',
+        recoveryKitHint: 'Ключ цієї установки — щоб відкрити копію бази на іншому комп’ютері',
         policySummary: '{frequency} · до {months} міс.',
         createNow: 'Створити зараз',
         createCopyNow: 'Створити копію зараз',

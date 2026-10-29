@@ -2,6 +2,7 @@ import { reactive, ref } from 'vue';
 import { START_LOCATION, createRouter, createWebHistory, type RouteParamsGeneric, type RouteRecordRaw } from 'vue-router';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useDesktopApp } from '@/composables/useDesktopApp';
 import { useSession } from '@/composables/useSession';
 
 export type TabName = 'home' | 'invoices' | 'accounting' | 'taxes' | 'more';
@@ -56,6 +57,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
     { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue') },
+    { path: '/recovery-kit', name: 'recovery-kit', component: () => import('@/pages/auth/RecoveryKitPage.vue') },
     { path: '/no-profile', name: 'no-profile', component: () => import('@/pages/NoProfilePage.vue') },
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
@@ -226,8 +228,9 @@ export const startupError = ref<unknown>(null);
 
 /**
  * Signed-out people may open only the sign-in pages; signed-in ones work in a profile, chosen before the first page.
- * A password set by someone else is replaced first (the API refuses everything else until then); an organization
- * without a ФОП starts with creating one, or tells why there's nothing to show.
+ * A password set by someone else is replaced first (the API refuses everything else until then), and in the desktop
+ * app the owner keeps the recovery kit; an organization without a ФОП starts with creating one, or tells why there's
+ * nothing to show.
  */
 router.beforeEach(async (to, from) => {
     const { load, can } = useSession();
@@ -253,6 +256,15 @@ router.beforeEach(async (to, from) => {
 
         if (to.name === 'change-password') {
             return { name: 'home' };
+        }
+
+        // In the desktop app, the owner keeps the installation's recovery kit before working (APP-BUILDS-PLAN.md)
+        if (to.name === 'recovery-kit') {
+            return true;
+        }
+
+        if (user.roles.includes('owner') && (await useDesktopApp().needsRecoveryKit())) {
+            return { name: 'recovery-kit', query: { redirect: to.fullPath } };
         }
 
         const current = useCurrentProfile();

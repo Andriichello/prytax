@@ -260,6 +260,24 @@ export interface Registration {
     password_confirmation: string;
 }
 
+/** Where the SPA runs (`GET environment`): in the desktop app's window, or a browser. */
+export interface AppEnvironment {
+    desktop: boolean;
+}
+
+/** The desktop installation's recovery kit (`GET desktop/recovery-kit`): its key, for another computer. */
+export interface RecoveryKit {
+    text: string;
+    filename: string;
+    /** When the owner saved or copied it, or null, until they do. */
+    saved_at: DateTimeString | null;
+}
+
+/** The kit after the native save dialog: where it was saved, or null, when the dialog was cancelled. */
+export interface SavedRecoveryKit extends RecoveryKit {
+    path: string | null;
+}
+
 // ---- Files ----
 
 /** Collections of files: an invoice's rendered PDFs, its uploaded ones, and a profile's signature image. */

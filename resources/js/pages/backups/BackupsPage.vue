@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import type { ApiResponse, BackupRecord, BackupRunRecord, BackupStatusSummary, DeletedProfile, Paginated } from '@/api/types';
 import BackupDownloadSheet from '@/components/backups/BackupDownloadSheet.vue';
@@ -17,6 +17,7 @@ import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
+import { useDesktopApp } from '@/composables/useDesktopApp';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
@@ -31,9 +32,16 @@ import { errorMessage } from '@/utils/errors';
  * 5 on desktop), each ФОП's archive downloadable, a failed one retried, an owner's manual run deleted, and «Показати
  * старіші». While a run is in progress the page reads it again every 3 seconds.
  */
-const { can } = useSession();
+const { can, user } = useSession();
 const { profiles, profile } = useCurrentProfile();
 const { isDesktop } = useBreakpoint();
+
+// In the desktop app, its owner reaches the installation's recovery kit here
+const showsRecoveryKit = ref(false);
+
+onMounted(async () => {
+    showsRecoveryKit.value = (user.value?.roles.includes('owner') ?? false) && (await useDesktopApp().isDesktopApp());
+});
 
 const canRun = computed(() => can('create', 'backup-runs'));
 const canDelete = computed(() => can('delete', 'backups'));
@@ -273,6 +281,18 @@ const previousOf = (profileId: number): string | null => {
                 </div>
 
                 <p v-if="!data.status.policy.enabled" class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.offText') }}</p>
+
+                <RouterLink
+                    v-if="showsRecoveryKit"
+                    :to="{ name: 'recovery-kit', query: { redirect: '/backups' } }"
+                    class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"
+                >
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-15 font-semibold">{{ t('settings.backups.recoveryKit') }}</span>
+                        <span class="text-13 text-ink-3">{{ t('settings.backups.recoveryKitHint') }}</span>
+                    </span>
+                    <Icon name="chevronRight" :size="18" />
+                </RouterLink>
 
                 <section v-for="backup in failedOfLatest" :key="backup.id" class="flex flex-col gap-2 rounded-card border border-negative-soft bg-negative-soft/40 p-4">
                     <h2 class="m-0 text-15 font-semibold text-negative">{{ t('settings.backups.failedTitle', { name: shortName(backup.profile_id) }) }}</h2>

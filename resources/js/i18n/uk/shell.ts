@@ -93,7 +93,7 @@ export default {
         storedSafely: 'Набір відновлення збережено в надійному місці поза цим комп’ютером',
         continue: 'Продовжити',
         savedTo: 'Збережено: {path}',
-        keptOn: 'Збережено {date}.',
+        keptOn: 'Збережено {date} о {time}.',
     },
 
     /** A password set by someone else */

@@ -7,7 +7,8 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import { useDesktopApp } from '@/composables/useDesktopApp';
 import { t } from '@/i18n';
-import { formatDate } from '@/utils/dates';
+import { kyivTime } from '@/utils/backups';
+import { formatDate, kyivDate } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 
 /**
@@ -94,7 +95,7 @@ async function confirm(): Promise<void> {
 
             <template v-if="kit && (savedPath || kit.saved_at)">
                 <p class="m-0 text-14 text-positive" role="status">
-                    {{ savedPath ? t('shell.recoveryKit.savedTo', { path: savedPath }) : t('shell.recoveryKit.keptOn', { date: formatDate(kit.saved_at!.slice(0, 10)) }) }}
+                    {{ savedPath ? t('shell.recoveryKit.savedTo', { path: savedPath }) : t('shell.recoveryKit.keptOn', { date: formatDate(kyivDate(kit.saved_at)), time: kyivTime(kit.saved_at) }) }}
                 </p>
                 <SecondaryButton :busy="busy === 'save'" @click="save">{{ t('shell.recoveryKit.saveToFile') }}</SecondaryButton>
                 <PrimaryButton @click="router.replace(redirect)">{{ keptBefore ? t('shell.ui.close') : t('shell.recoveryKit.continue') }}</PrimaryButton>

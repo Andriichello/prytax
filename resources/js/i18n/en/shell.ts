@@ -85,7 +85,7 @@ export default {
         storedSafely: 'The recovery kit is stored somewhere safe, away from this computer',
         continue: 'Continue',
         savedTo: 'Saved to {path}',
-        keptOn: 'Kept on {date}.',
+        keptOn: 'Kept on {date} at {time}.',
     },
 
     changePassword: {

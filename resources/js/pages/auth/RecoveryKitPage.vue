@@ -13,13 +13,16 @@ import { errorMessage } from '@/utils/errors';
 /**
  * Набір відновлення: the desktop installation's key (APP-BUILDS-PLAN.md, phase 3), which the owner keeps away from the
  * computer before working: saved to a file through a native dialog, or copied with their word that it's somewhere
- * safe. Without it a copy of the database can't be read. Opened again from Резервні копії, it tells when it was kept.
+ * safe. Without it a copy of the database can't be read. Opened again from Резервні копії, it tells when it was kept,
+ * downloads it again, and closes back to where it was opened from.
  */
 const route = useRoute();
 const router = useRouter();
 const { recoveryKit, saveRecoveryKit, confirmRecoveryKit } = useDesktopApp();
 
 const kit = ref<RecoveryKit | null>(null);
+/** Whether the kit was kept before this visit: then the page closes, rather than continuing the setup. */
+const keptBefore = ref(false);
 const savedPath = ref<string | null>(null);
 const copied = ref(false);
 const storedSafely = ref(false);
@@ -31,6 +34,7 @@ const redirect = computed(() => (typeof route.query.redirect === 'string' && rou
 onMounted(async () => {
     try {
         kit.value = await recoveryKit();
+        keptBefore.value = kit.value.saved_at !== null;
     } catch (caught) {
         error.value = caught;
     } finally {
@@ -92,7 +96,8 @@ async function confirm(): Promise<void> {
                 <p class="m-0 text-14 text-positive" role="status">
                     {{ savedPath ? t('shell.recoveryKit.savedTo', { path: savedPath }) : t('shell.recoveryKit.keptOn', { date: formatDate(kit.saved_at!.slice(0, 10)) }) }}
                 </p>
-                <PrimaryButton @click="router.replace(redirect)">{{ t('shell.recoveryKit.continue') }}</PrimaryButton>
+                <SecondaryButton :busy="busy === 'save'" @click="save">{{ t('shell.recoveryKit.saveToFile') }}</SecondaryButton>
+                <PrimaryButton @click="router.replace(redirect)">{{ keptBefore ? t('shell.ui.close') : t('shell.recoveryKit.continue') }}</PrimaryButton>
             </template>
 
             <template v-else-if="kit">

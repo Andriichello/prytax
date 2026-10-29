@@ -79,7 +79,7 @@ export default {
         title: 'Recovery kit',
         explained:
             'This installation’s key decrypts the tax IDs, IBANs and invoice details. Without it, a copy of the database can’t be opened on another computer. Keep the kit away from this computer — in a password manager or printed — before you start.',
-        saveToFile: 'Save to a file…',
+        saveToFile: 'Download the file…',
         copy: 'Copy',
         copied: 'Copied',
         storedSafely: 'The recovery kit is stored somewhere safe, away from this computer',

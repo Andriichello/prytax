@@ -32,6 +32,8 @@ class NativeAppServiceProvider implements ProvidesPhpIni
             ->height(800)
             ->minWidth(1024)
             ->minHeight(640)
+            // Chromium's PDF viewer, for the invoice's preview, which opens its PDF in a window of its own
+            ->webPreferences(['plugins' => true])
             ->rememberState();
     }
 

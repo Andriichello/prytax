@@ -52,7 +52,7 @@
     "Database": "База даних",
     "Database: :path": "База даних: :path",
     "Key: :key": "Ключ: :key",
-    "Organizations: :names": "Організації: :names",
+    "Organizations:": "Організації:",
     "PryTax is set up already.": "PryTax уже налаштовано.",
     "PryTax recovery kit": "Набір відновлення PryTax",
     "Save the recovery kit": "Збережіть набір відновлення",

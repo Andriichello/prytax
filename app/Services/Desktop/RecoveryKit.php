@@ -36,8 +36,10 @@ class RecoveryKit
         return implode("\n", [
             __('PryTax recovery kit'),
             __('Created: :date', ['date' => now()->format('d.m.Y H:i')]),
-            __('Organizations: :names', ['names' => $this->organizations()->implode(', ')]),
             __('Database: :path', ['path' => $this->databasePath]),
+            '',
+            __('Organizations:'),
+            ...$this->organizations()->map(fn (string $name) => "- $name"),
             '',
             __('Key: :key', ['key' => config('app.key')]),
             '',

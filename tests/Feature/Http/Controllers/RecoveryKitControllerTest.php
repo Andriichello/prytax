@@ -80,18 +80,20 @@ class RecoveryKitControllerTest extends TestCase
     }
 
     /**
-     * Test that the kit carries the installation's key and is unkept at first.
+     * Test that the kit carries the installation's key and its organizations, one a line, and is unkept at first.
      *
      * @return void
      */
     public function testShowsTheKitWithTheKey(): void
     {
-        $this->actAs($this->createProfile());
+        $profile = $this->createProfile();
+        $this->actAs($profile);
 
         $response = $this->getJson('/api/desktop/recovery-kit');
 
         $response->assertOk()->assertJsonPath('data.saved_at', null);
         $this->assertStringContainsString('base64:' . base64_encode(str_repeat('k', 32)), $response->json('data.text'));
+        $this->assertStringContainsString("Organizations:\n- {$profile->organization->name}\n", $response->json('data.text'));
         $this->assertStringStartsWith('PryTax-recovery-kit-', $response->json('data.filename'));
     }
 

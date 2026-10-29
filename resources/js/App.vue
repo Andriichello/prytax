@@ -39,7 +39,7 @@ const { isDesktop } = useBreakpoint();
 const sessionKey = computed(() => (user.value ? `${user.value.id}:${profileId.value ?? ''}` : 'guest'));
 
 /** The desktop frame is for the signed-in screens; Вхід and the other open pages keep their own. */
-const shell = computed(() => isDesktop.value && Boolean(user.value) && !route.meta.guest && !route.meta.public);
+const shell = computed(() => isDesktop.value && Boolean(user.value) && !route.meta.guest && !route.meta.public && !route.meta.bare);
 
 /** The page under the panel, loaded (its component may not be, when the record was opened directly). */
 const base = shallowRef<RouteLocationNormalizedLoaded | null>(null);

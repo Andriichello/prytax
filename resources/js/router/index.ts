@@ -17,6 +17,8 @@ declare module 'vue-router' {
         guest?: boolean;
         /** Pages for anyone (the reset link, "not found"). */
         public?: boolean;
+        /** Signed-in pages framed like signing in (`AuthLayout`), which the desktop's sidebar doesn't frame. */
+        bare?: boolean;
         /** The permission a form needs (`[action, resource]`); without it, `denied` is shown instead. */
         can?: [string, string];
         /** Where people without the permission go: the record, or the list. */
@@ -57,9 +59,9 @@ const routes: RouteRecordRaw[] = [
     { path: '/restore', name: 'restore', component: () => import('@/pages/auth/RestorePage.vue'), meta: { guest: true } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
     { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
-    { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue') },
-    { path: '/recovery-kit', name: 'recovery-kit', component: () => import('@/pages/auth/RecoveryKitPage.vue') },
-    { path: '/no-profile', name: 'no-profile', component: () => import('@/pages/NoProfilePage.vue') },
+    { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue'), meta: { bare: true } },
+    { path: '/recovery-kit', name: 'recovery-kit', component: () => import('@/pages/auth/RecoveryKitPage.vue'), meta: { bare: true } },
+    { path: '/no-profile', name: 'no-profile', component: () => import('@/pages/NoProfilePage.vue'), meta: { bare: true } },
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },

@@ -9,18 +9,18 @@ import { LOCALE_NAMES, locale, t } from '@/i18n';
 
 /**
  * The frame of the signed-out pages: the language pill top right (M-LoginLanguage, design.md §16.5), which opens the
- * language sheet, the PryTax logo and tagline, the form and a footnote. On desktop (D-Login, §17.4) it is split: the
+ * language sheet, the PryTax logo and tagline, the form and a footnote. From 1024 px (D-Login, §17.4) it is split: the
  * ink side with the logo, the headline and its sub-line on the left, the form in a 400 px column on the right, and
- * the pill's choices in a popover.
+ * the pill's choices in a popover; below, where the split doesn't fit, it is the one centred column.
  */
 const languageOpen = ref(false);
 const pill = ref<HTMLElement | null>(null);
 
-const { isDesktop } = useBreakpoint();
+const { isDesktop, isCompact } = useBreakpoint();
 </script>
 
 <template>
-    <div v-if="isDesktop" class="fixed inset-0 flex bg-paper">
+    <div v-if="isDesktop && !isCompact" class="fixed inset-0 flex bg-paper">
         <div class="flex flex-1 flex-col justify-between bg-ink p-16 text-white">
             <div class="flex items-center gap-3">
                 <span class="flex size-11 items-center justify-center rounded-control bg-white text-ink">

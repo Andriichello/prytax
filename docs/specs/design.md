@@ -37,6 +37,11 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
   the freeze would print it now, marked «ЧЕРНЕТКА» / «DRAFT» across every page and stored nowhere.
 - **Zoom** (§17.6, overlays): Перегляд PDF and Перегляд стилю zoom from 50 to 300 %; it replaces Перегляд стилю's
   «Лупа».
+- **Довідка** (`/help`, the owner asked for a page telling users what they can do and how, 2026-10-30): the first
+  steps of setting up a ФОП (for those who may create invoices), then a topic per part of the app — what it is for,
+  its questions opening their answers, and «Відкрити «…»» to its page —, with a search that keeps and opens what has
+  every word typed. Backups are told only to those who see them, the recovery kit only in the desktop app. It opens
+  from the sidebar's foot (above the language; ? in the rail) and from Ще's last card (above the language).
 
 ### Changes in v5 (the third Minimal handoff and «Minimal (Desktop)»)
 

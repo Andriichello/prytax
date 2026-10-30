@@ -6,7 +6,8 @@ the notes under the column, the 1200 px box, Облік's summary, the rail's la
 below, newest first; not `main`, not pushed; `dev` is 124 commits ahead of `origin/dev`). **Not merged:**
 `feat/client-invoice-address`, 7 commits stacked on `dev` (the PDF's payment details spacing, the item card's
 spacing and its Safari fix, the client address as text), checked out; the user is checking it on the phone, then
-merging into `dev` and `native:migrate` on the desktop DB are to ask. **Running:** the desktop dev window
+merging into `dev` and `native:migrate` on the desktop DB are to ask. Stacked on it, `feat/help-page` (Довідка, see its
+section; not merged). **Running:** the desktop dev window
 (`native:run`, CDP 9333), the ngrok tunnel and the phone's web server on 8012 (see "Phone access over ngrok").
 Last runs: 558 PHP tests on SQLite (553 on MySQL before the address), 737 SPA tests. Before it, as of
 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
@@ -32,6 +33,28 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Довідка (2026-10-30, branch `feat/help-page` from `feat/client-invoice-address`)
+
+The user asked for "instructions page or something for users to be able to go to and see what they can do and how".
+Built as an in-app page at `/help` (`HelpPage.vue`, `meta.section`, back to Ще on a phone):
+- **Contents:** `utils/help.ts` builds them from the `help` dictionaries (`i18n/{uk,en}/help.ts`): «Перші кроки» (six
+  steps with links, for those who `create invoices`), then 15 topics in the order of the work (Головна, Інвойси,
+  Надходження, Перекази, Податки, Облік, Книги, Сповіщення, Клієнти, Рахунки, Нумерація й документ, Кілька ФОП,
+  Користувачі, Резервні копії — only for `viewAny backup-runs`, the recovery kit only in the desktop app —, Мова й
+  вхід), each a lead, `<details>` questions and «Відкрити «…»». `{settings}` in the texts is Налаштування on desktop
+  and Ще on a phone. Keys are literal `t()` calls (the guard forbids built keys), so a new question is a key pair in
+  both dictionaries plus a line in `helpTopics`.
+- **Search:** `searchTopics` (`utils/help.test.ts`): every word, case-insensitive, ’ = '; a topic matched by its title
+  or lead shows all its questions, opening those that match themselves; otherwise only the questions that match with
+  the topic's title, open.
+- **Entry points:** the sidebar's foot (above the language) and the rail's (? above 🌐), Ще's last card (above Мова
+  застосунку). New icon `help`.
+- **Texts** were written against the real labels (uk and en dictionaries) and the specs; the deadlines say ЄП/ВЗ within
+  50 days after the quarter, ЄСВ by the 20th of the month after it; no percentages or amounts, which `tax_rules` own.
+- **Checked:** 755 SPA tests, typecheck, build; in headless Chrome (throwaway `artisan serve` on 8011 over the desktop
+  DB, as olena@example.com) at 390, 900 and 1440 px, and the search. English only through the guard (switching the
+  language would write the user's account in the desktop DB).
 
 ## Client address as text (2026-10-30, branch `feat/client-invoice-address` from `dev`)
 

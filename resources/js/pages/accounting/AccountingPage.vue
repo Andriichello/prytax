@@ -31,8 +31,8 @@ import { errorMessage } from '@/utils/errors';
 import { formatMoney, sumAmounts } from '@/utils/money';
 
 /**
- * Облік (M-Accounting, design.md §16.5): one quarter. «Підсумок кварталу» (the income limit, the income per currency,
- * the income for taxes and the taxes), then «Надходження»: the receipts by month, by invoice or in one list, each
+ * Облік (M-Accounting, design.md §16.5): one quarter. «Підсумок кварталу» (the income per currency, the income for
+ * taxes and the taxes), then «Надходження»: the receipts by month, by invoice or in one list, each
  * with its ЄП and ВЗ, and its fees and net on demand (the switches apply at once and are remembered per user; the fees
  * load apart, so the page doesn't reload), and the CSV exports. The period and grouping badges open «Фільтри»; «+ Надходження» opens Інвойс для надходження.
  */
@@ -189,7 +189,7 @@ const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${qua
             <template v-if="data">
                 <section v-if="data.card" class="flex flex-col gap-2.5">
                     <SectionTitle>{{ t('accounting.quarters.summary') }}</SectionTitle>
-                    <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" :cards="isDesktop" />
+                    <QuarterSummaryCard :card="data.card" :quarter="quarter" :cards="isDesktop" />
                 </section>
 
                 <section class="flex flex-col gap-2.5">

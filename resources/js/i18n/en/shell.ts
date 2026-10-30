@@ -182,8 +182,6 @@ export default {
     },
 
     overview: {
-        incomeCapFor: 'Income cap {year}',
-        ofTotal: 'of {total}',
         incomeIn: 'Income {quarter}',
         noInvoicesQuarter: 'No invoices this quarter.',
         taxableIncome: 'Taxable income: {amount}',

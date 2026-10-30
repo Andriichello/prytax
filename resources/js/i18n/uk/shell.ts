@@ -197,8 +197,6 @@ export default {
 
     /** Огляд практики */
     overview: {
-        incomeCapFor: 'Ліміт доходу {year}',
-        ofTotal: 'з {total}',
         incomeIn: 'Дохід {quarter}',
         noInvoicesQuarter: 'Інвойсів за квартал немає.',
         taxableIncome: 'Дохід для податків: {amount}',

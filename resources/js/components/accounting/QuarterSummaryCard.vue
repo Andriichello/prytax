@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import type { OverviewCard, TaxType } from '@/api/types';
 import ProgressBar from '@/components/ui/ProgressBar.vue';
 import Translated from '@/components/ui/Translated.vue';
@@ -9,46 +8,24 @@ import { formatAmount, formatMoney } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
 
 /**
- * «Підсумок кварталу» of Облік (design.md §7, §16.5): the black band of the year's income limit (the share used, the
- * income so far and the limit, with ticks at 80 and 90 %), the quarter's income per currency (received of
- * invoiced), the income for taxes, and the quarter's ЄСВ, ЄП and ВЗ with what is paid. On desktop (`cards`) they are
- * three cards, one under another, each the page's whole width (the owner, 2026-10-30; the board drew them in a row).
+ * «Підсумок кварталу» of Облік (design.md §7, §16.5): the quarter's income per currency (received of invoiced), the
+ * income for taxes, and the quarter's ЄСВ, ЄП and ВЗ with what is paid; the year's income limit is Книги's, not
+ * here (the owner, 2026-10-30). On desktop (`cards`) they are two cards, one under the other, each the page's whole
+ * width (the board drew them in a row).
  */
-const { card, year, quarter, cards = false } = defineProps<{
+const { card, quarter, cards = false } = defineProps<{
     card: OverviewCard;
-    year: number;
     quarter: number;
-    /** The desktop arrangement: three cards, one under another (D-Accounting). */
+    /** The desktop arrangement: two cards, one under the other (D-Accounting). */
     cards?: boolean;
 }>();
 
 const TAXES: TaxType[] = ['social_contribution', 'single_tax', 'military_levy'];
-
-const capPercent = computed(() => Number(card.cap.percent));
-
-/** The limit is a whole number of hryvnias: "10 091 049 ₴". */
-const cap = computed(() => formatMoney(card.cap.income_cap.replace(/\.00$/, ''), 'UAH'));
 </script>
 
 <template>
     <article :class="cards ? '' : 'flex flex-col overflow-hidden rounded-card border border-line bg-surface'">
         <div :class="cards ? 'flex flex-col gap-4' : 'contents'">
-            <div class="flex flex-col gap-2.5 bg-ink px-4 py-3.5 text-white" :class="cards ? 'rounded-card' : ''">
-                <div class="flex items-baseline justify-between">
-                    <span class="text-13 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('shell.overview.incomeCapFor', { year }) }}</span>
-                    <span class="num text-16 font-semibold" :class="capPercent >= 80 ? 'text-warning-on-ink' : ''">{{ card.cap.percent }} %</span>
-                </div>
-                <div class="relative flex h-2.5 overflow-hidden rounded-full bg-white/15" role="progressbar" :aria-valuenow="Math.round(capPercent)" aria-valuemin="0" aria-valuemax="100">
-                    <span class="rounded-full" :class="capPercent >= 80 ? 'bg-warning-bar' : 'bg-white'" :style="{ width: `${Math.min(100, capPercent)}%` }" />
-                    <span class="absolute top-0 left-[80%] h-full w-0.5 bg-white/40" aria-hidden="true" />
-                    <span class="absolute top-0 left-[90%] h-full w-0.5 bg-white/40" aria-hidden="true" />
-                </div>
-                <div class="flex flex-wrap justify-between gap-x-3 text-13">
-                    <span class="num whitespace-nowrap">{{ formatMoney(card.cap.ytd_income, 'UAH') }}</span>
-                    <span class="num whitespace-nowrap text-on-ink-2">{{ t('shell.overview.ofTotal', { total: cap }) }}</span>
-                </div>
-            </div>
-
             <div class="flex flex-col gap-3 px-4 py-3.5" :class="cards ? 'rounded-card border border-line bg-surface' : ''">
                 <span class="text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.overview.incomeIn', { quarter: quarterLabel(quarter) }) }}</span>
                 <div v-for="income in card.income" :key="income.currency" class="flex flex-col gap-1.5">

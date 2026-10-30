@@ -2,7 +2,7 @@
 
 Companion to `docs/specs/design.md` (v5.2). How PryTax runs besides a PHP server on MySQL: as a container image for
 the web (§2), on SQLite (§3), and as a desktop app for Linux, Windows and macOS, made with NativePHP (§4). The
-commands that run each are in `README.md`.
+commands that run each are in `README.md`, and the starter, `./prytax`, runs them (§6).
 
 **State:** as built on 2026-10-29/30, on the branches `feat/docker`, `feat/sqlite` and `feat/desktop`, merged into
 `dev`. **History:** this document was the plan `APP-BUILDS-PLAN.md`, kept in the repository's root while it was built
@@ -374,3 +374,45 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 - **Sorting on SQLite** is byte order (§3.6).
 - **An archive moved between MySQL and SQLite** isn't tested (§3.4).
 - **FrankenPHP's worker mode** would need an audit of state between requests (§2.1).
+
+---
+
+## 6. The starter (`./prytax`)
+
+Added on 2026-10-30, at the owner's request: one program that starts PryTax either way, with the chores around it.
+- **`./prytax`** (a bash script in the root) finds PHP 8.5 (`PRYTAX_PHP`, `php8.5`, or `php` if it's 8.5) and runs
+  `php artisan prytax:start` (`PryTax\Console\Commands\Start`), a Laravel Prompts menu, or the action named:
+  `./prytax web`. The actions are classes in `app/Console/Starter/` (`WebAction`, `DockerAction`, `DesktopAction`,
+  `PhoneAction`, `StatusAction`, `DoctorAction`, `TestAction`, `BuildAction`, `DatabaseAction`), with what they share:
+  - `Toolchain`: this PHP linked as `php` in `<tmp>/prytax-<uid>/bin`, first on every child's PATH (`native:run`
+    and `native:build` call `php`), and nvm's newest Node of 22 or later when the PATH's is older.
+  - `Listeners`: what listens on PryTax's ports (`ss -ltnpH`, else `lsof`): the web app (APP_URL's port, 8010), Vite
+    5173, the desktop app 8100 (DevTools 9333), the phone 8012, ngrok 4040, Docker (`.env.docker`'s APP_PORT, 8080),
+    MySQL 3306; and stopping them (SIGTERM; the desktop app by its Electron's main process, as closing its window).
+  - `ProcessGroup`: several processes in the foreground with their names before their lines, until Ctrl+C or until
+    one ends, which stops the rest (SIGTERM, SIGKILL after 5 s).
+  - `Database`: the web app's (`.env`), the desktop app's (`database/nativephp.sqlite`, with `CACHE_STORE=file` and
+    its storage as `LARAVEL_STORAGE_PATH`, as in §4.10) or a SQLite file, as the variables of a child process; its
+    pending migrations; a copy of a SQLite file beside it (`VACUUM INTO`, so with its WAL), before it's changed.
+  - `Doctor`: the checks of `./prytax doctor`, which the actions reuse (the desktop's, the SPA's build).
+- **Before starting**, an action offers what it needs: a new SQLite file is migrated and seeded (the roles, then the
+  demo data if wanted), pending migrations run after a copy (then `db:seed`, which syncs the roles, as the Docker
+  entrypoint does), a stale or missing SPA build is built. A port in use is refused, with `./prytax status` to see it.
+- **web** runs `artisan serve --no-reload` on 127.0.0.1, `queue:work --queue=backups,retention,default` (not
+  `queue:listen`, whose worker would outlive it) and `schedule:work`, and Vite with `--vite`. Another port than
+  APP_URL's gets its own APP_URL and stateful domains.
+- **docker** makes `.env.docker` from the example when it's missing (PRYTAX_ENV_FILE set, a new APP_KEY, a random
+  database password; mode 0600), runs `docker compose --env-file … [--profile mysql] up -d --build`, then offers the
+  first owner and the logs.
+- **desktop** checks Node, Electron (offering `native:install`) and its sandbox (§4.10; the fix needs sudo, so it's
+  shown, not run), then runs `native:run --no-dependencies` with `PRYTAX_DEVTOOLS` and `REMOTE_DEBUGGING_PORT=9333`.
+  `prytax.desktop_devtools` (`PRYTAX_DEVTOOLS`) decides the window's DevTools; unset, they follow APP_DEBUG.
+- **phone** starts ngrok, reads the tunnel's address from its local API, then serves PryTax there (PHP's own server
+  from `public/`, `variables_order=EGPCS`, so LARAVEL_STORAGE_PATH reaches it), with registration off.
+- **stop** without names asks, or refuses when it can't ask (`--no-interaction`), so it never stops what wasn't meant;
+  the system's MySQL is only shown.
+- **db: starting over** (`migrate:fresh --seed` and the demo data) waits for the app on that database to close, asks
+  for its name to be typed, and keeps a copy of a SQLite file first.
+- **Tests:** `StartTest` (processes faked): the web app on a new SQLite file, a port in use, the desktop window's
+  PHP and DevTools, Docker's settings made, starting over only once the name is typed and after a copy, and the
+  parsing of `ss` and `lsof`. Laravel's console output drops some characters (⚠, →), so the doctor marks with ✓ ! ✗ ↳.

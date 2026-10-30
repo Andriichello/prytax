@@ -78,6 +78,28 @@ tables.
    php artisan schedule:work
    ```
 
+### The starter: `./prytax`
+
+`./prytax` opens a menu that starts PryTax and does the chores around it; `./prytax <action>` does one thing
+(`./prytax --help` lists the options). It runs with PHP 8.5 (`PRYTAX_PHP`, `php8.5` or `php`), puts it first on its
+processes' PATH as `php`, and takes a recent Node from nvm when the PATH's is older.
+
+| Action | What it does |
+|---|---|
+| `web` | The web app here: the server on APP_URL's port, the queue worker and the scheduler, with Vite's hot reload (`--vite`) or the built SPA, on `.env`'s MySQL or a SQLite file (`--db=sqlite`, `--sqlite=<file>`), until Ctrl+C |
+| `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing), MySQL in a container with `--mysql` |
+| `desktop` | The desktop app's development window (`native:run`), without DevTools unless `--devtools` |
+| `phone` | The app on a phone: PHP's server on 8012 behind an ngrok tunnel, on the desktop app's data or the web app's (`--source`) |
+| `status`, `stop` | What runs on PryTax's ports, and stopping it: `./prytax stop web vite`, or `--all` |
+| `doctor` | What PryTax needs here, checked, with what fixes each |
+| `test` | The PHP tests on MySQL or SQLite, the SPA's tests and types (`--filter`) |
+| `build` | The SPA, the desktop app's Linux installers, the invoice styles' thumbnails |
+| `db` | The web app's, the desktop app's or a SQLite file's migrations, starting over with the demo data, the first owner |
+
+Before it starts something, it offers what it needs: a fresh build of the SPA, a database's pending migrations (after a
+copy of a SQLite file), a new SQLite file with the demo data. Starting a database over asks for its name to be typed.
+`docs/specs/builds.md` §6 has the details.
+
 ### Running with Docker
 
 `compose.yaml` runs one image (`Dockerfile`) as three services: `app` (FrankenPHP serving the SPA and the API on port

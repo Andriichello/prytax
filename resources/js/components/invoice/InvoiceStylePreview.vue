@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { PDFDocumentLoadingTask, PDFPageProxy, RenderTask } from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import type { InvoiceLocale, InvoiceStyle } from '@/api/types';
@@ -12,13 +11,13 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { LOCALE_NAMES, t } from '@/i18n';
 import { adjacentStyle, INVOICE_STYLES, styleIndex, styleName } from '@/utils/invoiceStyles';
+import { loadPdf } from '@/utils/pdf';
 
 /**
  * Перегляд стилю: the first page of an invoice's PDF in a style, as the API renders it (the draft's, the client's
  * latest invoice or the ФОП's, nothing saved), drawn with pdf.js; arrows step through the catalogue, and the language
  * switch changes only the preview. "Обрати" chooses the shown style. On desktop it is a wide dialog: the page, about
- * 760 px wide, scrolls on the left, and the controls stay on the right. pdf.js is its legacy build, whose polyfills
- * (such as `Map.prototype.getOrInsertComputed`) let it run in the desktop app's Chromium and in older browsers.
+ * 760 px wide, scrolls on the left, and the controls stay on the right.
  *
  * Лупа: a click on the page (or the «Лупа» button) turns on a round lens, which follows the pointer and shows the
  * page 1.35× from a sharper drawing of it, made the first time; a click again, or Escape (which leaves the dialog
@@ -136,10 +135,7 @@ async function load(): Promise<void> {
             client_id: target.client_id ?? undefined,
             invoice_id: target.invoice_id ?? undefined,
         }, current.signal);
-        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-
-        const task = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) });
+        const task = await loadPdf(blob);
         const page = await (await task.promise).getPage(1);
 
         if (current.signal.aborted) {

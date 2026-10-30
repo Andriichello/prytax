@@ -16,8 +16,7 @@ import { errorMessage } from '@/utils/errors';
 /**
  * The app's frame. On mobile, one centred column, at most 480 px wide (the designs are drawn at 390 px); on desktop
  * (from 600 px, design.md §17; the sidebar a rail of icons below 1024 px), the sidebar and the page beside it, at
- * most 1440 px wide (the boards' width) and
- * centred on a wider screen, and a record's page in the panel on the right, over the page it was opened from
+ * most 1200 px wide (the owner, 2026-10-30; the boards were 1440 px) and centred on a wider screen, and a record's page in the panel on the right, over the page it was opened from
  * (`panelBackground`), which stays mounted under it. When the app can't start (no
  * connection, the server failed), it says so with a retry instead of a blank page. The infinite lists and Податки
  * stay alive behind the records opened from them, so going back returns to the same place, without loading again
@@ -102,8 +101,8 @@ const retry = (): void => window.location.reload();
             </div>
         </AuthLayout>
         <template v-else-if="shell">
-            <div class="mx-auto flex w-full max-w-360">
-                <Sidebar class="sticky top-0 self-start min-[1441px]:shadow-[-1px_0_0_var(--color-line)]" />
+            <div class="mx-auto flex w-full max-w-300">
+                <Sidebar class="sticky top-0 self-start min-[1201px]:shadow-[-1px_0_0_var(--color-line)]" />
                 <PageRoute :route="inPanel ? base : null">
                     <div class="min-w-0 flex-1">
                         <RouterView v-if="!inPanel || base" v-slot="{ Component }" :route="inPanel ? base ?? undefined : undefined">

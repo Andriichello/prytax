@@ -8,7 +8,7 @@ import { tabPaths } from '@/router';
 /**
  * The sections as cards on desktop's Головна, above its invoices: Інвойси, Облік, Податки, Книги and Налаштування,
  * each with its icon, its name and what it holds. A tab's card goes back where the tab was left, as the sidebar does.
- * Five a row on a wide page, three or two as it narrows.
+ * Five a row from 820 px of page (the most the 1200 px app gives it is 872 px), three or two as it narrows.
  */
 const cards = computed<{ key: string; label: string; hint: string; icon: IconName; to: string }[]>(() => [
     { key: 'invoices', label: t('shell.nav.invoices'), hint: t('invoices.home.navInvoices'), icon: 'invoice', to: tabPaths.invoices ?? '/invoices' },
@@ -21,7 +21,7 @@ const cards = computed<{ key: string; label: string; hint: string; icon: IconNam
 
 <template>
     <nav :aria-label="t('invoices.home.navLabel')" class="@container">
-        <ul class="m-0 grid list-none grid-cols-2 gap-3 p-0 @min-[560px]:grid-cols-3 @min-[880px]:grid-cols-5">
+        <ul class="m-0 grid list-none grid-cols-2 gap-3 p-0 @min-[560px]:grid-cols-3 @min-[820px]:grid-cols-5">
             <li v-for="card in cards" :key="card.key" class="flex">
                 <RouterLink
                     :to="card.to"

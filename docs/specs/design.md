@@ -11,15 +11,18 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
 ### Changes in v5.1 (the owner's feedback from the desktop app's window, 2026-10-29/30)
 
 - **Layout switch** (§17.1): the desktop layout from 600 px, not 1024; below 1024 px the sidebar folds into a 64 px
-  rail of icons, whose ☰ opens it over the page. Головна, Інвойси, Облік and Податки keep the shell's whole width
-  (at most 1112 px of content), rather than a column.
+  rail of icons, whose ☰ opens it over the page. The app's box is at most 1200 px wide, centred (it was the boards'
+  1440 px), and every page's content takes the box's whole width beside the sidebar (at most 872 px): no 760 or
+  880 px columns any more (the owner, 2026-10-30).
 - **Sidebar and Ще** (§17.2, §16.5): no logo; Користувачі й ролі and Резервні копії form a «Керування» group of their
   own, on Ще too, where the language and Вийти follow in a card without a heading.
 - **Numbering** (§5): «Поточні лічильники» lists every active client's counter (or the ФОП's) from 0, so it can be set
   before the first invoice; the editor's number card offers Автоматичний | Лічильник | Власний, and a draft can hold a
   counter of its own.
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
-- **«Як це працює»** (§17.2): at the end of a page's column, never a column beside it.
+- **«Як це працює»** (§17.2): at the end of a page's content, never a column beside it.
+- **Width** (§17.1, §17.2, §17.6): the app's box is at most 1200 px, and every page's content fills it beside the
+  sidebar, without 760 or 880 px columns.
 - **Головна** (§17.4): on desktop the sections' cards stand above the invoices, in place of the income limit, the
   quarter's taxes and the notifications.
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
@@ -1608,11 +1611,11 @@ wins; for domain rules §16 does.
   on the right the page's actions (one accent pill, 44 px: «+ Новий інвойс», «+ Надходження», «+ Новий»; optional
   secondary buttons), then the 📖 | 🔔 capsule (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
   notifications popover).
-- **Content:** padding 0 40 48, 20 px gaps; settings and detail pages are one 760 px column with an optional note «Як
-  це працює» (grey) at its end, as wide as the column — never a column beside it (v5.1, the owner, 2026-10-30; the
-  board drew a 300 px sticky one); the note doesn't repeat an accordion page's «one group is open at a time», which
-  the page has under its groups. The boards Головна, Інвойси, Облік and Податки take the content's whole
-  width, which the shell's 1440 px keeps at most 1112 px, rather than a column (the owner, 2026-10-30).
+- **Content:** padding 0 40 48, 20 px gaps; every page's content takes the page's whole width, which the app's
+  1200 px box keeps at most 872 px (v5.1, the owner, 2026-10-30; the boards drew 760 px columns for settings and
+  details and 880 px for lists), with an optional note «Як це працює» (grey) at its end, as wide as the content —
+  never a column beside it (the board drew a 300 px sticky one); the note doesn't repeat an accordion page's «one
+  group is open at a time», which the page has under its groups.
 
 ### 17.3 Overlays (one rule set, `008 D-RecordPanels`)
 
@@ -1704,11 +1707,11 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 ### 17.6 As built (2026-10-28, branch `feat/desktop`)
 
 - **Layout switch:** `useBreakpoint()` (`isDesktop` from 600 px, `isCompact` from 600 to 1023 px, while the sidebar
-  is a rail, and `isWide` from 1280 px; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the
-  sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
-  880 px for lists, or the whole width; its `aside` slot is the note at the column's end). Sidebar pages (`meta.section`: Книги since v5.1)
-  have no back button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
-  tables and cards keep the boards' widths (1112 px of content); the record panel opens at its right edge. A page's
+  is a rail; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the sidebar and the
+  page; `TabScreen` and `SubScreen` render the desktop page header over the content at the page's whole width
+  (`SubScreen`'s `aside` slot is the note at its end). Sidebar pages (`meta.section`: Книги since v5.1) have no back
+  button. The shell (sidebar and page) is at most 1200 px wide (v5.1; the boards' 1440 px before) and centred on a
+  wider screen, so content is at most 872 px; the record panel opens at its right edge. A page's
   title keeps its width, and its actions go under it when they don't fit beside it.
 - **Primary actions:** a page's own action («+ Новий інвойс», «+ Надходження», «+ Новий», «Запросити», «Створити
   копію зараз») is a `NewPill` in the page header, left of the 📖 | 🔔 capsule, on every desktop page (Рахунки,

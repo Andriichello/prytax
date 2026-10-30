@@ -23,9 +23,9 @@ import { roleName } from '@/utils/statuses';
  * Налаштування (Ще on a phone; M-More, design.md §16.5, §17.2), one column: the current ФОП with switching to another
  * ФОП of the organization; the ФОП's settings (its profile, its taxes and notifications); the money (accounts,
  * transfers and fees); the clients and invoices (clients and contracts, the numbering, the document); the management
- * (users and backups, shown only to those who see either). On desktop the sidebar's Налаштування opens it, as a
- * centred 760 px column; on a phone the app's language and signing out end it (the sidebar's foot has them on
- * desktop). Комісії opens from Перекази.
+ * (users and backups, shown only to those who see either). On desktop the sidebar's Налаштування opens it; on a
+ * phone the app's language and signing out end it (the sidebar's foot has them on desktop). Комісії opens from
+ * Перекази.
  */
 const router = useRouter();
 const { user, can, signOut } = useSession();
@@ -126,7 +126,7 @@ async function leave(): Promise<void> {
 </script>
 
 <template>
-    <TabScreen :title="isDesktop ? t('shell.nav.settings') : t('shell.more.more')" width="column">
+    <TabScreen :title="isDesktop ? t('shell.nav.settings') : t('shell.more.more')">
         <section v-if="profile" class="flex flex-col gap-2">
             <SectionTitle>{{ t('shell.profiles.fop') }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">

@@ -24,6 +24,14 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The 1200 px box (2026-10-30, branch `feat/box-1200` from `feat/notes-below`)
+
+The user: the box at most 1200 px, and every page's content full width. `App.vue` `max-w-300` (was `max-w-360`, 1440),
+the sidebar's edge line from 1201 px, `RecordPanel` docked at `(100% − 1200px) / 2`; `SubScreen` lost its `width` prop
+and the 760/880 px columns (no page passed one), `TabScreen` its `width="column"` (Налаштування used it); content is
+at most 872 px. `HomeNavCards` five a row from 820 px of page. I read "the box" as the app's frame (sidebar + page);
+if the user meant the content area, it would be `max-w-[1528px]` on the frame instead. Checked at 1920 px.
+
 ## Notes under the column (2026-10-30, branch `feat/notes-below` from `feat/home-nav-cards`)
 
 The user: no «Як це працює» as a second column on any page. `SubScreen`'s `aside` is now always at the end of the

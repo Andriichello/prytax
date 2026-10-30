@@ -13,7 +13,7 @@ import { datedInvoiceStatus } from '@/utils/statuses';
  * Номер · Клієнт · Період · Сума · Оплата («до 14.11», «прострочено, до 19.10» in red, or «—») · Статус. `home`
  * (Головна): Номер · the client with the period and the due date under it · Сума (with «3 100.00 · 80 %» under a sent
  * one's) · Статус. A row opens the invoice (its panel), a draft its editor. The columns follow the table's own width
- * (a container query), so the client keeps its room between 1024 and 1440 px and beside Головна's right column: under
+ * (a container query), so the client keeps its room on a narrow page or in the 64 px rail's layout: under
  * 1020 px Інвойси puts the period under the client and the payment under the amount; under 690 px Головна, and under
  * 600 px Інвойси, put the status under the amount.
  */

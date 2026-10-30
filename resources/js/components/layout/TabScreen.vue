@@ -11,14 +11,9 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
  * (`filters`) sticks to the top, with a rule and a soft shadow once stuck. Then the content and the tab bar. On
  * desktop (§17.2) the page header holds the title with its sub-line on the left and the action with the 📖 | 🔔
  * capsule on the right (under the title, when they don't fit beside it); the switch and the filters follow it, and
- * the sidebar replaces the tab bar. With `width="column"` (Налаштування) the content is a centred 760 px column, as
- * `SubScreen`'s, under the header, which keeps the page's whole width.
+ * the sidebar replaces the tab bar.
  */
-const { title, width = 'full' } = defineProps<{
-    title: string;
-    /** The desktop content: the whole width (the boards), or a centred 760 px column. */
-    width?: 'full' | 'column';
-}>();
+const { title } = defineProps<{ title: string }>();
 
 const { isDesktop, isCompact } = useBreakpoint();
 
@@ -60,10 +55,8 @@ onBeforeUnmount(() => observer?.disconnect());
             <slot name="switcher" />
             <slot name="filters" />
         </div>
-        <main class="flex flex-1 flex-col pb-12" :class="gutter">
-            <div class="mx-auto flex w-full flex-1 flex-col gap-5" :class="width === 'column' ? 'max-w-190' : ''">
-                <slot />
-            </div>
+        <main class="flex flex-1 flex-col gap-5 pb-12" :class="gutter">
+            <slot />
         </main>
     </div>
     <div v-else class="flex min-h-dvh flex-col">

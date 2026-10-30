@@ -1,16 +1,15 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30 (night): **`dev` (2135ea4 + the MEMORY.md commit 0c1a9a1) holds everything up to the boards'
-actions in the filters' row**: the invoice PDF preview and zoom, the Налаштування page, Головна's attention sections,
-the notes under the column, the 1200 px box, Облік's summary, the rail's language and sign-out (see the sections
-below, newest first; not `main`, not pushed; `dev` is 124 commits ahead of `origin/dev`). **Not merged:**
-`feat/client-invoice-address`, 7 commits stacked on `dev` (the PDF's payment details spacing, the item card's
-spacing and its Safari fix, the client address as text), checked out; the user is checking it on the phone, then
-merging into `dev` and `native:migrate` on the desktop DB are to ask. Stacked on it, `feat/help-page` (Довідка, see its
-section; not merged), and on that `docs/builds-spec` (`APP-BUILDS-PLAN.md` as `docs/specs/builds.md`, see "Builds
-spec"; not merged). **Not running** (found stopped later on 2026-10-30, after a reboot): the desktop dev window, the
+Status as of 2026-10-30 (late): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+fast-forward to `fix/backups-throttle-client-address`, then this note; not `main`, not pushed; `dev` is 152 commits
+ahead of `origin/dev`, checked out). It added, in one line: `feat/pdf-details-spacing` → `fix/item-card-wrap` →
+`feat/client-invoice-address` → `feat/help-page` (Довідка) → `docs/builds-spec` (builds.md, every spec brought up to
+date) → `fix/backups-throttle-client-address` (see "Builds spec", "Довідка" and "Client address as text"). No branch is
+left unmerged; the merged ones aren't deleted. **Still to do:** `native:migrate` (with `CACHE_STORE=file`) on the
+desktop DB for the address's migration, to ask first, as it writes the user's data; the full suite on MySQL (only
+SQLite ran: 561 tests). **Not running** (found stopped later on 2026-10-30, after a reboot): the desktop dev window, the
 ngrok tunnel and the phone's web server (see "Phone access over ngrok" and "App builds" to start them again).
-Last runs: 558 PHP tests on SQLite (553 on MySQL before the address), 737 SPA tests. Before it, as of
+Last runs: 561 PHP tests on SQLite (553 on MySQL before the address), 755 SPA tests. Before it, as of
 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
 (fast-forward to `feat/invoice-preview`, the user asked; not `main`, not pushed; see "Invoice PDF preview"). Before it, as of
 2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`, now `docs/specs/builds.md` §4) is merged into `dev`**

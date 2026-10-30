@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { api } from '@/api/client';
 import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
-import HomeAside from '@/components/home/HomeAside.vue';
+import HomeNavCards from '@/components/home/HomeNavCards.vue';
 import InvoiceRow from '@/components/invoice/InvoiceRow.vue';
 import InvoiceTable from '@/components/invoice/InvoiceTable.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
@@ -21,12 +21,13 @@ import { formatMoney } from '@/utils/money';
 /**
  * Головна (M-Home, design.md §16.5): the invoices of the current and the previous quarter by their issue date, of
  * every status and the payments without an invoice among them, newest first. The subtitle tells what the open
- * invoices (ready and sent) still await, per currency. On desktop (D-Home, §17.4) the quarters are tables, beside the
- * income limit, the quarter's taxes and the latest notifications (under them below 1280 px).
+ * invoices (ready and sent) still await, per currency. On desktop (D-Home, §17.4) the sections' cards (Інвойси, Облік,
+ * Податки, Книги, Налаштування) stand above the quarters, which are tables; the income limit, the taxes and the
+ * notifications have their own pages and the 🔔 popover.
  */
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
-const { isDesktop, isWide } = useBreakpoint();
+const { isDesktop } = useBreakpoint();
 
 const now = currentQuarter();
 const quarters = [now, now.quarter === 1 ? { year: now.year - 1, quarter: 4 } : { year: now.year, quarter: now.quarter - 1 }];
@@ -89,8 +90,8 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
             <NewPill v-if="can('create', 'invoices')" :to="{ name: 'invoice-new' }" :label="t('invoices.editor.newInvoice')" />
         </template>
 
-        <div :class="isDesktop ? (isWide ? 'grid grid-cols-[minmax(0,1fr)_360px] items-start gap-5' : 'flex flex-col gap-5') : 'contents'">
-        <div :class="isDesktop ? 'flex min-w-0 flex-col gap-5' : 'contents'">
+        <HomeNavCards v-if="isDesktop" />
+
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
             <section v-for="section in sections" :key="section.key" :aria-labelledby="`quarter-${section.key}`" class="flex flex-col gap-2">
                 <div class="flex items-baseline justify-between px-0.5">
@@ -118,8 +119,5 @@ const toPay = computed(() => (data.value?.outstanding ?? [])
                 {{ t('invoices.home.allInvoices') }}
             </RouterLink>
         </LoadState>
-        </div>
-        <HomeAside v-if="isDesktop" />
-        </div>
     </TabScreen>
 </template>

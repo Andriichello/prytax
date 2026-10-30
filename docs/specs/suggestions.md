@@ -1,14 +1,15 @@
 # Open decisions, hidden features and backlog
 
-What is still to decide or to build. What was decided is in `design.md` (v4) and `accounting.md`, and the earlier
-review rounds that led there are in the git history of this file.
+What is still to decide or to build, checked against the code on 2026-10-30. What was decided is in `design.md`
+(v5.2), `accounting.md`, `invoice.md`, `backups.md` and `builds.md`, and the earlier review rounds that led there are
+in the git history of this file.
 
 ---
 
 ## 1. Deferred and pending decisions
 
-The «Minimal» handoff's questions were settled by the owner on 2026-10-25 and are written into `design.md` and
-`accounting.md`. These are left for later:
+The «Minimal» handoff's questions were settled by the owner on 2026-10-25, and those of the handoffs of 2026-10-28 on
+that day; the answers are written into `design.md`, `backups.md` and `accounting.md`. These are left for later:
 
 - **Kopeck remainders of ЄП/ВЗ** (deferred on 2026-10-25). ЄП and ВЗ are paid only per receipt, at each receipt's
   rounded amount, while the quarter owes the year-to-date figure. The two can differ by a kopeck or so (the demo's
@@ -19,20 +20,33 @@ The «Minimal» handoff's questions were settled by the owner on 2026-10-25 and 
 - **A — the period of a refund.** Today a refund reduces income in its own period (п. 292.11, `design.md` §6.6). The
   alternative is to reduce the **original** receipt's period at the original rate, with a reason enum. The refund UI
   is hidden in phase 1, so this can wait.
-- **B2 — fee currency and net income.** Set `fee_currency = currency_sent` on transfers, and make UAH the canonical
-  currency of net income.
+- **B2 — fee currency and net income.** `fee_currency` already follows `currency_sent` (`TransferRecorder` sets it
+  from the source account). Left: UAH as the canonical currency of net income.
 - **B5 — a receipt's date moving to another quarter.** Cascade `tax_payments.period_*` of its tax payments, and the
   dates of a virtual invoice. It matters more now that every ЄП/ВЗ payment hangs on a receipt and copies its period
   (`design.md` §8.4).
 - **Golden PDF files** per schema version, money format and language (`invoice.md` §9).
+- **Restoring into the same organization** (`backups.md` §5.3). The archive of a ФОП the organization still has, a
+  deleted one in its 30 days' grace included, can't be imported beside it while `UNIQUE(organization_id,
+  tax_id_hash)` stands: purge the original first, or allow one *active* profile per РНОКПП. Restoring the desktop app
+  from an in-app archive waits for it too (`builds.md` §4.6).
+- **The GCS adapter** for production's backups disk (`backups.md` §3, §7): a new package, so approval first. Until
+  then every installation keeps its archives on a local disk.
+- **Інвойси's search.** The desktop board draws «Номер або клієнт» on Інвойси (`design.md` §17.4), while
+  `accounting.md` keeps the list without a search box, narrowed by filters. There is no search API, and it isn't built
+  (`design.md` §17.6).
 
 ## 2. Hidden in phase 1, and the options v4 removed
 
 **Hidden:** the backend, the data and the API stay, and only the UI's routes, navigation and links go. To restore one,
 bring back its screen.
-- The profile switcher, «Огляд усіх ФОП» (the organization board) and Огляд практики (its card lives on Облік).
-- Облік's ЄСВ tab (`esv/{year}`), Книга доходів (`income-book/{year}`) and the declaration screen with its status
-  workflow (`declarations/{year}/{quarter}`, `tax-periods`), and with it the period lock and corrections.
+- «Огляд усіх ФОП» (the organization board) and Огляд практики (its card lives on Облік). Switching between the
+  organization's ФОП is back since v5, as «ФОП організації» (`design.md` §16.1).
+- Облік's ЄСВ tab (`esv/{year}`) and the declaration screen with its status workflow (`declarations/{year}/{quarter}`,
+  `tax-periods`), and with it the period lock and corrections. Облік's Книга доходів tab (`income-book/{year}`) is
+  replaced by Книги обліку's Доходи (`books/{year}/income`, `design.md` §16.7).
+- The CSV of the year (`accounting/{year}/export`) and of the income book (`income-book/{year}/export`): Облік exports
+  its quarter's CSV and its period archive, Книги обліку their PDFs.
 - Податки by month and by quarter (`taxes/{year}/months`, `taxes/{year}?…`) and the tax-period calendar button.
 - The refund action (`payments/{payment}/refunds`). The owner is fine without refunds (2026-10-25): cancelling an
   invoice asks only to move its receipts to the invoice that replaces it.
@@ -57,8 +71,50 @@ bring back its screen.
 
 ## 3. Not built yet (phase-1 scope)
 
-- XLSX exports and the yearly PDF summary: they need a package, so approval first.
-- `SheetImporter` for the 2025 Google Sheet (`design.md` §14): waiting on the sheet's format.
+- **XLSX exports** of Облік's quarter and of both books (`design.md` §7, §16.7; `openspout/openspout` is approved):
+  blocked. Composer can't install the package on the development machine (it fails to authenticate against GitHub),
+  so the owner is to run `composer require openspout/openspout`; and the desktop app's bundled PHP has no xmlwriter or
+  xmlreader, which openspout may need, so it must be checked there before it ships (`builds.md` §4.1). Облік's export
+  hint on a phone already names XLSX («CSV і XLSX — таблиця надходжень…»).
+- **Backups' in-app notices** in Сповіщення, through api-core's per-user `notifications` (`backups.md` §4.8): a run
+  with a failed ФОП, the organization's archive ready, a period's archive ready, a deleted ФОП's final copy. Meanwhile
+  the organization archive's banner polls on its page, the period archive's sheet waits for its export and downloads
+  it, and owners get e-mails by the policy («Лист власникам»), which the desktop app writes to its log. The texts of
+  both archives already promise a notification («Готуємо у фоні: архів з’явиться в сповіщеннях…»).
+- **The desktop record panel** (`design.md` §17.3, §17.6): its header is built (the kind, the title, the sub-line, the
+  badges, «✎ Змінити», ⋯ and ✕). Left: ⋯ opens its menu as a centred dialog, not a popover; a tax payment opens its
+  form rather than the view panel of board 037; Інвойси's status filter keeps its chips rather than a checkbox list;
+  Книги's tabs aren't beside the year chip.
+- **Deleting a ФОП** has no screen. The API's `DELETE profiles/{id}` (owners) takes the final copy and starts the 30
+  days' grace, and Резервні копії lists the ФОП under «Видалені ФОП» with «Відновити ФОП»; closing a ФОП is Профіль
+  ФОП's «Активний ФОП» switch.
+- **The yearly PDF summary** (`design.md` §7, §14): not built, and not specified beyond its name. dompdf, which renders
+  the invoices and Книги обліку's PDFs, is installed, so it no longer waits on a package.
+- **`SheetImporter`** for the 2025 Google Sheet (`design.md` §14): waiting on the sheet's format.
+- **Backups:** what `backups.md` §7 lists as not built — Layer A (infrastructure; nothing is deployed), the GCS adapter
+  (§1), the final organization bundle and its e-mail, an organization delete endpoint — and the tests it lists that
+  aren't written.
+- **Builds:** Docker, SQLite and the desktop app have their open list in `builds.md` §5. Also: the desktop app writes
+  its mail to its log (`builds.md` §4.2), so its invitations, «Забули пароль?» and the backups' e-mails reach nobody.
+- **Open points of the «Minimal» QA** (2026-10-25), unchanged:
+  - «Прив’язати до виставленого інвойсу» offers the client's paid invoices with nothing left to pay too, and
+    attaching to one overpays it.
+  - Облік's summary of a quarter before tracking starts (the opening balances) shows ЄСВ 0.00 owed beside what was
+    paid.
+  - A field's API error stays until the next save (app-wide); the ЄСВ month stepper doesn't update the URL; «Без
+    інвойсу» appears in Інвойси's status filter only while such a record exists (facets).
+  - The kopeck between a quarter's ВЗ and its sum per receipt is §1's first item.
+- **Found while the specs were brought up to date** (2026-10-30), to fix or to decide:
+  - A client without any address prints its country code alone under its name, while the client form says the
+    country prints only when it's typed into the address (`invoice.md` §4).
+  - The backups' hourly limit is one counter per user for downloads, imports and the status checks of an organization
+    archive and a period archive, which the SPA polls every 2–2.5 s: a slow archive uses it up (`backups.md` §4.7).
+  - Restoring in the app allows a 200 MB archive, but PHP takes uploads of 32 MB in Docker and the desktop app; its
+    refusals with values in them stay in English; a deleted ФОП's refusal says to purge it first, which an owner can't
+    do before its grace ends (`backups.md` §5.1, §5.3).
+  - Ще's «Вийти» on a phone signs out at once, while the sidebar's and the rail's ask first.
+  - Texts: Облік's export hint names XLSX (above); Рахунки's side note says withdrawals aren't tracked, while an
+    account's «Рух коштів» records them, as Довідка says.
 - Known gaps of the build:
   - a refund saved at a manual rate can't be refreshed (delete it and record it again);
   - a re-rendered PDF reads the signature by its live file id;
@@ -82,12 +138,16 @@ bring back its screen.
 - The declaration as ДПС XML; ІКП balance checks (`tax_balance_checks`: the cabinet's balance against the app's).
 - Separate signed acts of acceptance; the bilingual invoice (`en_uk`) and custom texts per language.
 - Income recognition on arrival at the ФОП account (`design.md` §15).
-- Free-text search on lists; passkeys, 2FA, self-signup; the organization board; a desktop layout.
+- Free-text search on lists (Інвойси's, §1); passkeys and 2FA; the organization board. Registering an organization is
+  built, behind `PRYTAX_REGISTRATION` and without e-mail verification (`builds.md` §1.3), and so is the desktop layout
+  (`design.md` §17).
 - **Mobile:** iOS and Android through Capacitor around the same SPA (tokens in secure storage, downloads through the
   Filesystem/Share plugins).
 
 ## 5. UX notes
 
 - An onboarding path: profile → the first `fop_bank` UAH account → a client → a contract → the first invoice. A new
-  ФОП lands on the tax settings (opening balances) today.
+  ФОП lands on Податки й сповіщення (opening balances) today, and Довідка's «Перші кроки» lists the steps with links
+  (Профіль ФОП, Рахунки, Податки й сповіщення, Клієнти й договори, Документ інвойсу, Перший інвойс), but nothing leads
+  a new ФОП through them.
 - Every notification could carry a "why" with its legal reference (`design.md` §1).

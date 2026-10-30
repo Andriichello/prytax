@@ -366,6 +366,8 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 - **Restoring the desktop from an in-app backup archive** (§4.6), after `backups.md` §5.3.
 - **XLSX exports:** openspout isn't installed, and the bundled PHP has no xmlwriter or xmlreader (§4.1).
 - **Job timeouts on the desktop:** the bundled PHP has no pcntl, so a stuck job isn't stopped.
+- **Mail on the desktop** goes to the log (§4.2), so its invitations, password resets («Забули пароль?») and the
+  backups' e-mails reach nobody: a desktop owner who forgets the password can't reset it.
 - **The desktop's daily backup jobs:** pruning, the rolling cleanup and the weekly check aren't caught up on launch
   (§4.7), so a desktop that is closed at night never prunes its archives to the owner's policy.
 - **Updates:** NativePHP's updater has no provider set up, so a new version is installed by hand.

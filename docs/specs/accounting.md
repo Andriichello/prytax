@@ -2,57 +2,64 @@ I am building an accounting and invoicing application for Ukrainian "ФОП 3 г
 працівників" — software developers, designers and other sole entrepreneurs who work under service agreements, issue
 invoices to (mostly foreign) clients and receive money through Payoneer, Wise, Mercury or direct bank wires. I am one
 of them myself and the app replaces the Google Sheet I keep today, but it also has to work for an accountant who runs
-the books of several such ФОПs under one login. The stack is Laravel 12/13 on MySQL 8 with a Vue 3 SPA (TypeScript,
-Tailwind) consuming a JSON API; Blade is used only for PDF and e-mail templates. It is built on my own `api-core`
-package, which already provides organizations, users, Sanctum auth, spatie roles/permissions and the HTTP filtering,
-resources and pagination layer, so none of that is designed here. Money is handled with `brick/money` and `brick/math`
-and there are no floats anywhere in the domain. The companion `design.md` (v4) holds the schema, services, build
-order and the first phase's screens for everything described below, `invoice.md` the invoice PDF, and `suggestions.md`
-the open decisions.
+the books of several such ФОПs under one login. The stack is Laravel 13 on MySQL 8 — or on SQLite, which the desktop app
+uses — with a Vue 3 SPA (TypeScript, Tailwind) consuming a JSON API; Blade is used only for PDF and e-mail templates. It
+is built on my own `api-core` package, which already provides organizations, users, Sanctum auth, spatie
+roles/permissions and the HTTP filtering, resources and pagination layer, so none of that is designed here. Money is
+handled with `brick/money` and `brick/math` and there are no floats anywhere in the domain. The companion `design.md`
+(v5.2) holds the schema, services, build order and the first phase's screens, on a phone and on a desktop, for
+everything described below, `invoice.md` the invoice PDF, `backups.md` the backups and the retention of data,
+`builds.md` how the app runs as a server image, on SQLite and as a desktop app, and `suggestions.md` the open decisions,
+what the first phase hides and what isn't built yet.
 
-An organization from api-core is whoever runs the app: me, or an accountant's practice. Inside it there are one or
-more profiles, and a profile is one ФОП — the tax identity, its settings and every domain record. `profile_id` is the
-tenant key on all domain tables (accounts, clients, contracts, invoices, payments, transfers, tax periods, tax
-payments); `organization_id` is not duplicated on them. A user belongs to exactly one organization and never owns
-domain data: `user_id` appears only as `created_by_user_id` for audit. Access is organization membership plus a role —
-`owner` (everything, including profiles and users), `accountant` (all financial operations on every profile) or
-`viewer` (read-only). In v1 every user of an organization sees every profile of it; per-profile access through a
-`profile_user` pivot is v2. Every domain route is nested under `/api/profiles/{profile}/…` with scoped route-model
-binding, so an id that belongs to another profile is a 404 before any controller code runs; the resolved profile is
-kept in a request-scoped (Octane-safe) `CurrentProfile` context, every tenant model has a global scope on it that fails
-closed (`WHERE 1 = 0`) when no profile is set, console commands and jobs set the context explicitly, and the
-consistency MySQL cannot check (a payment's invoice and account belong to the same profile, a transfer's two accounts
-belong to the same profile, a tax payment's payment belongs to the same profile) is asserted in the recording services
-and covered by tests. One naming rule: the accountant's clients are always called profiles; the word "client" is
-reserved for my invoice counterparties. The first phase shows one ФОП at a time: the interface has no switcher between
-profiles and no board across them, while the model above stays as it is.
+An organization from api-core is whoever runs the app: me, or an accountant's practice. Where the installation allows
+it, an organization registers itself from the sign-in page, and whoever registers it becomes its owner, is signed in at
+once and invites the others; a server has registration off by default and gets its first owner from a console command,
+while the desktop app always has it on (`builds.md` §1.3). Inside an organization there are one or more profiles, and a
+profile is one ФОП — the tax identity, its settings and every domain record. `profile_id` is the tenant key on all
+domain tables (accounts, clients, contracts, invoices, payments, transfers, tax periods, tax payments);
+`organization_id` is not duplicated on them. A user belongs to exactly one organization and never owns domain data:
+`user_id` appears only as `created_by_user_id` for audit. Access is organization membership plus a role — `owner`
+(everything, including profiles and users), `accountant` (all financial operations on every profile, and its settings,
+but not the ФОП's identity) or `viewer` (read-only). In v1 every user of an organization sees every profile of it;
+per-profile access through a `profile_user` pivot is v2. Every domain route is nested under `/api/profiles/{profile}/…`
+with scoped route-model binding, so an id that belongs to another profile is a 404 before any controller code runs; the
+resolved profile is kept in a request-scoped (Octane-safe) `CurrentProfile` context, every tenant model has a global
+scope on it that fails closed (`WHERE 1 = 0`) when no profile is set, console commands and jobs set the context
+explicitly, and the consistency the database cannot check (a payment's invoice and account belong to the same profile, a
+transfer's two accounts belong to the same profile, a tax payment's payment belongs to the same profile) is asserted in
+the recording services and covered by tests. One naming rule: the accountant's clients are always called profiles; the
+word "client" is reserved for my invoice counterparties. The first phase shows one ФОП at a time, and I switch between
+the organization's ФОПs (see the first phase below); there is no board across them, while the model above stays as it
+is.
 
 The system has to encode the rules of 3 група, and all the numbers live in a versioned `tax_rules` table (one row per
-`effective_from`; the resolver takes the latest row effective on the date in question), never in code. Єдиний податок
-(ЄП) is 5 % of income (п. 293.3 ПКУ). Військовий збір (ВЗ) is 1 % of income from 2025-01-01 until the end of the year
-in which martial law ends (Закон 4015-IX). ЄСВ is a fixed monthly amount of 22 % of the minimum wage — 1 760.00 in
-2025 and 1 902.34 in 2026 (min wage 8 647) — mandatory again from 2025-01-01 after the voluntary martial-law window of
-2022-03-01 … 2024-12-31 (Закон 2120-IX, 4015-IX), which historical data must be able to mark as exempt. The yearly
-income cap is 1 167 minimum wages — 9 336 000 in 2025, 10 091 049 in 2026 (п. 291.4) — and crossing it means 15 % on
-the excess and a forced move to the general system from the next quarter (п. 293.4, 293.8). Income is recognised on
-the date the money is received (п. 292.6), and for platforms the ДПС position is the date of crediting on the platform,
-not the later date on the ФОП bank account. Foreign-currency income is converted at the NBU official rate of the
-receipt date (п. 292.5), 4 decimals, and the UAH amount is rounded to kopecks. A commission withheld by the bank or
-the platform on the way in is still my income, so income equals the full invoiced amount (ІПК 462/ІПК/99-00-24-03-03-06
-від 01.03.2023); a fee the client pays on top is not income. Passive income — bank interest, dividends, royalties — is
-not ЄП income at all (п. 292.1) and is never entered as income; a refund to a client reduces income in the period of
-the refund (п. 292.11). Money sitting on a platform should reach a Ukrainian IBAN by the end of the reporting quarter,
-otherwise ДПС may treat it as personal income (18 % ПДФО + 5 % ВЗ) — positions on this vary, so it is an alert, never
-a block. The declaration is quarterly and cumulative (наростаючим підсумком), due 40 calendar days after the quarter
-(п. 49.18.2, 296.3), the Q4 one being the annual declaration with Додаток 1 for ЄСВ; ЄП and ВЗ are due 10 calendar days
-after the declaration deadline (п. 295.3); ЄСВ is due "до 20 числа" of the month after the quarter, which ДПС reads as
-the 19th, so the app defaults to the 19th and keeps it configurable. That gives 10 May / 20 May / 19 Apr for Q1,
-9 Aug / 19 Aug / 19 Jul for Q2, 9 Nov / 19 Nov / 19 Oct for Q3 and 9 Feb / 19 Feb / 19 Jan for Q4. A declaration
-deadline that falls on a weekend rolls to the next business day (п. 49.20) — 10 May 2026 is a Sunday, so that
-declaration is due 11 May — while the ЄП/ВЗ deadline is counted from the statutory date and stays 20 May; a payment
-deadline on a weekend rolls to the next banking day (п. 57.1); and during martial law public holidays are working days
-(Закон 2136-IX), so the calendar is weekends-only until that changes. `profiles.tax_group` exists with the single
-value `3` so that other groups can be added later without touching the domain tables.
+year, in force from its `effective_from` to the end of that year; the resolver takes the row in force on the date in
+question, and a year without its row takes no receipts and owes no ЄСВ, so a notification asks for the next year's row
+in December), never in code. Єдиний податок (ЄП) is 5 % of income (п. 293.3 ПКУ). Військовий збір (ВЗ) is 1 % of income
+from 2025-01-01 until the end of the year in which martial law ends (Закон 4015-IX). ЄСВ is a fixed monthly amount of
+22 % of the minimum wage — 1 760.00 in 2025 and 1 902.34 in 2026 (min wage 8 647) — mandatory again from 2025-01-01
+after the voluntary martial-law window of 2022-03-01 … 2024-12-31 (Закон 2120-IX, 4015-IX), which historical data must
+be able to mark as exempt. The yearly income cap is 1 167 minimum wages — 9 336 000 in 2025, 10 091 049 in 2026 (п.
+291.4) — and crossing it means 15 % on the excess and a forced move to the general system from the next quarter (п.
+293.4, 293.8). Income is recognised on the date the money is received (п. 292.6), and for platforms the ДПС position is
+the date of crediting on the platform, not the later date on the ФОП bank account. Foreign-currency income is converted
+at the NBU official rate of the receipt date (п. 292.5), 4 decimals, and the UAH amount is rounded to kopecks. A
+commission withheld by the bank or the platform on the way in is still my income, so income equals the full invoiced
+amount (ІПК 462/ІПК/99-00-24-03-03-06 від 01.03.2023); a fee the client pays on top is not income. Passive income — bank
+interest, dividends, royalties — is not ЄП income at all (п. 292.1) and is never entered as income; a refund to a client
+reduces income in the period of the refund (п. 292.11). Money sitting on a platform should reach a Ukrainian IBAN by the
+end of the reporting quarter, otherwise ДПС may treat it as personal income (18 % ПДФО + 5 % ВЗ) — positions on this
+vary, so it is an alert, never a block. The declaration is quarterly and cumulative (наростаючим підсумком), due 40
+calendar days after the quarter (п. 49.18.2, 296.3), the Q4 one being the annual declaration with Додаток 1 for ЄСВ; ЄП
+and ВЗ are due 10 calendar days after the declaration deadline (п. 295.3); ЄСВ is due "до 20 числа" of the month after
+the quarter, which ДПС reads as the 19th, so the app defaults to the 19th and keeps it configurable. That gives 10 May /
+20 May / 19 Apr for Q1, 9 Aug / 19 Aug / 19 Jul for Q2, 9 Nov / 19 Nov / 19 Oct for Q3 and 9 Feb / 19 Feb / 19 Jan for
+Q4. A declaration deadline that falls on a weekend rolls to the next business day (п. 49.20) — 10 May 2026 is a Sunday,
+so that declaration is due 11 May — while the ЄП/ВЗ deadline is counted from the statutory date and stays 20 May; a
+payment deadline on a weekend rolls to the next banking day (п. 57.1); and during martial law public holidays are
+working days (Закон 2136-IX), so the calendar is weekends-only until that changes. `profiles.tax_group` exists with the
+single value `3` so that other groups can be added later without touching the domain tables.
 
 Invoices and payments can be in USD, EUR, UAH or any other ISO currency. Amounts are `DECIMAL(15,2)`, rates
 `DECIMAL(12,4)`, and the API serialises both as strings (`"516.27"`, `"42.2297"`), never as JSON numbers. The rounding
@@ -64,58 +71,64 @@ difference between that and the previous quarter's year-to-date liability, becau
 declaration reports for the quarter and what ДПС posts to the integrated card. The standalone
 `ROUND_HALF_UP(Σ uah_amount of the quarter × rate, 2)` and the sum of the per-payment hints are both shown next to it
 as cross-checks; either can differ from the owed amount by a kopeck, and the UI shows those deltas rather than hiding
-them. Invoice line amounts are `ROUND_HALF_UP(quantity × unit_price, 2)` and the invoice total is their sum. Everything that depends on a rate or a rule is snapshotted on the row at creation (`nbu_rate`, `nbu_rate_date`,
-`exchange_rate_id`, `uah_amount`, `tax_rule_id`, `single_tax_uah`, `military_levy_uah`, `period_year`,
-`period_quarter`, `period_month`) and is recomputed only when the amount, currency or receipt date of that row is
-edited; the `exchange_rates` table is a cache of NBU data plus manual overrides, not the truth for historical rows, and
+them. Invoice line amounts are `ROUND_HALF_UP(quantity × unit_price, 2)` and the invoice total is their sum. Everything
+that depends on a rate or a rule is snapshotted on the row at creation (`nbu_rate`, `nbu_rate_date`, `exchange_rate_id`,
+`uah_amount`, `tax_rule_id`, `single_tax_uah`, `military_levy_uah`, `period_year`, `period_quarter`, `period_month`) and
+is recomputed only when the amount, currency or receipt date of that row is edited; the `exchange_rates` table is a
+cache of NBU data (a manual rate stays on its own row), not the truth for historical rows, and
 a new `tax_rules` row never changes existing payments.
 
 I fill in my tax data once per ФОП as the profile: full name in Ukrainian and in Latin transliteration (invoices to
 foreign clients are in English), РНОКПП (`tax_id`, stored encrypted, unique within the organization), the date of state
 registration, address in both languages, e-mail, phone, default currency, locale, an optional signature image embedded
-in generated PDFs, and an `is_active` flag so a closed ФОП drops out of dashboards and deadline generation. The profile
-also owns its settings (`profile_settings`, key → JSON, read through a typed accessor with defaults so a missing row
-never breaks anything): the invoice numbering strategy, scope, reset and date source described below; how money
-amounts are displayed, as two separate settings — `display.money_format` for the application and
-`invoice.money_format` for the generated invoices — each choosing the decimal separator ("." or ",") and the
-thousands grouping (none, space, comma or dot), so `2851.99`, `2 851.99`, `2,851.99`, `2851,99`, `2 851,99` or
-`2.851,99`, with the application defaulting to `1 234.99` and invoices to plain `2851.99` (formatting is display
-only: the API always carries `1234.99`, inputs accept either separator, and a frozen invoice remembers the format it
-was rendered with); `income.fx_gain` (whether a gain on selling currency above the NBU rate is income, off by default);
-the accounts taxes are paid from (`taxes.payment_account_ids`), one of them primary (`taxes.default_account_id`) — a
-UAH account, or a ФОП account in another currency, from which the bank sells the currency into the ФОП's UAH account
-and pays from there; the day ЄСВ is due (`taxes.esv_due_day`, 19); `compliance.platform_repatriation` (`quarter_end`,
-`days:N` or `off`); `alerts.deadline_days` (7); and the ФОП-wide invoice defaults that clients and invoices can
-override (described with the clients below) — the language (the profile's own `locale`, `en` or `uk`), the style,
-`invoice.payment_purpose_template`, `invoice.act_note_enabled` (on), `invoice.act_note`, `invoice.show_contract` (on)
-and the two notes, with the profile's `default_currency` as the ФОП-wide currency. The taxable base is not a setting:
-it is always the invoiced amount, because what a bank or a platform withholds on the way in is still income. There is
-deliberately no income-recognition option in this phase either (see the payments section below).
+in generated PDFs, and an `is_active` flag with the date the ФОП closed, so a closed ФОП's taxes are tracked up to that
+date and it drops out of dashboards and deadline generation. The profile also owns its settings (key → JSON, read
+through a typed accessor with defaults so a missing row never breaks anything): the invoice numbering strategy, scope,
+reset and date source described below; how money amounts are displayed, as two separate settings —
+`display.money_format` for the application and `invoice.money_format` for the generated invoices — each choosing the
+decimal separator ("." or ",") and the thousands grouping (none, space, comma or dot), so `2851.99`, `2 851.99`,
+`2,851.99`, `2851,99`, `2 851,99` or `2.851,99`, with the application defaulting to `1 234.99` and invoices to plain
+`2851.99` (formatting is display only: the API always carries `1234.99`, inputs accept either separator, and a frozen
+invoice remembers the format it was rendered with); `income.fx_gain` (whether a gain on selling currency above the NBU
+rate is income, off by default); the accounts taxes are paid from (`taxes.payment_account_ids`), one of them primary
+(`taxes.default_account_id`) — a UAH account, or a ФОП account in another currency, from which the bank sells the
+currency into the ФОП's UAH account and pays from there; the day ЄСВ is due (`taxes.esv_due_day`, 19);
+`compliance.platform_repatriation` (`quarter_end`, `days:N` or `off`); `alerts.deadline_days` (7); `alerts.ready_days`
+(14: how long an invoice may stay `ready`, frozen but neither sent nor paid, before I am reminded of it); and the
+ФОП-wide invoice defaults that clients and invoices can override (described with the clients below) — the language (the
+profile's own `locale`, `en` or `uk`), the style, `invoice.payment_purpose_template`, `invoice.act_note_enabled` (on),
+`invoice.act_note`, `invoice.show_contract` (on) and the two notes, with the profile's `default_currency` as the
+ФОП-wide currency. The taxable base is not a setting: it is always the invoiced amount, because what a bank or a
+platform withholds on the way in is still income. There is deliberately no income-recognition option in this phase
+either (see the payments section below).
 
 Then I create the places money can land — Payoneer, Wise, Mercury, my Ukrainian ФОП accounts, a European bank
-account — as rows of one `accounts` table with `kind` `platform`, `fop_bank` or `foreign_bank`, one row per currency
-(Wise USD and Wise EUR are two accounts; only `fop_bank` counts as "landed in Ukraine"). Each carries what a client
-needs to pay me (holder, bank, IBAN, SWIFT, account number, and a JSON `details` block for correspondent banks,
-routing numbers or Payoneer receiving details — IBAN and account number stored encrypted) and all of it is printed into
-the invoice. An account may have a limit: `limit_amount` and `limit_period` (`month`, `quarter` or `year`, a calendar
-window), counting client receipts only, which is what Payoneer's $10 000 per year is about. The accounts list shows
-`$X / $10 000`
-with a percentage where a limit exists and just `$X` where it does not, with alerts at 80 % and 100 %. An account is
-at the same time a receipt destination, a transfer endpoint and a tax-payment source, so it also has a derived balance
-(receipts in + transfers in − transfers out − tax payments out) which is labelled a tracked-flows balance, because
-expenses and personal withdrawals are out of scope in v1 and it will not match the bank statement. Inactive accounts
-cannot be chosen for new invoices or receipts but keep their history; nothing that was ever referenced can be deleted,
-every FK to an account is `RESTRICT`.
+account — as rows of one `accounts` table with `kind` `platform`, `fop_bank`, `foreign_bank` or `personal` (a personal
+card: it takes no receipts and has no limit, but taxes can be paid from it), one row per currency (Wise USD and Wise EUR
+are two accounts; only `fop_bank` counts as "landed in Ukraine"). Each carries what a client needs to pay me (holder,
+bank, IBAN, SWIFT, account number, and a JSON `details` block for correspondent banks, routing numbers or Payoneer
+receiving details — IBAN and account number stored encrypted) and all of it is printed into the invoice. An account may
+have a limit: `limit_amount` and `limit_period` (`month`, `quarter` or `year`, a calendar window), counting client
+receipts only, which is what Payoneer's $10 000 per year is about. The accounts list shows `$X / $10 000` with a
+percentage where a limit exists and just `$X` where it does not, with alerts at 80 % and 100 %. An account is at the
+same time a receipt destination, a transfer endpoint and a tax-payment source, so it also has a derived balance — its
+latest opening balance, plus receipts and transfers in, less transfers out, tax payments and refunds, and plus or minus
+the movements I note on it by hand (a bank's own fee, interest, a withdrawal; never income) — which is labelled a
+tracked-flows balance, because expenses are out of scope in v1 and it needn't match the bank statement.
+Inactive accounts cannot be chosen for new invoices or receipts but keep their history; nothing that was ever referenced
+can be deleted, every FK to an account is `RESTRICT`.
 
-Clients are my invoice counterparties: `name`, `legal_name`, address as JSON (lines, city, zip, country), their tax
-id, e-mail and notes; they are deactivated, never deleted. Each client also has an `abbreviation` — one to ten
-upper-case Latin letters and digits, such as `BL` for Brightline Labs — which prefixes its invoice numbers. It is
-required, unique among the clients of the profile (inactive ones included, so two clients never share a prefix) and
-suggested from the initials of the name when I create the client; I can change it later, and the numbers already given
-keep the prefix they were given with. Under a client I keep its service agreements as contracts:
-a name, an optional number, an optional `subject` (what the agreement is for, such as "IT services", used in the
-payment purpose below), a required start date, an optional end date, the contract currency, an optional default
-hourly rate and a `description_template` such as "IT services in accordance to the Service Agreement {name} dated
+Clients are my invoice counterparties: `name`, `legal_name`, the address as one text, typed as it should print and
+printed line by line (the country too, when it should print), their tax id, e-mail and notes; they are deactivated,
+never deleted. Each client also has an `abbreviation` — one to ten upper-case Latin letters and digits, such as `BL` for
+Brightline Labs — which prefixes its invoice numbers. It is required, unique among the clients of the profile (inactive
+ones included, so two clients never share a prefix) and suggested from the initials of the name when I create the
+client; I can change it later, and the numbers already given keep the prefix they were given with. Under a client I keep
+its service agreements as contracts: a name, an optional number, an optional `subject` (what the agreement is for, such
+as "IT services", used in the payment purpose below), a required start date, an optional end date, the contract
+currency, the payment terms in days (an invoice is due that many days after its issue date), hourly rates, each in force
+from its own date and optionally for one charge type (a new invoice takes the one in force at the end of its service
+period), and a `description_template` such as "IT services in accordance to the Service Agreement {name} dated
 {started_at:F j, Y}", which is expanded into the line-item description when an item is created (the item keeps the
 expanded text). Also under a client live two small lookups the client uses for its own bookkeeping: projects with an
 inner code like "PROTO" and charge types like "Billable" or "Overhead". Invoice items reference both by id and copy
@@ -147,14 +160,14 @@ The language of the invoice is `en` or `uk` (English by default). It decides the
 the bilingual fields are printed — my Latin name and English address or the Ukrainian ones, the client's legal name
 or its Ukrainian legal name when one is filled in — and the language in which a contract's description template is
 expanded when a line item is created (month names in `{started_at:F j, Y}`). Text I typed myself — item descriptions,
-the contract name, notes, a custom payment purpose or act note — is printed as I typed it and never translated, and changing the
-language of a draft does not rewrite its existing items. A bilingual invoice is a later phase.
+the contract name, notes, a custom payment purpose or act note — is printed as I typed it and never translated, and
+changing the language of a draft does not rewrite its existing items. A bilingual invoice is a later phase.
 
 The payment purpose is the reference the client types into the transfer so the money can be matched to the invoice,
 printed in the payment details. It is a template whose placeholders are filled when the invoice is frozen (the draft
 shows a preview with the previewed number): `{services}`, `{invoice.number}`, `{invoice.date}`, `{period.start}`,
-`{period.end}`, `{contract.name}`, `{contract.number}`, `{contract.date}`, `{client.name}` and `{profile.name}`, dates in
-the invoice's language. `{services}` is the contract's `subject`, or the word "services" ("послуги") when there is no
+`{period.end}`, `{contract.name}`, `{contract.number}`, `{contract.date}`, `{client.name}` and `{profile.name}`, dates
+in the invoice's language. `{services}` is the contract's `subject`, or the word "services" ("послуги") when there is no
 contract or no subject. The built-in default follows "Payment for ____ (the service) by the invoice/contract № ___ from
 ___ (its date)" in its invoice form: "Payment for {services} by the invoice No. {invoice.number} from {invoice.date}",
 and in Ukrainian "Оплата за {services} згідно з інвойсом № {invoice.number} від {invoice.date}"; a client paid against
@@ -191,22 +204,29 @@ styles (Outlined by default), chosen with a preview of the real PDF; the styles 
 Invoice creation starts by picking a client — its contracts, projects and charge types become selectable, the currency
 defaults from the contract or else the client, the receiving account from the client's last invoice in that currency,
 the language, payment purpose, act note and contract section from the client's defaults, and the description from
-the contract's template — then a service period `period_start … period_end` with `issued_at` defaulting to `period_end`,
-then the receiving account (filtered by currency and `is_active`), then the line items. The unique number follows
+the contract's template — then a service period `period_start … period_end` with `issued_at` defaulting to `period_end`
+and `due_at` to the issue date plus the contract's payment terms, then the receiving account (filtered by currency and
+`is_active`), then the line items. Nothing is stored until I save the new invoice as a draft («Зберегти чернетку»); from
+then on the draft saves one group of fields at a time. The unique number follows
 `{CLIENT_ABBREVIATION}-{LAST_DATE_OF_THE_RANGE}-{INVOICE_NUMBER_OF_THE_CLIENT}` by default (BL-2026-10-14-13: the
 invoice is to Brightline Labs, for the period ending on 14 October 2026, and it is that client's invoice #13), and the
 mechanism is configured in settings → invoices → numbering: `invoice.numbering.prefix` is `client_abbreviation` (the
-number starts with the client's abbreviation — the default) or `none`, `invoice.numbering.strategy` is
-`date_sequence` (`{YYYY-MM-DD}-{n}`) or `sequence` (just `{n}`), `invoice.numbering.date_source` is `period_end` or
-`issued_at`, `invoice.numbering.scope` is `per_client` (the counter is per client — the default) or `global` (one
-counter for the whole profile), and `invoice.numbering.reset` is `never` or `yearly`. So `sequence` gives `BL-13`, a
-global counter `BL-2026-10-14-41`, and without the prefix the numbers are `2026-10-14-13` or `13` — then two clients'
-counters can arrive at the same number on the same date, which the freeze refuses, so the prefix is what makes
-per-client counters safe. Counters are rows of `invoice_sequences` keyed by `global`, `client:{id}` or the same with a
-`:{year}` suffix — by the client's id, not its abbreviation, so changing the abbreviation keeps the count —
-incremented inside a transaction under `SELECT … FOR UPDATE`, so two concurrent freezes can never get the same
-number. While the invoice is a draft the number is only previewed (`next: BL-2026-10-14-13`); it is allocated when the
-invoice is frozen, unless I typed my own number, which bypasses the generator — `UNIQUE(profile_id, number)` guards
+number starts with the client's abbreviation — the default) or `none`, `invoice.numbering.strategy` is `date_sequence`
+(`{YYYY-MM-DD}-{n}`) or `sequence` (just `{n}`), `invoice.numbering.date_source` is `period_end` or `issued_at`,
+`invoice.numbering.scope` is `per_client` (the counter is per client — the default) or `global` (one counter for the
+whole profile), and `invoice.numbering.reset` is `never` or `yearly`. So `sequence` gives `BL-13`, a global counter
+`BL-2026-10-14-41`, and without the prefix the numbers are `2026-10-14-13` or `13` — then two clients' counters can
+arrive at the same number on the same date, which the freeze refuses, so the prefix is what makes per-client counters
+safe. Counters belong to the profile and are keyed by `global`, `client:{id}` or the same with a `:{year}` suffix — by
+the client's id, not its abbreviation, so changing the abbreviation keeps the count — and a number is taken under a row
+lock inside the freeze's transaction, so two concurrent freezes can never get the same number (`design.md` §5). The
+numbering settings list the current counters («Поточні лічильники»): each active client's, or the ФОП's one (this year's
+when it restarts yearly), with the last number it gave, from 0 before its first invoice, so I can set a counter to
+continue another system's numbering before I issue anything; a counter only moves forward, so no number is given twice.
+While the invoice is a draft the number is only previewed (`next: BL-2026-10-14-13`), and the editor's number card
+offers three ways to number it: Автоматичний, allocated when the invoice is frozen; Лічильник, a number of its counter
+that I choose — the draft holds it, no other invoice may hold it, automatic numbers and previews skip it, and its freeze
+moves the counter past it; and Власний, my own number, which bypasses the generator. `UNIQUE(profile_id, number)` guards
 collisions either way. Line items carry `position`, the project and charge type (id + text copy), the description, a
 `unit` of `hour`, `fixed` or `item`, `quantity` (two decimals), `unit_price` and the computed `amount`; in my case it is
 almost always `PROTO · Billable · "IT services in accordance to the Service Agreement dated April 13, 2023" · 86.50 h ×
@@ -216,29 +236,32 @@ per project.
 Invoices have a `source`: `generated` ones need at least one item, the total is computed and the PDF is rendered by
 the system; `external` ones (historical invoices, client self-billing) have optional items, a total entered directly
 and an uploaded PDF as the primary document; `virtual` ones are the receipts without an invoice, described with the
-payments below. Uploaded files are kept in `invoice_files` with `kind` `generated` or
-`uploaded`, an `is_primary` flag (exactly one primary file per frozen invoice), storage metadata and a `sha256` for
-duplicate detection, on a private disk served through signed short-lived URLs; if I upload my own PDF for a generated
-invoice and mark it primary, nothing is rendered. Once an invoice exists I can download it as PDF and move it through
-the statuses `draft`, `ready`, `sent`, `paid`, plus `cancelled`. The move `draft → ready` is the freeze: the number is
-allocated if blank, a JSON `snapshot` is built with the profile block, client, contract, receiving account with all its
-details, items, totals, the resolved language, payment purpose (rendered), act-of-acceptance note and contract-section
-flag, and a `schema_version`, the PDF is rendered only from that snapshot (never from live relations,
-so later edits to the profile, client or account do not alter issued documents) and `locked_at` is set. From `ready`
-an invoice can go back to `draft` as long as it has no receipts: generated files are deleted, uploads are untouched,
-snapshot and `locked_at` are cleared, and the number is kept (gaps are acceptable). Because the draft can then change
-its dates, the invoice remembers the `sequence_scope_key` and `sequence_number` its number was allocated from: on the
-next freeze a generator-allocated number is rebuilt from the client's current abbreviation and the current date source
-with the same `{n}` (`BL-2026-10-14-13` becomes `BL-2026-10-15-13` if `period_end` moved a day), a new `{n}` is
-allocated only if the scope key itself changed (another client, or a yearly reset and the date moved into another
-year), and a number the user typed is never touched.
-`ready → sent` sets `sent_at`,
-`sent → paid` is suggested automatically once the receipts cover the total and confirmed manually with `paid_at`
-defaulting to the last receipt date, `ready` or `sent` can become `cancelled` (the number is never reused; a
-replacement is a new invoice), and `paid` never changes again. Invoices and their items in `ready`, `sent`, `paid` or
-`cancelled` cannot be edited: `InvoiceObserver` and `InvoiceItemObserver` throw `InvoiceLockedException` on any update
-or delete unless the status is `draft` or the dirty set is within `status`, `sent_at`, `paid_at`, `cancelled_at` and
-`notes`, and `InvoicePolicy@update` mirrors the rule so the API answers before the observer is reached.
+payments below. An invoice's files are `generated` or `uploaded`, one of them primary (exactly one per frozen invoice),
+with storage metadata and a `sha256` for duplicate detection, on a private disk served through signed short-lived URLs;
+if I upload my own PDF for a generated invoice and mark it primary, nothing is rendered. I can see an invoice's PDF in
+the app whatever its status: a saved draft that the app generates is rendered as its freeze would print it now, marked
+as a draft («ЧЕРНЕТКА», «DRAFT») across every page and stored nowhere; any other invoice shows its primary document, the
+PDF I download; a «Без інвойсу» record has none. An invoice moves through the statuses `draft`, `ready`, `sent`, `paid`,
+plus `cancelled`. The move `draft → ready` is the freeze: the number is allocated if blank, a JSON `snapshot` is built
+with the profile block, client, contract, receiving account with all its details, items, totals, the resolved language,
+payment purpose (rendered), act-of-acceptance note and contract-section flag, and a `schema_version`, the PDF is
+rendered only from that snapshot (never from live relations, so later edits to the profile, client or account do not
+alter issued documents) and `locked_at` is set. From `ready` an invoice can go back to `draft` as long as it has no
+receipts: generated files are deleted, uploads are untouched, snapshot and `locked_at` are cleared, and the number is
+kept (gaps are acceptable). Because the draft can then change its dates, the invoice remembers the `sequence_scope_key`
+and `sequence_number` its number was allocated from: on the next freeze a generator-allocated number is rebuilt from the
+client's current abbreviation and the current date source with the same `{n}` (`BL-2026-10-14-13` becomes
+`BL-2026-10-15-13` if `period_end` moved a day), a new `{n}` is allocated only if the scope key itself changed (another
+client, or a yearly reset and the date moved into another year), and a number the user typed is never touched.
+`ready → sent` sets `sent_at`; `ready` or `sent` → `paid` is suggested automatically once the receipts cover the total
+and confirmed manually with `paid_at` defaulting to the last receipt date; `ready` or `sent` can become `cancelled` once
+its receipts are moved to the invoice that replaces it (the number is never reused; a replacement is a new invoice); and
+`paid` stays unless a receipt is deleted, reduced or moved away so that the rest no longer covers the total, which
+returns the invoice to `sent` (or `ready`, if it was never sent) by itself. Invoices and their items in `ready`, `sent`,
+`paid` or `cancelled` cannot be edited: `InvoiceObserver` and `InvoiceItemObserver` throw `InvoiceLockedException` on
+any update or delete unless the status is `draft` or the dirty set is within `status`, `sent_at`, `paid_at`,
+`cancelled_at` and `notes`, and `InvoicePolicy@update` mirrors the rule so the API answers before the observer is
+reached.
 
 Once there is a frozen invoice I record the payments for it, and a payment is a receipt: one credit of client money to
 one of my accounts, which is also exactly one taxable event. If the client pays in parts there are several payment
@@ -261,17 +284,17 @@ receipts exceed the total and suggests the `paid` status when they cover it. One
 recorded as one receipt split over them (one `receipt_group_id`, the received amount and the fee pro-rata). Bank
 interest is passive income and is not recorded.
 
-Every receipt belongs to an invoice. I record it from the invoice, or from the accounting screen, where I pick one of
-the open invoices or "Без інвойсу". That second case is a client paying under the contract with no invoice (an
-advance, a retainer): the app creates a virtual invoice together with the receipt, a record kept only for the books,
-with the client, the contract (required; it gives the currency), the amount the client sent (the taxable base, which
-I type), the service period (required, as on any invoice) and an optional private note of what it was for. Its date
-is the payment's date. It is paid from the start, takes no number, has no PDF and no due date, is never sent, never overdue and never in the "to be paid" totals, but it
-counts in the books, the taxes and the client's totals like any receipt, and the invoice list shows it as "Без
-інвойсу". If the client later asks for an invoice, I either issue it — it takes the next number of the client's
-counter, keeps the payment's date as its issue date, gets one fixed line from the contract's description template
-for the whole amount and a PDF, and stays paid — or attach the receipt to an invoice already issued, and the virtual record goes
-away. Deleting the receipt deletes it too.
+Every receipt belongs to an invoice. I record it from the invoice, or from the accounting or the home screen, where I
+pick one of the open invoices or "Без інвойсу". That second case is a client paying under the contract with no invoice
+(an advance, a retainer): the app creates a virtual invoice together with the receipt, a record kept only for the books,
+with the client, the contract (required; it gives the currency), the amount the client sent (the taxable base, which I
+type), the service period (required, as on any invoice) and an optional private note of what it was for. Its date is the
+payment's date. It is paid from the start, takes no number, has no PDF and no due date, is never sent, never overdue and
+never in the "to be paid" totals, but it counts in the books, the taxes and the client's totals like any receipt, and
+the invoice list shows it as "Без інвойсу". If the client later asks for an invoice, I either issue it — it takes the
+next number of the client's counter, keeps the payment's date as its issue date, gets one fixed line from the contract's
+description template for the whole amount and a PDF, and stays paid — or attach the receipt to an invoice already
+issued, and the virtual record goes away. Deleting the receipt deletes it too.
 
 Money then has to reach my Ukrainian ФОП bank account, usually through one or more of my own accounts (Payoneer →
 Wise → bank, Payoneer USD → ФОП UAH), and these movements are not fields on the payment but their own records:
@@ -311,16 +334,21 @@ arrived on the platform, or on the ФОП bank account when they were sent there
 of the quarter: the invoice number (prominent) or "Без інвойсу", the client, the amount in its currency, the NBU rate
 (`1 USD = 41.7350 ₴`), the date and the UAH amount in bold, then the ЄП and ВЗ computed for that receipt with whether
 they are paid and, when I ask for them, its fees and its net. The cards are grouped by month (the default), by invoice
-or not at all. Above them the quarter summary shows the year-to-date income against the cap as a bar, the quarter's
-income per currency as invoiced against received for the invoices issued in the quarter (so I can see "$10 000
-invoiced, $7 899 received so far"), the quarter's taxable income in UAH, and the ЄСВ, ЄП and ВЗ owed for the quarter
-with what is paid — ЄП and ВЗ as the year-to-date liability minus the previous quarter's, the declaration's figure, and
-ЄСВ as the sum of its three monthly obligations. The standalone `ROUND(Σ × 5 %, 2)` / `ROUND(Σ × 1 %, 2)` and the
-per-receipt sums, with their kopeck deltas, stay available as cross-checks, but the first phase doesn't show them.
-The app also keeps a 12-row table of monthly ЄСВ obligations per year, generated from `tax_rules` for every active
-profile independently of invoices and income, each `due` or `paid` (marking a month `exempt` is left out of the first
-phase) and allowing a voluntarily higher payment, and a monthly income table — the free-form record п. 296.1 asks for. Their screens are hidden in the first
-phase; the quarter, the year and the income table export to CSV, and XLSX comes later.
+or not at all. Above them the quarter summary shows the quarter's income per currency as invoiced against received for
+the invoices issued in the quarter (so I can see "$10 000 invoiced, $7 899 received so far"), the quarter's taxable
+income in UAH, and the ЄСВ, ЄП and ВЗ owed for the quarter with what is paid — ЄП and ВЗ as the year-to-date liability
+minus the previous quarter's, the declaration's figure, and ЄСВ as the sum of its three monthly obligations. The
+standalone `ROUND(Σ × 5 %, 2)` / `ROUND(Σ × 1 %, 2)` and the per-receipt sums, with their kopeck deltas, stay available
+as cross-checks, but the first phase doesn't show them. The app also keeps a 12-row table of monthly ЄСВ obligations per
+year, generated from `tax_rules` for every active profile independently of invoices and income, each `due` or `paid`
+(marking a month `exempt` is left out of the first phase) and allowing a voluntarily higher payment; its screen is
+hidden in the first phase. The year is in the books, Книги обліку: Доходи is the free-form income record п. 296.1 asks
+for — every receipt by its credit date in UAH, by month and by quarter, newest first, with the running total from
+1 January and the year-to-date income against the cap as a bar with ticks at 80 % and 90 % — and Податки holds the
+year's taxes accrued, sent and paid, by quarter cumulatively as the declaration reports them, or tax by tax. Each book
+exports to PDF. The accounting screen exports its quarter to CSV and, for an accountant or an audit, an archive of a
+year, a quarter or a range: every record of the period with its PDFs in a ZIP, which can't restore a ФОП (`backups.md`).
+The year and the monthly income table still export to CSV through the API, and XLSX comes later.
 
 Taxes are shown as one ledger, month by month, newest first. It lists what is still to be paid: each receipt's ЄП and
 ВЗ in the month the money came in, and each month's ЄСВ in its own month (every month of a quarter once the quarter
@@ -370,38 +398,65 @@ never block: a deadline within `alerts.deadline_days` or past while the liabilit
 platform receipt whose allocations have not landed on a `fop_bank` account by quarter end, or N days, or never
 checked — dismissible per payment through `repatriation_ack_at`); an account limit at 80 % or 100 %; year-to-date
 income at 80 %, 90 % or 100 % of the cap; a contract expiring within 30 days or expired while it still has open
-invoices; overdue invoices (`due_at` passed, not fully paid); and `ready` invoices without receipts for too long.
-Notifications are stored, not recomputed on every page: one row per condition that stays until the condition clears,
-with a read state kept per user. A notification becomes read only when I act on it — tap the mark-as-read icon, tap
-its action, or tap the notification itself; merely opening the notifications page or loading the list never marks
-anything read. They are shown on their own page, with the unread count on the bell at the top of the main screens,
+invoices; overdue invoices (`due_at` passed, not fully paid); `ready` invoices without receipts for longer than
+`alerts.ready_days`; a receipt or a transfer saved at a manual rate once the NBU publishes a different one for its day;
+and, in December, the next year's tax rules while they are still missing. Notifications are stored, not recomputed on
+every page: one row per condition that stays until the condition clears, with a read state kept per user. A notification
+becomes read only when I act on it — tap the mark-as-read icon, tap its action, or tap the notification itself; merely
+opening the notifications page or loading the list never marks anything read. They are shown on their own page (on a
+desktop, in a popover under the bell), with the unread count on the bell at the top of the main screens,
 and never as cards on the home screen. An organization-wide board with one row per profile for the accountant comes
 in a later phase.
 
+The data is backed up per ФОП, and a copy is only ever restored as a new ФОП (`backups.md`). On a schedule the owner
+sets (daily by default, or weekly or monthly, at a time of the night the app picks), each ФОП of the organization
+becomes a ZIP of CSV tables with its documents, its РНОКПП and IBANs decrypted so that it opens without the app; copies
+are kept grandfather-father-son (7 days, 4 weeks and 12 months by default), the newest copy of each ФОП is never pruned,
+and a ФОП that hasn't changed can skip a copy. Owners and accountants make a copy at once (up to five a day) and
+download a ФОП's archive, with a password if they want one, or all the ФОП of a run in one ZIP; owners set the schedule,
+the retention and what goes in, and are e-mailed about failures (or always, or never); viewers see none of it. An owner
+restores a ФОП from its archive with «Відновити з архіву», which first tells whose archive it is and what it holds, and
+then adds it as a new ФОП of the organization, never over an existing one: a ФОП the organization already has is
+refused. A deleted ФОП gets a final copy and can be restored for 30 days, after which its data and its copies are
+erased; a removed user's personal data is erased too. On a server the platform also backs up the whole database itself,
+which nobody configures (not deployed yet).
+
 The first implementation phase («Minimal») is a deliberately pared-down version of the designed screens — all the
 fundamental functionality, none of the secondary options — mobile-first, in Ukrainian and English, with five tabs at
-the bottom (Головна, Інвойси, Облік, Податки, Ще) and the notifications behind a bell at the top. It works with one
-ФОП at a time: there is no switcher between profiles, no practice overview and no organization board. Login is e-mail
-and password only. The home screen shows every invoice of the current and the previous quarter, whatever its status,
-newest first: its number (or the next number on a draft), its status with the date it was sent, paid or cancelled,
-the client, the total, the period and the date it is due by, or that it is overdue; only a sent invoice shows how much
-of it is paid, and the subtitle sums what is still to be paid. The invoice list is an infinite scroll by month with no
-free-text search box — the system already knows every client, number and status — so it is narrowed by filters: a
-period (years, quarters, months or a range), clients, statuses (with "Без інвойсу" for the virtual records) and
-currencies, chosen in a drawer and applied together. The accounting screen uses the same kind of drawer for one year
-and one quarter; the taxes screen uses it for one year and a range of its quarters, the taxes and the statuses. The
-accounting screen starts with the quarter summary, lists the receipts by month, and its "+ Надходження" records a
-receipt against an open invoice or "Без інвойсу". The taxes screen is the ledger above with its summary. Tapping a row
-opens its payment: a receipt's ЄП or ВЗ, or a month's ЄСВ, which can be paid ahead. Each tax is paid from its own
-row, since no receipt has a button that pays both. On the receipt's page ЄП and ВЗ are always listed, paid or not,
-and lead to their payment.
-Every settings page and form groups its fields into cards that open one at a time for editing and save on their own,
-and the texts printed on the invoice are shown as they will print and edited in place. Hidden for now, though their
-data and API stay: the ЄСВ table, the income book and the declaration screen (so declarations aren't filed through the
-app yet and periods don't lock), the taxes by month and by quarter, and refunds; marking ЄСВ months exempt is removed
-for now. Gone from this phase: receipts
-recorded as an advance or as other income (the virtual invoice replaces them), the "received" tax base, rolling limit
-windows and limits that count my own transfers. The screen-by-screen scope is `design.md` §16. Amounts everywhere
+the bottom (Головна, Інвойси, Облік, Податки, Ще) and, at the top, the notifications behind a bell and Книги обліку
+behind a book beside it. From 600 px wide the same screens take a desktop layout: a sidebar in place of the tabs
+(Головна, Інвойси, Облік, Податки, Книги and Налаштування, which holds what Ще holds on a phone), and records opening in
+a panel over their list. It works with one ФОП at a time: «Змінити ФОП» on the ФОП card of Ще or of the sidebar opens
+«ФОП організації», which lists every ФОП of the organization, active or not, each with a line of what needs attention
+there (unread notifications, taxes to pay, an overdue invoice, the next ЄСВ deadline), and owners add a ФОП there; the
+chosen ФОП is remembered on the device and becomes current for the whole app. There is no practice overview and no
+organization board. Login is e-mail and password, with «Запам’ятати мене» and «Забули пароль?», and Вхід leads to the
+registration of an organization where the installation allows it. The home screen shows only what needs attention, each
+of its sections saying «Усе гаразд» when nothing does: the quick actions «Новий інвойс» and «Нове надходження»; the
+invoices to be paid or drafted — what is «До оплати» per currency, how much of it is «Прострочено», and the «Чернетки» —
+overdue first, then by due date, drafts last, each with its number (or the next number on a draft), its status, the
+client, the total, the period and the date it is due by, or that it is overdue, and on a sent one how much of it is
+paid; and the receipts whose money is still on a platform or in a foreign bank, with what each holds there and the date
+the rule in `compliance.platform_repatriation` wants it moved by («Час переказати» once that has passed), and «Новий
+переказ» from the oldest one's account. The invoice list is an infinite scroll by month with no free-text search box —
+the system already knows every client, number and status — so it is narrowed by filters: a period (years, quarters,
+months or a range), clients, statuses (with "Без інвойсу" for the virtual records) and currencies, chosen in a drawer
+and applied together. The accounting screen uses the same kind of drawer for one year and one quarter; the taxes screen
+uses it for one year and a range of its quarters, the taxes and the statuses. The accounting screen starts with the
+quarter summary, lists the receipts by month, and its "+ Надходження" records a receipt against an open invoice or "Без
+інвойсу". The taxes screen is the ledger above with its summary. Tapping a row opens its payment: a receipt's ЄП or ВЗ,
+or a month's ЄСВ, which can be paid ahead. Each tax is paid from its own row, since no receipt has a button that pays
+both. On the receipt's page ЄП and ВЗ are always listed, paid or not, and lead to their payment. Ще groups the rest: the
+current ФОП and its switch, the ФОП's profile and tax settings, the accounts and the transfers with their fees, the
+clients, the numbering and the invoice document, and — for those who may — the users and the backups. Довідка tells,
+part by part, what the app is for and how to do things, starting with the first steps of setting up a ФОП, and searches
+its answers; it opens from Ще, or from the sidebar's foot on a desktop. Every settings page and form groups its fields
+into cards that open one at a time for editing and save on their own, and the texts printed on the invoice are shown as
+they will print and edited in place. Hidden for now, though their data and API stay: the ЄСВ table and the declaration
+screen (so declarations aren't filed through the app yet and periods don't lock), the taxes by month and by quarter, and
+refunds; marking ЄСВ months exempt is removed for now. Gone from this phase: receipts recorded as an advance or as other
+income (the virtual invoice replaces them), the "received" tax base, rolling limit windows and limits that count my own
+transfers. The screen-by-screen scope is `design.md` §16, and the desktop layout §17. Amounts everywhere
 follow `display.money_format`, which defaults to `1 234.99`.
 
 A few technical constraints hold throughout. The API is `/api/profiles/{profile}/…` REST resources using api-core
@@ -411,8 +466,9 @@ dates as `YYYY-MM-DD`. Auth is Sanctum — SPA cookie for the Vue app, tokens fo
 accepts an idempotency key so a double click is one receipt. `NbuRateProvider` calls
 `https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&date=YYYYMMDD&json`, parses the rate
 without going through a float, caches it into `exchange_rates` by currency and date, is pre-filled by a nightly job
-for every currency the active profiles use, accepts manual rows with `source = manual`, and on failure surfaces a
-validation error with a manual-rate field rather than a silent default. PDFs are Blade → dompdf with a Cyrillic-capable
+for every currency the active profiles use, and on failure surfaces a validation error with a manual-rate field rather
+than a silent default; a manual rate stays on its own record, the nightly job retries its day, and a notification tells
+me once the NBU's rate differs, which the record takes on its next edit. PDFs are Blade → dompdf with a Cyrillic-capable
 font bundled, rendered synchronously on freeze (one page, under a second), with `spatie/laravel-pdf` + Chromium as the
 upgrade path if flex/grid layouts are ever needed. Financial rows carry `created_by_user_id` and an activity log
 (invoices, payments, transfers, tax payments); `tax_id`, IBAN and account numbers use encrypted casts; no PII goes to
@@ -422,13 +478,22 @@ roll-over, the NBU provider against HTTP fakes, the invoice-settings cascade at 
 snapshot version and per language, and above all profile isolation
 — a cross-profile id is a 404 and a query without a profile context returns nothing.
 
+The app runs in two shapes (`builds.md`). On a server it is one container image, run as the app, its queue worker and
+its scheduler, on MySQL or on a SQLite file: backups, the organization's archives and period exports run on the worker,
+and the rates, tax periods, notifications, backups and retention on the scheduler. As a desktop app for Linux, Windows
+and macOS, one computer is one installation on SQLite, which only its own window may reach. Its first launch opens the
+registration; the installation's key, which decrypts the tax IDs, IBANs and invoice snapshots, is made on that launch,
+and the owner keeps it in a recovery kit («Набір відновлення») before working; with the kit and the old database file
+the app is restored on another computer; and what a server does at night — the day's rates, the tax periods and the
+notifications — is caught up on every launch, the rates retried while it is offline. Its backups stay on that computer.
+
 Finally, a one-off artisan command with `--profile=` and `--dry-run` imports my 2025 Google Sheet ("2025 - payments"
 and "2025 - taxes") into external invoices, payments, transfers with allocations and tax payments, then prints the
 computed quarter totals next to the sheet's totals; any kopeck difference must be explainable by the rounding policy
-or the import fails, and the 2025 ЄСВ months must be importable as paid or exempt. Out of scope for this phase —
-expenses, VAT and other tax groups, employees, bank and platform API integrations, a client portal, recurring
-invoices, sending invoices from the app, e-mail or Telegram delivery of notifications, free-text search, ДПС XML
-export, per-profile access and the "recognise income on ФОП-account arrival" mode — are listed with the remaining
-open decisions and what the first phase hides in `suggestions.md`; refunds, one wire for several invoices, the
-`personal` account kind with opening balances, period locking, FX gain and ДПС payment requisites are already in the
-design spec (v4).
+or the import fails, and the 2025 ЄСВ months must be importable as paid or exempt; it isn't built yet, as it waits for
+the sheet's format. Out of scope for this phase — expenses, VAT and other tax groups, employees, bank and platform API
+integrations, a client portal, recurring invoices, sending invoices from the app, e-mail or Telegram delivery of
+notifications, free-text search, ДПС XML export, per-profile access and the "recognise income on ФОП-account arrival"
+mode — are listed with the remaining open decisions and what the first phase hides in `suggestions.md`; refunds, one
+wire for several invoices, the `personal` account kind with opening balances, period locking, FX gain and ДПС payment
+requisites are already in the design spec (v5.2).

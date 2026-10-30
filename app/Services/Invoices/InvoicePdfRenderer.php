@@ -72,14 +72,16 @@ class InvoicePdfRenderer
     public function __construct(protected PdfFonts $fonts) {}
 
     /**
-     * Render the PDF of the frozen invoice with the template, or else the one, which its snapshot and file take.
+     * Render the PDF of the frozen invoice with the template, or else the one, which its snapshot and file take; a
+     * draft's preview is marked as a draft across every page (template v3 on).
      *
      * @param Invoice $invoice
      * @param string|null $template
+     * @param bool $draft
      *
      * @return string
      */
-    public function render(Invoice $invoice, ?string $template = null): string
+    public function render(Invoice $invoice, ?string $template = null, bool $draft = false): string
     {
         $template ??= $this->templateFor($invoice);
 
@@ -88,7 +90,7 @@ class InvoicePdfRenderer
         }
 
         $document = $this->document($invoice->snapshot ?? [], $this->signature($invoice, $invoice->snapshot ?? []));
-        $pdf = $this->pdf($this->documentHtml($document))->setOption('fontHeightRatio', self::FONT_HEIGHT_RATIO);
+        $pdf = $this->pdf($this->documentHtml($document, $draft))->setOption('fontHeightRatio', self::FONT_HEIGHT_RATIO);
 
         $pdf->render();
         $this->numberPages($pdf->getDomPDF()->getCanvas(), $document);
@@ -98,14 +100,15 @@ class InvoicePdfRenderer
 
     /**
      * Render the HTML of the frozen invoice's PDF with the template, or else the one, which its snapshot and file
-     * take.
+     * take; a draft's preview is marked as a draft (template v3 on).
      *
      * @param Invoice $invoice
      * @param string|null $template
+     * @param bool $draft
      *
      * @return string
      */
-    public function html(Invoice $invoice, ?string $template = null): string
+    public function html(Invoice $invoice, ?string $template = null, bool $draft = false): string
     {
         $snapshot = $invoice->snapshot ?? [];
         $template ??= $this->templateFor($invoice);
@@ -119,7 +122,7 @@ class InvoicePdfRenderer
             ])->render();
         }
 
-        return $this->documentHtml($this->document($snapshot, $signature));
+        return $this->documentHtml($this->document($snapshot, $signature), $draft);
     }
 
     /**
@@ -420,17 +423,22 @@ class InvoicePdfRenderer
     }
 
     /**
-     * Render the HTML of template v3 for the document.
+     * Render the HTML of template v3 for the document, marked as a draft across every page for a draft's preview.
      *
      * @param InvoiceDocument $document
+     * @param bool $draft
      *
      * @return string
      */
-    protected function documentHtml(InvoiceDocument $document): string
+    protected function documentHtml(InvoiceDocument $document, bool $draft = false): string
     {
         $this->metrics ??= $this->fonts->metrics();
 
-        return view(self::TEMPLATES['v3'], ['doc' => $document, 'css' => $this->css($document->style)])->render();
+        return view(self::TEMPLATES['v3'], [
+            'doc' => $document,
+            'css' => $this->css($document->style),
+            'draftMark' => $draft ? trans('invoice.labels.draft', [], $document->locale) : null,
+        ])->render();
     }
 
     /**

@@ -89,6 +89,19 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Languages of an invoice with the word, which marks a draft's preview in each.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function languagesWithTheDraftMark(): array
+    {
+        return [
+            'en' => ['en', 'DRAFT'],
+            'uk' => ['uk', 'ЧЕРНЕТКА'],
+        ];
+    }
+
+    /**
      * Test that the template renders the snapshot's amounts in the snapshot's money format, after the setting and the
      * account changed.
      *
@@ -414,6 +427,25 @@ class InvoicePdfRendererTest extends TestCase
         $this->assertStringContainsString('<span class="ci">РНОКПП: 1234500592</span>', $html);
         $this->assertStringContainsString('<td class="r mono">20.00 год</td>', $html);
         $this->assertStringContainsString('<td class="k">Призначення</td>', $html);
+    }
+
+    /**
+     * Test that a draft's preview is marked as a draft in the invoice's language, and the invoice itself isn't.
+     *
+     * @param string $locale
+     * @param string $mark
+     *
+     * @return void
+     */
+    #[DataProvider('languagesWithTheDraftMark')]
+    public function testMarksADraftsPreviewInTheInvoicesLanguage(string $locale, string $mark): void
+    {
+        $invoice = new Invoice;
+        $invoice->forceFill(['snapshot' => array_replace_recursive($this->snapshot(), ['locale' => $locale])]);
+        $renderer = app(InvoicePdfRenderer::class);
+
+        $this->assertStringContainsString("<div class=\"draft-mark\">$mark</div>", $renderer->html($invoice, draft: true));
+        $this->assertStringNotContainsString('class="draft-mark"', $renderer->html($invoice));
     }
 
     /**

@@ -46,6 +46,8 @@ return [
         'payment_note' => 'Payment note',
         'other_notes' => 'Other notes',
         'page_of' => 'Page :page of :total',
+        // Across every page of a draft's preview, which isn't the invoice yet
+        'draft' => 'DRAFT',
     ],
 
     'defaults' => [

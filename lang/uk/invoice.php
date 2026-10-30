@@ -46,6 +46,8 @@ return [
         'payment_note' => 'Примітка до оплати',
         'other_notes' => 'Інші примітки',
         'page_of' => 'Сторінка :page з :total',
+        // Across every page of a draft's preview, which isn't the invoice yet
+        'draft' => 'ЧЕРНЕТКА',
     ],
 
     'defaults' => [

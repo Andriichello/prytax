@@ -8,6 +8,8 @@
     on the first row's cells. The page's top and bottom margins are 30pt, and the root box pulls the top one in, so the
     decoration, which sits in a page-sized frame, and the bands reach the page's edges, while a continuation page keeps
     its margins. The decoration comes first, so it stays on the first page. The renderer numbers the pages.
+    $draftMark: the word across every page of a draft's preview («ЧЕРНЕТКА», «DRAFT»), which dompdf repeats as it is
+    fixed; null for the invoice itself.
 --}}
 @php
     $t = fn (string $key, array $replace = []) => trans("invoice.labels.$key", $replace, $doc->locale);
@@ -64,5 +66,9 @@
             </div>
         @endif
     </div>
+
+    @if ($draftMark ?? null)
+        <div class="draft-mark">{{ $draftMark }}</div>
+    @endif
 </body>
 </html>

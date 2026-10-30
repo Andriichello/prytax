@@ -71,6 +71,10 @@ table.layout.strip tr.row-contract td { padding-top:14pt; }
    header cells, which wrap at their space; the subtotals above the total; a payment card without its right side;
    the signature under the card. The page number is drawn by the renderer from the .pager rules. */
 .frame { position:absolute; left:0; top:0; width:595.28pt; height:841.89pt; }
+/* A draft's preview: the word from the bottom left to the top right of every page, faint; a fixed element repeats on
+   every page, measured from the content's top (30pt under the page's), and dompdf paints it under the content without
+   its z-index */
+.draft-mark { position:fixed; left:-120pt; top:336pt; width:835pt; text-align:center; font-family:'DejaVu Sans', sans-serif; font-weight:bold; font-size:88pt; line-height:110pt; letter-spacing:6pt; color:#17191F; opacity:0.08; z-index:10; transform:rotate(-54deg); }
 table.items th { vertical-align:top; }
 table.items th.r { white-space:normal; }
 table.subtotals { width:240.9pt; margin:14pt 0 0 auto; }

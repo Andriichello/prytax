@@ -5,10 +5,14 @@ namespace Tests\Feature\Http\Controllers;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use PryTax\Enums\AccountKind;
 use PryTax\Enums\DeclarationStatus;
+use PryTax\Models\Account;
 use PryTax\Models\Payment;
+use PryTax\Models\Profile;
 use PryTax\Services\Invoices\InvoiceWriter;
 use PryTax\Services\Taxes\DeadlineScheduler;
+use PryTax\Services\Transfers\TransferRecorder;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -498,5 +502,77 @@ class PaymentControllerTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('virtual_invoice');
         $this->assertDatabaseCount('invoices', 0);
+    }
+
+    /**
+     * Test that the receipts, whose money is still on a platform, are listed with what each holds there (a partly
+     * transferred one its rest) and by when it's to be moved (the end of its quarter, past for July's), with the
+     * totals per currency; a receipt to the ФОП's bank isn't.
+     *
+     * @return void
+     */
+    public function testListsTheReceiptsWhoseMoneyIsStillOnAPlatform(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $this->actAs($profile, 'viewer');
+        $wise = $this->createAccount($profile);
+        $bank = $this->createAccount($profile, ['kind' => AccountKind::FopBank, 'name' => 'Monobank USD']);
+        $july = $this->receiptOn($profile, $wise, '1000.00', '2026-07-10');
+        $october = $this->receiptOn($profile, $wise, '500.00', '2026-10-05');
+        $this->receiptOn($profile, $bank, '700.00', '2026-10-06');
+        $this->inProfile($profile, fn () => app(TransferRecorder::class)->record($profile, [
+            'from_account_id' => $wise->id, 'to_account_id' => $bank->id, 'amount_sent' => '200.00', 'amount_received' => '200.00',
+            'received_at' => '2026-10-10', 'allocations' => [['payment_id' => $october->id, 'amount' => '200.00']],
+        ]));
+
+        $this->getJson($this->profilePath($profile, 'payments/untransferred'))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.payment_id', $july->id)
+            ->assertJsonPath('data.0.amount', '1000.00')
+            ->assertJsonPath('data.0.account.id', $wise->id)
+            ->assertJsonPath('data.0.deadline', '2026-09-30')
+            ->assertJsonPath('data.0.overdue', true)
+            ->assertJsonPath('data.1.payment_id', $october->id)
+            ->assertJsonPath('data.1.amount', '300.00')
+            ->assertJsonPath('data.1.deadline', '2026-12-31')
+            ->assertJsonPath('data.1.overdue', false)
+            ->assertJsonPath('meta.totals', [['currency' => 'USD', 'count' => 2, 'amount' => '1300.00', 'overdue' => '1000.00']]);
+    }
+
+    /**
+     * Test that another profile's receipts on its platform aren't listed.
+     *
+     * @return void
+     */
+    public function testLeavesOutTheUntransferredReceiptsOfAnotherProfile(): void
+    {
+        $profile = $this->createProfile();
+        $other = $this->createProfile($profile->organization);
+        $this->receiptOn($other, $this->createAccount($other), '1000.00', '2026-10-05');
+        $this->actAs($profile);
+
+        $this->getJson($this->profilePath($profile, 'payments/untransferred'))
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.totals', []);
+    }
+
+    /**
+     * Create a receipt of the profile to the account.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     * @param string $amount
+     * @param string $receivedAt
+     *
+     * @return Payment
+     */
+    private function receiptOn(Profile $profile, Account $account, string $amount, string $receivedAt): Payment
+    {
+        return $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id, 'received_to_account_id' => $account->id, 'amount' => $amount, 'received_at' => $receivedAt,
+        ]));
     }
 }

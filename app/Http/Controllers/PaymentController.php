@@ -21,6 +21,7 @@ use PryTax\Repositories\PaymentRepository;
 use PryTax\Services\Alerts\AlertSync;
 use PryTax\Services\Payments\PaymentFlow;
 use PryTax\Services\Payments\PaymentRecorder;
+use PryTax\Services\Transfers\UntransferredReceipts;
 
 /**
  * Class PaymentController.
@@ -64,6 +65,7 @@ class PaymentController extends TenantController
         'group' => GroupPaymentsRequest::class,
         'flow' => ShowRequest::class,
         'acknowledge' => AcknowledgeRepatriationRequest::class,
+        'untransferred' => IndexRequest::class,
     ];
 
     /**
@@ -74,13 +76,15 @@ class PaymentController extends TenantController
      * @param PaymentRecorder $recorder
      * @param PaymentFlow $flows
      * @param AlertSync $alerts
+     * @param UntransferredReceipts $untransferred
      */
     public function __construct(
         PaymentPolicy $policy,
         PaymentRepository $repository,
         protected PaymentRecorder $recorder,
         protected PaymentFlow $flows,
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected UntransferredReceipts $untransferred
     ) {
         parent::__construct($policy, $repository);
     }
@@ -165,6 +169,21 @@ class PaymentController extends TenantController
         $payment = $this->builder($request)->findOrFail($request->getId());
 
         return ApiResponse::ok(['data' => $this->flows->forPayment($payment)]);
+    }
+
+    /**
+     * Handle the `untransferred` operation: the receipts, whose money is still on a platform or a foreign bank, with
+     * what each holds there and by when it is to be moved, and the totals per currency, for Головна.
+     *
+     * @param IndexRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleUntransferred(IndexRequest $request): ApiResponse
+    {
+        $untransferred = $this->untransferred->of($this->profileOf($request));
+
+        return ApiResponse::ok(['data' => $untransferred['receipts'], 'meta' => ['totals' => $untransferred['totals']]]);
     }
 
     /**

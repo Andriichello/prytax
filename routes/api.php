@@ -145,6 +145,8 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('invoices/{id}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
                     InvoiceFileController::routes('invoices/{invoice}/files', 'invoices.files');
 
+                    Route::get('payments/untransferred', [PaymentController::class, 'untransferred'])->name('payments.untransferred');
+
                     Route::middleware('idempotent')->group(function () use ($crud, $all) {
                         Route::post('payments/preview', [PaymentController::class, 'preview'])->name('payments.preview');
                         Route::post('payments/group', [PaymentController::class, 'group'])->name('payments.group');

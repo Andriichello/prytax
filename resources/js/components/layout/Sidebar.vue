@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '@/api/client';
-import type { Account, Client, Paginated } from '@/api/types';
 import ProfileSwitchList from '@/components/profile/ProfileSwitchList.vue';
 import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -12,7 +10,6 @@ import NewPill from '@/components/ui/NewPill.vue';
 import Popover from '@/components/ui/Popover.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
-import { useLoader } from '@/composables/useLoader';
 import { useOverlay } from '@/composables/useOverlay';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
@@ -21,11 +18,10 @@ import { roleName } from '@/utils/statuses';
 
 /**
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
- * ФОП popover; the main sections, money and counterparties (with counts), the settings and the management (users and
- * backups, a group only for those who see either); and at the foot
- * the language row (its popover), the user with the role, and «Вийти». It replaces the tab bar and Ще. The active
- * item is the route's section; it fits 900 px, below which the sections scroll and the foot stays. Below 1024 px it
- * folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons, the groups apart), whose ☰ opens the whole
+ * ФОП popover; the sections — Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose page holds the money,
+ * the clients, the ФОП's and the invoices' settings and the management, and which stays current on each of them —;
+ * and at the foot the language row (its popover), the user with the role, and «Вийти». It replaces the tab bar and
+ * Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons), whose ☰ opens the whole
  * sidebar over the page; a section chosen, ✕, Escape or a click beside it closes it.
  */
 interface NavItem {
@@ -35,14 +31,12 @@ interface NavItem {
     to: string;
     /** The route names, which make the item current. */
     names: string[];
-    count?: number | null;
-    visible?: boolean;
 }
 
 const route = useRoute();
 const router = useRouter();
 const { user, can, signOut } = useSession();
-const { profile, profiles, profileId, path, reset } = useCurrentProfile();
+const { profile, profiles, reset } = useCurrentProfile();
 
 const { isCompact } = useBreakpoint();
 
@@ -64,71 +58,26 @@ const switchButton = ref<HTMLElement | null>(null);
 const languageButton = ref<HTMLElement | null>(null);
 const signingOut = ref(false);
 
-const { data: counts } = useLoader(async (signal) => {
-    if (profileId.value === null) {
-        return null;
-    }
-
-    const [accounts, clients] = await Promise.all([
-        api.get<Paginated<Account>>(path('accounts'), { page: { size: 1 } }, signal),
-        api.get<Paginated<Client>>(path('clients'), { page: { size: 1 } }, signal),
-    ]);
-
-    return { accounts: accounts.meta.total, clients: clients.meta.total };
-}, [profileId]);
-
-interface NavGroup {
-    key: string;
-    title?: string;
-    items: NavItem[];
-}
-
-/** The groups of the sections, each with the items the user may see; a group without any isn't shown. */
-const groups = computed<NavGroup[]>(() => {
-    const all: NavGroup[] = [
-        {
-            key: 'main',
-            items: [
-                { key: 'home', label: t('shell.nav.home'), icon: 'home', to: tabPaths.home ?? '/', names: ['home', 'alerts'] },
-                { key: 'invoices', label: t('shell.nav.invoices'), icon: 'invoice', to: tabPaths.invoices ?? '/invoices', names: ['invoices', 'invoice', 'invoice-new', 'invoice-edit'] },
-                { key: 'accounting', label: t('shell.nav.accounting'), icon: 'ledger', to: tabPaths.accounting ?? '/accounting', names: ['accounting', 'payment', 'payment-new', 'payment-edit', 'payment-pick'] },
-                { key: 'taxes', label: t('shell.nav.taxes'), icon: 'bank', to: tabPaths.taxes ?? '/taxes', names: ['taxes', 'tax-payment', 'tax-payment-new', 'esv-payment', 'esv-payment-new'] },
-                { key: 'books', label: t('shell.nav.booksShort'), icon: 'book', to: '/books', names: ['books'] },
-            ],
-        },
-        {
-            key: 'money',
-            title: t('shell.more.moneyCounterparties'),
-            items: [
-                { key: 'accounts', label: t('money.accounts.title'), icon: 'account', to: '/accounts', names: ['accounts', 'account', 'account-new', 'account-edit'], count: counts.value?.accounts },
-                { key: 'transfers', label: t('shell.more.transfersFees'), icon: 'transfer', to: '/transfers', names: ['transfers', 'transfer', 'transfer-new', 'transfer-edit', 'fees'] },
-                { key: 'clients', label: t('shell.more.clientsContracts'), icon: 'briefcase', to: '/clients', names: ['clients', 'client', 'client-new', 'client-edit', 'contract', 'contract-new'], count: counts.value?.clients },
-            ],
-        },
-        {
-            key: 'settings',
-            title: t('shell.nav.settings'),
-            items: [
-                { key: 'profile', label: t('shell.nav.profileDetails'), icon: 'person', to: '/settings/profile', names: ['settings-profile'] },
-                { key: 'taxes-settings', label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes', names: ['settings-taxes'] },
-                { key: 'numbering', label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering', names: ['settings-numbering'] },
-                { key: 'document', label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', names: ['settings-invoice-document'] },
-            ],
-        },
-        {
-            key: 'management',
-            title: t('shell.nav.management'),
-            items: [
-                { key: 'users', label: t('shell.more.usersRoles'), icon: 'people', to: '/users', names: ['users'], visible: can('viewAny', 'users') },
-                { key: 'backups', label: t('settings.backups.title'), icon: 'archive', to: '/backups', names: ['backups', 'backup-policy'], visible: can('viewAny', 'backup-runs') },
-            ],
-        },
-    ];
-
-    return all
-        .map((group) => ({ ...group, items: group.items.filter((item) => item.visible !== false) }))
-        .filter((group) => group.items.length > 0);
-});
+/** The sections; Налаштування is current on every page its page leads to. */
+const items = computed<NavItem[]>(() => [
+    { key: 'home', label: t('shell.nav.home'), icon: 'home', to: tabPaths.home ?? '/', names: ['home', 'alerts'] },
+    { key: 'invoices', label: t('shell.nav.invoices'), icon: 'invoice', to: tabPaths.invoices ?? '/invoices', names: ['invoices', 'invoice', 'invoice-new', 'invoice-edit'] },
+    { key: 'accounting', label: t('shell.nav.accounting'), icon: 'ledger', to: tabPaths.accounting ?? '/accounting', names: ['accounting', 'payment', 'payment-new', 'payment-edit', 'payment-pick'] },
+    { key: 'taxes', label: t('shell.nav.taxes'), icon: 'bank', to: tabPaths.taxes ?? '/taxes', names: ['taxes', 'tax-payment', 'tax-payment-new', 'esv-payment', 'esv-payment-new'] },
+    { key: 'books', label: t('shell.nav.booksShort'), icon: 'book', to: '/books', names: ['books'] },
+    {
+        key: 'settings',
+        label: t('shell.nav.settings'),
+        icon: 'settings',
+        to: '/settings',
+        names: [
+            'more', 'profiles', 'profile-new', 'settings-profile', 'settings-taxes', 'settings-numbering', 'settings-invoice-document',
+            'accounts', 'account', 'account-new', 'account-edit', 'transfers', 'transfer', 'transfer-new', 'transfer-edit', 'fees',
+            'clients', 'client', 'client-new', 'client-edit', 'contract', 'contract-new',
+            'users', 'backups', 'backup-policy', 'backup-import',
+        ],
+    },
+]);
 
 const activeName = computed(() => String(route.name ?? ''));
 
@@ -161,21 +110,18 @@ async function leave(): Promise<void> {
                 <Avatar :initials="profile.initials" variant="dark" :size="36" />
             </RouterLink>
             <div class="scrollbar-none flex min-h-0 w-full flex-1 flex-col items-center gap-px overflow-y-auto">
-                <template v-for="(group, index) in groups" :key="group.key">
-                    <span v-if="index > 0" class="my-2 h-px w-8 shrink-0 bg-divider" aria-hidden="true" />
-                    <RouterLink
-                        v-for="item in group.items"
-                        :key="item.key"
-                        :to="item.to"
-                        :aria-label="item.label"
-                        :title="item.label"
-                        :aria-current="item.names.includes(activeName) ? 'page' : undefined"
-                        class="flex size-10 shrink-0 items-center justify-center rounded-[10px] no-underline"
-                        :class="item.names.includes(activeName) ? 'bg-accent-soft text-accent-hover hover:text-accent-hover' : 'text-ink hover:bg-paper hover:text-ink'"
-                    >
-                        <Icon :name="item.icon" :size="20" />
-                    </RouterLink>
-                </template>
+                <RouterLink
+                    v-for="item in items"
+                    :key="item.key"
+                    :to="item.to"
+                    :aria-label="item.label"
+                    :title="item.label"
+                    :aria-current="item.names.includes(activeName) ? 'page' : undefined"
+                    class="flex size-10 shrink-0 items-center justify-center rounded-[10px] no-underline"
+                    :class="item.names.includes(activeName) ? 'bg-accent-soft text-accent-hover hover:text-accent-hover' : 'text-ink hover:bg-paper hover:text-ink'"
+                >
+                    <Icon :name="item.icon" :size="20" />
+                </RouterLink>
             </div>
         </nav>
 
@@ -224,21 +170,17 @@ async function leave(): Promise<void> {
                 </div>
 
                 <nav :aria-label="t('shell.nav.mainNavigation')" class="scrollbar-none -mx-1 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-1">
-                    <template v-for="group in groups" :key="group.key">
-                        <span v-if="group.title" class="px-2.5 pt-3 pb-1 text-12 font-semibold tracking-[0.05em] text-ink-3 uppercase">{{ group.title }}</span>
-                        <RouterLink
-                            v-for="item in group.items"
-                            :key="item.key"
-                            :to="item.to"
-                            :aria-current="item.names.includes(activeName) ? 'page' : undefined"
-                            class="flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-2.5 text-14 no-underline"
-                            :class="item.names.includes(activeName) ? 'bg-accent-soft font-semibold text-accent-hover hover:text-accent-hover' : 'font-medium text-ink hover:bg-paper hover:text-ink'"
-                        >
-                            <Icon :name="item.icon" :size="20" />
-                            <span class="flex-1 truncate">{{ item.label }}</span>
-                            <span v-if="item.count" class="num text-12 font-normal text-ink-3">{{ item.count }}</span>
-                        </RouterLink>
-                    </template>
+                    <RouterLink
+                        v-for="item in items"
+                        :key="item.key"
+                        :to="item.to"
+                        :aria-current="item.names.includes(activeName) ? 'page' : undefined"
+                        class="flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-2.5 text-14 no-underline"
+                        :class="item.names.includes(activeName) ? 'bg-accent-soft font-semibold text-accent-hover hover:text-accent-hover' : 'font-medium text-ink hover:bg-paper hover:text-ink'"
+                    >
+                        <Icon :name="item.icon" :size="20" />
+                        <span class="flex-1 truncate">{{ item.label }}</span>
+                    </RouterLink>
                 </nav>
 
                 <div class="flex flex-col gap-0.5 border-t border-divider pt-3">

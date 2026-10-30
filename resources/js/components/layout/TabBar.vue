@@ -15,7 +15,7 @@ const TABS: { name: TabName; label: string; icon: IconName; to: string }[] = [
     { name: 'invoices', get label() { return t('shell.nav.invoices'); }, icon: 'invoice', to: '/invoices' },
     { name: 'accounting', get label() { return t('shell.nav.accounting'); }, icon: 'ledger', to: '/accounting' },
     { name: 'taxes', get label() { return t('shell.nav.taxes'); }, icon: 'bank', to: '/taxes' },
-    { name: 'more', get label() { return t('shell.more.more'); }, icon: 'menu', to: '/more' },
+    { name: 'more', get label() { return t('shell.more.more'); }, icon: 'menu', to: '/settings' },
 ];
 
 const route = useRoute();

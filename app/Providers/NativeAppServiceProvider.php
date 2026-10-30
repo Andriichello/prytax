@@ -11,7 +11,8 @@ use PryTax\Services\Desktop\LaunchCatchUp;
  *
  * The desktop app's window (builds.md §4.2), which NativePHP opens once it has booted: at least 600 px
  * wide, so the desktop layout (design.md §17.6) always applies (with the sidebar a rail of icons below 1024 px), and
- * as the user left it.
+ * as the user left it. DevTools open with it while debugging, unless `prytax.desktop_devtools` says otherwise (the
+ * starter turns them off, builds.md §6).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Providers
@@ -26,8 +27,10 @@ class NativeAppServiceProvider implements ProvidesPhpIni
     public function boot(): void
     {
         app(LaunchCatchUp::class)->dispatch();
+        $devtools = config('prytax.desktop_devtools');
 
         Window::open()
+            ->showDevTools(is_bool($devtools) ? $devtools : (bool) config('app.debug'))
             ->title('PryTax')
             ->width(1280)
             ->height(800)

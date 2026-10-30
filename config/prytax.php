@@ -16,4 +16,17 @@ return [
 
     'registration' => (bool) env('PRYTAX_REGISTRATION', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Desktop DevTools
+    |--------------------------------------------------------------------------
+    |
+    | Whether the desktop app's window opens DevTools: unset, whenever
+    | APP_DEBUG is on, as NativePHP does. The starter (./prytax desktop) turns
+    | them off unless --devtools asks for them.
+    |
+    */
+
+    'desktop_devtools' => env('PRYTAX_DEVTOOLS'),
+
 ];

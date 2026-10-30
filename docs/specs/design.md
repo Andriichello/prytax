@@ -19,6 +19,8 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
   before the first invoice; the editor's number card offers Автоматичний | Лічильник | Власний, and a draft can hold a
   counter of its own.
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
+- **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
+  page (Ще on a phone) groups the rest: ФОП, Гроші, Клієнти й інвойси, Керування.
 - **Перегляд PDF** (§16.5, `invoice.md` §8): an invoice's PDF in the app whatever its status; a draft's is rendered as
   the freeze would print it now, marked «ЧЕРНЕТКА» / «DRAFT» across every page and stored nowhere.
 - **Zoom** (§17.6, overlays): Перегляд PDF and Перегляд стилю zoom from 50 to 300 %; it replaces Перегляд стилю's
@@ -1432,7 +1434,7 @@ Board numbers are in brackets.
 | Клієнти, Клієнт (028, 029) | As built. The client page's «Документ інвойсу» card leads to the form's `#invoice-defaults`. |
 | Клієнт (форма) (030, 062–071) | **Groups:** Основне (Назва, Абревіатура with «Префікс номерів: BL-РРРР-ММ-ДД-n. Латиниця й цифри, до 10.», Юридична назва, Назва українською, Країна) · Адреса в інвойсі · Податкові дані й пошта · Валюта, мова, договір і стиль · Тексти в інвойсі (the four text cards) · Внутрішня примітка. |
 | Договір (031, 083–085) | **Groups:** Основне · Опис позиції в інвойсі (closed: the rendered line; open: the template, the placeholder chips and «Так виглядатиме в інвойсі») · Погодинні ставки, plus an «Активний» switch card. |
-| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups:** Гроші й контрагенти (Рахунки · Перекази та комісії · Клієнти й договори) · Налаштування ФОП (Профіль і реквізити ФОП · Податки й сповіщення) · Інвойси (Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Керування (v5.1, as the sidebar: Користувачі й ролі · Резервні копії (`backups.md` §4.8), with «вчора 23:22», the last copy; shown only to those who see either), then a card without a heading: «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти. The old inline language switch goes. |
+| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups** (v5.1, the owner, 2026-10-30): ФОП (the card above, then Профіль і реквізити · Податки й сповіщення, in the same card) · Гроші (Рахунки with the count · Перекази та комісії) · Клієнти й інвойси (Клієнти й договори with the count · Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Керування (Користувачі й ролі · Резервні копії (`backups.md` §4.8), with «вчора 23:22», the last copy; shown only to those who see either), then a card without a heading: «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти. The old inline language switch goes. **On desktop** it is Налаштування (`/settings`, `/more` before), from the sidebar: the same groups in two columns from 1024 px, without the language and Вийти, which the sidebar's foot has. |
 | Профіль ФОП (033, 045–048; v5 `M-ProfileEdit*`: the РНОКПП masked `••••4821`) | **Banner** (static): «3 група · спрощена система · без ПДВ · без працівників». **Groups:** Податкова особа (ПІБ, ПІБ латиницею, РНОКПП, дата реєстрації, the passport instead of РНОКПП) · Адреса й контакти · Інвойси (валюта, мова документа, підпис у PDF) · Формат сум (the app's and the invoices', with live samples). Plus an «Активний ФОП» switch card. |
 | Нумерація інвойсів (034, 053–055) | **The dark «Наступний номер» card** stays exactly as built and never dims. **Groups:** Формат номера · Лічильник · Поточні лічильники (§5). In read mode the counters show the edit layout with disabled inputs, with «Останній виданий номер; наступний інвойс клієнта отримає +1.». **Then:** the rules text, and the link «Примітки в інвойсі → Документ інвойсу». |
 | Документ інвойсу (035, 056–061) | **Intro:** «Типові налаштування інвойсів ФОП. Клієнт чи окремий інвойс можуть мати власні.» **Groups:** Стиль, мова й договір · Тексти в інвойсі (the four text cards). **Footnote:** «Змінює нові інвойси й чернетки; зафіксовані не змінюються.» The style picker, the preview and the placeholder sheet (036–038) stay as built. |
@@ -1592,10 +1594,10 @@ wins; for domain rules §16 does.
 
 - **Sidebar**, 248 px, white, a 1 px right border, full height (it replaces the tab bar and Ще): the ФОП card (v5.1:
   without the board's logo above it) (avatar, «Коваленко О. П.», «ФОП · 3 група», then «⇄ Змінити ФОП»
-  with the count and a chevron, opening the ФОП popover); the main nav Головна · Інвойси · Облік · Податки · Книги;
-  «Гроші й контрагенти»: Рахунки · Перекази та комісії · Клієнти й договори (counts on the right); «Налаштування»:
-  Профіль і реквізити · Податки й сповіщення · Нумерація інвойсів · Документ інвойсу; «Керування» (v5.1, shown only to
-  those who see either): Користувачі й ролі · Резервні копії (`backups.md` §4.8); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
+  with the count and a chevron, opening the ФОП popover); the nav Головна · Інвойси · Облік · Податки · Книги ·
+  Налаштування (v5.1, the owner, 2026-10-30: ⚙, under Книги; its page, §16.5's Ще, holds what the board listed here —
+  Рахунки, Перекази та комісії, Клієнти й договори, the ФОП's and the invoices' settings, Користувачі й ролі and
+  Резервні копії — and the item stays current on each of their pages, which have a «←» back to it); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
   role, «Вийти» in red. Items are 36 px high at least, radius 10, a 20 px icon; the active one accent-soft
   (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px high; below that the nav scrolls and the
   footer stays.
@@ -1697,8 +1699,8 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Layout switch:** `useBreakpoint()` (`isDesktop` from 600 px, `isCompact` from 600 to 1023 px, while the sidebar
   is a rail, and `isWide` from 1280 px; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the
   sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
-  880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`) have no back
-  button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
+  880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`: Книги since v5.1)
+  have no back button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
   tables and cards keep the boards' widths (1112 px of content); the record panel opens at its right edge. A page's
   title keeps its width, and its actions go under it when they don't fit beside it.
 - **Primary actions:** a page's own action («+ Новий інвойс», «+ Надходження», «+ Новий», «Запросити», «Створити

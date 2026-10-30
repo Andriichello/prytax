@@ -24,6 +24,22 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Налаштування page (2026-10-30, branch `feat/settings-page` from `dev`)
+
+The user asked for a Settings item under Книги in the sidebar, with everything that was below Книги moved into a
+settings page and grouped. Built:
+- **Sidebar:** Головна · Інвойси · Облік · Податки · Книги · Налаштування (a new ⚙ `settings` icon); the other groups
+  and their counts are gone. Налаштування is current on every page under it (its `names` list).
+- **The page** is Ще (`MorePage`), now at `/settings` (`/more` an alias, the route still named `more`): ФОП (card,
+  Змінити ФОП, Профіль і реквізити, Податки й сповіщення) · Гроші (Рахунки, Перекази та комісії) · Клієнти й інвойси
+  (Клієнти й договори, Нумерація, Документ інвойсу) · Керування (Користувачі й ролі, Резервні копії). Desktop: titled
+  Налаштування, two columns from 1024 px, no language/Вийти (the sidebar's foot has them). Phone: one list, as before.
+- **Sub-pages** (Рахунки, Перекази, Комісії, Клієнти, the four settings, Користувачі, Резервні копії) lost
+  `meta.section`, so on desktop they show «←» back to Налаштування (their `back` was already `more`).
+- **i18n:** `shell.more.money`, `shell.more.clientsInvoices`; `moneyCounterparties`, `fopSettings` and
+  `fopProfileDetails` removed.
+- **Checked** in the window at 1091, 900 and 390 px; Settings → Рахунки → ← returns to Settings.
+
 ## Invoice PDF preview (2026-10-30, branch `feat/invoice-preview`, merged into `dev`, not `main`, not pushed)
 
 The user asked to preview an invoice's PDF in the app "irregardless of the state of that invoice", then for zoom in

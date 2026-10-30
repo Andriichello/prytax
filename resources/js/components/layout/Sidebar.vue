@@ -21,10 +21,10 @@ import { roleName } from '@/utils/statuses';
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
  * ФОП popover; the sections — Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose page holds the money,
  * the clients, the ФОП's and the invoices' settings and the management, and which stays current on each of them —;
- * and at the foot the language row (its popover), the user with the role, and «Вийти», which asks first. It replaces
- * the tab bar and Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons, and at
- * its foot 🌐 and «Вийти»), whose ☰ opens the whole sidebar over the page; a section chosen, ✕, Escape or a click
- * beside it closes it.
+ * and at the foot Довідка, the language row (its popover), the user with the role, and «Вийти», which asks first. It
+ * replaces the tab bar and Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons,
+ * and at its foot ?, 🌐 and «Вийти»), whose ☰ opens the whole sidebar over the page; a section chosen, ✕, Escape or
+ * a click beside it closes it.
  */
 interface NavItem {
     key: string;
@@ -130,6 +130,16 @@ async function leave(): Promise<void> {
                 </RouterLink>
             </div>
             <div class="flex w-10 shrink-0 flex-col items-center gap-1 border-t border-divider pt-2">
+                <RouterLink
+                    :to="{ name: 'help' }"
+                    :aria-label="t('help.title')"
+                    :title="t('help.title')"
+                    :aria-current="activeName === 'help' ? 'page' : undefined"
+                    class="flex size-10 items-center justify-center rounded-[10px] no-underline"
+                    :class="activeName === 'help' ? 'bg-accent-soft text-accent-hover hover:text-accent-hover' : 'text-ink hover:bg-paper hover:text-ink'"
+                >
+                    <Icon name="help" :size="20" />
+                </RouterLink>
                 <button
                     ref="railLanguageButton"
                     type="button"
@@ -213,6 +223,15 @@ async function leave(): Promise<void> {
                 </nav>
 
                 <div class="flex flex-col gap-0.5 border-t border-divider pt-3">
+                    <RouterLink
+                        :to="{ name: 'help' }"
+                        :aria-current="activeName === 'help' ? 'page' : undefined"
+                        class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 no-underline"
+                        :class="activeName === 'help' ? 'bg-accent-soft font-semibold text-accent-hover hover:text-accent-hover' : 'text-ink hover:bg-paper hover:text-ink'"
+                    >
+                        <Icon name="help" :size="20" />
+                        <span class="flex-1">{{ t('help.title') }}</span>
+                    </RouterLink>
                     <button
                         ref="languageButton"
                         type="button"

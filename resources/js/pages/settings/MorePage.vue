@@ -24,8 +24,8 @@ import { roleName } from '@/utils/statuses';
  * ФОП of the organization; the ФОП's settings (its profile, its taxes and notifications); the money (accounts,
  * transfers and fees); the clients and invoices (clients and contracts, the numbering, the document); the management
  * (users and backups, shown only to those who see either). On desktop the sidebar's Налаштування opens it; on a
- * phone the app's language and signing out end it (the sidebar's foot has them on desktop). Комісії opens from
- * Перекази.
+ * phone Довідка, the app's language and signing out end it (the sidebar's foot has them on desktop). Комісії opens
+ * from Перекази.
  */
 const router = useRouter();
 const { user, can, signOut } = useSession();
@@ -174,6 +174,11 @@ async function leave(): Promise<void> {
 
         <template v-if="!isDesktop">
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <RouterLink :to="{ name: 'help' }" class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink">
+                    <Icon name="help" :size="22" />
+                    <span class="flex-1 text-16">{{ t('help.title') }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </RouterLink>
                 <button
                     type="button"
                     class="flex min-h-14 items-center gap-3.5 text-left text-ink"

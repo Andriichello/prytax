@@ -10,7 +10,8 @@ import { anchoredScroll, clampZoom, MAX_ZOOM, MIN_ZOOM, stepZoom } from '@/utils
  * The pages of a PDF (an invoice's, a style's preview), drawn with pdf.js, which scroll both ways inside it, with the
  * zoom floating over their bottom: − and + step through the levels, and the percentage goes back to 100 %, the width
  * the pages fit at (the scroller's, up to `maxFitWidth`). Ctrl+wheel (a touchpad's pinch) and a pinch on a touch
- * screen zoom around the fingers or the pointer. A changed zoom stretches the drawn pages at once, and draws them
+ * screen zoom around the fingers or the pointer. The mouse grabs the pages and drags them any way, as a finger does
+ * on a touch screen. A changed zoom stretches the drawn pages at once, and draws them
  * sharp again when it settles, swapping each page's drawing in whole, so nothing blinks. The parent fetches the PDF
  * (`blob`) and says while it loads or failed; `failed` is emitted when pdf.js can't draw it.
  */
@@ -247,6 +248,53 @@ function onTouchend(event: TouchEvent): void {
     }
 }
 
+/** The mouse's grab: where it was pressed and where the pages were scrolled then; a move past 3 px drags them. */
+let grab: { x: number; y: number; left: number; top: number } | null = null;
+const dragging = ref(false);
+
+function onPointerdown(event: PointerEvent): void {
+    const element = scroller.value;
+
+    // A button inside (Спробувати ще раз) keeps its click and focus
+    if (event.pointerType !== 'mouse' || event.button !== 0 || !element || !ratios.value.length
+        || (event.target as Element).closest('button, a')) {
+        return;
+    }
+
+    // No text selection and no dragged image while the pages move
+    event.preventDefault();
+    grab = { x: event.clientX, y: event.clientY, left: element.scrollLeft, top: element.scrollTop };
+}
+
+function onPointermove(event: PointerEvent): void {
+    const element = scroller.value;
+
+    if (!grab || !element) {
+        return;
+    }
+
+    if (!dragging.value) {
+        if (Math.hypot(event.clientX - grab.x, event.clientY - grab.y) < 3) {
+            return;
+        }
+
+        dragging.value = true;
+        element.setPointerCapture(event.pointerId);
+    }
+
+    element.scrollLeft = grab.left - (event.clientX - grab.x);
+    element.scrollTop = grab.top - (event.clientY - grab.y);
+}
+
+function onPointerup(event: PointerEvent): void {
+    if (dragging.value && scroller.value?.hasPointerCapture(event.pointerId)) {
+        scroller.value.releasePointerCapture(event.pointerId);
+    }
+
+    grab = null;
+    dragging.value = false;
+}
+
 onMounted(() => {
     measure();
 
@@ -271,8 +319,12 @@ onBeforeUnmount(() => {
         <div
             ref="scroller"
             class="scrollbar-thin min-h-0 flex-1 touch-pan-x touch-pan-y overflow-auto"
-            :class="inset"
+            :class="[inset, dragging ? 'cursor-grabbing select-none' : ratios.length && !waiting ? 'cursor-grab' : '']"
             :aria-busy="waiting ? 'true' : 'false'"
+            @pointerdown="onPointerdown"
+            @pointermove="onPointermove"
+            @pointerup="onPointerup"
+            @pointercancel="onPointerup"
             @wheel="onWheel"
             @touchstart="onTouchstart"
             @touchmove="onTouchmove"

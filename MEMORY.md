@@ -1,9 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30: **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is built on `feat/desktop`**, 42
-commits ahead of `dev` (767663c), not merged, not pushed; with it, the user's feedback from the desktop window
-(compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes). Last runs: 545 tests on MySQL and on
-SQLite, 719 SPA tests. See "App builds" → "Layout and numbering" and "Open on `feat/desktop`". As of 2026-10-29:
+Status as of 2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
+(fast-forward to `feat/desktop`, the user asked "finish all of those"; not `main`, not pushed). With it, the user's
+feedback from the desktop window (compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes),
+then the last open points: every download checked in the window, Ще's «Керування», design.md v5.1. Signing is left
+out and the CI untested (the user chose not to push). Last runs: 545 tests on MySQL and on SQLite, 719 SPA tests. See
+"App builds" → "Layout and numbering" and "Finished on 2026-10-30". As of 2026-10-29:
 **Docker and SQLite (phases 1 and 2) are merged into `dev`** (fast-forward to `feat/sqlite`, the user asked; not
 `main`, not pushed; see "App builds"). As of 2026-10-28 (evening): **the three handoffs of 2026-10-28 are built and merged**: `dev` and `main` were
 fast-forwarded to `feat/backups-ui` (9daa066) when the user asked, and **pushed by the user** (`origin` = 335dcda; see
@@ -20,7 +22,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`; phases 1–2 merged into `dev`, not `main`, not pushed; phase 3 on `feat/desktop`, not merged)
+## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`; phases 1–3 merged into `dev`, not `main`, not pushed)
 
 The user asked how PryTax could run as a cross-platform desktop app, and for Docker for the web. The plan, written
 down at their request in `APP-BUILDS-PLAN.md` (repo root), has three phases: (1) Docker, (2) SQLite support, (3) a
@@ -150,14 +152,30 @@ Its departures are under "Status" in the plan.
       - After SPA changes, `npm run build` and Ctrl+R in the window; PHP changes to providers or jobs need a restart
         (the queue worker keeps its code). DevTools may be docked in the window, which leaves the page ~150 px wide.
       - Build: the same PATH, `php8.5 artisan native:build linux x64` → `nativephp/electron/dist/` (AppImage, deb).
-    - **Open on `feat/desktop`** (as of 2026-10-30):
-      - The user's check in the window: the downloads (invoice PDF, Облік CSV, Книги PDF, backup zip; the style
-        preview now renders), the new-invoice flow and «Змінити»; the `useDownload` layer only if a download fails.
-      - Not changed yet: mobile «Ще» still lists Users and Backups under Settings (only the sidebar has «Керування»);
-        `docs/specs/design.md` §17.1 still says the desktop layout starts at 1024 px.
-      - Asked earlier, no answer: narrow Головна, Інвойси, Облік and Податки to a column like the other pages?
-      - Later: signing, the Windows and macOS builds (CI, needs the `API_CORE_TOKEN` secret), then asking about
-        merging `feat/desktop` into `dev` (and pushing, only when asked).
+    - **Finished on 2026-10-30** (the user: "finish all of those", after the list of what was open):
+      - **Downloads in the window:** driven over DevTools (`Browser.setDownloadBehavior` to a folder, so no native
+        dialog; the script was `downloads.mjs` in the session's scratchpad): Облік CSV, Книги PDF, an invoice PDF, a
+        backup zip and Облік's period archive all arrive whole; the style preview renders and «Відкрити PDF» opens a
+        window of its own in Chromium's viewer. The `useDownload` layer isn't needed. The new-invoice flow (nothing
+        stored until «Зберегти чернетку», then `/invoices/:id/edit` with «Чернетку збережено о HH:MM») and «Змінити»
+        at the end of the title row (Клієнт, Рахунок) were checked in the window too; the test draft was deleted.
+      - **Ще:** Users and Backups in «Керування» (shown only to those who see either), then the language and Вийти in a
+        card without a heading; the key `shell.more.organization` is gone.
+      - **design.md v5.1:** the layout from 600 px with the rail (§17.1, §17.5, §17.6), the sidebar without the logo
+        and with «Керування» (§17.2), Ще (§16.5), the counters and the number card (§5), «Змінити» on the title row.
+      - **The boards' width:** I asked whether to cap Головна, Інвойси, Облік and Податки at about 1200 px; the user
+        agreed, but the shell is already at most 1440 px (`max-w-360` in `App.vue`), so the boards never pass 1112 px
+        of content and nothing was changed (design.md §17.2 says so).
+      - **Signing:** left out (no certificates); the plan lists NativePHP's variables for later.
+      - **CI:** untested; the user chose not to push. It needs the `API_CORE_TOKEN` secret (unset) and a push of a
+        `desktop-v*` tag (`workflow_dispatch` needs the workflow on `main`, the default branch).
+      - `feat/desktop` was then fast-forwarded into `dev` (not `main`, not pushed).
+      - **Running the window from a script:** `native:run` needs a terminal (`script -qfc "…" log`); the docked
+        DevTools leave the page about 240 px wide (close its target through `/json/close/{id}`); an `act.mjs` run's
+        emulation stays after it ends: reset it with `setDeviceMetricsOverride` 0 × 0, then
+        `clearDeviceMetricsOverride`.
+      - **Still open:** XLSX exports (openspout isn't installed), the in-app notices and the panel header (see "First
+        steps"), Windows and macOS builds through the CI, signing, and `main`/`origin` (push only when asked).
 
 **Registration** (2026-10-29, branch `feat/registration`; the user asked, so `dev` was fast-forwarded to it, d2b0aed; not `main`, not pushed). The user asked for a way to register
 a new organization from the sign-in screen, and chose:

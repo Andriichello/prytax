@@ -49,6 +49,19 @@ is in git's history.
   desktop app» (development in four steps, and the installers); the setup's last step now builds the SPA and runs the
   queue worker too. The SQLite steps were tried on a scratch file (`migrate --seed`); nothing else ran, as nothing
   but comments changed.
+- **Every spec brought up to date** (the user asked next, same branch; four agents, one per spec, then reviewed):
+  invoice.md (as built on 2026-10-30), design.md **v5.2** ("As built" notes in §0–§12 where the code departs from the
+  design; the editor, registration, the desktop's pages, Довідка, no XLSX), backups.md **v1.8** (SQLite, restoring in
+  the app, the desktop app, the address's shape), accounting.md (registration, switching ФОП, counters, Книги, backups,
+  Головна, the desktop app) and suggestions.md (re-checked; what's open now). builds.md was corrected where the plan's
+  text was wrong (the backups' `Selection` and snapshot on SQLite; no test moves an archive between drivers).
+- **Found by the review** and listed in suggestions.md §3 "Found while the specs were brought up to date", not fixed:
+  a client without an address prints its country code alone; the backups' `throttle:30,60` is one counter per user
+  for downloads, imports and the bundle/export status polls (2–2.5 s), so a slow archive uses it up; the import's 200
+  MB vs PHP's 32 MB; English refusals; mobile «Вийти» doesn't ask; Облік's hint names XLSX; Рахунки's side note
+  contradicts «Рух коштів». builds.md §5: the desktop's mail goes to the log (no password reset), and its daily
+  backup jobs aren't caught up on launch. Two Довідка texts were wrong and are fixed on `feat/help-page` (73fc813), so
+  `docs/builds-spec` was rebased onto it.
 
 ## Довідка (2026-10-30, branch `feat/help-page` from `feat/client-invoice-address`)
 

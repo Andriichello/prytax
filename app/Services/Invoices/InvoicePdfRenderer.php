@@ -589,8 +589,9 @@ class InvoicePdfRenderer
     }
 
     /**
-     * Get the lines of the snapshot's client address: its text as typed, line by line; or, in a snapshot of before
-     * 2026-10-30, of its parts as they printed then: the lines, the city with the postal code, and the country.
+     * Get the lines of the snapshot's client address: its text as typed, line by line, and none without an address,
+     * as the country prints only in the text; or, in a snapshot of before 2026-10-30, of its parts as they printed
+     * then: the lines, the city with the postal code, and the country.
      *
      * @param array $client
      *
@@ -600,8 +601,8 @@ class InvoicePdfRenderer
     {
         $address = $client['address'] ?? null;
 
-        if (is_array($address) && array_key_exists('text', $address)) {
-            return $this->lines($address['text']);
+        if (!is_array($address) || array_key_exists('text', $address)) {
+            return $this->lines($address['text'] ?? null);
         }
 
         return array_values(array_filter([

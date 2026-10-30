@@ -469,6 +469,24 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Test that a client without an address prints no address lines, not even its country, which prints only in the
+     * text.
+     *
+     * @return void
+     */
+    public function testPrintsNoAddressOfAClientWithoutOne(): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['client']['address'] = null;
+        $snapshot['client']['country'] = 'US';
+
+        $html = $this->html(replace: $snapshot);
+
+        $this->assertStringContainsString('Bring IT LLC', $html);
+        $this->assertStringNotContainsString('<div class="party-details">US</div>', $html);
+    }
+
+    /**
      * Test that a snapshot of before, whose client address is its parts, prints them as then: the lines, the city with
      * the postal code, and the country.
      *

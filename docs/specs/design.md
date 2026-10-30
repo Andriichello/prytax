@@ -1730,7 +1730,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   controls on the right; v5.1 replaced Перегляд стилю's «Лупа» with the zoom of both (`PdfPages`, the owner,
   2026-10-30): a floating «− 100 % +» over the pages, 50–300 %, the percentage back to 100 %, Ctrl+wheel (a
   touchpad's pinch) and a two-finger pinch around the pointer or the fingers; the pages are drawn sharp again once
-  the zoom settles, and scroll both ways; on a phone the style's page keeps its A4 frame, inside which it scrolls);
+  the zoom settles, and scroll both ways, the mouse grabbing and dragging them as a finger does (✋ cursor); on a phone the style's page keeps its A4 frame, inside which it scrolls);
   `Popover` (anchored,
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and

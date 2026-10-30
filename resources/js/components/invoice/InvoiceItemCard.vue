@@ -7,7 +7,8 @@ import { formatAmount } from '@/utils/money';
 /**
  * A line of an invoice: the project's code and the work type, the description, and quantity × price = amount, the
  * amount going under them, on the right, when the row can't keep 40 px between them (larger text on a phone). With
- * `editable`, the whole card is a button that opens the item.
+ * `editable`, the whole card is a button that opens the item; its rows are `w-full`, as Safari doesn't stretch a
+ * button's column to its width, which left the chevron and the amount beside their row's text.
  */
 export interface ItemView {
     project_code: string | null;
@@ -47,14 +48,14 @@ const UNITS: Record<ItemUnit, string> = {
         class="flex w-full flex-col gap-2.5 rounded-card border border-line bg-surface p-3.5 text-left text-ink"
         @click="editable && emit('open')"
     >
-        <span v-if="item.project_code || item.charge_type || editable" class="flex items-center gap-1.5">
+        <span v-if="item.project_code || item.charge_type || editable" class="flex w-full items-center gap-1.5">
             <span v-if="item.project_code" class="num rounded-md bg-ink px-2 py-[3px] text-12 font-semibold text-white">{{ item.project_code }}</span>
             <span v-if="item.charge_type" class="rounded-md bg-neutral-soft px-2 py-[3px] text-12 font-medium text-ink-2">{{ item.charge_type }}</span>
             <span class="flex-1" />
             <Icon v-if="editable" name="chevronRight" :size="18" class="text-ink-2" />
         </span>
-        <span class="text-14 leading-[1.45]">{{ item.description || t('invoices.detail.noDescription') }}</span>
-        <span class="flex flex-wrap items-baseline justify-between gap-x-10 gap-y-1 border-t border-divider pt-2">
+        <span class="w-full text-14 leading-[1.45]">{{ item.description || t('invoices.detail.noDescription') }}</span>
+        <span class="flex w-full flex-wrap items-baseline justify-between gap-x-10 gap-y-1 border-t border-divider pt-2">
             <span class="num text-13 text-ink-2">
                 {{ formatAmount(item.quantity) }} {{ UNITS[item.unit] }}<template v-if="item.unit_price"> × {{ formatAmount(item.unit_price) }}</template>
             </span>

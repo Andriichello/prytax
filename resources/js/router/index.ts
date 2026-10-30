@@ -65,6 +65,7 @@ const routes: RouteRecordRaw[] = [
 
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { tab: 'home' } },
     { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue') },
+    { path: '/help', name: 'help', component: () => import('@/pages/HelpPage.vue'), meta: { section: true } },
     { path: '/overview', name: 'overview', redirect: { name: 'accounting' } },
 
     { path: '/invoices', name: 'invoices', component: () => import('@/pages/invoices/InvoicesPage.vue'), meta: { tab: 'invoices', keepAlive: true } },

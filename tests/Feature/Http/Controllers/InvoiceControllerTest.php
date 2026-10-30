@@ -682,6 +682,90 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that a draft's preview is its PDF as the freeze would print it now, for a viewer too, marked as a draft
+     * (the template's only faint element, 8 % ink, which dompdf writes as `/ca 0.08`), and that nothing is stored: no
+     * number, counter, snapshot or file.
+     *
+     * @return void
+     */
+    public function testPreviewsADraftMarkedAsADraftWithoutStoringAnything(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile);
+        $id = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
+        ])->json('data.id');
+        $this->actAs($profile, 'viewer');
+
+        $response = $this->get($this->profilePath($profile, "invoices/$id/preview"));
+
+        $response->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="draft.pdf"');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertStringContainsString('/ca 0.08', $response->getContent());
+        $this->assertDatabaseHas('invoices', ['id' => $id, 'status' => 'draft', 'number' => null, 'snapshot' => null]);
+        $this->assertDatabaseCount('sequences', 0);
+        $this->assertDatabaseCount('files', 0);
+    }
+
+    /**
+     * Test that a frozen invoice's preview is its own PDF, shown in place rather than downloaded, without the mark.
+     *
+     * @return void
+     */
+    public function testPreviewsAFrozenInvoiceWithItsOwnPdf(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $invoice = $this->createFrozenInvoice($profile, $this->createAccount($profile));
+        $stored = $this->inProfile($profile, fn () => $invoice->fresh()->primaryFile->contents());
+
+        $response = $this->get($this->profilePath($profile, "invoices/{$invoice->id}/preview"));
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('inline;', $response->headers->get('Content-Disposition'));
+        $this->assertSame($stored, $response->streamedContent());
+        $this->assertStringNotContainsString('/ca 0.08', $stored);
+    }
+
+    /**
+     * Test that an external draft's preview is the PDF uploaded for it, and that one without an upload has none (404).
+     *
+     * @return void
+     */
+    public function testPreviewsAnExternalDraftWithItsUploadedPdf(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client] = $this->createClientWithContract($profile);
+        $draft = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'source' => 'external', 'client_id' => $client->id, 'period_start' => '2026-09-01', 'period_end' => '2026-09-30',
+            'total' => '5000.00',
+        ])->assertCreated()->json('data');
+
+        $this->getJson($this->profilePath($profile, "invoices/{$draft['id']}/preview"))
+            ->assertNotFound()
+            ->assertJsonPath('message', 'The invoice has no document yet: freeze it, or upload its PDF.');
+
+        $upload = UploadedFile::fake()->createWithContent('NW-2026-031.pdf', '%PDF-1.7 uploaded');
+        $this->post($this->profilePath($profile, "invoices/{$draft['id']}/files"), ['file' => $upload, 'primary' => '1'])
+            ->assertCreated();
+
+        $response = $this->get($this->profilePath($profile, "invoices/{$draft['id']}/preview"));
+
+        $response->assertOk();
+        $this->assertSame('%PDF-1.7 uploaded', $response->streamedContent());
+    }
+
+    /**
      * Test that a draft's payment purpose with a placeholder outside of the whitelist is refused with 422.
      *
      * @return void
@@ -1003,6 +1087,9 @@ class InvoiceControllerTest extends TestCase
         $issued = $this->createFrozenInvoice($profile, $this->createAccount($profile));
 
         $this->getJson($this->profilePath($profile, "invoices/$id/pdf"))
+            ->assertNotFound()
+            ->assertJsonPath('message', 'A payment without an invoice has no document: issue it as an invoice first.');
+        $this->getJson($this->profilePath($profile, "invoices/$id/preview"))
             ->assertNotFound()
             ->assertJsonPath('message', 'A payment without an invoice has no document: issue it as an invoice first.');
         $this->withHeader('If-Unmodified-Since', now()->toRfc7231String())

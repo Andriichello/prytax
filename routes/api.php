@@ -142,6 +142,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     }
 
                     Route::get('invoices/{id}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
+                    Route::get('invoices/{id}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
                     InvoiceFileController::routes('invoices/{invoice}/files', 'invoices.files');
 
                     Route::middleware('idempotent')->group(function () use ($crud, $all) {

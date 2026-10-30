@@ -49,7 +49,7 @@ class ProfileIsolationTest extends TestCase
             'accounts/{account}', 'accounts/{account}/statement', 'accounts/{account}/movements/{movement}',
             'accounts/{account}/opening-balances/{opening}', 'clients/{client}', 'clients/{client}/stats',
             'clients/{client}/contracts/{contract}', 'clients/{client}/projects/{project}',
-            'clients/{client}/charge-types/{charge}', 'invoices/{invoice}',
+            'clients/{client}/charge-types/{charge}', 'invoices/{invoice}', 'invoices/{invoice}/preview',
             'invoices/{invoice}/files', 'payments/{payment}', 'payments/{payment}/flow',
             'payments/{payment}/refunds/{refund}', 'transfers/{transfer}', 'tax-payments/{tax}',
             'tax-periods/{period}', 'tax-opening-balances/{taxOpening}', 'tax-payment-requisites/{requisite}',

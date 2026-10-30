@@ -1,13 +1,16 @@
 # Invoice PDF — template v3 and its 13 styles
 
-**State:** as built on 2026-10-24 (Laravel 13, Blade → dompdf 3.1.6), except the two notes of design v4 («Minimal»),
-which are specified here and not built yet: they replace the single note and its kind (§3, §4).
-**Spec:** `design.md` v4 §4 (lifecycle, snapshot) and §4.1 (the settings cascade, which decides what this document
-prints); the functional rules are in `accounting.md`.
+**State:** as built on 2026-10-30 (Laravel 13, Blade → dompdf 3.1.6). §11 lists what isn't built.
+**Spec:** `design.md` v5.2 §4 (lifecycle, snapshot), §4.1 (the settings cascade, which decides what this document
+prints) and §4.2 (payments without an invoice), and §5 for the invoice's number; the functional rules are in
+`accounting.md`.
 **History:** this file first held the instructions for layout v2 (the header and party blocks, the contract toggle).
 That layout became the head and the strip of template v3, whose 13 styles came from Claude Design's handoff
 (`storage/handoff/prytax-invoice-styles-handoff.md`, with reference renders; kept out of git). Template v2 never left
-development and was dropped.
+development and was dropped. Since template v3 (2026-10-24): the two notes of design v4 («Minimal») replaced the single
+note and its kind (2026-10-25, §3, §4); the fonts moved into `PdfFonts`, shared with the books' PDFs (2026-10-28, §6);
+an invoice's PDF is previewed in the app whatever its status, a draft's marked as a draft, both previews zoom, the
+payment details' rows are 3 pt apart, and the client's address is one text (2026-10-30, §3, §4, §8).
 
 An invoice is printed from its snapshot, in one of 13 styles, in English or Ukrainian. Every style has the same
 content and structure: the styles differ by their CSS, their decoration and their fonts.
@@ -49,9 +52,11 @@ content and structure: the styles differ by their CSS, their decoration and thei
 
 | What | Where |
 |---|---|
-| Renderer: template choice, view model, fonts, page numbers | `app/Services/Invoices/InvoicePdfRenderer.php` |
+| Renderer: template choice, view model, column widths, page numbers, the draft mark | `app/Services/Invoices/InvoicePdfRenderer.php` |
+| Fonts beyond DejaVu, installed for every PDF (the invoices', the books') | `app/Services/Pdf/PdfFonts.php` |
 | View model | `app/Services/Invoices/InvoiceDocument.php` |
 | Snapshot | `InvoiceFreezer::snapshot()` |
+| Endpoints: `pdf`, `preview`, `stylePreview` | `app/Http/Controllers/InvoiceController.php` |
 | Styles (catalogue order, `label()`, `group()`, `cssClass()`) | `app/Enums/InvoiceStyle.php` |
 | Template v3 and its partials | `resources/views/pdf/invoice/v3.blade.php`, `v3/{decor,head,strip,items,card}.blade.php` |
 | Template v1 (schema 1, unchanged) | `resources/views/pdf/invoice/v1.blade.php` |
@@ -62,7 +67,7 @@ content and structure: the styles differ by their CSS, their decoration and thei
 | Document dates | `app/Helpers/DocumentDate.php` |
 | Style preview | `app/Services/Invoices/InvoiceStylePreview.php`, `PreviewInvoiceFactory.php` |
 | A draft's preview, marked as a draft | `app/Services/Invoices/InvoicePreview.php` |
-| The SPA's PDF loader and invoice preview | `resources/js/utils/pdf.ts`, `resources/js/components/invoice/InvoicePdfPreview.vue` |
+| The SPA's PDF loader, its pages with the zoom, and the two previews | `resources/js/utils/pdf.ts`, `resources/js/components/ui/PdfPages.vue`, `resources/js/utils/zoom.ts`, `resources/js/components/invoice/{InvoicePdfPreview,InvoiceStylePreview}.vue` |
 | Thumbnails of the style picker | `app/Console/Commands/InvoiceStyleThumbnails.php` → `public/images/invoice-styles/` |
 | The SPA's style catalogue | `resources/js/utils/invoiceStyles.ts` |
 
@@ -82,8 +87,12 @@ content and structure: the styles differ by their CSS, their decoration and thei
 A generated file stores `template_version` and `schema_version` in its metadata (api-core's `files.metadata`; this
 is `invoice_files.template_version` in `design.md` §3). New renders use `TEMPLATE_VERSION = 'v3'`.
 
-The two notes change the snapshot's `presentation` (§3) in place, still as schema 3: no invoice was issued outside
-development, and the development data is reseeded.
+The two notes changed the snapshot's `presentation` (§3) in place on 2026-10-25, still as schema 3: no invoice had been
+issued outside development, and the development data was reseeded. The client's address as one text (2026-10-30)
+changed `client.address` in place too, still as schema 3: the renderer tells the two shapes apart, so the snapshots and
+the backups taken before still print as they did (§4).
+
+The previews that render a snapshot built in memory (a draft's, a style's; §8) always use v3.
 
 ---
 
@@ -126,21 +135,27 @@ on its own.
 }
 ```
 
-- `profile.name` and `profile.address`: the Latin name and the English address on `en` invoices, the Ukrainian ones on
-  `uk` invoices. `client.name`: the client's `legal_name_uk` on `uk` invoices when it is set, otherwise its legal
-  name.
+- `profile.name` and `profile.address`: the Latin name and the English address on `en` invoices (the Ukrainian ones
+  when those are empty), the Ukrainian ones on `uk` invoices. `client.name`: on `uk` invoices its `legal_name_uk`, else
+  its `name_uk`; otherwise, and on `en` invoices, its legal name, else its name.
+- `client.address` is the client's address as typed, `{text}`, or `null` without one. A snapshot taken before
+  2026-10-30 has its parts instead, `{lines, city, state, zip}`; both print (§4).
 - `presentation.style` is always a valid key. A level may still hold the key of a removed style; that key freezes as
   `outlined`.
 - `presentation.act_note` is `null` when the act note is off. `presentation.payment_note` and `other_note` are each
-  `null` when that note resolves to off; either, both or neither may be set.
+  `null` when that note resolves to off, or to a blank text; either, both or neither may be set.
 - `presentation.payment_purpose` is already rendered: its placeholders are filled with the final number and the
   invoice's dates.
 - The contract block is kept when `show_contract` is false. The PDF shows the contract section only when
   `show_contract && contract !== null`.
-- There is no `footer_note` (the notes replaced it). `payment_note` and `other_note` replace the built schema 3's
-  `note` and `note_kind` (§2).
-- External invoices are never rendered: their primary document is the uploaded PDF. Virtual invoices (`design.md`
-  §4.2) have no snapshot and no document, until «Оформити як інвойс» turns one into a generated invoice.
+- There is no `footer_note` (the notes replaced it). `payment_note` and `other_note` replaced the first schema 3's
+  `note` and `note_kind` on 2026-10-25 (§2).
+- External invoices are never rendered: their primary document is the uploaded PDF. The freeze takes their snapshot
+  too (`invoice.source` `external`), which nothing prints.
+- Virtual invoices («Без інвойсу», `design.md` §4.2) have no snapshot and no document, until «Оформити як інвойс»
+  (`POST invoices/{id}/issue`) turns one into a generated invoice, with its snapshot and PDF at once. It prints as any
+  generated invoice: one item, `1.00` `fixed` for the whole amount, described by its contract; the payment's date as
+  ISSUED; no DUE, since it has no due date.
 
 ---
 
@@ -193,9 +208,12 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 
 **Strip** (`v3/strip`):
 - BILL TO: the client's name (`.party-name-lg`), its address as typed, line by line (`address.text`; since
-  2026-10-30, the owner: «not much control» over the parts), and `VAT:` and `Tax ID:` rows when they are set. A
-  snapshot of before keeps the parts and prints them as then: the lines, then `city zip`, then the country code.
-  The migration turned every client's parts into that text (the lines, then `city state zip`, then the country).
+  2026-10-30, the owner: «not much control» over the parts), and `VAT:` and `Tax ID:` rows when they are set. The text
+  prints without its blank lines, and without the client's `country` of its own: the client form asks for the country
+  in the text when it should print. A snapshot of before keeps the parts and prints them as then: the lines, then
+  `city zip`, then the country code. The migration turned every client's parts into that text (the lines, then `city
+  state zip`, then the country). `InvoicePdfRenderer::clientAddress()` tells the shapes apart by `text`, so a client
+  without any address (`null`) takes the older path, and its country code prints alone.
 - PERIOD: two lines, `{start} –` and `{end}`, each `nowrap`.
 - ISSUED, and DUE when there is a due date: each a label with a mono value.
 - CONTRACT: its own row across the full width, with a top border. It reads `{name} No. {number}`, the number part only
@@ -221,7 +239,10 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 - Both notes may print at once. With neither the act nor the other note, the details take the card's full width.
 - Notes print as typed, line breaks kept. Nothing prints under the card except the signature.
 
-**Signature:** the profile's signature image, when it has one, 36 pt high, 14 pt under the card.
+**Signature:** the profile's signature image, when it has one, 36 pt high, 14 pt under the card. The snapshot names its
+file (`profile.signature_file_id`, the latest at the freeze), and the renderer looks it up among the signatures of the
+invoice's own profile only, so an id that names another profile's file (a restored snapshot, `backups.md` §4.2) prints
+no signature (2026-10-28).
 
 **Pages:**
 - The page margins are `30pt 0`. The root `.inv` is pulled up by them (`margin-top: -30pt`, padding `30pt 30pt 0`,
@@ -283,7 +304,9 @@ unknown key at any level is a 422.
 
 **Adding a style:**
 1. Add an enum case with its `label()`, `group()` and `cssClass()`, and `resources/invoice-styles/{key}.css`.
-2. Add its entries in `layout()`, and in `headerFont()` and `families()` when it uses a font beyond DejaVu.
+2. Add its entries in `layout()`, and in `headerFont()` when its item headers aren't in DejaVu Sans. A font that isn't
+   installed yet goes into `PdfFonts::FONTS`, with its TTF and its licence in `resources/fonts/` (§6). The renderer's
+   `families()` lists each style's fonts as well, but nothing calls it.
 3. Add the decoration SVG when it has one.
 4. Add the style to `utils/invoiceStyles.ts`, then run `invoice:style-thumbnails --style={key}`.
 
@@ -301,12 +324,13 @@ unknown key at any level is a 422.
 - The TTFs are static (not variable) and licensed under SIL OFL 1.1; the licences sit beside them in
   `resources/fonts/`.
 - They are installed into dompdf's font directory (`storage/fonts/prytax_{family}_{weight}.{ttf,ufm}`) by
-  `installedMetrics()` rather than declared with `@font-face`. That way they measure before any PDF has used them.
-  A font is installed again when its TTF is newer than the installed copy.
+  `PdfFonts::metrics()` rather than declared with `@font-face`. That way they measure before any PDF has used them.
+  A font is installed again when its TTF is newer than the installed copy. `PdfFonts` (2026-10-28) took this over from
+  the renderer, so the books' PDFs (`design.md` §16.7) print their figures in Plex Mono too.
 - The installed metrics carry a `FontHeightOffset`, so that a line of Plex Mono (height 1300) or Unbounded (1240) is
   as high as one of DejaVu (1164). `PlexMonoSemi` keeps its own height, since the number shares its line with DejaVu,
   as it does in browsers.
-- `storage/fonts/` must be writable wherever PDFs are rendered.
+- `storage/fonts/` must be writable wherever PDFs are rendered. Docker's entrypoint creates it (`builds.md` §2).
 
 ---
 
@@ -333,6 +357,7 @@ are in `design.md` §4.1.
 | `act_of_acceptance` | Act of acceptance | Акт приймання-передачі |
 | `payment_note` · `other_notes` | Payment note · Other notes | Примітка до оплати · Інші примітки |
 | `page_of` | Page :page of :total | Сторінка :page з :total |
+| `draft` (a draft's preview only, §8; written in capitals) | DRAFT | ЧЕРНЕТКА |
 
 - **Dates** (`DocumentDate`, shared by the PDF and `PaymentPurposeRenderer`): `en` is `M j, Y` (`Oct 31, 2026`); `uk`
   is `j F Y`, with the month in the genitive (`31 жовтня 2026`). The SPA's `documentDate()` in
@@ -353,20 +378,22 @@ are in `design.md` §4.1.
 - **Data** (`InvoiceStylePreview`): the given invoice when it is a generated one; else the client's latest
   non-cancelled generated invoice; else the ФОП's. Its snapshot is built in memory as a freeze would build it now,
   with the asked style and language, and its number or the preview number. Every other setting resolves as usual.
-  The PDF is rendered with v3 and nothing is saved.
+  The PDF is rendered with v3, without the draft mark even for a draft, and nothing is saved.
 - **Without any invoice:** `PreviewInvoiceFactory` makes a demo invoice. It is the fixture of the reference renders:
   BRIT-2026-10-31-2 to Bring IT LLC, three items in USD through Payoneer, with the contract, the act and both notes.
   Its ФОП is Myrchuk Mykola, or Prykhodko Andrii in the Andriichello group.
-- **In the SPA:** `InvoiceStylePreview.vue` draws page 1 with `pdfjs-dist` (6.4.299, a lazily loaded chunk), so the
-  server needs no rasterizer, through `PdfPages.vue`, whose zoom (50–300 %) replaced the lens on 2026-10-30. "Відкрити
-  PDF" opens the blob in a new tab.
+- **In the SPA:** `InvoiceStylePreview.vue` («Перегляд стилю») draws page 1 with `pdfjs-dist` (6.4.299, a lazily
+  loaded chunk), so the server needs no rasterizer, through `PdfPages.vue`, whose zoom (50–300 %) replaced the lens on
+  2026-10-30. `loadPdf()` (`utils/pdf.ts`) loads pdf.js's legacy build, whose polyfills let it run in the desktop app's
+  Chromium. «Відкрити PDF» opens the blob in a new tab.
 
 **An invoice's PDF in the app** (2026-10-30, the owner: "regardless of the state of that invoice"):
 `GET /api/profiles/{profile}/invoices/{id}/preview` returns `application/pdf`, inline, with `no-store`.
 - **Access:** the same as showing the invoice (`view`), so a viewer previews too; another profile's invoice is a 404.
 - **A draft generated by PryTax** (`InvoicePreview`): its snapshot is built in memory as the freeze would build it
-  now, with the number the freeze would give (`number_preview`) and its own resolved settings, and rendered with v3
-  and the draft mark. Nothing is stored: no number, counter, snapshot or file.
+  now, with the number the freeze would give (`number_preview`: a typed number as it is, else the counter the draft
+  holds, else the counter's next number that no draft holds; `design.md` §5) and its own resolved settings, and
+  rendered with v3 and the draft mark. Nothing is stored: no number, counter, snapshot or file.
 - **Any other invoice** (frozen, sent, paid, cancelled, or an external draft): its primary document, the same file
   `invoices/{id}/pdf` downloads (a missing generated one is rendered again from the snapshot first), but shown in place.
   An external draft without an upload, and a payment without an invoice, have none: 404 with the same messages as
@@ -375,17 +402,19 @@ are in `design.md` §4.1.
   (`base.css`): DejaVu Sans Bold 88 pt, letter-spaced, from the bottom left to the top right of every page at 8 %
   ink. It is a fixed element, which dompdf repeats on every page, with a `z-index`, without which dompdf paints it
   under the content. The renderer adds it with `render(…, draft: true)`; the invoice's own PDF never has it.
-- **In the SPA:** `InvoicePdfPreview.vue` («Перегляд PDF») draws every page with pdf.js (`PdfPages.vue`, with the zoom)
-  at the column's width at 100 % (about 760 px in the wide desktop dialog), with «Відкрити PDF» (the browser's or the desktop app's own viewer) and, for a
-  document, «Завантажити PDF»; a draft's has a note that its number and content may still change. It opens from the
-  invoice's document card (👁) and its ⋯ menu, from a saved draft's editor («Переглянути PDF», which saves pending
-  changes first, as «Зафіксувати» does), and beside an external draft's uploaded PDF. A new invoice previews once
-  «Зберегти чернетку» stored it.
+- **In the SPA:** `InvoicePdfPreview.vue` («Перегляд PDF») draws every page with pdf.js (`PdfPages.vue`, with the zoom,
+  and the mouse dragging the pages) at the width of its pane at 100 %, at most 760 px (in the wide desktop dialog), with
+  «Відкрити PDF» (the browser's or the desktop app's own viewer) and, for a document, «Завантажити PDF»; a draft's has
+  a note that its number and content may still change. It opens from the invoice's document card (👁; a draft's reads
+  «PDF чернетки») and its ⋯ menu, from a saved draft's editor («Переглянути PDF», which saves pending changes first, as
+  «Зафіксувати» does), and beside an external draft's uploaded PDF. A new invoice previews once «Зберегти чернетку»
+  stored it.
 
 **Thumbnails:** `php artisan invoice:style-thumbnails [--style=key]`.
 - It renders the demo invoice in every style and language with the real renderer.
 - It rasterizes page 1 to 316 px wide with `pdftoppm` (poppler-utils; needed in development only), into
-  `public/images/invoice-styles/{key}-{locale}.png`. The 26 files are committed.
+  `public/images/invoice-styles/{key}-{locale}.png`. The 26 files are committed; they were last drawn on 2026-10-30,
+  with the payment details 3 pt apart.
 - The picker shows them in the invoice language of the level being edited.
 - Run it again after a change to a style, the template or the fonts.
 
@@ -403,6 +432,9 @@ are in `design.md` §4.1.
     both at once; the details at full width without a right side; the contract section left out when it is off or
     there is no contract;
   - the monogram; Ukrainian labels, units and dates; the item columns fitted to their longest values;
+  - the client's address as typed, line by line, without its blank lines or its country of its own; an older
+    snapshot's parts as they printed then;
+  - the signature drawn only from the invoice's own profile;
   - the fonts embedded per style;
   - the draft mark in each language, and none without it.
 - **Elsewhere:**
@@ -410,15 +442,19 @@ are in `design.md` §4.1.
   - The invoice API tests: the style and notes validation, the preview on the client's latest invoice and on the demo
     invoice, and the preview's 422s; an invoice's preview: a draft marked (its `/ca 0.08`, the mark's opacity) with
     nothing stored, a frozen invoice's own file, an external draft's upload or its 404, and a payment without an
-    invoice's 404. `ProfileIsolationTest` covers another profile's invoice.
+    invoice's 404. A draft with the counter the user chose has it in its `number_preview`. A payment without an
+    invoice, issued as an invoice, downloads its PDF. `ProfileIsolationTest` covers another profile's invoice.
   - `InvoiceSettingsResolverTest`: the style and each note at each level, each note read whole from the level that
     owns it. The invoice API test of the freeze checks the snapshot's `presentation`, with no `footer_note`, `note` or
     `note_kind`.
-  - `InvoiceNoteMigrationTest`: the ФОП's footer note moved into its note; v4 adds the split of the note by its kind.
+  - `InvoiceNoteMigrationTest`: the ФОП's footer note moved into its note, then its note into the note of its kind.
+  - `ClientAddressMigrationTest`: a client's parts turned into the text, a text kept, an empty address dropped.
+    `ClientControllerTest`: the address saved as its text; parts, or an address without its text, are a 422.
 - **No golden PDF files yet.** `design.md` §13 and `accounting.md` ask for them per schema version and language, and
   they are still to do. Until then, compare page 1 by eye with Claude Design's targets
   (`storage/handoff/invoice-styles-handoff/pdf/refs/{style}-{en,uk}.png`, at 110 dpi):
-  `pdftoppm -r 110 -png -f 1 -l 1 <file>.pdf out`. On 2026-10-24 all 26 matched within 1–3 px.
+  `pdftoppm -r 110 -png -f 1 -l 1 <file>.pdf out`. On 2026-10-24 all 26 matched within 1–3 px. The references
+  predate the demo invoice's two notes (2026-10-25) and the details 3 pt apart (2026-10-30), so its card differs.
 - `pdffonts <file>.pdf` lists the subsets: `IBMPlexMono-SmBld` (the number) everywhere, Plex Mono in the andriichello
   styles, Unbounded in the geometric ones.
 
@@ -428,14 +464,16 @@ are in `design.md` §4.1.
 
 - Run the migrations: `2026_10_24_204757_add_invoice_style_and_note_to_clients_and_invoices` moves the old footer
   notes (`clients.invoice_footer_note`, the `invoice.footer_note` setting) into each level's note, switched on, kind
-  `other`, and drops them. v4's migration then moves each level's note into its payment note (kind `payment`) or its
-  other note (any other kind), keeping its switch, and drops `note`, `note_enabled` and `note_kind`.
-- `storage/fonts/` must be writable.
+  `other`, and drops them. `2026_10_25_103001_split_the_invoice_note_into_the_payment_and_the_other_note` (v4) then
+  moves each level's note into its payment note (kind `payment`) or its other note (any other kind), keeping its
+  switch, and drops the invoices' `note_enabled`, `note` and `note_kind`, the clients' `invoice_note*` and the
+  profiles' `invoice.note*` settings. `2026_10_30_140422_convert_client_addresses_to_text` turns each client's address
+  parts into its text (§4); the snapshots keep theirs.
+- `storage/fonts/` must be writable (§6).
 - `pdftoppm` is needed only to draw the thumbnails again, and those are committed.
 
 ## 11. Not built yet
 
-- The two notes of v4 (§3, §4, §10).
 - The bilingual template (`en_uk`), and custom texts per language.
 - Golden PDF files (§9).
 - E-mailing invoices, and separate signed acts of acceptance.

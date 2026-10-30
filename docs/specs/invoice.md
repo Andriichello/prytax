@@ -212,7 +212,8 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 **Card** (`v3/card`):
 - Left, PAYMENT DETAILS: a key–value grid of beneficiary, bank, IBAN, account number and SWIFT / BIC (when set), the
   account's own details as they were typed, the currency, and finally Purpose (the payment purpose). The keys share
-  one measured width. The payment note, when on, follows as a `.card-section` titled PAYMENT NOTE.
+  one measured width; the rows are 3 pt apart (2026-10-30, the owner: they had none, as `table.card-cols td` zeroed
+  `table.kv td`'s 1.5 pt). The payment note, when on, follows as a `.card-section` titled PAYMENT NOTE.
 - Right: ACT OF ACCEPTANCE when the act note is on, then OTHER NOTES when the other note is on (a `.card-section` when
   the act is shown too).
 - Both notes may print at once. With neither the act nor the other note, the details take the card's full width.

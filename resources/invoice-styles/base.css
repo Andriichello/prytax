@@ -28,7 +28,8 @@ table.layout tr.row-contract td { padding-top:12pt; }
 .card .lbl { font-weight:bold; }
 .label.role { margin:1pt 0 3pt; }
 table.kv { width:100%; table-layout:auto; }
-table.kv td { padding:0 0 1.5pt; vertical-align:top; }
+/* The payment details' rows, 3pt apart; `tr` outranks `table.card-cols td`, which comes later and would zero them */
+table.kv tr td { padding:0 0 3pt; vertical-align:top; }
 table.kv td.k { white-space:nowrap; color:#5A5F6B; padding-right:12pt; }
 table.kv td.v { color:#17191F; word-wrap:break-word; }
 .party-name { font-size:9.5pt; line-height:13pt; font-weight:bold; color:#17191F; }

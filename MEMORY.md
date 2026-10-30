@@ -34,6 +34,29 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The starter `./prytax` (2026-10-30, late; branch `feat/starter` from `dev`, not merged)
+
+The user asked for a CLI starter that starts the app as web or desktop, with other helpful options; they chose all
+four extras (doctor and status, phone over ngrok, tests and builds, database tasks) and both web modes (here and
+Docker). Built as `./prytax` (bash: finds PHP 8.5) → `php artisan prytax:start [action]` (`app/Console/Commands/Start.php`,
+Laravel Prompts menu) with one class per action in `app/Console/Starter/`; builds.md §6 and README's "The starter"
+describe it.
+- **Actions:** web (serve + `queue:work` + `schedule:work`, `--vite`, `--db=sqlite --sqlite=…`, `--port`), docker
+  (makes `.env.docker` when missing; `--mysql`, `--env-file`), desktop (`native:run` with `PRYTAX_DEVTOOLS=false`
+  unless `--devtools`, and `REMOTE_DEBUGGING_PORT=9333`), phone (ngrok + `php -S` on 8012; `--source=desktop|web`),
+  status / stop (`./prytax stop web vite`, `--all`; refuses without names when non-interactive), doctor, test
+  (`--filter`), build (SPA, `native:build linux x64`, thumbnails), db (status, migrate, start over with the demo data
+  after typing the name and a `VACUUM INTO` copy, first owner).
+- **New config:** `prytax.desktop_devtools` (`PRYTAX_DEVTOOLS`); `NativeAppServiceProvider` passes it to
+  `showDevTools()`, else APP_DEBUG as before.
+- **Checked live:** doctor, status, `web --db=sqlite` on a scratch file (migrated, demo seeded, `/api/registration`
+  answered from it; killing the server stopped the worker and the scheduler), the named stop's refusal, the menu in
+  a pseudo-terminal (`script`). Not run live: docker (would build the image), phone (would open a public tunnel to the
+  desktop data), test and build (long). `StartTest` covers them with faked processes; 567 tests on SQLite.
+- **Gotchas found:** Laravel's console output drops some characters (⚠, →; ✓ ✗ ↳ ! are fine); PHP reads non-ASCII
+  bytes after `$var->prop` in a string as part of the name (`"$x->label…"` needs braces); Process fakes match the
+  quoted command line (`'ss' *`), not `ss *`.
+
 ## Builds spec (2026-10-30, branch `docs/builds-spec` from `feat/help-page`)
 
 The user asked to turn `APP-BUILDS-PLAN.md` into a spec in `docs/specs` and remove it, and to add how to run it to

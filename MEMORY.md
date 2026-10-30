@@ -1,6 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
+Status as of 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are built on
+`feat/invoice-preview`** (from `dev`, 8 commits, not merged, not pushed; see "Invoice PDF preview"). Before it, as of
+2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
 (fast-forward to `feat/desktop`, the user asked "finish all of those"; not `main`, not pushed). With it, the user's
 feedback from the desktop window (compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes),
 then the last open points: every download checked in the window, Ще's «Керування», design.md v5.1. Signing is left
@@ -21,6 +23,27 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Invoice PDF preview (2026-10-30, branch `feat/invoice-preview`, not merged, not pushed)
+
+The user asked to preview an invoice's PDF in the app "irregardless of the state of that invoice", then for zoom in
+both previews instead of a lens. Their choices: a draft's preview is marked as a draft; it works once the draft is
+saved (not before «Зберегти чернетку»); the zoom replaces Перегляд стилю's «Лупа».
+- **API:** `GET invoices/{id}/preview` (`InvoiceController::preview`, `ShowRequest`, so `view`): a generated draft is
+  rendered by `InvoicePreview` as its freeze would print it now (`number_preview`, an in-memory snapshot), with nothing
+  stored; any other invoice streams its primary document inline (`documentOf()`, shared with `pdf`). Virtual → 404.
+- **The mark:** `InvoicePdfRenderer::render(…, draft: true)` adds `.draft-mark` (`base.css`, `invoice.labels.draft`):
+  88 pt DejaVu Sans Bold at 8 % ink, -54° (dompdf turns the other way than browsers would suggest at +54°), fixed so it
+  repeats on every page, and with a `z-index`, without which dompdf paints it under the content. The endpoint test
+  recognises it by `/ca 0.08` in the PDF.
+- **SPA:** `PdfPages.vue` (pages with the zoom: 50–300 %, − / % / +, Ctrl+wheel, pinch; redrawn sharp after 150 ms;
+  `utils/zoom.ts` with tests), `InvoicePdfPreview.vue` (Перегляд PDF), `utils/pdf.ts` (`loadPdf`). Entry points: the
+  invoice panel's document card (👁) and ⋯, a saved draft's editor footer («Переглянути PDF» | «Зафіксувати», saving
+  pending changes first), an external draft's uploaded PDF.
+- **Checked:** 551 tests on MySQL and on SQLite (before the zoom, which is SPA only), 737 SPA tests; in the desktop
+  window: a frozen invoice, a draft (saved, previewed, deleted again: invoice 44, soft-deleted), 390 px, the zoom by
+  buttons and Ctrl+wheel, the style preview at 1091 and 390 px. Pinch was not tried on a real touch screen.
+- **Specs:** `invoice.md` §8, `design.md` v5.1 (changes, §16.5, §17.6 overlays).
 
 ## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`; phases 1–3 merged into `dev`, not `main`, not pushed)
 

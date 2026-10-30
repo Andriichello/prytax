@@ -1,6 +1,15 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
+Status as of 2026-10-30 (night): **`dev` (2135ea4 + the MEMORY.md commit 0c1a9a1) holds everything up to the boards'
+actions in the filters' row**: the invoice PDF preview and zoom, the Налаштування page, Головна's attention sections,
+the notes under the column, the 1200 px box, Облік's summary, the rail's language and sign-out (see the sections
+below, newest first; not `main`, not pushed; `dev` is 124 commits ahead of `origin/dev`). **Not merged:**
+`feat/client-invoice-address`, 7 commits stacked on `dev` (the PDF's payment details spacing, the item card's
+spacing and its Safari fix, the client address as text), checked out; the user is checking it on the phone, then
+merging into `dev` and `native:migrate` on the desktop DB are to ask. **Running:** the desktop dev window
+(`native:run`, CDP 9333), the ngrok tunnel and the phone's web server on 8012 (see "Phone access over ngrok").
+Last runs: 558 PHP tests on SQLite (553 on MySQL before the address), 737 SPA tests. Before it, as of
+2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
 (fast-forward to `feat/invoice-preview`, the user asked; not `main`, not pushed; see "Invoice PDF preview"). Before it, as of
 2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
 (fast-forward to `feat/desktop`, the user asked "finish all of those"; not `main`, not pushed). With it, the user's
@@ -37,6 +46,13 @@ the form shows the parts without the country line. Same day, stacked under it (r
 fast-forward to `feat/client-invoice-address`): `feat/pdf-details-spacing` (payment details rows 3 pt apart) →
 `fix/item-card-wrap` (an item card keeps 40 px between quantity × price and the amount, which wraps under them
 otherwise; the user saw them too close on a phone, likely with enlarged text).
+- **The real cause, from the user's iPhone screenshot (Safari):** in the draft editor an item card is a `<button>`,
+  and WebKit doesn't stretch a button's column children to its width, so the chevron, the divider and the amount
+  stood right after their row's text. The rows are `w-full` now (d45d9ab, on top of the stack). Chromium and
+  Electron never showed it; nothing here runs WebKit, so the user's reload on the phone is the check.
+- **Still to do:** after the user's OK, fast-forward `dev` to `feat/client-invoice-address`, then migrate the
+  desktop DB (`database/nativephp.sqlite`; Motu Novu's address becomes «501 Stone St / Cody WY 82414 / US», the
+  state WY never printed before). The phone server reads the same DB and needs nothing.
 
 ## Phone access over ngrok (2026-10-30, evening; the user asked)
 

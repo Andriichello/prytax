@@ -159,6 +159,8 @@ export default {
         clientsInvoices: 'Clients and invoices',
         usersRoles: 'Users and roles',
         signOut: 'Sign out',
+        signOutQuestion: 'Sign out of PryTax?',
+        signOutExplained: 'You’ll need to sign in again to continue.',
         appLanguage: 'App language',
         appLanguageNote: 'Only the screens, and only for you. The language of invoices is in Invoice document and on the client’s card.',
         appLanguageGuestNote: 'We will remember it on this device. After signing in, change it in More › App language.',

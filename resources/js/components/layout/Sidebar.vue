@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ProfileSwitchList from '@/components/profile/ProfileSwitchList.vue';
 import Avatar from '@/components/ui/Avatar.vue';
+import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
 import LanguageOptions from '@/components/ui/LanguageOptions.vue';
@@ -20,9 +21,10 @@ import { roleName } from '@/utils/statuses';
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
  * ФОП popover; the sections — Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose page holds the money,
  * the clients, the ФОП's and the invoices' settings and the management, and which stays current on each of them —;
- * and at the foot the language row (its popover), the user with the role, and «Вийти». It replaces the tab bar and
- * Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons), whose ☰ opens the whole
- * sidebar over the page; a section chosen, ✕, Escape or a click beside it closes it.
+ * and at the foot the language row (its popover), the user with the role, and «Вийти», which asks first. It replaces
+ * the tab bar and Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons, and at
+ * its foot 🌐 and «Вийти»), whose ☰ opens the whole sidebar over the page; a section chosen, ✕, Escape or a click
+ * beside it closes it.
  */
 interface NavItem {
     key: string;
@@ -56,6 +58,10 @@ const profilesOpen = ref(false);
 const languageOpen = ref(false);
 const switchButton = ref<HTMLElement | null>(null);
 const languageButton = ref<HTMLElement | null>(null);
+const railLanguageButton = ref<HTMLElement | null>(null);
+/** The language popover hangs from the rail's 🌐 while the rail shows, else from the sidebar's language row. */
+const languageAnchor = computed(() => (isCompact.value && !expanded.value ? railLanguageButton.value : languageButton.value));
+const signOutOpen = ref(false);
 const signingOut = ref(false);
 
 /** The sections; Налаштування is current on every page its page leads to. */
@@ -122,6 +128,29 @@ async function leave(): Promise<void> {
                 >
                     <Icon :name="item.icon" :size="20" />
                 </RouterLink>
+            </div>
+            <div class="flex w-10 shrink-0 flex-col items-center gap-1 border-t border-divider pt-2">
+                <button
+                    ref="railLanguageButton"
+                    type="button"
+                    :aria-label="`${t('shell.more.appLanguage')}: ${LOCALE_NAMES[locale]}`"
+                    :title="`${t('shell.more.appLanguage')}: ${LOCALE_NAMES[locale]}`"
+                    :aria-expanded="languageOpen ? 'true' : 'false'"
+                    class="flex size-10 items-center justify-center rounded-[10px] text-ink hover:bg-paper"
+                    @click="languageOpen = !languageOpen"
+                >
+                    <Icon name="globe" :size="20" />
+                </button>
+                <button
+                    type="button"
+                    :aria-label="t('shell.more.signOut')"
+                    :title="t('shell.more.signOut')"
+                    class="flex size-10 items-center justify-center rounded-[10px] text-negative hover:bg-paper"
+                    :disabled="signingOut"
+                    @click="signOutOpen = true"
+                >
+                    <Icon name="signOut" :size="20" />
+                </button>
             </div>
         </nav>
 
@@ -202,7 +231,7 @@ async function leave(): Promise<void> {
                         type="button"
                         class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 font-medium text-negative hover:bg-paper"
                         :disabled="signingOut"
-                        @click="leave"
+                        @click="signOutOpen = true"
                     >
                         <Icon name="signOut" :size="20" />
                         <span class="flex-1 text-left">{{ t('shell.more.signOut') }}</span>
@@ -222,13 +251,25 @@ async function leave(): Promise<void> {
                     </div>
                 </Popover>
 
-                <Popover v-model:open="languageOpen" :anchor="languageButton" placement="top-start" :width="280" :label="t('shell.more.appLanguage')">
-                    <div class="flex flex-col gap-3 p-3">
-                        <span class="px-1 text-12 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.more.appLanguage') }}</span>
-                        <LanguageOptions :note="t('shell.more.appLanguageShortNote')" @chosen="languageOpen = false" />
-                    </div>
-                </Popover>
             </aside>
         </Teleport>
+
+        <Popover v-model:open="languageOpen" :anchor="languageAnchor" placement="top-start" :width="280" :label="t('shell.more.appLanguage')">
+            <div class="flex flex-col gap-3 p-3">
+                <span class="px-1 text-12 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.more.appLanguage') }}</span>
+                <LanguageOptions :note="t('shell.more.appLanguageShortNote')" @chosen="languageOpen = false" />
+            </div>
+        </Popover>
+
+        <ConfirmSheet
+            v-model:open="signOutOpen"
+            :title="t('shell.more.signOutQuestion')"
+            :confirm-label="t('shell.more.signOut')"
+            :busy="signingOut"
+            destructive
+            @confirm="leave"
+        >
+            <p class="m-0">{{ t('shell.more.signOutExplained') }}</p>
+        </ConfirmSheet>
     </div>
 </template>

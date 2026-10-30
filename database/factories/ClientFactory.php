@@ -34,7 +34,7 @@ class ClientFactory extends Factory
             'legal_name' => "$name LLC",
             'country' => 'US',
             'currency' => 'USD',
-            'address' => ['lines' => [fake()->streetAddress()], 'city' => fake()->city(), 'zip' => fake()->postcode()],
+            'address' => ['text' => fake()->streetAddress() . "\n" . fake()->city() . ' ' . fake()->postcode()],
             'email' => fake()->companyEmail(),
             'is_active' => true,
         ];

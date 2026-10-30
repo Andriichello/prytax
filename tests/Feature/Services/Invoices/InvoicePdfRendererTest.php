@@ -449,6 +449,42 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Test that the client's address prints as typed, line by line, without its blank lines or the country of its own.
+     *
+     * @return void
+     */
+    public function testPrintsTheClientsAddressLineByLineAsTyped(): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['client']['address'] = ['text' => "Unit 5, Harbour Way\n\n  Dublin D02 X285\nIreland"];
+        $snapshot['client']['country'] = 'IE';
+
+        $html = $this->html(replace: $snapshot);
+
+        $this->assertMatchesRegularExpression(
+            '#<div class="party-details">Unit 5, Harbour Way</div>\s*<div class="party-details">Dublin D02 X285</div>\s*<div class="party-details">Ireland</div>#',
+            $html,
+        );
+        $this->assertStringNotContainsString('<div class="party-details">IE</div>', $html);
+    }
+
+    /**
+     * Test that a snapshot of before, whose client address is its parts, prints them as then: the lines, the city with
+     * the postal code, and the country.
+     *
+     * @return void
+     */
+    public function testPrintsTheClientsAddressPartsOfAnOlderSnapshot(): void
+    {
+        $html = $this->html();
+
+        $this->assertMatchesRegularExpression(
+            '#<div class="party-details">500 Market St, Suite 200</div>\s*<div class="party-details">New Jersey 25902</div>\s*<div class="party-details">US</div>#',
+            $html,
+        );
+    }
+
+    /**
      * Test that the items' columns fit their longest values, at 4.515 pt a character of DejaVu Sans Mono at 7.5 pt,
      * or the longest word of their headers.
      *

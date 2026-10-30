@@ -191,7 +191,6 @@ class InvoicePdfRenderer
         $totals = $snapshot['totals'] ?? [];
         $presentation = $snapshot['presentation'] ?? [];
         $currency = $invoice['currency'] ?? '';
-        $address = $client['address'] ?? [];
         $style = $this->style($presentation['style'] ?? null);
 
         $count = count($snapshot['items'] ?? []);
@@ -239,11 +238,7 @@ class InvoicePdfRenderer
             periodEnd: $date($invoice['period_end'] ?? null),
             client: [
                 'name' => (string) ($client['name'] ?? ''),
-                'addressLines' => array_values(array_filter([
-                    ...($address['lines'] ?? []),
-                    trim(($address['city'] ?? '') . ' ' . ($address['zip'] ?? '')),
-                    $client['country'] ?? null,
-                ], fn (?string $line) => filled($line))),
+                'addressLines' => $this->clientAddress($client),
                 'vatNumber' => ($client['vat_number'] ?? null) ?: null,
                 'taxId' => ($client['tax_id'] ?? null) ?: null,
             ],
@@ -591,6 +586,29 @@ class InvoicePdfRenderer
     protected function lines(?string $text): array
     {
         return array_values(array_filter(array_map('trim', preg_split('/\R/u', (string) $text) ?: []), fn (string $line) => $line !== ''));
+    }
+
+    /**
+     * Get the lines of the snapshot's client address: its text as typed, line by line; or, in a snapshot of before
+     * 2026-10-30, of its parts as they printed then: the lines, the city with the postal code, and the country.
+     *
+     * @param array $client
+     *
+     * @return array<int, string>
+     */
+    protected function clientAddress(array $client): array
+    {
+        $address = $client['address'] ?? null;
+
+        if (is_array($address) && array_key_exists('text', $address)) {
+            return $this->lines($address['text']);
+        }
+
+        return array_values(array_filter([
+            ...($address['lines'] ?? []),
+            trim(($address['city'] ?? '') . ' ' . ($address['zip'] ?? '')),
+            $client['country'] ?? null,
+        ], fn (?string $line) => filled($line)));
     }
 
     /**

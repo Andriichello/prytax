@@ -75,6 +75,38 @@ class ClientControllerTest extends TestCase
     }
 
     /**
+     * Test that a client's address is saved as the text its invoices print, line breaks kept.
+     *
+     * @return void
+     */
+    public function testSavesAClientsAddressAsTheTextItsInvoicesPrint(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $text = "500 Market St, Suite 200\nSan Francisco, CA 94105\nUnited States";
+
+        $this->postJson($this->profilePath($profile, 'clients'), ['name' => 'Brightline Labs LLC', 'abbreviation' => 'BL', 'address' => ['text' => $text]])
+            ->assertCreated()
+            ->assertJsonPath('data.address', ['text' => $text]);
+    }
+
+    /**
+     * Test that an address of parts, as clients had them before, is refused with 422, as is one without its text.
+     *
+     * @return void
+     */
+    public function testReturns422ForAnAddressOfPartsOrWithoutItsText(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+
+        $this->postJson($this->profilePath($profile, 'clients'), [
+            'name' => 'Brightline Labs LLC', 'abbreviation' => 'BL', 'address' => ['lines' => ['500 Market St'], 'city' => 'San Francisco'],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['address', 'address.text']);
+        $this->assertDatabaseCount('clients', 0);
+    }
+
+    /**
      * Test that a client, whose invoice references it, isn't deleted: the foreign key restricts it, and the API answers
      * 422 instead of an error, on MySQL and SQLite alike.
      *

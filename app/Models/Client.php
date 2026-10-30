@@ -37,7 +37,7 @@ use PryTax\Services\Invoices\InvoiceSettingsResolver;
  * @property string|null $country
  * @property string|null $currency
  * @property string|null $vat_number
- * @property array|null $address
+ * @property array{text: string}|null $address The address as its invoices print it, line by line.
  * @property string|null $tax_id
  * @property string|null $email
  * @property InvoiceLocale|null $invoice_locale

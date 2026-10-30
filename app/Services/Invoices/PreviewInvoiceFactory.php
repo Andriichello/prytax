@@ -85,7 +85,7 @@ class PreviewInvoiceFactory
                 'country' => 'US',
                 'vat_number' => null,
                 'tax_id' => null,
-                'address' => ['lines' => ['500 Market St, Suite 200'], 'city' => 'New Jersey', 'zip' => '25902'],
+                'address' => ['text' => "500 Market St, Suite 200\nNew Jersey 25902\nUS"],
                 'email' => 'billing@bringit.example.com',
             ],
             'contract' => [

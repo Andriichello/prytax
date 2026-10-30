@@ -302,7 +302,7 @@ class DemoSeeder extends Seeder
         [$client, $contract] = $this->client($profile, [
             'name' => 'Brightline Labs LLC', 'abbreviation' => 'BL', 'legal_name' => 'Brightline Labs, LLC', 'country' => 'US', 'currency' => 'USD',
             'tax_id' => '84-1234567', 'email' => 'ap@brightline.example',
-            'address' => ['lines' => ['500 Market St, Suite 200'], 'city' => 'San Francisco, CA', 'zip' => '94105'],
+            'address' => ['text' => "500 Market St, Suite 200\nSan Francisco, CA 94105\nUnited States"],
         ], [
             'name' => 'Service Agreement', 'started_at' => '2023-04-13', 'currency' => 'USD', 'payment_terms_days' => 14,
             'description_template' => 'IT services in accordance to the {name} dated {started_at:F j, Y}',

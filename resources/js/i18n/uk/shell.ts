@@ -170,7 +170,6 @@ export default {
         clientsContracts: 'Клієнти й договори',
         fopSettings: 'Налаштування ФОП',
         fopProfileDetails: 'Профіль і реквізити ФОП',
-        organization: 'Організація',
         usersRoles: 'Користувачі й ролі',
         signOut: 'Вийти',
         appLanguage: 'Мова застосунку',

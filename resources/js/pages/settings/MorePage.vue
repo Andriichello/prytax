@@ -20,8 +20,9 @@ import { roleName } from '@/utils/statuses';
 
 /**
  * Ще (M-More, design.md §16.5): the «ФОП» card, which switches to another ФОП of the organization; money and
- * counterparties, the ФОП's settings, the invoices' numbering and document, the organization (users, backups, the
- * app's language) with signing out. Комісії opens from Перекази.
+ * counterparties, the ФОП's settings, the invoices' numbering and document, the management (users and backups, as the
+ * sidebar groups them, shown only to those who see either), then the app's language and signing out. Комісії opens
+ * from Перекази.
  */
 const router = useRouter();
 const { user, can, signOut } = useSession();
@@ -47,41 +48,54 @@ const lastBackup = computed(() => (backupStatus.value?.last_completed_at
     ? `${relativeDay(backupStatus.value.last_completed_at).toLocaleLowerCase()} ${kyivTime(backupStatus.value.last_completed_at)}`
     : null));
 
-const sections = computed<{ key: string; title: string; items: { label: string; icon: IconName; to: string; count?: number | null; value?: string; visible?: boolean }[] }[]>(() => [
-    {
-        key: 'money',
-        title: t('shell.more.moneyCounterparties'),
-        items: [
-            { label: t('money.accounts.title'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
-            { label: t('shell.more.transfersFees'), icon: 'transfer', to: '/transfers' },
-            { label: t('shell.more.clientsContracts'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
-        ],
-    },
-    {
-        key: 'settings',
-        title: t('shell.more.fopSettings'),
-        items: [
-            { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
-            { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
-        ],
-    },
-    {
-        key: 'invoices',
-        title: t('shell.nav.invoices'),
-        items: [
-            { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
-            { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', value: styleName(settings.value?.invoice.style) },
-        ],
-    },
-    {
-        key: 'organization',
-        title: t('shell.more.organization'),
-        items: [
-            { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
-            { label: t('settings.backups.title'), icon: 'archive', to: '/backups', value: lastBackup.value ?? undefined, visible: can('viewAny', 'backup-runs') },
-        ],
-    },
-]);
+interface MoreSection {
+    key: string;
+    title: string;
+    items: { label: string; icon: IconName; to: string; count?: number | null; value?: string; visible?: boolean }[];
+}
+
+/** The sections of links, each with the items the user may see; a section without any isn't shown. */
+const sections = computed<MoreSection[]>(() => {
+    const all: MoreSection[] = [
+        {
+            key: 'money',
+            title: t('shell.more.moneyCounterparties'),
+            items: [
+                { label: t('money.accounts.title'), icon: 'account', to: '/accounts', count: counts.value?.accounts },
+                { label: t('shell.more.transfersFees'), icon: 'transfer', to: '/transfers' },
+                { label: t('shell.more.clientsContracts'), icon: 'briefcase', to: '/clients', count: counts.value?.clients },
+            ],
+        },
+        {
+            key: 'settings',
+            title: t('shell.more.fopSettings'),
+            items: [
+                { label: t('shell.more.fopProfileDetails'), icon: 'person', to: '/settings/profile' },
+                { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
+            ],
+        },
+        {
+            key: 'invoices',
+            title: t('shell.nav.invoices'),
+            items: [
+                { label: t('settings.numbering.title'), icon: 'hash', to: '/settings/numbering' },
+                { label: t('settings.document.title'), icon: 'invoice', to: '/settings/invoice-document', value: styleName(settings.value?.invoice.style) },
+            ],
+        },
+        {
+            key: 'management',
+            title: t('shell.nav.management'),
+            items: [
+                { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
+                { label: t('settings.backups.title'), icon: 'archive', to: '/backups', value: lastBackup.value ?? undefined, visible: can('viewAny', 'backup-runs') },
+            ],
+        },
+    ];
+
+    return all
+        .map((section) => ({ ...section, items: section.items.filter((item) => item.visible !== false) }))
+        .filter((section) => section.items.length > 0);
+});
 
 const signingOut = ref(false);
 
@@ -130,43 +144,42 @@ async function leave(): Promise<void> {
         <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
             <SectionTitle>{{ section.title }}</SectionTitle>
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                <template v-for="item in section.items" :key="item.to">
-                    <RouterLink
-                        v-if="item.visible !== false"
-                        :to="item.to"
-                        class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink"
-                    >
-                        <Icon :name="item.icon" :size="22" />
-                        <span class="flex-1 text-16">{{ item.label }}</span>
-                        <span v-if="item.count" class="num text-14 text-ink-3">{{ item.count }}</span>
-                        <span v-else-if="item.value" class="text-14 text-ink-3">{{ item.value }}</span>
-                        <Icon name="chevronRight" :size="18" class="text-ink-2" />
-                    </RouterLink>
-                </template>
-                <button
-                    v-if="section.key === 'organization'"
-                    type="button"
-                    class="flex min-h-14 items-center gap-3.5 text-left text-ink"
-                    @click="languageOpen = true"
+                <RouterLink
+                    v-for="item in section.items"
+                    :key="item.to"
+                    :to="item.to"
+                    class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink"
                 >
-                    <Icon name="globe" :size="22" />
-                    <span class="flex-1 text-16">{{ t('shell.more.appLanguage') }}</span>
-                    <span class="text-14 text-ink-3">{{ LOCALE_NAMES[locale] }}</span>
+                    <Icon :name="item.icon" :size="22" />
+                    <span class="flex-1 text-16">{{ item.label }}</span>
+                    <span v-if="item.count" class="num text-14 text-ink-3">{{ item.count }}</span>
+                    <span v-else-if="item.value" class="text-14 text-ink-3">{{ item.value }}</span>
                     <Icon name="chevronRight" :size="18" class="text-ink-2" />
-                </button>
-                <button
-                    v-if="section.key === 'organization'"
-                    type="button"
-                    class="flex min-h-14 items-center gap-3.5 text-left text-negative"
-                    :disabled="signingOut"
-                    @click="leave"
-                >
-                    <Icon name="signOut" :size="22" />
-                    <span class="flex-1 text-16">{{ t('shell.more.signOut') }}</span>
-                </button>
+                </RouterLink>
             </div>
         </section>
 
+        <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+            <button
+                type="button"
+                class="flex min-h-14 items-center gap-3.5 text-left text-ink"
+                @click="languageOpen = true"
+            >
+                <Icon name="globe" :size="22" />
+                <span class="flex-1 text-16">{{ t('shell.more.appLanguage') }}</span>
+                <span class="text-14 text-ink-3">{{ LOCALE_NAMES[locale] }}</span>
+                <Icon name="chevronRight" :size="18" class="text-ink-2" />
+            </button>
+            <button
+                type="button"
+                class="flex min-h-14 items-center gap-3.5 text-left text-negative"
+                :disabled="signingOut"
+                @click="leave"
+            >
+                <Icon name="signOut" :size="22" />
+                <span class="flex-1 text-16">{{ t('shell.more.signOut') }}</span>
+            </button>
+        </div>
 
         <p v-if="user" class="m-0 text-center text-13 text-ink-3">
             PryTax · {{ user.email }} · {{ user.roles.map(roleName).join(', ') }}

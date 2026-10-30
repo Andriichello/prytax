@@ -157,7 +157,6 @@ export default {
         clientsContracts: 'Clients and contracts',
         fopSettings: 'ФОП settings',
         fopProfileDetails: 'ФОП profile and details',
-        organization: 'Organization',
         usersRoles: 'Users and roles',
         signOut: 'Sign out',
         appLanguage: 'App language',

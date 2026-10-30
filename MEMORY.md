@@ -62,6 +62,14 @@ is in git's history.
   contradicts «Рух коштів». builds.md §5: the desktop's mail goes to the log (no password reset), and its daily
   backup jobs aren't caught up on launch. Two Довідка texts were wrong and are fixed on `feat/help-page` (73fc813), so
   `docs/builds-spec` was rebased onto it.
+- **Two of the findings fixed** (the user asked; branch `fix/backups-throttle-client-address` from `docs/builds-spec`):
+  - The download limit counts a user's links in `backup_downloads` over the last hour (`downloads_per_hour` 30 in
+    `data-lifecycle.php`, trait `LimitsDownloads`): a download, and a bundle's or an export's status once it gives the
+    link, are a 429 past it; the polls before don't count (`BackupControllerTest`: 40 polls, then a download). The
+    import keeps `throttle:30,60,backups-import`, a counter of its own.
+  - A client without an address (`null`) prints no address lines, not its country code (`InvoicePdfRendererTest`).
+  - Each new test failed on the old code. 561 tests on SQLite; nothing listened on 3306 (MySQL stopped), so
+    the MySQL run is still to do. invoice.md §4, backups.md §4.7 and suggestions.md were updated.
 
 ## Довідка (2026-10-30, branch `feat/help-page` from `feat/client-invoice-address`)
 

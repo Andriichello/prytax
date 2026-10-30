@@ -151,6 +151,7 @@ export default {
     more: {
         tagline: 'Income records, invoices and taxes for 3rd-group ФОП',
         more: 'More',
+        fopSettings: 'ФОП settings',
         money: 'Money',
         transfersFees: 'Transfers and fees',
         feesNetIncome: 'Fees and net income',

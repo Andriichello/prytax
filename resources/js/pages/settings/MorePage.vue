@@ -20,12 +20,11 @@ import { styleName } from '@/utils/invoiceStyles';
 import { roleName } from '@/utils/statuses';
 
 /**
- * Налаштування (Ще on a phone; M-More, design.md §16.5, §17.2): the ФОП — its card, switching to another ФОП of the
- * organization, its profile and its taxes —; the money (accounts, transfers and fees); the clients and invoices
- * (clients and contracts, the numbering, the document); the management (users and backups, shown only to those who
- * see either). On desktop, where the sidebar's Налаштування opens it, the ФОП spans the page and the other groups
- * stand under it in two columns, once the page is 720 px wide; on a phone they are one list, with the app's language
- * and signing out at its end (the sidebar's foot has them on desktop). Комісії opens from Перекази.
+ * Налаштування (Ще on a phone; M-More, design.md §16.5, §17.2), one column: the current ФОП with switching to another
+ * ФОП of the organization; the ФОП's settings (its profile, its taxes and notifications); the money (accounts,
+ * transfers and fees); the clients and invoices (clients and contracts, the numbering, the document); the management
+ * (users and backups, shown only to those who see either). On desktop the sidebar's Налаштування opens it; on a phone
+ * the app's language and signing out end it (the sidebar's foot has them on desktop). Комісії opens from Перекази.
  */
 const router = useRouter();
 const { user, can, signOut } = useSession();
@@ -67,15 +66,17 @@ interface MoreSection {
     items: MoreItem[];
 }
 
-/** The ФОП's own settings, under its card. */
-const fopItems = computed<MoreItem[]>(() => [
-    { label: t('shell.nav.profileDetails'), icon: 'person', to: '/settings/profile' },
-    { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
-]);
-
 /** The groups after the ФОП, each with the items the user may see; a group without any isn't shown. */
 const sections = computed<MoreSection[]>(() => {
     const all: MoreSection[] = [
+        {
+            key: 'fop',
+            title: t('shell.more.fopSettings'),
+            items: [
+                { label: t('shell.nav.profileDetails'), icon: 'person', to: '/settings/profile' },
+                { label: t('settings.taxes.title'), icon: 'sliders', to: '/settings/taxes' },
+            ],
+        },
         {
             key: 'money',
             title: t('shell.more.money'),
@@ -125,64 +126,50 @@ async function leave(): Promise<void> {
 
 <template>
     <TabScreen :title="isDesktop ? t('shell.nav.settings') : t('shell.more.more')">
-        <div class="@container">
-            <div class="grid items-start" :class="isDesktop ? 'gap-5 @min-[720px]:grid-cols-2' : 'gap-4'">
-                <section v-if="profile" class="flex flex-col gap-2 @min-[720px]:col-span-2">
-                    <SectionTitle>{{ t('shell.profiles.fop') }}</SectionTitle>
-                    <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                        <div class="flex items-center gap-3 py-3.5">
-                            <Avatar :initials="profile.initials" variant="dark" :size="44" />
-                            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                                <span class="truncate text-17 font-semibold">{{ profile.full_name }}</span>
-                                <span class="text-13 text-ink-3">
-                                    <Translated :text="t('shell.profiles.fopLine', { group: profile.tax_group })">
-                                        <template #taxId>
-                                            <Translated :text="profile.tax_id_kind === 'passport' ? t('shell.profiles.passportMasked') : t('shell.profiles.taxIdMasked')">
-                                                <template #masked><span class="num">{{ profile.tax_id_masked }}</span></template>
-                                            </Translated>
-                                        </template>
+        <section v-if="profile" class="flex flex-col gap-2">
+            <SectionTitle>{{ t('shell.profiles.fop') }}</SectionTitle>
+            <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <div class="flex items-center gap-3 py-3.5">
+                    <Avatar :initials="profile.initials" variant="dark" :size="44" />
+                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span class="truncate text-17 font-semibold">{{ profile.full_name }}</span>
+                        <span class="text-13 text-ink-3">
+                            <Translated :text="t('shell.profiles.fopLine', { group: profile.tax_group })">
+                                <template #taxId>
+                                    <Translated :text="profile.tax_id_kind === 'passport' ? t('shell.profiles.passportMasked') : t('shell.profiles.taxIdMasked')">
+                                        <template #masked><span class="num">{{ profile.tax_id_masked }}</span></template>
                                     </Translated>
-                                </span>
-                            </span>
-                        </div>
-                        <RouterLink :to="{ name: 'profiles' }" class="flex min-h-13 items-center gap-2.5 text-accent no-underline hover:text-accent-hover">
-                            <Icon name="transfer" :size="20" />
-                            <span class="flex-1 text-16 font-medium">{{ t('shell.profiles.change') }}</span>
-                            <span class="text-14 text-ink-3">{{ t('shell.profiles.inOrganization', { count: profiles.length }) }}</span>
-                            <Icon name="chevronRight" :size="18" class="text-ink-2" />
-                        </RouterLink>
-                        <RouterLink
-                            v-for="item in fopItems"
-                            :key="item.to"
-                            :to="item.to"
-                            class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink"
-                        >
-                            <Icon :name="item.icon" :size="22" />
-                            <span class="flex-1 text-16">{{ item.label }}</span>
-                            <Icon name="chevronRight" :size="18" class="text-ink-2" />
-                        </RouterLink>
-                    </div>
-                </section>
-
-                <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
-                    <SectionTitle>{{ section.title }}</SectionTitle>
-                    <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                        <RouterLink
-                            v-for="item in section.items"
-                            :key="item.to"
-                            :to="item.to"
-                            class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink"
-                        >
-                            <Icon :name="item.icon" :size="22" />
-                            <span class="flex-1 text-16">{{ item.label }}</span>
-                            <span v-if="item.count" class="num text-14 text-ink-3">{{ item.count }}</span>
-                            <span v-else-if="item.value" class="text-14 text-ink-3">{{ item.value }}</span>
-                            <Icon name="chevronRight" :size="18" class="text-ink-2" />
-                        </RouterLink>
-                    </div>
-                </section>
+                                </template>
+                            </Translated>
+                        </span>
+                    </span>
+                </div>
+                <RouterLink :to="{ name: 'profiles' }" class="flex min-h-13 items-center gap-2.5 text-accent no-underline hover:text-accent-hover">
+                    <Icon name="transfer" :size="20" />
+                    <span class="flex-1 text-16 font-medium">{{ t('shell.profiles.change') }}</span>
+                    <span class="text-14 text-ink-3">{{ t('shell.profiles.inOrganization', { count: profiles.length }) }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </RouterLink>
             </div>
-        </div>
+        </section>
+
+        <section v-for="section in sections" :key="section.key" class="flex flex-col gap-2">
+            <SectionTitle>{{ section.title }}</SectionTitle>
+            <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                <RouterLink
+                    v-for="item in section.items"
+                    :key="item.to"
+                    :to="item.to"
+                    class="flex min-h-14 items-center gap-3.5 text-ink no-underline hover:text-ink"
+                >
+                    <Icon :name="item.icon" :size="22" />
+                    <span class="flex-1 text-16">{{ item.label }}</span>
+                    <span v-if="item.count" class="num text-14 text-ink-3">{{ item.count }}</span>
+                    <span v-else-if="item.value" class="text-14 text-ink-3">{{ item.value }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </RouterLink>
+            </div>
+        </section>
 
         <template v-if="!isDesktop">
             <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">

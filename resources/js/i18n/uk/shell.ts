@@ -164,6 +164,7 @@ export default {
     more: {
         tagline: 'Облік доходів, інвойси та податки для ФОП 3 групи',
         more: 'Ще',
+        fopSettings: 'Налаштування ФОП',
         money: 'Гроші',
         transfersFees: 'Перекази та комісії',
         feesNetIncome: 'Комісії й чистий дохід',

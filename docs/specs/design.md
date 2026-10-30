@@ -1,12 +1,24 @@
-# PryTax — ФОП Finance App — Design Spec (v5, «Minimal» with desktop, multi-profile on api-core)
+# PryTax — ФОП Finance App — Design Spec (v5.1, «Minimal» with desktop, multi-profile on api-core)
 
 Target: accounting + invoicing app for Ukrainian ФОПs (3 група, спрощена система, no employees), built on the `api-core`
 package (organizations, users, Sanctum tokens, spatie roles/permissions, HTTP filtering/resources/pagination). Stack:
-Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first with a desktop layout from 1024 px, Ukrainian and English UI) consuming
+Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first with a desktop layout from 600 px, Ukrainian and English UI) consuming
 the API (Blade only for PDF/email templates). Functional rules live in `accounting.md`; this document is the
 implementation of them. §16 fixes the phase-1 UI scope («Minimal»), §17 its desktop layout; the invoice PDF is
 specified in `invoice.md`; backups and retention in `backups.md`; what is deferred or still to decide is in
 `suggestions.md`.
+
+### Changes in v5.1 (the owner's feedback from the desktop app's window, 2026-10-29/30)
+
+- **Layout switch** (§17.1): the desktop layout from 600 px, not 1024; below 1024 px the sidebar folds into a 64 px
+  rail of icons, whose ☰ opens it over the page. Головна, Інвойси, Облік and Податки keep the shell's whole width
+  (at most 1112 px of content), rather than a column.
+- **Sidebar and Ще** (§17.2, §16.5): no logo; Користувачі й ролі and Резервні копії form a «Керування» group of their
+  own, on Ще too, where the language and Вийти follow in a card without a heading.
+- **Numbering** (§5): «Поточні лічильники» lists every active client's counter (or the ФОП's) from 0, so it can be set
+  before the first invoice; the editor's number card offers Автоматичний | Лічильник | Власний, and a draft can hold a
+  counter of its own.
+- **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
 
 ### Changes in v5 (the third Minimal handoff and «Minimal (Desktop)»)
 
@@ -644,7 +656,9 @@ On Нумерація інвойсів (§16.5) the settings read: Префік�
 (`none`); Формат — Дата + номер (`date_sequence`, `АБР-РРРР-ММ-ДД-n`) / Лише номер (`sequence`, `АБР-n`); Дата в
 номері — Кінець періоду (`period_end`) / Дата виставлення (`issued_at`); Лічильник — Для клієнта (`per_client`) / Один
 на ФОП (`global`); Скидання — Ніколи / Щороку. «Поточні лічильники» show each client's last issued number (the
-sequence's next number − 1) and move a counter forward only.
+sequence's next number − 1), with every active client's counter (or the ФОП's one, this year's when it restarts
+yearly) listed from 0 before its first invoice, so it can be set to continue another system's numbering; a counter
+moves forward only (v5.1).
 
 | prefix | strategy | scope | Number |
 |---|---|---|---|
@@ -672,6 +686,11 @@ single retry on the unique violation of the first insert.
 
 Rules:
 - Draft shows a preview (`next: BL-2026-10-14-13`) computed without consuming the sequence.
+- **The number card** of the editor (v5.1): Автоматичний (the preview above) | Лічильник (the user picks `{n}` in the
+  counter of the draft's client and dates: the draft stores `sequence_scope_key` and `sequence_number` without a
+  `number`; no other invoice of the counter, frozen or a draft, may hold it, 422 `Another invoice has the counter …
+  already.`; null gives it back) | Власний (a typed number, as below). Automatic numbers and previews skip the
+  counters drafts hold, and a freeze with a chosen `{n}` at or past the counter moves the counter past it.
 - On freeze the invoice stores `sequence_scope_key` and `sequence_number`; a user-typed number leaves both NULL and
   bypasses the generator (`UNIQUE(profile_id, number)` guards collisions, 422 on conflict).
 - **Re-freeze** (`InvoiceNumberGenerator::rebuild`): if `sequence_*` are set and the scope key computed from the
@@ -1115,12 +1134,13 @@ Added by v5:
 - **Date picker:** single — Сьогодні / Вчора, future days disabled on receipt dates, typing still works; range — start
   then end, a tap before the start restarts, a third tap starts anew, the presets, the day count; arrow keys and Enter.
 - **Rules:** the badge casing and the РНОКПП mask helper (unit tests).
-- **Desktop (§17):** at ≥ 1024 px the desktop shell renders, below it the mobile one; a deep link to `/invoices/:id`
+- **Desktop (§17):** at ≥ 600 px the desktop shell renders (the sidebar a rail below 1024 px), below it the mobile
+  one; a deep link to `/invoices/:id`
   opens the list with the panel; Esc and a click on the scrim close the panel and give the focus back to the row; one
   panel at a time, «←» back to the previous record; «✎ Змінити» only on editable records; Облік's ЄП/ВЗ badges under
   their amounts, never over Дохід; one filter popover at a time with its draft; the pickers stay inside the viewport.
 - **Acceptance (v5):** every board of delta 3 at 390 px and of the desktop handoff at 1440 px matches its PNG within
-  font rendering; no horizontal scroll from 1024 to 1440 px; the sidebar fits 900 px.
+  font rendering; no horizontal scroll from 600 to 1440 px; the sidebar fits 900 px.
 
 ## 14. Build order
 
@@ -1408,7 +1428,7 @@ Board numbers are in brackets.
 | Клієнти, Клієнт (028, 029) | As built. The client page's «Документ інвойсу» card leads to the form's `#invoice-defaults`. |
 | Клієнт (форма) (030, 062–071) | **Groups:** Основне (Назва, Абревіатура with «Префікс номерів: BL-РРРР-ММ-ДД-n. Латиниця й цифри, до 10.», Юридична назва, Назва українською, Країна) · Адреса в інвойсі · Податкові дані й пошта · Валюта, мова, договір і стиль · Тексти в інвойсі (the four text cards) · Внутрішня примітка. |
 | Договір (031, 083–085) | **Groups:** Основне · Опис позиції в інвойсі (closed: the rendered line; open: the template, the placeholder chips and «Так виглядатиме в інвойсі») · Погодинні ставки, plus an «Активний» switch card. |
-| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups:** Гроші й контрагенти (Рахунки · Перекази та комісії · Клієнти й договори) · Налаштування ФОП (Профіль і реквізити ФОП · Податки й сповіщення) · Інвойси (Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Організація (Користувачі й ролі · Резервні копії (`backups.md` §4.8) · «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти). The old inline language switch goes. |
+| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups:** Гроші й контрагенти (Рахунки · Перекази та комісії · Клієнти й договори) · Налаштування ФОП (Профіль і реквізити ФОП · Податки й сповіщення) · Інвойси (Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Керування (v5.1, as the sidebar: Користувачі й ролі · Резервні копії (`backups.md` §4.8), with «вчора 23:22», the last copy; shown only to those who see either), then a card without a heading: «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти. The old inline language switch goes. |
 | Профіль ФОП (033, 045–048; v5 `M-ProfileEdit*`: the РНОКПП masked `••••4821`) | **Banner** (static): «3 група · спрощена система · без ПДВ · без працівників». **Groups:** Податкова особа (ПІБ, ПІБ латиницею, РНОКПП, дата реєстрації, the passport instead of РНОКПП) · Адреса й контакти · Інвойси (валюта, мова документа, підпис у PDF) · Формат сум (the app's and the invoices', with live samples). Plus an «Активний ФОП» switch card. |
 | Нумерація інвойсів (034, 053–055) | **The dark «Наступний номер» card** stays exactly as built and never dims. **Groups:** Формат номера · Лічильник · Поточні лічильники (§5). In read mode the counters show the edit layout with disabled inputs, with «Останній виданий номер; наступний інвойс клієнта отримає +1.». **Then:** the rules text, and the link «Примітки в інвойсі → Документ інвойсу». |
 | Документ інвойсу (035, 056–061) | **Intro:** «Типові налаштування інвойсів ФОП. Клієнт чи окремий інвойс можуть мати власні.» **Groups:** Стиль, мова й договір · Тексти в інвойсі (the four text cards). **Footnote:** «Змінює нові інвойси й чернетки; зафіксовані не змінюються.» The style picker, the preview and the placeholder sheet (036–038) stay as built. |
@@ -1553,22 +1573,25 @@ wins; for domain rules §16 does.
 
 ### 17.1 Layout switch
 
-- From **1024 px** (Tailwind `lg`) the desktop layout; below it the mobile one, unchanged. The boards are 1440 px wide;
-  between 1024 and 1440 the sidebar keeps 248 px and the content is fluid. **Under 1280 px** the right-hand columns
-  (Головна's 360 px column, the 300 px side notes) move under the main column (the owner, 2026-10-28). No horizontal
-  scroll from 1024 to 1440.
+- From **600 px** the desktop layout (v5.1; the owner's feedback from the desktop app's window, 2026-10-29);
+  below it the mobile one, unchanged. The boards are 1440 px wide; from 1024 px (Tailwind `lg`) to 1440 the sidebar
+  keeps 248 px and the content is fluid. **From 600 to 1023 px** the sidebar is a 64 px rail (☰, the ФОП's
+  avatar and the sections' icons, the groups apart), whose ☰ opens the whole sidebar over the page, and the pages have
+  24 px sides instead of 40; the sign-in pages and the recovery kit keep one centred column there. **Under 1280 px**
+  the right-hand columns (Головна's 360 px column, the 300 px side notes) move under the main column (the owner,
+  2026-10-28). No horizontal scroll from 600 to 1440.
 - **Routes are the same.** A record's route renders a full page on mobile and a **panel over the list it belongs to**
   on desktop, the list staying mounted under it: nested routes with the panel as the list's child, so a deep link to
   `/invoices/:id` opens Інвойси with the panel.
 
 ### 17.2 Shell
 
-- **Sidebar**, 248 px, white, a 1 px right border, full height (it replaces the tab bar and Ще): the logo (a 32 px ink
-  tile and «PryTax», «Tax» in accent); the ФОП card (avatar, «Коваленко О. П.», «ФОП · 3 група», then «⇄ Змінити ФОП»
+- **Sidebar**, 248 px, white, a 1 px right border, full height (it replaces the tab bar and Ще): the ФОП card (v5.1:
+  without the board's logo above it) (avatar, «Коваленко О. П.», «ФОП · 3 група», then «⇄ Змінити ФОП»
   with the count and a chevron, opening the ФОП popover); the main nav Головна · Інвойси · Облік · Податки · Книги;
   «Гроші й контрагенти»: Рахунки · Перекази та комісії · Клієнти й договори (counts on the right); «Налаштування»:
-  Профіль і реквізити · Податки й сповіщення · Нумерація інвойсів · Документ інвойсу · Користувачі й ролі · Резервні
-  копії (`backups.md` §4.8); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
+  Профіль і реквізити · Податки й сповіщення · Нумерація інвойсів · Документ інвойсу; «Керування» (v5.1, shown only to
+  those who see either): Користувачі й ролі · Резервні копії (`backups.md` §4.8); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
   role, «Вийти» in red. Items are 36 px high at least, radius 10, a 20 px icon; the active one accent-soft
   (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px high; below that the nav scrolls and the
   footer stays.
@@ -1577,7 +1600,8 @@ wins; for domain rules §16 does.
   secondary buttons), then the 📖 | 🔔 capsule (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
   notifications popover).
 - **Content:** padding 0 40 48, 20 px gaps; settings and detail pages are one 760 px column with an optional 300 px
-  side note «Як це працює» (grey, sticky).
+  side note «Як це працює» (grey, sticky). The boards Головна, Інвойси, Облік and Податки take the content's whole
+  width, which the shell's 1440 px keeps at most 1112 px, rather than a column (the owner, 2026-10-30).
 
 ### 17.3 Overlays (one rule set, `008 D-RecordPanels`)
 
@@ -1662,11 +1686,12 @@ edit target, the menu items, back, the body and the footer; Esc and the scrim, t
 trap); `Dialog`; `Popover` (anchored, flipping and shifting to stay in the viewport; used by the filter popovers, the
 date picker, the menu, notifications, the ФОП switcher and the language); `DataTable` (a CSS grid with fixed numeric
 columns and a flexible first one, numbers right-aligned in mono tabular figures); `TaxCells`; `useBreakpoint()` with
-`lg` = 1024, by which a route renders a page or a panel.
+`isDesktop` from 600 px (v5.1), by which a route renders a page or a panel.
 
 ### 17.6 As built (2026-10-28, branch `feat/desktop`)
 
-- **Layout switch:** `useBreakpoint()` (`isDesktop` from 1024 px, `isWide` from 1280 px). `App.vue` renders the
+- **Layout switch:** `useBreakpoint()` (`isDesktop` from 600 px, `isCompact` from 600 to 1023 px, while the sidebar
+  is a rail, and `isWide` from 1280 px; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the
   sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
   880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`) have no back
   button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
@@ -1708,4 +1733,5 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   (the whole width, the cards in grids), the settings with their side notes, Рахунки in two columns, Перекази,
   Клієнти and Користувачі at 880 px, Вхід split.
 - **Not done:** Інвойси's search «Номер або клієнт» (no search API, §15); the status filter as a checkbox list (it
-  keeps its chips); «✎ Змінити» beside the name on Рахунок and Клієнт; Книги's tabs beside the year chip.
+  keeps its chips); Книги's tabs beside the year chip. («✎ Змінити» ends the title's row on Рахунок, Клієнт and Переказ
+  since v5.1.)

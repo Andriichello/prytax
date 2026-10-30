@@ -24,6 +24,23 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Головна: what needs attention (2026-10-30, branch `feat/home-attention` from `feat/accounting-summary-rows`)
+
+The user: no header «+ Новий інвойс» pill and no «Відкриті інвойси · … до оплати» subtitle; Головна shows quick actions
+and only what needs attention, or «Усе гаразд». Their choices: receipts needing attention = money still on a platform
+(not yet transferred); the quarter lists dropped; the phone the same. Built:
+- **API:** `GET payments/untransferred` (`PaymentController::untransferred`, `IndexRequest`;
+  `Services\Transfers\UntransferredReceipts`): per receipt and platform/foreign-bank account (`needsRepatriation()`)
+  what it holds (`HoldingCalculator::holdingsOn`), the `RepatriationRule` deadline and `overdue`; `meta.totals` per
+  currency (count, amount, overdue). Two tests in `PaymentControllerTest`.
+- **SPA:** `HomePage` (quick actions, Інвойси: drafts/ready/sent sorted overdue → due date → drafts, with «До оплати»,
+  «Прострочено», «Чернетки» from `invoices/outstanding`; Надходження: `UntransferredList`, «На платформах», «Час
+  переказати», «Новий переказ» → `transfer-new?from=`), `HomeNavCards` still on top on desktop.
+- **Checked** in the window (the user's ФОП: one ready invoice, no receipts) and, for data, with a throwaway
+  `artisan serve` on 8011 over `database/nativephp.sqlite` (env: sqlite, file session/cache,
+  `SANCTUM_STATEFUL_DOMAINS=127.0.0.1:8011`) and headless Chrome signed in as olena@example.com — the window's own
+  server answers 403 to other browsers. Don't `pkill -f` a pattern that's in the same command: it kills the shell.
+
 ## The 1200 px box (2026-10-30, branch `feat/box-1200` from `feat/notes-below`)
 
 The user: the box at most 1200 px, and every page's content full width. `App.vue` `max-w-300` (was `max-w-360`, 1440),

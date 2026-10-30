@@ -1,123 +1,141 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { api } from '@/api/client';
-import type { ApiResponse, Invoice, OutstandingTotal } from '@/api/types';
+import type { ApiResponse, Invoice, OutstandingTotal, UntransferredReceipt, UntransferredTotal } from '@/api/types';
 import HomeNavCards from '@/components/home/HomeNavCards.vue';
+import UntransferredList from '@/components/home/UntransferredList.vue';
 import InvoiceRow from '@/components/invoice/InvoiceRow.vue';
 import InvoiceTable from '@/components/invoice/InvoiceTable.vue';
 import TabScreen from '@/components/layout/TabScreen.vue';
-import EmptyState from '@/components/ui/EmptyState.vue';
+import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
-import NewPill from '@/components/ui/NewPill.vue';
-import Translated from '@/components/ui/Translated.vue';
+import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { currentQuarter, quarterName, quarterOf } from '@/utils/dates';
+import { isOverdue } from '@/utils/invoiceRows';
 import { formatMoney } from '@/utils/money';
 
 /**
- * Головна (M-Home, design.md §16.5): the invoices of the current and the previous quarter by their issue date, of
- * every status and the payments without an invoice among them, newest first. The subtitle tells what the open
- * invoices (ready and sent) still await, per currency. On desktop (D-Home, §17.4) the sections' cards (Інвойси, Облік,
- * Податки, Книги, Налаштування) stand above the quarters, which are tables; the income limit, the taxes and the
- * notifications have their own pages and the 🔔 popover.
+ * Головна (M-Home, D-Home; design.md §16.5, §17.4): only what needs attention (the owner, 2026-10-30). The quick
+ * actions «Новий інвойс» and «Нове надходження»; then Інвойси — what the open ones still await and how much of it is
+ * overdue, the drafts, and those invoices (overdue first, then the open ones by their due date, then the drafts) —,
+ * or «Усе гаразд», when all are paid and none is a draft; then Надходження — the receipts, whose money is still on a
+ * platform or a foreign bank, with how much and how much is past its deadline —, or «Усе гаразд», when all is moved.
+ * On desktop the sections' cards stand above it all.
  */
 const { profileId, path } = useCurrentProfile();
 const { can } = useSession();
 const { isDesktop } = useBreakpoint();
 
-const now = currentQuarter();
-const quarters = [now, now.quarter === 1 ? { year: now.year - 1, quarter: 4 } : { year: now.year, quarter: now.quarter - 1 }];
-
-/** The first day of a quarter. */
-const startOf = ({ year, quarter }: { year: number; quarter: number }): string => `${year}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`;
-
 const { data, error, loading, reload } = useLoader(async (signal) => {
-    const [dated, drafts, outstanding] = await Promise.all([
+    const [invoices, outstanding, untransferred] = await Promise.all([
         api.all<Invoice>(path('invoices'), {
-            filter: { issued_at: { gte: startOf(quarters[1]!) } },
+            filter: { status: { in: ['draft', 'ready', 'sent'] } },
             include: ['client'],
             append: ['number_preview'],
             sort: '-issued_at,-id',
         }, signal),
-        api.all<Invoice>(path('invoices'), { filter: { status: 'draft' }, include: ['client'], append: ['number_preview'] }, signal),
         api.get<ApiResponse<OutstandingTotal[]>>(path('invoices/outstanding'), undefined, signal),
+        api.get<{ data: UntransferredReceipt[]; meta: { totals: UntransferredTotal[] } }>(path('payments/untransferred'), undefined, signal),
     ]);
-    // A draft without an issue date takes its period's end
-    const undated = drafts.filter((invoice) => invoice.issued_at === null && invoice.period_end >= startOf(quarters[1]!));
 
-    return { invoices: [...dated, ...undated], outstanding: outstanding.data };
+    return { invoices, outstanding: outstanding.data, receipts: untransferred.data, receiptTotals: untransferred.meta.totals };
 }, [profileId]);
 
-/** The date that places an invoice in a quarter: its issue date, or a draft's period end. */
-const dateOf = (invoice: Invoice): string => invoice.issued_at ?? invoice.period_end;
+/** The order of attention: overdue, then open, then drafts. */
+const rank = (invoice: Invoice): number => (isOverdue(invoice) ? 0 : invoice.status === 'draft' ? 2 : 1);
 
-const sections = computed(() => quarters.map(({ year, quarter }) => {
-    const invoices = (data.value?.invoices ?? [])
-        .filter((invoice) => Number(dateOf(invoice).slice(0, 4)) === year && quarterOf(dateOf(invoice)) === quarter)
-        .sort((a, b) => dateOf(b).localeCompare(dateOf(a)) || b.id - a.id);
-    const hasVirtual = invoices.some((invoice) => invoice.source === 'virtual');
+const invoices = computed(() => [...(data.value?.invoices ?? [])]
+    .sort((a, b) => rank(a) - rank(b) || (a.due_at ?? a.period_end).localeCompare(b.due_at ?? b.period_end) || a.id - b.id));
 
-    return {
-        key: `${year}-${quarter}`,
-        title: `${quarterName(quarter)} · ${year}`,
-        count: hasVirtual ? t('core.counts.records', { count: invoices.length }) : t('core.counts.invoices', { count: invoices.length }),
-        invoices,
-    };
-}));
+/** Amounts per currency, «2 450.00 USD + 800.00 EUR»; empty when there are none. */
+const sum = (totals: { amount: string; currency: string }[]): string => totals
+    .filter((total) => Number(total.amount) > 0)
+    .map((total) => formatMoney(total.amount, total.currency))
+    .join(' + ');
 
-const toPay = computed(() => (data.value?.outstanding ?? [])
-    .filter((total) => Number(total.remaining) > 0)
-    .map((total) => formatMoney(total.remaining, total.currency))
-    .join(' + '));
+const toPay = computed(() => sum((data.value?.outstanding ?? []).map((total) => ({ amount: total.remaining, currency: total.currency }))));
+const overdue = computed(() => sum((data.value?.outstanding ?? []).map((total) => ({ amount: total.overdue, currency: total.currency }))));
+const drafts = computed(() => invoices.value.filter((invoice) => invoice.status === 'draft').length);
+
+const onPlatforms = computed(() => sum(data.value?.receiptTotals ?? []));
+const pastDeadline = computed(() => sum((data.value?.receiptTotals ?? []).map((total) => ({ amount: total.overdue, currency: total.currency }))));
+/** A transfer starts from the account of the oldest receipt still waiting. */
+const transferFrom = computed(() => data.value?.receipts[0]?.account.id);
 </script>
 
 <template>
     <TabScreen :title="t('shell.nav.home')">
-        <template #subtitle>
-            <p v-if="data" class="m-0 text-14 text-ink-3">
-                <Translated v-if="toPay" :text="t('invoices.home.openInvoicesOutstanding')">
-                    <template #amount><span class="num">{{ toPay }}</span></template>
-                </Translated>
-                <template v-else>{{ t('invoices.home.openInvoices') }}</template>
-            </p>
-        </template>
-
-        <template v-if="isDesktop" #title-action>
-            <NewPill v-if="can('create', 'invoices')" :to="{ name: 'invoice-new' }" :label="t('invoices.editor.newInvoice')" />
-        </template>
-
         <HomeNavCards v-if="isDesktop" />
 
+        <div v-if="can('create', 'invoices') || can('create', 'payments')" class="grid grid-cols-2 gap-3" :class="isDesktop ? 'max-w-120' : ''">
+            <RouterLink
+                v-if="can('create', 'invoices')"
+                :to="{ name: 'invoice-new' }"
+                class="flex h-13 items-center justify-center gap-2 rounded-button bg-accent px-3 text-15 font-semibold text-white no-underline hover:bg-accent-hover hover:text-white"
+            >
+                <Icon name="plus" :size="20" />
+                {{ t('invoices.home.quickInvoice') }}
+            </RouterLink>
+            <RouterLink
+                v-if="can('create', 'payments')"
+                :to="{ name: 'payment-pick' }"
+                class="flex h-13 items-center justify-center gap-2 rounded-button border border-line-input bg-surface px-3 text-15 font-semibold text-accent no-underline hover:text-accent-hover"
+            >
+                <Icon name="plus" :size="20" />
+                {{ t('invoices.home.quickReceipt') }}
+            </RouterLink>
+        </div>
+
         <LoadState :loading="loading && !data" :error="error" @retry="reload">
-            <section v-for="section in sections" :key="section.key" :aria-labelledby="`quarter-${section.key}`" class="flex flex-col gap-2">
-                <div class="flex items-baseline justify-between px-0.5">
-                    <h2 :id="`quarter-${section.key}`" class="m-0 text-13 font-semibold tracking-[0.04em] text-ink-3 uppercase">
-                        {{ section.title }}
-                    </h2>
-                    <span class="num text-13 text-ink-2">{{ section.count }}</span>
-                </div>
-                <InvoiceTable v-if="section.invoices.length && isDesktop" :invoices="section.invoices" variant="home" />
-                <div v-else-if="section.invoices.length" class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
-                    <InvoiceRow v-for="invoice in section.invoices" :key="invoice.id" :invoice="invoice" />
-                </div>
-                <EmptyState v-else :text="t('invoices.home.noInvoicesQuarter')">
-                    <RouterLink
-                        v-if="can('create', 'invoices') && section.key === sections[0]!.key"
-                        :to="{ name: 'invoice-new' }"
-                        class="flex min-h-11 items-center text-14 font-medium no-underline"
-                    >
-                        {{ t('invoices.home.createInvoice') }}
-                    </RouterLink>
-                </EmptyState>
+            <section v-if="data" class="flex flex-col gap-2">
+                <SectionTitle>
+                    {{ t('shell.nav.invoices') }}
+                    <template #aside>
+                        <RouterLink :to="{ name: 'invoices' }" class="text-14 font-medium no-underline">{{ t('invoices.home.allInvoices') }}</RouterLink>
+                    </template>
+                </SectionTitle>
+                <template v-if="invoices.length">
+                    <p class="m-0 flex flex-wrap gap-x-5 gap-y-1 px-0.5 text-14 text-ink-3">
+                        <span v-if="toPay">{{ t('invoices.home.toPay') }} <span class="num font-semibold text-ink">{{ toPay }}</span></span>
+                        <span v-if="overdue" class="text-negative">{{ t('invoices.home.overdue') }} <span class="num font-semibold">{{ overdue }}</span></span>
+                        <span v-if="drafts">{{ t('invoices.home.drafts') }} <span class="num font-semibold text-ink">{{ drafts }}</span></span>
+                    </p>
+                    <InvoiceTable v-if="isDesktop" :invoices="invoices" variant="home" />
+                    <div v-else class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface px-4">
+                        <InvoiceRow v-for="invoice in invoices" :key="invoice.id" :invoice="invoice" />
+                    </div>
+                </template>
+                <p v-else class="m-0 flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3.5 text-15 text-ink-2">
+                    <Icon name="checkCircle" :size="22" class="shrink-0 text-positive" />
+                    {{ t('invoices.home.invoicesAllGood') }}
+                </p>
             </section>
 
-            <RouterLink :to="{ name: 'invoices' }" class="flex min-h-11 items-center text-14 font-medium no-underline" :class="isDesktop ? 'self-start' : 'self-center'">
-                {{ t('invoices.home.allInvoices') }}
-            </RouterLink>
+            <section v-if="data" class="flex flex-col gap-2">
+                <SectionTitle>
+                    {{ t('core.common.receipts') }}
+                    <template v-if="data.receipts.length && can('create', 'account-transfers')" #aside>
+                        <RouterLink :to="{ name: 'transfer-new', query: { from: transferFrom } }" class="text-14 font-medium no-underline">
+                            {{ t('money.transferForm.newTransfer') }}
+                        </RouterLink>
+                    </template>
+                </SectionTitle>
+                <template v-if="data.receipts.length">
+                    <p class="m-0 flex flex-wrap gap-x-5 gap-y-1 px-0.5 text-14 text-ink-3">
+                        <span>{{ t('invoices.home.onPlatforms') }} <span class="num font-semibold text-ink">{{ onPlatforms }}</span></span>
+                        <span v-if="pastDeadline" class="text-negative">{{ t('invoices.home.pastDeadline') }} <span class="num font-semibold">{{ pastDeadline }}</span></span>
+                    </p>
+                    <UntransferredList :receipts="data.receipts" />
+                </template>
+                <p v-else class="m-0 flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3.5 text-15 text-ink-2">
+                    <Icon name="checkCircle" :size="22" class="shrink-0 text-positive" />
+                    {{ t('invoices.home.receiptsAllGood') }}
+                </p>
+            </section>
         </LoadState>
     </TabScreen>
 </template>

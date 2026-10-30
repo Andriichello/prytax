@@ -6,10 +6,18 @@ import type { Messages } from '@/i18n/types';
 export default {
     /** Головна and its open invoices */
     home: {
-        openInvoicesOutstanding: 'Відкриті інвойси · {amount} до оплати',
-        openInvoices: 'Відкриті інвойси',
-        createInvoice: 'Створити інвойс',
         allInvoices: 'Усі інвойси',
+        quickInvoice: 'Новий інвойс',
+        quickReceipt: 'Нове надходження',
+        toPay: 'До оплати',
+        overdue: 'Прострочено',
+        drafts: 'Чернетки',
+        invoicesAllGood: 'Усе гаразд: усі інвойси оплачені й зафіксовані.',
+        onPlatforms: 'На платформах',
+        pastDeadline: 'Час переказати',
+        receiptsAllGood: 'Усе гаразд: усі надходження переказані на рахунок ФОП.',
+        transferBy: 'переказати до {date}',
+        transferOverdueSince: 'прострочено, з {date}',
         navLabel: 'Розділи',
         navInvoices: 'Створення, фіксація й оплати',
         navAccounting: 'Надходження й дохід за квартал',
@@ -19,7 +27,6 @@ export default {
         periodOf: 'Період {period}',
         dueBy: 'сплатити до {date}',
         overdueBy: 'прострочено, до {date}',
-        noInvoicesQuarter: 'Інвойсів за квартал немає.',
     },
 
     /** Інвойси: the list, its filter chips and rows */

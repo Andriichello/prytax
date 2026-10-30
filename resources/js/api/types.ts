@@ -1171,6 +1171,29 @@ export interface OutstandingTotal {
     overdue: Amount;
 }
 
+/** A receipt of `GET profiles/{profile}/payments/untransferred`: its money still on a platform or a foreign bank. */
+export interface UntransferredReceipt {
+    payment_id: number;
+    received_at: string;
+    /** What it still holds on the account, in the account's currency. */
+    amount: Amount;
+    currency: CurrencyCode;
+    account: { id: number; name: string };
+    invoice: { id: number; number: string | null; source: InvoiceSource; client: string | null } | null;
+    /** By when the repatriation rule wants it moved; null when the rule is off. */
+    deadline: string | null;
+    overdue: boolean;
+}
+
+/** The totals of the untransferred receipts in a currency. */
+export interface UntransferredTotal {
+    currency: CurrencyCode;
+    count: number;
+    amount: Amount;
+    /** Of it, past the deadline. */
+    overdue: Amount;
+}
+
 /** `GET profiles/{profile}/invoices/facets`: the values the filters offer, with their counts. */
 export interface InvoiceFacets {
     /** Years of `issued_at`. */

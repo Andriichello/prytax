@@ -6,10 +6,18 @@ import type uk from '@/i18n/uk/invoices';
  */
 export default {
     home: {
-        openInvoicesOutstanding: 'Open invoices · {amount} outstanding',
-        openInvoices: 'Open invoices',
-        createInvoice: 'Create an invoice',
         allInvoices: 'All invoices',
+        quickInvoice: 'New invoice',
+        quickReceipt: 'New receipt',
+        toPay: 'To be paid',
+        overdue: 'Overdue',
+        drafts: 'Drafts',
+        invoicesAllGood: 'All good: every invoice is paid and none is a draft.',
+        onPlatforms: 'On platforms',
+        pastDeadline: 'Due for transfer',
+        receiptsAllGood: 'All good: every receipt has been transferred to the ФОП account.',
+        transferBy: 'transfer by {date}',
+        transferOverdueSince: 'overdue since {date}',
         navLabel: 'Sections',
         navInvoices: 'Create, freeze and get paid',
         navAccounting: 'Receipts and income by quarter',
@@ -19,7 +27,6 @@ export default {
         periodOf: 'Period {period}',
         dueBy: 'due by {date}',
         overdueBy: 'overdue, due {date}',
-        noInvoicesQuarter: 'No invoices in the quarter.',
     },
 
     list: {

@@ -1,12 +1,40 @@
-# PryTax — ФОП Finance App — Design Spec (v5.1, «Minimal» with desktop, multi-profile on api-core)
+# PryTax — ФОП Finance App — Design Spec (v5.2, «Minimal» with desktop, multi-profile on api-core)
 
 Target: accounting + invoicing app for Ukrainian ФОПs (3 група, спрощена система, no employees), built on the `api-core`
 package (organizations, users, Sanctum tokens, spatie roles/permissions, HTTP filtering/resources/pagination). Stack:
-Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first with a desktop layout from 600 px, Ukrainian and English UI) consuming
-the API (Blade only for PDF/email templates). Functional rules live in `accounting.md`; this document is the
-implementation of them. §16 fixes the phase-1 UI scope («Minimal»), §17 its desktop layout; the invoice PDF is
-specified in `invoice.md`; backups and retention in `backups.md`; Docker, SQLite and the desktop app in `builds.md`;
-what is deferred or still to decide is in `suggestions.md`.
+Laravel 13, MySQL 8 or SQLite, Vue 3 SPA (mobile-first with a desktop layout from 600 px, Ukrainian and English UI)
+consuming the API (Blade only for PDF/email templates), in a browser or in the desktop app's window. Functional rules
+live in `accounting.md`; this document is the implementation of them. §16 fixes the phase-1 UI scope («Minimal»), §17
+its desktop layout; the invoice PDF is specified in `invoice.md`; backups and retention in `backups.md`; Docker,
+SQLite and the desktop app in `builds.md`; what is deferred or still to decide is in `suggestions.md`. Where the code
+departs from the design of the first sections (§0–§12), an «As built» note in the section says how; `MEMORY.md`
+("Decisions taken") gives the reasons.
+
+### Changes in v5.2 (the spec brought up to date with the code as built, 2026-10-30)
+
+- **As built** (§0, §2, §3, §4.1, §5, §9, §10, §11, §12): the departures that date from the first build are written
+  where they apply: api-core's settings, files, sequences and audit log in place of `profile_settings`,
+  `invoice_files`, `invoice_sequences` and the activity log; notifications as `alerts`; the `profile` middleware and
+  `TenantController` in place of scoped bindings; page numbers, not a cursor; `brick/math` without `brick/money`. The
+  design text stays.
+- **Virtual invoices** (§4.2, §13): what refuses their actions, as built: the policy's `update` (403), the status
+  rules, and a 404 for the PDF and the preview; the note-splitting migration of v4 is built (§4.1).
+- **Schema** (§3): a client's address is one text, `{text}` (v5.1); the backups' and retention's tables are
+  `backups.md`'s.
+- **The invoice editor** (§16.3, §16.5, §17.4): a new invoice is stored only by «Зберегти чернетку» (the owner,
+  2026-10-29), and a stored draft saves group by group; the footer's status line and buttons, and the number card's
+  three modes, as built.
+- **Registration and the desktop app's own pages** (§10, §15, §16.5, §17.4): Реєстрація from Вхід behind
+  `PRYTAX_REGISTRATION`, Набір відновлення and Відновлення (`builds.md` §1.3, §4.5, §4.6); Відновити з архіву
+  (`backups.md`).
+- **Довідка** (§16.5, §17.1, §17.2, §17.6): its row among the screens; the rail's ?, the sidebar's foot and Ще's last
+  card lead to it.
+- **Left over from before v5.1** (§4.2, §7, §9, §16.5, §16.7, §17.4, §17.6): Головна without quarter lists or a
+  subtitle, the year's income limit on Книги only, Налаштування and the settings without a 760 px column, Рахунки in
+  one column (since 2026-10-29), no 880 px lists, Облік's two summary cards.
+- **Not built, marked so** (§12, §16.5, §16.6, §16.7, §17.4): the XLSX exports, as `openspout/openspout` isn't
+  installed: Облік exports CSV and its period archive, Книги a PDF.
+- **Build order and tests** (§13, §14): steps 10–14 and v5.1 built, what is left; the tests v5.1 added.
 
 ### Changes in v5.1 (the owner's feedback from the desktop app's window, 2026-10-29/30)
 
@@ -31,6 +59,11 @@ what is deferred or still to decide is in `suggestions.md`.
 - **Облік** (§16.5): the summary leaves out the year's income limit, which Книги has.
 - **Rail** (§17.1): its foot has 🌐 (the language popover) and «Вийти»; «Вийти» asks first, in the rail and the
   sidebar alike.
+- **Boards' actions** (§17.2, §17.6): on desktop «+ Новий інвойс» (Інвойси) and «+ Надходження» (Облік) end the
+  filters' row, over the table, not by the 📖 | 🔔 capsule (the owner, 2026-10-30).
+- **The client's address** (§3, §16.5): one multi-line text, printed in the invoice as typed, line by line, with the
+  country when it should print; the earlier lines, city, state and postal code are converted into it, and older
+  snapshots print as before (the owner, 2026-10-30).
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
   page (Ще on a phone) groups the rest in one column: ФОП, Налаштування ФОП, Гроші, Клієнти й інвойси, Керування.
 - **Перегляд PDF** (§16.5, `invoice.md` §8): an invoice's PDF in the app whatever its status; a draft's is rendered as
@@ -117,8 +150,8 @@ organization (api-core)  1 ──── N  profiles (= one ФОП each; tax iden
 - **Why profiles live inside an organization**: api-core's `users.organization_id` is single-valued and
   `UNIQUE(organization_id, email)` makes a user a member of exactly one organization, so an accountant's client ФОПs
   must be inside the accountant's organization. "Organization per ФОП" remains expressible as one profile.
-- **Phase 1 shows one ФОП per session** (§16.1): the UI has no profile switcher and no organization board. The model
-  above, the routes and the isolation are unchanged.
+- **Phase 1 shows one ФОП at a time** (§16.1), switchable within the organization since v5, and no organization
+  board. The model above, the routes and the isolation are unchanged.
 - **Users never own domain data.** `user_id` appears only as `created_by_user_id` / `updated_by_user_id` (audit, FK
   `SET NULL`). Access = organization membership + role. Three fixed roles — `owner | accountant | viewer` — as global
   spatie role rows (assignment is per user, so no `teams` feature is needed; enable it only if custom roles or the v2
@@ -170,6 +203,18 @@ organization (api-core)  1 ──── N  profiles (= one ФОП each; tax iden
    profile; tax payment ↔ payment same profile; refund ↔ payment) is asserted in the recording services and covered
    by isolation tests.
 
+**As built** (`routes/api.php`): the profile's routes sit under `profiles/{profile}` with the `profile` middleware
+(`ResolveProfile`), inside api-core's `auth:sanctum`, `password.updated` and `organization`; instead of scoped
+bindings every profile controller extends `TenantController` (`$parents = ['profile', …]`), so another profile's id is
+a 404 all the same (`ProfileIsolationTest`). `CurrentProfile` is kept in Laravel's Context, as api-core's
+`CurrentOrganization` is. The sketch's routes differ: receipts are `payments` (with `invoice_id`, plus `preview`,
+`group`, `untransferred`, `{id}/flow`), not nested under invoices; the invoice actions are `POST invoices/{id}/…`
+(`freeze`, `unfreeze`, `send`, `pay`, `cancel`, `issue`), beside `GET …/pdf` and `…/preview`;
+`clients/{client}/invoice-defaults` is `invoices/defaults` (§4.1); `declaration/…` is
+`declarations/{year}/{quarter}`; notifications are `alerts` (§9); and `overview/{year}/{quarter}` is the
+organization's, beside `profiles`, `exchange-rates` and `organization/backup-*` (`backups.md` §4.7). Outside the
+session: `registration`, `environment` and `desktop/*` (`builds.md` §1.3, §4).
+
 ### Naming
 
 Accountant's clients are **always** `profiles`; `clients` are invoice counterparties. If the accountant UI finds this
@@ -220,8 +265,8 @@ All numbers live in `tax_rules`; `profiles.tax_group` supports `3` only in v1.
    per-payment taxes `ROUND_HALF_UP(uah_amount × pct, 2)` are hints; **YTD liability** `ROUND_HALF_UP(Σ YTD × pct, 2)`
    is the declaration figure and the quarter's obligation is `YTD(q) − YTD(q−1)`. Standalone `ROUND(Σ_q × pct)` and
    Σ hints are shown as cross-checks with their kopeck deltas (§8.1).
-4. **Money arithmetic.** `DECIMAL(15,2)` amounts, `DECIMAL(12,4)` rates, `brick/money` + `brick/math`; API carries
-   amounts and rates as strings. No floats.
+4. **Money arithmetic.** `DECIMAL(15,2)` amounts, `DECIMAL(12,4)` rates, `brick/math` (the `Decimal` helper; as
+   built, without `brick/money`); API carries amounts and rates as strings. No floats.
 5. **Invoice immutability by snapshot + state machine** (§4). `ready → draft` allowed without receipts; `sent`/`paid`
    never go back; `cancelled` + new invoice instead.
 6. **Receipts and own-account transfers are different entities.** Receipt (client → my account) is 1:1 with the taxable
@@ -317,7 +362,7 @@ account_movements   [P] account_id (RESTRICT), direction(enum in|out), amount DE
                     INDEX(account_id, booked_at)
 
 clients             [P] name, abbreviation VARCHAR(10), legal_name, name_uk NULL, legal_name_uk NULL, country CHAR(2),
-                    vat_number NULL, address JSON (lines, city, zip), tax_id NULL, email,
+                    vat_number NULL, address JSON ({text}: as printed, line by line; v5.1), tax_id NULL, email,
                     notes, is_active,
                     -- invoice defaults (§4.1); NULL = inherit from the profile
                     currency CHAR(3) NULL,                      -- prefill for new contracts and invoices
@@ -470,6 +515,20 @@ activity_log        spatie/laravel-activitylog on clients, invoices, invoice_ite
                     transfer_allocations, tax_payments, tax_periods, profile_settings
 ```
 
+**As built** (`database/migrations`, which are the reference for columns): api-core's own tables stand in for four of
+the sketch's.
+- `profile_settings` → api-core's `settings` (`HasSettings` on `Profile`; the keys above), written to the audit log by
+  `ProfileSettingController`.
+- `invoice_files` → api-core's `files` (`HasFiles`, collections `generated` and `uploaded`, a profile's `signature`),
+  with `invoices.primary_file_id` naming the primary document.
+- `invoice_sequences` → api-core's `sequences` owned by the profile (§5).
+- `activity_log` → api-core's audit log (`Audited`, `audit_logs`); `created_by_user_id` comes from `TracksCreator`, and
+  there is no `updated_by_user_id`.
+
+Also: notifications are `alerts` and `alert_reads` (§9), as api-core owns `notifications`; an invoice's number is
+unique among the profile's invoices that aren't deleted (`invoices.active_number`, generated); the backups' and
+retention's tables are `backups.md` §4.1 and §9.4.
+
 ---
 
 ## 4. Invoice lifecycle
@@ -585,8 +644,8 @@ Validation and warnings:
 - Save (Form Requests for client, invoice, profile settings): `payment_purpose_template` `nullable|string|max:255` +
   `PurposeTemplate` rule — every placeholder in the whitelist, else 422 naming the unknown ones; `act_note`
   `nullable|string|max:500`; `act_note_enabled`, `show_contract` `nullable|boolean`; `invoice_locale` / `locale`
-  `nullable` + `Rule::enum(InvoiceLocale::class)`; `clients.currency` `nullable|size:3` + ISO 4217 check through
-  `Brick\Money\Currency::of()`.
+  `nullable` + `Rule::enum(InvoiceLocale::class)`; `clients.currency` `nullable|size:3` (as built `alpha`, stored
+  upper case; no ISO 4217 list, as `brick/money` isn't installed).
 - Freeze: a `{contract.*}` placeholder without a contract, or with a `NULL` contract field → 422 on
   `payment_purpose_template` (`The payment purpose uses {contract.number}, but the invoice's contract has no
   number.`), message noting the level the template came from.
@@ -617,9 +676,10 @@ API (§10 conventions apply):
 - `GET invoices/defaults?client_id=&contract_id=&period_end=` gives a new invoice's form its effective settings, its
   `currency` and its `receiving_account_id`.
 
-Migrations: the cascade (`2026_10_24_133741_add_invoice_settings_to_clients_contracts_and_invoices`) and the style
-and note (`2026_10_24_204757_add_invoice_style_and_note_to_clients_and_invoices`) are built; v4 adds one that splits
-the note into the two notes (above) and drops `note_kind`.
+Migrations, all built: the cascade (`2026_10_24_133741_add_invoice_settings_to_clients_contracts_and_invoices`), the
+style and note (`2026_10_24_204757_add_invoice_style_and_note_to_clients_and_invoices`), and v4's split of the note into
+the two notes (above), which drops `note_kind`
+(`2026_10_25_103001_split_the_invoice_note_into_the_payment_and_the_other_note`).
 
 ### 4.2 Payments without an invoice (`source = virtual`)
 
@@ -644,17 +704,20 @@ existing `source` discriminator takes the value instead, so nothing else is rena
 - **One receipt** per virtual invoice. Editing the receipt's amount changes the total with it. Deleting the receipt
   deletes the virtual invoice.
 - **Status `paid` from the start**, with no transition. It never takes a number from a counter.
-- **Denied** by the policy: freeze, unfreeze, send, pay, cancel, PDF and download, files, items.
+- **Refused** (as built): `InvoicePolicy` denies `update` of a virtual invoice, and with it its items, its files and
+  its notes (403; «За що» changes through `PATCH payments/{payment}`), and allows `issue` only for one; freeze,
+  unfreeze, send, pay and cancel are refused by their status rules, as it is always `paid`; `invoices/{id}/pdf` and
+  `invoices/{id}/preview` answer 404 («A payment without an invoice has no document: issue it as an invoice first.»).
 
 **Where it counts.** Queries that must leave virtual invoices out use explicit scopes (such as `documents()`), never a
 global scope, because the books must see them.
 - **Left out of:** the overdue and "ready without receipts" notifications, «до оплати» totals (`invoices/outstanding`,
-  Головна's subtitle), numbering and counters, and the client stats' outstanding amount.
+  Головна's «До оплати»), numbering and counters, and the client stats' outstanding amount.
 - **Included in:** receipts, taxes, Облік and Податки, the income book and the CSV exports (as the document
   «Без інвойсу»), the client's and the contract's paid totals, and Облік's quarter income, where it counts as invoiced
   and received.
-- **Lists:** Головна and Інвойси show it (§16.5); the status filter has the option «Без інвойсу», which matches
-  `source = virtual`, while the five statuses match only the other invoices.
+- **Lists:** Інвойси shows it (§16.5; Головна lists only drafts and open invoices since v5.1); the status filter has
+  the option «Без інвойсу», which matches `source = virtual`, while the five statuses match only the other invoices.
 
 **Actions on the record** («Якщо клієнт попросить інвойс»):
 - **«Оформити як інвойс»** (`POST invoices/{invoice}/issue`): in one transaction `source → generated`, a number from
@@ -662,8 +725,9 @@ global scope, because the books must see them.
   `paid`. The issue date stays the payment date, and the period stays as entered. The invoice gets one `fixed` item
   for the whole amount, its description expanded from the contract's `description_template`.
 - **«Прив’язати до виставленого інвойсу»** (`PATCH payments/{payment} {invoice_id}`): the receipt moves to a `ready`,
-  `sent` or `paid` invoice in its currency (the screen offers the client's ones) (the existing receipt move, with its coverage and paid/reopen rules), and
-  the virtual invoice is deleted in the same transaction. No other receipt can join a virtual invoice.
+  `sent` or `paid` invoice in its currency (the screen offers the client's ones) (the existing receipt move, with its
+  coverage and paid/reopen rules), and the virtual invoice is deleted in the same transaction. No other receipt can join
+  a virtual invoice.
 
 **Screens** (§16.5): «Інвойс для надходження» (board 041), «Нове надходження» without an invoice (042), the list rows
 (002, 003, 043), the record «Без інвойсу» (044).
@@ -706,6 +770,12 @@ SELECT LAST_INSERT_ID();   -- 1 when the scope row was just created, last_number
 `last_number` is the last allocated `{n}` for the scope (the column is not an auto-increment, so `LAST_INSERT_ID(expr)`
 carries the allocated value on both paths). Fallback if the driver misbehaves: `lockForUpdate()->first()` with a
 single retry on the unique violation of the first insert.
+
+**As built:** the counters are api-core `Sequence`s of the profile, keyed `invoices:{scope}` (`invoices:client:5`,
+`invoices:global:2027`), each holding its `next_number` (the last allocated + 1); `Sequence::next()` allocates under a
+locked row, on MySQL and SQLite alike, in place of the upsert above. `GET invoices/counters` lists them, the current
+numbering's ones from 0 before their first invoice, and `PATCH invoices/counters {scope_key, next_number}` moves one
+forward, never back (Поточні лічильники, §16.5).
 
 Rules:
 - Draft shows a preview (`next: BL-2026-10-14-13`) computed without consuming the sequence.
@@ -764,8 +834,8 @@ holding(P, X) = receipt(P on X)                                   -- received_am
 
 A $1 000 receipt on Payoneer moved to Wise with a $15 fee holds $985 on Wise; Payoneer USD → Wise EUR leaves a EUR
 holding on Wise that bounds the next hop (whose `currency_sent` is EUR). Invariants enforced by `TransferRecorder`:
-`Σ alloc per transfer ≤ amount_sent`; `Σ alloc out of X for P ≤ holding(P, X)`; both accounts same profile; same-currency
-fee rule; FX fee explicit.
+`Σ alloc per transfer ≤ amount_sent`; `Σ alloc out of X for P ≤ holding(P, X)`; both accounts same profile;
+same-currency fee rule; FX fee explicit.
 
 ### 6.3 Allocation proposal (`AllocationProposer`)
 
@@ -813,8 +883,9 @@ Platform receipt whose `landed_on_fop_bank < received_amount` past the rule in `
 ## 7. Accounting view and exports
 
 Per profile, per quarter (`accounting/{year}/{quarter}`): receipts and refunds by `received_at`, grouped by month (the
-default), by invoice, or not at all. The phase-1 screen (Облік, §16.5) opens with the quarter summary:
-- the yearly cap: YTD income against `income_cap_uah`, with ticks at 80 % and 90 %;
+default), by invoice, or not at all. The phase-1 screen (Облік, §16.5) opens with the quarter summary (since v5.1
+without the yearly cap, YTD income against `income_cap_uah` with ticks at 80 % and 90 %, which Книги's Доходи shows,
+§16.7):
 - the quarter's income per currency, as invoiced against received over the invoices issued in the quarter (the
   figures of the former Огляд практики, `PracticeOverview`), and the quarter's taxable income in UAH;
 - ЄСВ · ЄП · ВЗ owed for the quarter, with what is paid.
@@ -824,8 +895,9 @@ net. Owed ЄП/ВЗ is `YTD(q) − YTD(q−1)` (§8.1). The cross-checks (the st
 deltas) stay in the API and the declaration figures, but phase 1 doesn't show them.
 
 Exports: CSV of the quarter, of the year and of the income book (Облік доходів, п. 296.1), with the profile's decimal
-separator. XLSX and the yearly PDF summary need a package (approval first). The 12-month ЄСВ table (`esv/{year}`) and
-the monthly income table (`income-book/{year}`) stay in the API; their screens are hidden in phase 1.
+separator; Облік also offers the period's archive (`backups.md` §2.7). XLSX (`openspout/openspout`, approved in v5)
+isn't built, as the package isn't installed; the yearly PDF summary isn't built either. The 12-month ЄСВ table
+(`esv/{year}`) and the monthly income table (`income-book/{year}`) stay in the API; their screens are hidden in phase 1.
 
 ## 8. Liabilities, periods, locks, reconciliation
 
@@ -1022,10 +1094,15 @@ the current user; the count is shown on the bell of the root screens (§16.2). D
 | Invoice overdue | `due_at < today`, not fully paid; never a virtual invoice | info |
 | Ready without receipts | `ready` older than `alerts.ready_days` days | info |
 
-Summary figures live on their own screens in phase 1: YTD vs cap, quarter invoiced/received and quarter taxes on
-Облік's quarter summary; balances, inbound and outbound rows on the account screen; the current and previous quarter's
-invoices on Головна (§16). The Сповіщення screen filters only «Усі» and «Непрочитані». The organization-wide board
-(one row per profile) is a later phase.
+Summary figures live on their own screens in phase 1: YTD vs cap on Книги's Доходи (§16.7); quarter invoiced/received
+and quarter taxes on Облік's quarter summary; balances, inbound and outbound rows on the account screen; what needs
+attention, the open invoices and the money still on a platform, on Головна (§16.5). The Сповіщення screen filters
+only «Усі» and «Непрочитані». The organization-wide board (one row per profile) is a later phase.
+
+**As built:** the rows are `alerts` and `alert_reads` (api-core owns `notifications`, the users' own notices),
+upserted by `AlertSync`; the endpoints are `alerts` (`filter[unread]`, `filter[category]`), `alerts/counts` and
+`POST alerts/{id}/read`. Besides the rules above, `AlertCollector` warns of a manual rate that differs from the NBU's
+published since and, in December, of next year's missing tax rules; a tax debt is one notice per tax.
 
 ## 10. API conventions and security
 
@@ -1038,17 +1115,19 @@ invoices on Головна (§16). The Сповіщення screen filters only 
   `inputmode="decimal"`, accept `.` or `,` as the decimal separator and ignore grouping characters; the client
   normalises to the canonical `1234.99` before sending. The invoice snapshot stores the `money_format` in force at
   freeze so a PDF re-renders identically after the setting changes.
-- **Auth**: e-mail + password only (Sanctum SPA cookie; tokens for integrations). No self-signup variants, social
-  login, passkeys or 2FA in phase 1.
-- **List endpoints**: cursor pagination through api-core (`cursor`, `per_page` ≤ 50, default 20) for infinite scroll.
-  Invoices: default order `issued_at DESC, id DESC`; filters `period[]` (`2026`, `2026-Q4`, `2026-10`, any mix,
-  matched on `issued_at`) **or** `issued_from` / `issued_to`, plus `client_id[]`, `currency[]`, `status[]`; the
+- **Auth**: e-mail + password only (Sanctum SPA cookie; tokens for integrations), with «Запам’ятати мене». No social
+  login, passkeys or 2FA in phase 1. Registering a new organization with its owner from the sign-in page is built
+  behind `PRYTAX_REGISTRATION`: off on servers, on in development and in the desktop app (`builds.md` §1.3).
+- **List endpoints**: page numbers through api-core (`page[number]`, `page[size]` ≤ 50, default 20; as built, not the
+  cursor first designed), which the infinite scroll pages through. Invoices: default order `issued_at DESC, id DESC`;
+  filters `filter[period][in]` (`2026`, `2026-Q4`, `2026-10`, any mix, matched on `issued_at`) **or**
+  `filter[issued_at][gte|lte]`, plus `filter[client_id][in]`, `filter[currency][in]`, `filter[status][in]`; the
   status option «Без інвойсу» matches `source = virtual` (§4.2). No free-text search in phase 1. Filters are mirrored
   in the URL query so a filtered list is linkable.
 - `POST` payments/refunds/transfers/tax-payments accept `Idempotency-Key`; replay returns the stored response.
-- `PATCH` on invoices requires `If-Unmodified-Since` = `updated_at`; mismatch → 409.
+- `PATCH` on invoices requires `If-Unmodified-Since` = `updated_at`; mismatch → 409 (428 without the header).
 - Cascading overrides on clients and invoices (§4.1): an explicit `null` clears the override, an absent key leaves it;
-  effective values with their `source` only on `show` resources and `clients/{client}/invoice-defaults`, never on lists.
+  effective values with their `source` only on `show` resources and `invoices/defaults`, never on lists.
 - Deletes: hard delete only when nothing references the row (FKs `RESTRICT`) and the period is open; otherwise a
   reversing row. Soft deletes only on `profiles` and `invoices`.
 - Encrypted casts: `profiles.tax_id`, `accounts.iban`, `accounts.account_number`; lookup/uniqueness via `tax_id_hash`.
@@ -1073,6 +1152,15 @@ invoices on Головна (§16). The Сповіщення screen filters only 
 `attach`; §4.2) · `AlertCollector` + `NotificationSync` · `PracticeOverview` (Облік's quarter summary, §7) ·
 `ClientStats` (§16) · `AccountingExporter` · `SheetImporter`.
 
+**As built:** `NotificationSync` is `AlertSync` (§9); there is no `ProfileSettings` DTO, the profile's settings are read
+through api-core's `HasSettings` (`$profile->setting()`), defined with their defaults in
+`Profile::settingDefinitions()`; `SheetImporter` isn't built (§14). Added since: `UntransferredReceipts` (Головна's
+receipts still on a platform, §16.5), `InvoicePreview` (Перегляд PDF, `invoice.md` §8), `ProfileStatus` (the status
+lines of ФОП організації, §16.1), `AccountingBooks` and `IncomeBook` (Книги, §16.7), `TaxTracking` (from when a
+profile's periods and ЄСВ months count), `OrganizationRegistrar` and `InstallationSetup` (the first owner and
+registration, `builds.md` §1.3), and the desktop app's `InstallationKey`, `RecoveryKit`, `DatabaseRestore` and
+`LaunchCatchUp` (`builds.md` §4).
+
 ## 12. Stack and packages
 
 api-core · Laravel 12/13 · MySQL 8 (≥ 8.0.13 for functional indexes) · Vue 3 + TypeScript + Tailwind, Sanctum SPA/token
@@ -1081,6 +1169,13 @@ flex/grid is needed) · `openspout/openspout` for XLSX (v5; streams rows, no oth
 `spatie/laravel-activitylog` · `spatie/laravel-permission` (via api-core) · Form Requests + Policies. **Not**
 `spatie/laravel-settings` (per-profile keys need custom work; own table + DTO is less code). The SPA adds no package
 for v5: the popovers, the date picker and the panels are the app's own components.
+
+**As built:** api-core · Laravel 13 · MySQL 8, or SQLite (`builds.md` §3) · Vue 3 + vue-router + TypeScript +
+Tailwind 4, with `pdfjs-dist` (pinned, approved in v3.x) for Перегляд стилю and Перегляд PDF · Sanctum SPA/token auth
+· `brick/math` (no `brick/money`) · `barryvdh/laravel-dompdf` · `spatie/laravel-permission` (via api-core) ·
+`nativephp/desktop` for the desktop app (`builds.md` §4). api-core's audit log stands in for
+`spatie/laravel-activitylog`, and its settings for the own table (§3). `openspout/openspout` is approved but not
+installed yet, so the XLSX exports aren't built. The web app also ships as a Docker image (`builds.md` §2).
 
 ## 13. Tests (PHPUnit, Vitest)
 
@@ -1122,7 +1217,7 @@ Added by v4 («Minimal»):
   - the order inside a month: unpaid, failed, sent, paid;
   - the month headers summed from their own rows;
   - the receipt page and the ledger agree.
-- **Virtual invoices:** created with the receipt and deleted with it; freeze, send, PDF, download and cancel denied;
+- **Virtual invoices:** created with the receipt and deleted with it; an update 403, the PDF and the preview 404;
   left out of overdue notifications and «до оплати», included in taxes, Облік and the client's totals; `issue` →
   numbered, issued on the payment date, one `fixed` item from the contract's template, PDF, still paid; `attach` →
   the receipt moved and the record gone; the service period required; receipts of kind `advance` / `other` rejected.
@@ -1165,6 +1260,19 @@ Added by v5:
 - **Acceptance (v5):** every board of delta 3 at 390 px and of the desktop handoff at 1440 px matches its PNG within
   font rendering; no horizontal scroll from 600 to 1440 px; the sidebar fits 900 px.
 
+Added by v5.1 (as built):
+- **Головна:** `payments/untransferred` lists what each receipt still holds on a platform or a foreign bank, with its
+  deadline and the totals per currency, and leaves out another profile's.
+- **Counters:** listed from 0 before the first invoice (a client's, or this year's of the ФОП); moved forward only; a
+  draft's chosen counter, which no other invoice may hold, which automatic numbers skip, which the freeze moves past
+  and which a draft gives back.
+- **Перегляд PDF:** a generated draft rendered and marked as a draft, nothing stored; a frozen invoice's own PDF; an
+  external draft's upload; a virtual invoice 404.
+- **The client's address:** saved as `{text}`, parts refused; printed line by line; an older snapshot's parts printed
+  as before; the migration of parts into the text.
+- **Registration and the desktop app:** `builds.md` §1.3 and §4.
+- **SPA (Vitest):** the zoom's steps and bounds (`utils/zoom.ts`); Довідка's search (`utils/help.ts`).
+
 ## 14. Build order
 
 The v3 build is done: the foundation, accounts, clients and contracts, invoices with the cascade and the 13 styles,
@@ -1188,8 +1296,8 @@ demo data reseeded.
    Облік.
 6. **Virtual invoices** and the receipt entry flow (§4.2): `source = virtual`, `POST payments` with `virtual_invoice`,
    `issue`, `attach`; «Інвойс для надходження», the receipt form without an invoice, the record.
-7. **Lists and summaries:** Головна (two quarters, every status) and Інвойси with virtual rows and the status option;
-   Облік's quarter summary; the Рахунки caption («Надходження за …»).
+7. **Lists and summaries:** Головна (two quarters, every status; v5.1 replaced them) and Інвойси with virtual rows and
+   the status option; Облік's quarter summary; the Рахунки caption («Надходження за …»).
 8. **Податки as the tax ledger** (the second handoff, §8.5):
    - `TaxLedger` and `taxes/{year}/ledger`, with the receipt page and the receipt cards reading it;
    - the screen: three filters, the summary and the month cards (§16.2, §16.5);
@@ -1213,9 +1321,13 @@ v5 goes in the handoffs' order: delta 3 first (desktop reuses its components), t
     panel, dialog, popover, the filter popovers); the list pages; the record panels and the forms in them; the settings
     and entity pages; Вхід and the date-picker popovers.
 
+Steps 10–14 and the backups screens are built (2026-10-28), but for the XLSX exports: `openspout/openspout` isn't
+installed (§12), so Облік exports CSV and Книги a PDF. Not done from the desktop handoff: §17.6. v5.1 (the owner's
+feedback, 2026-10-29/30) is built too, and so are Docker, SQLite and the desktop app (`builds.md`).
+
 Later: `SheetImporter` for the 2025 sheet (`--profile=`, `--dry-run`: external invoices, payments, transfers, tax
 payments, ЄСВ months paid or exempt; totals must reconcile to the sheet within the rounding policy), the yearly PDF
-summary.
+summary, the XLSX exports.
 
 ## 15. Deferred (later phases)
 
@@ -1228,9 +1340,9 @@ share sheet and overdue reminders · push / e-mail / Telegram delivery of notifi
 invoice-as-act note of §4.1 covers the common case) · bilingual PDF template (`InvoiceLocale::EnUk`, no schema
 change) and per-language custom texts ·
 expenses as a feature (beyond `account_movements`) · other tax schemes (`tax_scheme`: 3 % + ПДВ, 2 група) ·
-multi-organization users (api-core `organization_user` pivot) · free-text search on lists · passkeys / 2FA /
-self-signup · organization board (the desktop layout came in v5, §17) · a Гроші tab, four-bucket tax balances and a
-hero card (ideas of an earlier design review).
+multi-organization users (api-core `organization_user` pivot) · free-text search on lists · passkeys / 2FA
+(registering a new organization from Вхід is built behind a switch, §10) · organization board (the desktop layout
+came in v5, §17) · a Гроші tab, four-bucket tax balances and a hero card (ideas of an earlier design review).
 
 **Income recognition on ФОП-account arrival** (`income.recognition = fop_bank_receipt`), designed in v3 and removed
 from phase 1 by the design prompts. Kept here so it can be restored additively: `payments.received_at DATE NULL` +
@@ -1291,7 +1403,7 @@ the Ukrainian one.
   - Облік's ЄСВ and Книга доходів tabs and its declaration button, so declarations aren't filed in the app (§8.3);
   - Податки by month and by quarter, and the tax-period calendar button;
   - the round upload button of Інвойси (an external invoice starts from the new invoice's source switch);
-  - Облік's download button in the header (CSV / XLSX sit at the foot of the list).
+  - Облік's download button in the header (the exports sit at the foot of the list, §16.5).
 - **Removed options:**
   - the receipt types «Аванс» and «Інший дохід» (§4.2);
   - «Оформити повернення клієнту» on the receipt (§6.6);
@@ -1354,9 +1466,9 @@ the Ukrainian one.
     reads «Усі статуси» for both, or the chosen ones («Не пройшов, Надіслано»). The hint is «Підсумок рахує лише обрані
     статуси. Не обрано жодного — показуються всі.»
   - **The URL** mirrors the filters (§10): `year`, `quarters` (`2-4`, `4`, or `all` for the whole year), `taxes` and
-    `statuses` (comma-separated, left out when all are chosen, empty when none is). A link without `quarters` opens the current quarter
-    of the current year, or a whole other year; an old link's `quarter` names one quarter. The first handoff's
-    `?mode=` is gone.
+    `statuses` (comma-separated, left out when all are chosen, empty when none is). A link without `quarters` opens the
+    current quarter of the current year, or a whole other year; an old link's `quarter` names one quarter. The first
+    handoff's `?mode=` is gone.
 - **Інвойси** keeps its filters (years, quarters, months or a range; clients; statuses; currencies), plus the status
   «Без інвойсу» after Скасовано; its drawer confirms with «Застосувати».
 - **Status badges** are in sentence case everywhere (rule 2):
@@ -1385,8 +1497,11 @@ and the invoice editor.
 - **Cancelling:** Скасувати restores the values.
 - **No page-level save.** Creation forms keep their own primary action (Зберегти надходження, Зберегти сплату,
   Зафіксувати).
-- **The invoice editor** saves its draft group by group («Чернетка зберігається після кожної групи»). The first saved
-  group creates the draft, and each later one is a `PATCH` with `If-Unmodified-Since`.
+- **The invoice editor** keeps a new invoice in the form, its groups, items and number alike, until «Зберегти
+  чернетку» (or «Зафіксувати») stores it: a group's Зберегти only closes it (the owner, 2026-10-29). A stored draft
+  saves group by group («Зміни групи зберігаються одразу.»), each a `PATCH` of the whole draft with
+  `If-Unmodified-Since` (the other groups can't change meanwhile). A refused save opens the group whose fields were
+  refused.
 
 **Text cards** (Призначення платежу, Примітка «акт», Примітка щодо оплати, Інша примітка):
 - **View:** the title with its source line, then «Так буде в інвойсі» and the rendered text, its placeholders filled as
@@ -1411,7 +1526,8 @@ own: «Типово», «Типово: увімкнено», «Типово: б�
 
 One component, for Облік and the «Без інвойсу» record. Податки lists its own rows (§16.5).
 - **Header** (links to the receipt): the invoice number in mono, or the «Без інвойсу» marker; the amount in the
-  receipt's currency, on a green pill; the client; the rate (`1 USD = 41.7350 ₴`); the credit date; the UAH amount, large.
+  receipt's currency, on a green pill; the client; the rate (`1 USD = 41.7350 ₴`); the credit date; the UAH amount,
+  large.
 - **Tax rows** ЄП and ВЗ: the label (a 44 px column) and the amount on the left, the status badge on the right. A dashed
   rule runs above the first row and solid ones between the others. Each row opens that tax's payment (§8.4).
 - **No pay row:** «Сплатити {ЄП і ВЗ | ЄП | ВЗ} за цим надходженням» is removed (the owner, 2026-10-25, and the
@@ -1427,16 +1543,18 @@ Board numbers are in brackets.
 
 | Screen | Phase-1 content and behaviour |
 |---|---|
-| Вхід (001, v5 `M-Login`, `M-LoginLanguage`) | E-mail and password, «Запам'ятати мене». **The language pill** «🌐 Українська ⌄» sits top right (44 px, white, 1 px border) and opens the language sheet (§16.6) with the note «Запам’ятаємо на цьому пристрої. Після входу мову можна змінити в «Ще › Мова застосунку».» |
-| Головна (002) | v5.1 (the owner, 2026-10-30): only what needs attention, no subtitle and no quarter lists. **Quick actions:** «+ Новий інвойс» (accent) and «+ Нове надходження» (→ Інвойс для надходження), each for those who may. **Інвойси** (with «Усі інвойси» on the right): «До оплати X» (ready and sent, per currency), «Прострочено Y» in red, «Чернетки N», then the drafts, ready and sent invoices — overdue first, then by due date, drafts last — in the rows of before (the number, «наст. …» on drafts, the status with its date; the client and the total; the period and «сплатити до …» or «прострочено, до …»; the paid bar on a sent one); none → «Усе гаразд: усі інвойси оплачені й зафіксовані.» with a green check. **Надходження** (with «Новий переказ» from the oldest one's account): «На платформах X», «Час переказати Y» in red, then each receipt with money still on a platform or a foreign bank (`GET payments/untransferred`, `UntransferredReceipts`): the invoice's number or «Без інвойсу» and what it still holds there; the day, the account, the client; «переказати до …» by the repatriation rule, or «прострочено, з …» in red; a row opens the receipt; none → «Усе гаразд: усі надходження переказані на рахунок ФОП.» |
-| Інвойси (003, 004) | Grouped by the month of `issued_at` («IV кв. · Жовтень · 2026», its quarter first), each with its count as Головна's quarters have it («N інвойсів», «N записи» with a virtual one; the last month on screen counts once loaded whole), with infinite scroll; the sticky block holds the title, «+ Новий» and the badges. Rows exactly as on Головна (one component): period, «сплатити до» or «прострочено, до» in red, the dated status, the paid bar of a sent invoice (the owner, 2026-10-25). **A virtual row** reads «Без інвойсу» + «Оплачено {дд.мм}», then the client and the amount, then «Період …»: no date after the marker, no contract, no note. |
+| Вхід (001, v5 `M-Login`, `M-LoginLanguage`) | E-mail and password, «Запам’ятати мене». **The language pill** «🌐 Українська ⌄» sits top right (44 px, white, 1 px border) and opens the language sheet (§16.6) with the note «Запам’ятаємо на цьому пристрої. Після входу мову можна змінити в «Ще › Мова застосунку».» Where registration is on (§10), «Ще не працюєте в PryTax? Зареєструвати організацію» leads to Реєстрація; an installation without any user (the desktop app's first launch) opens Реєстрація at once. |
+| Реєстрація (no board; `builds.md` §1.3) | `/register`: «Нова організація», «Назва організації», «Ваше ім’я», the e-mail, the password and «Повторіть пароль», «Зареєструватися»; the owner is signed in at once and creates the first ФОП (`/profiles/new`). On a first launch the hint is «Це перший запуск PryTax: створіть організацію та її власника, щоб почати роботу.», without the way back to Вхід, and the desktop app adds «Відновити з копії іншого комп’ютера». |
+| Набір відновлення, Відновлення (desktop app only, no board; `builds.md` §4.5, §4.6) | `/recovery-kit`: the owner keeps the installation's key before working («Завантажити файл…» through a native dialog, or «Скопіювати» with «Набір відновлення збережено в надійному місці поза цим комп’ютером»), then «Продовжити»; Резервні копії opens it again, with when it was kept. `/restore` (from Реєстрація on a first launch): the kit and the old computer's database, «Відновити», after which the app relaunches. Both keep one centred column, without the sidebar. |
+| Головна (002) | v5.1 (the owner, 2026-10-30): only what needs attention, no subtitle and no quarter lists. **Quick actions:** «+ Новий інвойс» (accent) and «+ Нове надходження» (→ Інвойс для надходження), each for those who may. **Інвойси** (with «Усі інвойси» on the right): «До оплати X» (ready and sent, per currency), «Прострочено Y» in red, «Чернетки N», then the drafts, ready and sent invoices — overdue first, then by due date, drafts last — in the rows of before (the number, «наст. …» on drafts, the status with its date; the client and the total; the period and «сплатити до …» or «прострочено, до …»; the paid bar on a sent one); none → «Усе гаразд: усі інвойси оплачені й зафіксовані.» with a green check, or «Інвойсів ще немає.» with an ⓘ while the ФОП has none at all. **Надходження** (with «Новий переказ» from the oldest one's account, when there is one and the user may record transfers): «На платформах X», «Час переказати Y» in red, then each receipt with money still on a platform or a foreign bank (`GET payments/untransferred`, `UntransferredReceipts`): the invoice's number or «Без інвойсу» and what it still holds there; the day, the account, the client; «переказати до …» by the repatriation rule, or «прострочено, з …» in red; a row opens the receipt; none → «Усе гаразд: усі надходження переказані на рахунок ФОП.», or «Надходжень ще немає.» with an ⓘ while the ФОП has none at all. |
+| Інвойси (003, 004) | Grouped by the month of `issued_at` («IV кв. · Жовтень · 2026», its quarter first), each with its count («N інвойсів», «N записи» with a virtual one; the last month on screen counts once loaded whole), with infinite scroll; the sticky block holds the title, «+ Новий» and the badges. Rows exactly as on Головна (one component): period, «сплатити до» or «прострочено, до» in red, the dated status, the paid bar of a sent invoice (the owner, 2026-10-25). **A virtual row** reads «Без інвойсу» + «Оплачено {дд.мм}», then the client and the amount, then «Період …»: no date after the marker, no contract, no note. |
 | Фільтри інвойсів (012) | As built, plus the status «Без інвойсу». |
-| Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): «Дохід IV кв.» (v5.1 dropped the board's black income-limit band before it: Книги has the limit) per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; CSV / XLSX at the foot. |
+| Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): «Дохід IV кв.» (v5.1 dropped the board's black income-limit band before it: Книги has the limit) per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; at the foot the export block with CSV and «Архів» (the period's archive, `backups.md` §2.7, for those who may export); XLSX isn't built (§12). |
 | Сповіщення (008, 009) | A sticky header with only «Усі · N» and «Непрочитані · N». A notification becomes read when it is tapped, on its action, or on ✓ (§9). |
-| Податки (second handoff: `M-Taxes`, `M-TaxesFilters`, `M-TaxesSummaryStates`; replaces 010, 011) | §8.5, at `/taxes`. **Header:** the sticky title and the badges Період · Податки · Статус (§16.2); no action and no mode switch. **«Підсумок за період»:** one white card. **The «Усього податків» band** comes first, only when two or more taxes show. It is black, edge to edge, like Облік's income-limit band: the paid share on the right, saying what it means («57.3 % сплачено», paid ÷ accrued; rule 3); a 10 px bar, paid in light green then sent in amber, with a tick per quarter; and the three columns on dark. **Then a row per tax,** ЄСВ, ЄП, ВЗ in that order: (1) the name, with the due label on the right: the earliest deadline not yet paid («до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, its quarter's, rather than the board's «жовтень — до 19.11»), or «✓ закрито» in green when all is paid. (2) An 8 px bar: paid in green (`#17683F`, never blue), then sent in amber. Tick marks overhang it like the 80/90 % ones, splitting it per month of the period for ЄСВ and per quarter for ЄП and ВЗ (12 and 4 for the whole year). (3) Three columns: **Нараховано** · **Надіслано** (amber above zero) · **Сплачено** (green above zero). (4) When «Не пройшов» is selected and an attempt failed, a red «7 945.41 не пройшло (не враховано)». There is no «До сплати» and no «+ X надіслано» anywhere. **«Податки за місяцями»:** month cards, newest first. The dark header has the month and the same three columns, summed from the card's rows (the failed ones left out). **A row** has three lines. (1) The tax (a 44 px label), the amount (bold mono; struck through and grey when failed) and the status badge. (2) The invoice number in mono · the client (ЄП, ВЗ; the «Без інвойсу» marker for a virtual one), or «за жовтень» (ЄСВ). (3) «надійшло 19 жовтня · сплатити до 19.02.2027» on an unpaid ЄП/ВЗ; «сплатити до 19.01.2027» on an unpaid ЄСВ (its quarter's deadline, not the board's 19.11.2026); «12 жовтня · ПриватБанк ФОП · UAH» on a payment (`Monobank ФОП · USD → UAH` from a foreign one). A row opens its payment (§8.4). **Footnote:** «У кожному місяці: спершу несплачене (ЄП і ВЗ — у місяці надходження, ЄСВ — у місяці, за який він), далі «Не пройшов», «Надіслано» й «Сплачено». «Надіслано» борг не зменшує; «Не пройшов» ніде не враховується.» **Empty:** «Немає сплат за обраний період і податки.» **The spec board** `M-TaxesSummaryStates` draws the summary's eight states: nothing paid or sent; sent only; all sent; part paid; paid, sent and unpaid over two quarters; all paid; a failed payment; one tax. |
-| Новий інвойс (013, 014, 072–079) | **Top:** the source switch «Створити в PryTax \| Зовнішній PDF»; the number preview card («BL-2026-10-31-14», «Присвоюється під час фіксації: абревіатура клієнта, кінець періоду й лічильник клієнта.», «Ввести власний»). **Groups:** Клієнт і договір (the contract's terms: currency, rate, payment days) · Період і дати (quick picks 01–14, 15–31, the month, other; issued = the period's end; due by the contract's terms) · Отримання коштів (active accounts in the currency, the last invoice's one first) · Документ (Стиль · Мова · Показувати договір · Призначення платежу · Примітка «акт» · Примітка щодо оплати · Інша примітка) · Позиції (not a group; dimmed while a group is open; «+ Знижка або коригування») · Внутрішня примітка. **Footer:** «Чернетка зберігається після кожної групи» and «Зафіксувати»; a saved draft's footer is «👁 Переглянути PDF» \| «Зафіксувати» (v5.1: its PDF as the freeze would print it now, marked as a draft, after saving pending changes), and before the first save the status line says the PDF can be previewed once saved. The board has no currency field: the currency follows the contract, else the client. |
+| Податки (second handoff: `M-Taxes`, `M-TaxesFilters`, `M-TaxesSummaryStates`; replaces 010, 011) | §8.5, at `/taxes`. **Header:** the sticky title and the badges Період · Податки · Статус (§16.2); no action and no mode switch. **«Підсумок за період»:** one white card. **The «Усього податків» band** comes first, only when two or more taxes show. It is black, edge to edge, like Книги's income band (§16.7; Облік's until v5.1): the paid share on the right, saying what it means («57.3 % сплачено», paid ÷ accrued; rule 3); a 10 px bar, paid in light green then sent in amber, with a tick per quarter; and the three columns on dark. **Then a row per tax,** ЄСВ, ЄП, ВЗ in that order: (1) the name, with the due label on the right: the earliest deadline not yet paid («до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, its quarter's, rather than the board's «жовтень — до 19.11»), or «✓ закрито» in green when all is paid. (2) An 8 px bar: paid in green (`#17683F`, never blue), then sent in amber. Tick marks overhang it like the 80/90 % ones, splitting it per month of the period for ЄСВ and per quarter for ЄП and ВЗ (12 and 4 for the whole year). (3) Three columns: **Нараховано** · **Надіслано** (amber above zero) · **Сплачено** (green above zero). (4) When «Не пройшов» is selected and an attempt failed, a red «7 945.41 не пройшло (не враховано)». There is no «До сплати» and no «+ X надіслано» anywhere. **«Податки за місяцями»:** month cards, newest first. The dark header has the month and the same three columns, summed from the card's rows (the failed ones left out). **A row** has three lines. (1) The tax (a 44 px label), the amount (bold mono; struck through and grey when failed) and the status badge. (2) The invoice number in mono · the client (ЄП, ВЗ; the «Без інвойсу» marker for a virtual one), or «за жовтень» (ЄСВ). (3) «надійшло 19 жовтня · сплатити до 19.02.2027» on an unpaid ЄП/ВЗ; «сплатити до 19.01.2027» on an unpaid ЄСВ (its quarter's deadline, not the board's 19.11.2026); «12 жовтня · ПриватБанк ФОП · UAH» on a payment (`Monobank ФОП · USD → UAH` from a foreign one). A row opens its payment (§8.4). **Footnote:** «У кожному місяці: спершу несплачене (ЄП і ВЗ — у місяці надходження, ЄСВ — у місяці, за який він), далі «Не пройшов», «Надіслано» й «Сплачено». «Надіслано» борг не зменшує; «Не пройшов» ніде не враховується.» **Empty:** «Немає сплат за обраний період і податки.» **The spec board** `M-TaxesSummaryStates` draws the summary's eight states: nothing paid or sent; sent only; all sent; part paid; paid, sent and unpaid over two quarters; all paid; a failed payment; one tax. |
+| Новий інвойс (013, 014, 072–079) | **Top:** the source switch «Створити в PryTax \| Зовнішній PDF»; the dark number card «Номер · попередній перегляд» with Автоматичний \| Лічильник \| Власний (§5; v5.1): the preview («BL-2026-10-31-14») and «Номер буде присвоєно під час фіксації: {parts}.», or the prefix with the counter's own field and «Решта номера — за налаштуваннями нумерації; наступні інвойси продовжать після цього лічильника.», or the typed number with «Власний номер не змінюється генератором». **Groups:** Клієнт і договір (the contract's terms: currency, rate, payment days) · Період і дати (quick picks 01–14, 15–31, the month, other; issued = the period's end; due by the contract's terms) · Отримання коштів (active accounts in the currency, the last invoice's one first) · Документ (Стиль · Мова · Показувати договір · Призначення платежу · Примітка «акт» · Примітка щодо оплати · Інша примітка) · Позиції (not a group; dimmed while a group is open; «+ Знижка або коригування») · Внутрішня примітка. **Footer** (§16.3; the owner, 2026-10-29): a status line, then two buttons. A new invoice reads «Ще не збережено. Щоб зберегти, вкажіть {missing}.» (the client, the period, the account for payment) or «Ще не збережено: «Зберегти чернетку» збереже інвойс, і його PDF можна буде переглянути.», over [Зберегти чернетку] [Зафіксувати], enabled once it has the client, the period and the account. A stored draft reads «Чернетку збережено о {time}. Зміни групи зберігаються одразу.» over [👁 Переглянути PDF] [Зафіксувати] (v5.1: its PDF as the freeze would print it now, marked as a draft, after saving pending changes). The board has no currency field: the currency follows the contract, else the client. |
 | Зовнішній інвойс, Рядок, Фіксація (018, 015, 016) | As built, with prefixed numbers. |
-| Інвойс (017) | As built, with prefixed numbers. **Документ** (v5.1): the card shows the PDF with 👁 (Перегляд PDF, every page in the app) and ⬇; a draft seen by a viewer shows «PDF чернетки» with 👁 only; ⋯ starts with «Переглянути PDF». |
+| Інвойс (017) | As built, with prefixed numbers. **Документ** (v5.1): the card shows the PDF with 👁 (Перегляд PDF, every page in the app; `GET invoices/{id}/preview`, `invoice.md` §8) and ⬇; a draft seen by a viewer shows «PDF чернетки» with 👁 only; ⋯ starts with «Переглянути PDF». |
 | Нове надходження (019) | No type switch: a receipt always has an invoice. It opens from an invoice («Додати надходження», with that invoice) or from Облік through «Інвойс для надходження». |
 | Інвойс для надходження (041) | The search «Номер або клієнт»; «Відкриті інвойси», each with its remainder or «прострочено · {amount}»; «або»; the dashed «Без інвойсу — Оплата за договором, інвойсу немає» with «Створимо запис лише для обліку…». An open invoice → Нове надходження; «Без інвойсу» → the form without an invoice; ✕ back to Облік. |
 | Нове надходження без інвойсу (042) | §4.2. The invoice field shows the dashed marker («Оплата за договором · лише для обліку»). Then Клієнт; Договір («обов’язково, якщо інвойсу немає», whose currency and rates it takes); «Сума від клієнта» (the tax base, typed); «За що (необов’язково)»; «Період з / по», required (the board's «Період необов’язковий» is overruled). Then the usual crediting block (account, received amount, date, fee), «Буде збережено» with ЄП and ВЗ, and an info box: no PDF, number or due date; the counter untouched; counted like any receipt; can be issued or attached later. |
@@ -1449,16 +1567,18 @@ Board numbers are in brackets.
 | Рахунки (025) | As built. A limit's caption reads «Надходження за місяць / квартал / рік» (the board's «Усі зарахування за місяць» is a leftover). |
 | Рахунок, Рахунок (форма) (026, 027, 080–082) | The page as built. **The form's groups:** Основне (name, kind, currency) · Реквізити для інвойсу · Ліміт (a switch, the amount, Місяць / Квартал / Рік), plus an «Активний» switch card. |
 | Клієнти, Клієнт (028, 029) | As built. The client page's «Документ інвойсу» card leads to the form's `#invoice-defaults`. |
-| Клієнт (форма) (030, 062–071) | **Groups:** Основне (Назва, Абревіатура with «Префікс номерів: BL-РРРР-ММ-ДД-n. Латиниця й цифри, до 10.», Юридична назва, Назва українською, Країна) · Адреса в інвойсі (one multi-line field, printed as typed, line by line, with «Країну теж вкажіть тут, якщо її треба надрукувати»; v5.1, the owner, 2026-10-30, in place of the lines, the city, the state and the postal code) · Податкові дані й пошта · Валюта, мова, договір і стиль · Тексти в інвойсі (the four text cards) · Внутрішня примітка. |
+| Клієнт (форма) (030, 062–071) | **Groups:** Основне (Назва, Абревіатура with «Префікс номерів: BL-РРРР-ММ-ДД-n. Латиниця й цифри, до 10.», Юридична назва, Назва українською, Країна) · Адреса в інвойсі (one multi-line field, `clients.address.text`, with «Друкується в інвойсі як є, рядок за рядком. Країну теж вкажіть тут, якщо її треба надрукувати.»; v5.1, the owner, 2026-10-30, in place of the lines, the city, the state and the postal code; Країна no longer prints) · Податкові дані й пошта · Валюта, мова, договір і стиль · Тексти в інвойсі (the four text cards) · Внутрішня примітка. |
 | Договір (031, 083–085) | **Groups:** Основне · Опис позиції в інвойсі (closed: the rendered line; open: the template, the placeholder chips and «Так виглядатиме в інвойсі») · Погодинні ставки, plus an «Активний» switch card. |
-| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups** (v5.1, the owner, 2026-10-30), one column: Налаштування ФОП (Профіль і реквізити · Податки й сповіщення, apart from the card of the current ФОП and its switch) · Гроші (Рахунки with the count · Перекази та комісії) · Клієнти й інвойси (Клієнти й договори with the count · Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Керування (Користувачі й ролі · Резервні копії (`backups.md` §4.8), with «вчора 23:22», the last copy; shown only to those who see either), then a card without a heading: «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти. The old inline language switch goes. **On desktop** it is Налаштування (`/settings`, `/more` before), from the sidebar: the same column, centred and 760 px wide at most (`TabScreen width="column"`) under the page's header, without the language and Вийти, which the sidebar's foot has. |
+| Ще (032, v5 `M-More`) | **The «ФОП» card** (v5) on top, under the heading «ФОП»: the avatar, the full name («Коваленко Олена Петрівна»), «ФОП · 3 група · РНОКПП ••••4821»; under a divider the row «⇄ Змінити ФОП» with «{N} в організації» (every ФОП of the organization, active or not) and a chevron, to `/profiles`. **Groups** (v5.1, the owner, 2026-10-30), one column: Налаштування ФОП (Профіль і реквізити · Податки й сповіщення, apart from the card of the current ФОП and its switch) · Гроші (Рахунки with the count · Перекази та комісії) · Клієнти й інвойси (Клієнти й договори with the count · Нумерація інвойсів · Документ інвойсу, which shows the style's name) · Керування (Користувачі й ролі · Резервні копії (`backups.md` §4.8), with «вчора 23:22», the last copy; shown only to those who see either), then a card without a heading: «Довідка» (§16.5, v5.1) · «🌐 Мова застосунку» with «Українська» and a chevron, opening the language sheet (§16.6) · Вийти (on a phone at once, without the desktop's question, §17.2), and under it «PryTax · {e-mail} · {role}». The old inline language switch goes. The route is `/settings` (`/more` an alias) on a phone too. **On desktop** it is Налаштування, from the sidebar: the same column at the page's whole width (v5.1) under the page's header, without the last card, as the sidebar's foot has Довідка, the language and Вийти. |
 | Профіль ФОП (033, 045–048; v5 `M-ProfileEdit*`: the РНОКПП masked `••••4821`) | **Banner** (static): «3 група · спрощена система · без ПДВ · без працівників». **Groups:** Податкова особа (ПІБ, ПІБ латиницею, РНОКПП, дата реєстрації, the passport instead of РНОКПП) · Адреса й контакти · Інвойси (валюта, мова документа, підпис у PDF) · Формат сум (the app's and the invoices', with live samples). Plus an «Активний ФОП» switch card. |
-| Нумерація інвойсів (034, 053–055) | **The dark «Наступний номер» card** stays exactly as built and never dims. **Groups:** Формат номера · Лічильник · Поточні лічильники (§5). In read mode the counters show the edit layout with disabled inputs, with «Останній виданий номер; наступний інвойс клієнта отримає +1.». **Then:** the rules text, and the link «Примітки в інвойсі → Документ інвойсу». |
+| Нумерація інвойсів (034, 053–055) | **The dark «Наступний номер» card** stays exactly as built and never dims. **Groups:** Формат номера · Лічильник · Поточні лічильники (§5). In read mode the counters show the edit layout with disabled inputs, with «Останній виданий номер; наступний інвойс клієнта отримає +1. Номер можна лише збільшити.» (`invoices/counters`, §5). **Then:** the rules text, and the link «Примітки в інвойсі → Документ інвойсу». |
 | Документ інвойсу (035, 056–061) | **Intro:** «Типові налаштування інвойсів ФОП. Клієнт чи окремий інвойс можуть мати власні.» **Groups:** Стиль, мова й договір · Тексти в інвойсі (the four text cards). **Footnote:** «Змінює нові інвойси й чернетки; зафіксовані не змінюються.» The style picker, the preview and the placeholder sheet (036–038) stay as built. |
 | Податки й сповіщення (039, 049–052) | **Groups:** База оподаткування (Сума за інвойсом, a fixed card citing ІПК 462/ІПК/99-00-24-03-03-06; Курсовий дохід: Не враховувати / Враховувати) · Сплата податків (the payment accounts with their routes and one «Основний», «+ Додати»; ЄСВ до N числа; §8.4) · Вхідні сальдо · Сповіщення (Кошти на платформах: кінець кв. / через N днів / вимкнено; терміни за N дн.). The budget requisites stay as built (not on the board). |
 | Користувачі (040) | As built («Користувачі працюють з ФОП …», the three roles). |
+| Резервні копії, Відновити з архіву (backups handoff) | `/backups`, as `backups.md` §4.8 has it. **Відновити з архіву** (`/backups/import`, owners only; 2026-10-29): an archive of one ФОП's backup (.zip, with its password when it was downloaded with one); «Перевірити» tells whose it is and what it holds without changing anything, «Відновити» adds it as a new ФОП of the organization, never over an existing one (`POST organization/backups/import`, `backups.md` §5). In the desktop app the page also leads to Набір відновлення (`builds.md` §4.5). |
 | ФОП організації (v5 `M-ProfileSwitch`) | `/profiles`, pushed from Ще with a back arrow. **Header:** «ФОП організації», the «Новий» pill (owners only), the meta «{N} активні · {N} неактивний». **Search** «Пошук за ПІБ або РНОКПП», on the client. **Sections** «Активні · N», «Неактивні · N». **Row:** the avatar, the full name, «РНОКПП ••••4821», a status line and a chevron. The status line: «{N} сповіщення · {X} ₴ податків до сплати» (neutral), «без сповіщень · податки сплачено» (green), «{N} прострочений інвойс · ЄСВ до {дд.мм}» (red when an invoice is overdue). The current ФОП has a blue check badge on its avatar and a soft accent background (no «Поточний» label). An inactive ФОП has a dashed avatar outline and «Неактивний · закрито {дата}». **Footnote:** «Перемикання змінює ФОП для всього застосунку: інвойси, облік, податки й налаштування. Користувачі й ролі — спільні для організації. Неактивного ФОП можна відкрити, щоб переглянути історію.» The figures come from `profiles?append=status` (§16.1). |
 | Книги обліку (v5 `M-Books-Income`, `M-Books-Taxes`, `M-Books-TaxesByTax`, `M-BooksStates`) | §16.7, at `/books?tab=income\|taxes&year=&group=quarter\|tax`. |
+| Довідка (no board; v5.1, the owner, 2026-10-30) | `/help`: «Довідка», «Що можна робити в PryTax і як», an intro and the search «Пошук у довідці». **«Перші кроки»** (for those who may create invoices; hidden while searching): six numbered links — Профіль ФОП, Рахунки, Податки й сповіщення, Клієнти й договори, Документ інвойсу, Перший інвойс. **Then a topic per part of the app**, fifteen in the order of the work, from «Головна» to «Мова, вхід і пароль»: a lead, its questions as `<details>` opening their answers, and «Відкрити «…»» to its page. Резервні копії only for those who see backups, the recovery kit only in the desktop app; the texts name the settings page as Налаштування on desktop and Ще on a phone. **The search** keeps what has every word typed (any case, ’ = '): a topic matched by its title or lead with all its questions, else only the matching questions, opened; none → the shared empty state («Нікого не знайдено.»). It opens from Ще's last card (back to Ще) and from the sidebar's foot (a sidebar page on desktop, without a back button). |
 
 **Display rules** that apply everywhere:
 - Amounts follow `display.money_format` (default `1 234.99`), with tabular figures and no wrapping.
@@ -1495,10 +1615,10 @@ Rules 1–10 of delta 3 are component rules, not one-off fixes; desktop (§17) r
 | 3 | The «Усього податків» band says what its percent is: «57.3 % сплачено». |
 | 4, 5 | Filter chips show their values; every drawer confirms with «Застосувати» (§16.2). |
 | 6 | **The list-header pill** «Новий» with a 20 px plus (Інвойси, Рахунки, Клієнти, ФОП організації). «+ Надходження» keeps its label. |
-| 7 | **The full-screen modal header:** the title on the left, ✕ on the right (Позиція, Підстановка, Інвойс для надходження, Перегляд стилю). |
+| 7 | **The full-screen modal header:** the title on the left, ✕ on the right (Позиція, Підстановка, Інвойс для надходження, Перегляд стилю, Перегляд PDF). |
 | 8 | **A record's header label** is its type: Інвойс, Надходження, Рахунок, Клієнт, Запис. |
 | 9 | **The РНОКПП mask** is `••••4821` (four dots and the last four digits) everywhere: Профіль ФОП, Ще, ФОП організації. One helper. |
-| 10 | **The export block:** the heading «Експорт», then secondary buttons (48 px, radius 14) in a 2-up grid: CSV / XLSX on Облік, PDF / XLSX on the books. Every secondary button has the radius 14. |
+| 10 | **The export block:** the heading «Експорт», then secondary buttons (48 px, radius 14) in a 2-up grid: CSV / XLSX on Облік, PDF / XLSX on the books. Every secondary button has the radius 14. As built (no XLSX, §12): CSV and «Архів» (the period's archive) on Облік, PDF on the books. |
 
 **The date picker** (`M-DatePicker`, `M-DateRangePicker`): one component with two modes, used by every date field
 (receipts, transfers, tax payments, the invoice dates and service period, contracts, the period of «Без інвойсу»). It
@@ -1534,11 +1654,12 @@ only controls.
 - **Header:** «Книги обліку», the sub-line «Коваленко О. П. · ФОП 3 група»; on the right the year chip «🗓 2026 ⌄»
   (from the ФОП's registration year to the current one). Under it the tabs Доходи | Податки. The URL keeps `tab`,
   `year` and, on Податки, `group`.
-- **The foot of each tab:** the export block (§16.6) with PDF and XLSX for the tab and the year.
+- **The foot of each tab:** the export block (§16.6) with PDF and XLSX for the tab and the year; as built only the PDF
+  (no XLSX, §12), which desktop puts at the right of the section's heading instead (§17.4).
 
 **Доходи** (`M-Books-Income`), the income book of п. 296.1:
-1. The black band, Облік's component: «Дохід з початку року» and «{x} % ліміту», the amount, the bar with the 80/90 %
-   ticks, «ліміт 3 групи 10 091 049 ₴ · залишилось …».
+1. The black band (`IncomeLimitBand`; Облік showed it too until v5.1): «Дохід з початку року» and «{x} % ліміту»,
+   the amount, the bar with the 80/90 % ticks, «ліміт 3 групи 10 091 049 ₴ · залишилось …».
 2. The heading «Книга доходів», «нові вгорі».
 3. The table, newest first; columns (month, its header invisible but kept) · «Дохід, ₴» · «З початку року».
    - **Quarter rows:** black, «IV кв.» with «разом · поточний» or «разом» under it, the quarter's total and the running
@@ -1560,13 +1681,13 @@ receipts included; a refund reduces the income of its own date; the running tota
 2. «Групувати»: Квартал | Податок (Квартал by default).
    - **Квартал:** «Наростаючим підсумком», newest first, one card per cumulative period («I–IV кв. 2026» with a
      «поточний» chip, then «I–III кв.» …). The title has the period and the total accrued to its end; the columns «За
-     {q} кв.» · «Наростаючим» · «Сплачено»; rows ЄСВ, ЄП, ВЗ. «Сплачено» is green above zero, a sent amount a small amber
-     «+8 122.67» under it. Footnote: «ЄП і ВЗ — як у декларації: наростаючим підсумком з початку року, а за квартал =
-     наростаючим − попередній період. ЄСВ — {minimum} ₴ за кожен місяць кварталу. «+ сума» під сплаченим — надіслано,
-     банк ще не підтвердив.»
-   - **Податок:** «По податках · 2026» with the legend (сплачено, надіслано, не сплачено); one card per tax (ЄСВ, ЄП, ВЗ)
-     with the nearest due label, a segmented bar (ЄСВ by month, ЄП and ВЗ by quarter; each segment paid, sent or grey),
-     the three columns and a small table «За квартал» · «Наростаючим», newest first.
+     {q} кв.» · «Наростаючим» · «Сплачено»; rows ЄСВ, ЄП, ВЗ. «Сплачено» is green above zero, a sent amount a small
+     amber «+8 122.67» under it. Footnote: «ЄП і ВЗ — як у декларації: наростаючим підсумком з початку року, а за
+     квартал = наростаючим − попередній період. ЄСВ — {minimum} ₴ за кожен місяць кварталу. «+ сума» під сплаченим —
+     надіслано, банк ще не підтвердив.»
+   - **Податок:** «По податках · 2026» with the legend (сплачено, надіслано, не сплачено); one card per tax (ЄСВ, ЄП,
+     ВЗ) with the nearest due label, a segmented bar (ЄСВ by month, ЄП and ВЗ by quarter; each segment paid, sent or
+     grey), the three columns and a small table «За квартал» · «Наростаючим», newest first.
    - The tax cards don't navigate; payments are made on Податки.
 
 ЄП and ВЗ of a quarter are the sums over the receipts credited in it; ЄСВ is accrued for every month of every started
@@ -1584,7 +1705,7 @@ and a button to the first year.
 first with their months and receipts), `GET profiles/{profile}/books/{year}/taxes` (the totals, the cumulative periods,
 the taxes with their segments), `GET profiles/{profile}/books/{year}/{income|taxes}/export?format=pdf|xlsx`. The PDF is
 Blade → dompdf, a portrait A4 table mirroring the screen (the owner: a mirror will do), the quarter rows dark. The XLSX
-has one sheet, real numbers.
+has one sheet, real numbers; it isn't built (§12), so the export takes `format=pdf` only.
 
 ## 17. Desktop layout (v5, «Minimal (Desktop)»)
 
@@ -1596,13 +1717,14 @@ wins; for domain rules §16 does.
 
 ### 17.1 Layout switch
 
-- From **600 px** the desktop layout (v5.1; the owner's feedback from the desktop app's window, 2026-10-29);
-  below it the mobile one, unchanged. The boards are 1440 px wide; from 1024 px (Tailwind `lg`) to 1440 the sidebar
-  keeps 248 px and the content is fluid. **From 600 to 1023 px** the sidebar is a 64 px rail (☰, the ФОП's
-  avatar and the sections' icons; at its foot 🌐 and «Вийти», v5.1), whose ☰ opens the whole sidebar over the page, and the pages have
-  24 px sides instead of 40; the sign-in pages and the recovery kit keep one centred column there. **Under 1280 px**
-  the right-hand columns moved under the main column (the owner, 2026-10-28); since v5.1 there are none: Головна's
-  360 px column is gone and the side notes are always under the column (the owner, 2026-10-30). No horizontal scroll from 600 to 1440.
+- From **600 px** the desktop layout (v5.1; the owner's feedback from the desktop app's window, 2026-10-29); below it
+  the mobile one, unchanged. The boards are 1440 px wide; from 1024 px (Tailwind `lg`) the sidebar keeps 248 px and
+  the content is fluid up to the app's 1200 px box (§17.2). **From 600 to 1023 px** the sidebar is a 64 px rail (☰,
+  the ФОП's avatar and the sections' icons; at its foot ? for Довідка, 🌐 and «Вийти», v5.1), whose ☰ opens the whole
+  sidebar over the page, and the pages have 24 px sides instead of 40; the sign-in pages and the recovery kit keep
+  one centred column there. **Under 1280 px** the right-hand columns moved under the main column (the owner,
+  2026-10-28); since v5.1 there are none: Головна's 360 px column is gone and the side notes are always under the
+  column (the owner, 2026-10-30). No horizontal scroll from 600 to 1440.
 - **Routes are the same.** A record's route renders a full page on mobile and a **panel over the list it belongs to**
   on desktop, the list staying mounted under it: nested routes with the panel as the list's child, so a deep link to
   `/invoices/:id` opens Інвойси with the panel.
@@ -1610,19 +1732,20 @@ wins; for domain rules §16 does.
 ### 17.2 Shell
 
 - **Sidebar**, 248 px, white, a 1 px right border, full height (it replaces the tab bar and Ще): the ФОП card (v5.1:
-  without the board's logo above it) (avatar, «Коваленко О. П.», «ФОП · 3 група», then «⇄ Змінити ФОП»
-  with the count and a chevron, opening the ФОП popover); the nav Головна · Інвойси · Облік · Податки · Книги ·
-  Налаштування (v5.1, the owner, 2026-10-30: ⚙, under Книги; its page, §16.5's Ще, holds what the board listed here —
-  Рахунки, Перекази та комісії, Клієнти й договори, the ФОП's and the invoices' settings, Користувачі й ролі and
-  Резервні копії — and the item stays current on each of their pages, which have a «←» back to it); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
-  role, «Вийти» in red, which asks «Вийти з PryTax?» first (v5.1). Items are 36 px high at least, radius 10, a 20 px icon; the active one accent-soft
-  (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px high; below that the nav scrolls and the
-  footer stays.
+  without the board's logo above it) (avatar, «Коваленко О. П.», «ФОП · 3 група», which open Профіль і реквізити,
+  then «⇄ Змінити ФОП» with the count and a chevron, opening the ФОП popover); the nav Головна · Інвойси · Облік ·
+  Податки · Книги · Налаштування (v5.1, the owner, 2026-10-30: ⚙, under Книги; its page, §16.5's Ще, holds what the
+  board listed here — Рахунки, Перекази та комісії, Клієнти й договори, the ФОП's and the invoices' settings,
+  Користувачі й ролі and Резервні копії — and the item stays current on each of their pages, which have a «←» back to
+  it); the footer: «Довідка» (v5.1, §16.5), the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail
+  and role, «Вийти» in red, which asks «Вийти з PryTax?» first (v5.1). Items are 36 px high at least, radius 10, a
+  20 px icon; the active one accent-soft (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px
+  high; below that the nav scrolls and the footer stays.
 - **Page header** (padding 28 40 20): an optional 40 px round back button, the 30 px title, an optional muted sub-line;
   on the right the page's actions (one accent pill, 44 px: «+ Новий», «Запросити»; optional secondary buttons), then
-  the 📖 | 🔔 capsule; a board's pill («+ Новий інвойс» on Інвойси, «+ Надходження» on Облік) ends its filters' row
-  instead, over the table (v5.1, the owner, 2026-10-30) (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
-  notifications popover).
+  the 📖 | 🔔 capsule (the book to `/books`, `?tab=taxes` from Податки; the bell opens the notifications popover). A
+  board's pill («+ Новий інвойс» on Інвойси, «+ Надходження» on Облік) ends its filters' row instead, over the table
+  (v5.1, the owner, 2026-10-30).
 - **Content:** padding 0 40 48, 20 px gaps; every page's content takes the page's whole width, which the app's
   1200 px box keeps at most 872 px (v5.1, the owner, 2026-10-30; the boards drew 760 px columns for settings and
   details and 880 px for lists), with an optional note «Як це працює» (grey) at its end, as wide as the content —
@@ -1654,9 +1777,9 @@ note; footer «+ Додати надходження»; ⋯ Завантажит
 row → Запис без інвойсу; «Додати надходження» → Нове надходження with «←» to the invoice; an Облік row → Надходження;
 Облік's «+ Надходження» → the dialog «Інвойс для надходження» → Нове надходження or the form without an invoice; a
 Перекази row → Переказ, «+ Новий» → Новий переказ; a Податки row → the payment form when unpaid, else Сплата податку
-(view, with «Позначити сплаченим»); «+ Новий інвойс» → the editor (760 px); its source switch → Зовнішній інвойс (760 px,
-[Зберегти] [Зафіксувати]). In panels ЄП and ВЗ of a receipt are two cells side by side, each with its label, the amount
-and the status badge under it (#81).
+(view, with «Позначити сплаченим»); «+ Новий інвойс» → the editor (760 px); its source switch → Зовнішній інвойс
+(760 px, [Зберегти] [Зафіксувати]). In panels ЄП and ВЗ of a receipt are two cells side by side, each with its label,
+the amount and the status badge under it (#81).
 
 ### 17.4 Screens
 
@@ -1665,32 +1788,37 @@ Only what differs from mobile; copy, data and logic are mobile's.
   «+ Новий інвойс» / «+ Нове надходження» (the phone has the two as buttons above the sections); the invoices as a
   table (Номер · Клієнт · період · Сума · Статус; under the client the period and «сплатити до …» or «прострочено,
   до …»; «3 100.00 · 80 %» under a sent one's amount). v5.1 (the owner, 2026-10-30) dropped the board's right-hand
-  column (the income-limit band, «Податки IV кв.», the latest notifications: Облік, Податки and 🔔 have them).
+  column (the income-limit band, «Податки IV кв.», the latest notifications: Книги, Облік, Податки and 🔔 have them).
 - **Інвойси:** the chips «🗓 2026 ⌄» (dark) · «Усі клієнти ⌄» · «Усі статуси ⌄» · «Усі валюти ⌄» and the search «Номер
-  або клієнт» on the right; a table per quarter (Номер · Клієнт · Період · Сума · Оплата · Статус; Оплата «до 14.11»,
-  «прострочено, до 19.10» in red, or «—»; the virtual marker in place of the number). Rows open panels; no split view.
+  або клієнт» on the right (not built, §17.6: «+ Новий інвойс» ends the row instead); a table per quarter (Номер ·
+  Клієнт · Період · Сума · Оплата · Статус; Оплата «до 14.11», «прострочено, до 19.10» in red, or «—»; the virtual
+  marker in place of the number). Rows open panels; no split view.
 - **Filters:** a chip opens its own popover under it (one at a time): Інвойси's statuses as checkboxes; Облік's period
   as a year and a quarter; Податки's as a year and a quarter range (§16.2's rules). The footer «Скинути» and
   «Застосувати»: the popover edits a draft, Застосувати commits it, Esc discards it.
 - **Облік:** the chips «🗓 IV кв. 2026 ⌄», «По місяцях ⌄», the switches on the right; «Підсумок кварталу» as two cards,
   one under the other, each the page's whole width (v5.1, the owner, 2026-10-30: the board drew three in a row, the
-  income limit first, which Облік no longer shows); «Надходження» with CSV, XLSX (and the backups' «Архів ZIP») right-aligned on its heading; month cards with a
-  dark header and a table: Інвойс `minmax(0,1fr)` · Дата 96 · Сума 130 · Курс НБУ 96 · Дохід ₴ 150 · ЄП 5 % 136 · ВЗ 1 %
-  136, gap 16. ЄП and ВЗ cells: the amount right-aligned with the badge under it. Fee rows use the same grid.
+  income limit first, which Облік no longer shows); «Надходження» with CSV and the backups' «Архів ZIP» right-aligned on
+  its heading (XLSX isn't built, §12); month cards with a dark header and a table: Інвойс `minmax(0,1fr)` · Дата 96 ·
+  Сума 130 · Курс НБУ 96 · Дохід ₴ 150 · ЄП 5 % 136 · ВЗ 1 % 136, gap 16. ЄП and ВЗ cells: the amount right-aligned with
+  the badge under it. Fee rows use the same grid.
 - **Податки:** «Підсумок за період» as a table card (tax · bar · Нараховано · Надіслано · Сплачено; the black total row
   first); «Податки за місяцями» as month cards with rows: tax · amount · reference · when · badge.
 - **Книги:** the tabs left and the year chip right under the header; Доходи has the band with the note beside it, PDF
-  and XLSX right-aligned just above the table, and the invoice number after the client in receipt rows; Податки's
-  cumulative cards in two columns, the tax cards three across.
+  (XLSX isn't built, §12) at the right of the section's heading, just above the table, and the invoice number after
+  the client in receipt rows; Податки's cumulative cards in two columns, the tax cards three across, the PDF over
+  them.
 - **Shell popovers:** Сповіщення (about 420 px, the title, a settings icon, ✕; «Усі · N» | «Непрочитані · N»; the
   mobile items, scrolling inside); ФОП організації (about 380 px; the count line, the search, the two lists, «+ Новий
   ФОП»); Мова застосунку (280 px, above the sidebar row; the note «Лише інтерфейс. Мова інвойсів — у «Документ
   інвойсу» та в картці клієнта.»). `/alerts` stays a page for links.
 - **Вхід:** split: left, flexible, ink, with the logo, «Облік доходів, інвойси та податки для ФОП 3 групи», a sub-line
   and «© 2026 PryTax»; right, 560 px, the mobile form at 400 px; the language pill top right (its note «Запам’ятаємо в
-  цьому браузері. Після входу — у бічному меню внизу.»).
-- **Records and forms:** Новий інвойс is the mobile accordion in the 760 px panel (the number preview atop the body;
-  the footer «Чернетка зберігається після кожної групи» and «Зафіксувати»); Позиція and Зафіксувати are 560 px dialogs;
+  цьому браузері. Після входу — у бічному меню внизу.»). Split from 1024 px; below it one centred column (§17.1).
+  Реєстрація, Відновлення and Набір відновлення use the same frame (§16.5).
+- **Records and forms:** Новий інвойс is the mobile accordion in the 760 px panel (the number card atop the body;
+  the footer as on mobile, §16.5: the status line over [Зберегти чернетку] or [👁 Переглянути PDF], and
+  [Зафіксувати]); Позиція and Зафіксувати are 560 px dialogs;
   Стиль інвойсу is a page (the style grid three across, grouped, with «Як у ФОП»; on the right, 360 px and sticky, the
   preview with `‹ name n/13 ›`, the language, «Відкрити PDF», and [Переглянути] [Обрати …] side by side); «Інвойс для
   надходження» a 520 px dialog; Підстановка a 560 px dialog.
@@ -1698,11 +1826,13 @@ Only what differs from mobile; copy, data and logic are mobile's.
   footer links «Сьогодні», «Вчора» (and «майбутні — недоступні» on receipt dates); range, 720 px: «Швидко» with the
   presets as a 168 px column, two months side by side with one `‹ ›` pair, the footer «Період … · N дн.», «Початок,
   потім кінець», «Готово».
-- **Lists and entity pages:** Рахунки's groups flow into two columns (a group never splits); Перекази, Клієнти and
-  Користувачі are 880 px columns; Рахунок and Клієнт are pages whose header holds «←», the name and the capsule, with
-  «✎ Змінити» to the right of the item's name.
+- **Lists and entity pages:** Рахунки (its groups one under another since 2026-10-29), Перекази, Комісії, Клієнти,
+  Користувачі and Резервні копії take the page's whole width, with their «Як це працює» at the end (v5.1: the board drew
+  two columns of accounts and 880 px lists); Рахунок and Клієнт are pages whose header holds «←», the name and the
+  capsule, with «✎ Змінити» to the right of the item's name.
 - **Settings** (Профіль, Податки й сповіщення, Нумерація, Документ інвойсу, the client, account and contract forms): the
-  accordion in the 760 px column with the side note, the same rules as mobile; they keep the blue «Змінити» per group
+  accordion at the page's whole width with the side note at its end (v5.1; the board drew a 760 px column), the same
+  rules as mobile; they keep the blue «Змінити» per group
   (the pen button is for records and entity pages).
 - **States boards** `058 D-BooksStates`, `059 D-TaxesSummaryStates`: the desktop arrangement of §16.7's states and
   Податки's summary states.
@@ -1721,24 +1851,24 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Layout switch:** `useBreakpoint()` (`isDesktop` from 600 px, `isCompact` from 600 to 1023 px, while the sidebar
   is a rail; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the sidebar and the
   page; `TabScreen` and `SubScreen` render the desktop page header over the content at the page's whole width
-  (`SubScreen`'s `aside` slot is the note at its end). Sidebar pages (`meta.section`: Книги since v5.1) have no back
-  button. The shell (sidebar and page) is at most 1200 px wide (v5.1; the boards' 1440 px before) and centred on a
-  wider screen, so content is at most 872 px; the record panel opens at its right edge. A page's
-  title keeps its width, and its actions go under it when they don't fit beside it.
+  (`SubScreen`'s `aside` slot is the note at its end). Sidebar pages (`meta.section`: Книги and Довідка since v5.1)
+  have no back button. The shell (sidebar and page) is at most 1200 px wide (v5.1; the boards' 1440 px before) and
+  centred on a wider screen, so content is at most 872 px; the record panel opens at its right edge. A page's title
+  keeps its width, and its actions go under it when they don't fit beside it.
 - **Primary actions:** a page's own action («+ Новий», «Запросити», «Створити копію зараз») is a `NewPill` in the page
-  header, left of the 📖 | 🔔 capsule, on every desktop sub-page (Рахунки,
-  Клієнти, Перекази, Користувачі and ФОП pass their title, sub-line and pill to the header there; on mobile they keep
-  the title row in the content); a secondary one sits left of it as an outlined button. What finishes a form or a
-  record («Зберегти», «Додати надходження») stays in the footer of its panel, dialog or form, and an action inside a
-  section («+ Додати», «+ Договір») stays a blue text link.
+  header, left of the 📖 | 🔔 capsule, on every desktop sub-page (Рахунки, Клієнти, Перекази, Користувачі and ФОП pass
+  their title, sub-line and pill to the header there; on mobile they keep the title row in the content); a secondary one
+  sits left of it as an outlined button. What finishes a form or a record («Зберегти», «Додати надходження») stays in
+  the footer of its panel, dialog or form, and an action inside a section («+ Додати», «+ Договір») stays a blue text
+  link.
 - **A board's action** (`TabScreen`'s `title-action`: «+ Новий інвойс» on Інвойси, «+ Надходження» on Облік) ends the
   filters' row on desktop, after the chips and Облік's switches, over the table — not by the capsule (v5.1, the owner,
   2026-10-30); the phone keeps it beside the title.
-- **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
-  beside a page's side columns: Інвойси's table puts the period under the client and the payment
-  under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date
-  under the invoice and the income ₴ and the NBU rate under the amount under 920 px; Податки's summary narrows its columns under 760 px; Книги's cards by tax are
-  three, two or one a row.
+- **Tables and card rows follow their own width** (container queries), not the window's, since the rail, the sidebar
+  and the 1200 px box change the page's width: Інвойси's table puts the period under the client and the payment under
+  the amount under 1020 px, and the status under the amount under 600 px, Головна's under 690 px; Облік's receipts put
+  the date under the invoice and the income ₴ and the NBU rate under the amount under 920 px; Податки's summary narrows
+  its columns under 760 px and drops its bar under 600 px; Книги's cards by tax are three, two or one a row.
 - **Panels:** a record's route (`meta.panel`: `of`, `wide`, `dialog`) renders in `RecordPanel` over a background
   route — the page it was opened from (`panelBackground` in the router), kept while one record leads to another, or
   `meta.panel.of` for a deep link —, which a `RouterView :route` keeps mounted under the scrim (`loadRouteLocation`
@@ -1756,15 +1886,16 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   controls on the right; v5.1 replaced Перегляд стилю's «Лупа» with the zoom of both (`PdfPages`, the owner,
   2026-10-30): a floating «− 100 % +» over the pages, 50–300 %, the percentage back to 100 %, Ctrl+wheel (a
   touchpad's pinch) and a two-finger pinch around the pointer or the fingers; the pages are drawn sharp again once
-  the zoom settles, and scroll both ways, the mouse grabbing and dragging them as a finger does (✋ cursor); on a phone the style's page keeps its A4 frame, inside which it scrolls);
-  `Popover` (anchored,
-  flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
+  the zoom settles, and scroll both ways, the mouse grabbing and dragging them as a finger does (✋ cursor); on a
+  phone the style's page keeps its A4 frame, inside which it scrolls); `Popover` (anchored, flipped, kept 24 px
+  inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
   the date pickers (`DatePickerPopover`).
-- **Pages:** Головна (what needs attention since v5.1: `InvoiceTable`, `UntransferredList`; `HomeAside` gone), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
-  cards, the switches on the filter row, `ReceiptTable`), Податки (the summary table, one-line ledger rows), Книги
-  (the whole width, the cards in grids), the settings with their side notes, Рахунки in two columns, Перекази,
-  Клієнти and Користувачі at 880 px, Вхід split.
+- **Pages:** Головна (what needs attention since v5.1: `InvoiceTable`, `UntransferredList`; `HomeAside` and
+  `HomeNavCards` gone), Інвойси (`InvoiceTable` by quarter), Облік (the summary's two cards, the switches on the
+  filter row, `ReceiptTable`), Податки (the summary table, one-line ledger rows), Книги (the cards in grids),
+  Налаштування, the settings, Рахунки, Перекази, Комісії, Клієнти, Користувачі and Резервні копії, all at the page's
+  whole width with their side notes at the end (v5.1), Довідка, Вхід split from 1024 px.
 - **Not done:** Інвойси's search «Номер або клієнт» (no search API, §15); the status filter as a checkbox list (it
   keeps its chips); Книги's tabs beside the year chip. («✎ Змінити» ends the title's row on Рахунок, Клієнт and Переказ
   since v5.1.)

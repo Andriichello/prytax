@@ -72,7 +72,7 @@ const topics = computed(() => searchTopics(helpTopics({
             </div>
         </section>
 
-        <EmptyState v-if="topics.length === 0" :text="t('core.common.nothingFound')" />
+        <EmptyState v-if="topics.length === 0" :text="t('help.nothingFound')" />
 
         <section v-for="topic in topics" :key="topic.key" class="flex flex-col gap-2">
             <SectionTitle>{{ topic.title }}</SectionTitle>

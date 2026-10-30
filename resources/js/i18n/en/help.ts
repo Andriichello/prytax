@@ -10,6 +10,7 @@ export default {
     intro: 'PryTax keeps the books of a group 3 ФОП: invoices to clients, receipts, transfers between accounts, ЄП, ВЗ and ЄСВ, the income book. Below is where to find each thing and how to do it. Open a question to read its answer.',
     search: 'Search the help',
     searchPlaceholder: 'E.g. pay ЄСВ',
+    nothingFound: 'Nothing found.',
     open: 'Open «{page}»',
 
     firstSteps: {
@@ -59,7 +60,7 @@ export default {
         lead: 'You create an invoice in PryTax or upload a ready PDF. While it’s a draft it can change; freezing gives it a number, and then it no longer changes.',
         create: {
             title: 'Create an invoice',
-            text: '«New» on «Invoices», or «New invoice» on «Home». Fill in the groups «Client and contract», «Period and dates» and «Getting paid», then add the items: the invoice takes the currency and the rate from the contract; without a contract you type each price. The draft is saved after each group, so you can close it and carry on later.',
+            text: '«New» on «Invoices», or «New invoice» on «Home». Fill in the groups «Client and contract», «Period and dates» and «Getting paid», then add the items: the invoice takes the currency and the rate from the contract; without a contract you type each price. A new invoice is stored once you press «Save draft»; from then on the draft is saved after each group, so you can close it and carry on later.',
         },
         external: {
             title: 'Upload a ready PDF',

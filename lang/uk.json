@@ -235,6 +235,7 @@
     "Enter the note text.": "Введіть текст примітки.",
     "Choose all profiles or a list of them.": "Оберіть усі ФОП або їх перелік.",
     "The organization has made :count manual backups today already.": "Сьогодні організація вже зробила :count ручних копій.",
+    "You have downloaded :count archives in the last hour already.": "За останню годину ви вже завантажили :count архівів: спробуйте пізніше.",
     "The backup of :place failed": "Резервні копії «:place»: помилка",
     "The backup of :place is incomplete": "Резервні копії «:place»: зроблено не всі",
     "The backup of :place is done": "Резервні копії «:place» готові",

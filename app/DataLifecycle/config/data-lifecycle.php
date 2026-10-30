@@ -28,6 +28,8 @@ return [
         'queue' => env('BACKUPS_QUEUE', 'backups'),
         // Minutes, for which a download link works (§3.3)
         'url_lifetime' => 10,
+        // Download links of a user per hour, of backups, bundles and exports alike (§4.7)
+        'downloads_per_hour' => 30,
         // Manual runs of an organization per day, and the manual backups it keeps (§2.2)
         'manual_per_day' => 5,
         'manual_cap' => 20,

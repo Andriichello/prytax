@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
+use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\BundleRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreBackupRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunCollection;
@@ -41,6 +42,8 @@ use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
  */
 class BackupRunController extends CrudController
 {
+    use LimitsDownloads;
+
     /**
      * Resource, which wraps a model.
      *
@@ -98,7 +101,7 @@ class BackupRunController extends CrudController
         Route::post('backup-runs', [static::class, 'store'])->name('backup-runs.store');
         Route::get('backup-runs/{id}', [static::class, 'show'])->name('backup-runs.show');
         Route::post('backup-runs/{id}/bundle', [static::class, 'bundle'])->name('backup-runs.bundle');
-        Route::get('backup-runs/{id}/bundle', [static::class, 'bundleStatus'])->middleware('throttle:30,60')->name('backup-runs.bundle.show');
+        Route::get('backup-runs/{id}/bundle', [static::class, 'bundleStatus'])->name('backup-runs.bundle.show');
     }
 
     /**
@@ -199,6 +202,10 @@ class BackupRunController extends CrudController
     {
         /** @var BackupRun $run */
         $run = $this->builder($request)->findOrFail($request->getId());
+
+        if ($this->bundleIsReady($run) && ($refusal = $this->refuseDownload($request))) {
+            return $refusal;
+        }
 
         return ApiResponse::ok($this->bundleOf($request, $run, link: true));
     }

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
+use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\DownloadBackupRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\ImportBackupRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupCollection;
@@ -38,6 +39,8 @@ use PryTax\DataLifecycle\Backup\Repositories\BackupRepository;
  */
 class BackupController extends CrudController
 {
+    use LimitsDownloads;
+
     /**
      * Resource, which wraps a model.
      *
@@ -91,9 +94,9 @@ class BackupController extends CrudController
     public static function routes(): void
     {
         Route::get('backups', [static::class, 'index'])->name('backups.index');
-        Route::post('backups/import', [static::class, 'import'])->middleware('throttle:30,60')->name('backups.import');
+        Route::post('backups/import', [static::class, 'import'])->middleware('throttle:30,60,backups-import')->name('backups.import');
         Route::get('backups/{id}', [static::class, 'show'])->name('backups.show');
-        Route::post('backups/{id}/download', [static::class, 'download'])->middleware('throttle:30,60')->name('backups.download');
+        Route::post('backups/{id}/download', [static::class, 'download'])->name('backups.download');
         Route::delete('backups/{id}', [static::class, 'destroy'])->name('backups.destroy');
     }
 
@@ -108,6 +111,11 @@ class BackupController extends CrudController
     {
         /** @var Backup $backup */
         $backup = $this->builder($request)->findOrFail($request->getId());
+
+        if ($refusal = $this->refuseDownload($request)) {
+            return $refusal;
+        }
+
         $expiresAt = now()->addMinutes((int) config('data-lifecycle.backups.url_lifetime'));
         $password = $request->validated('password');
         [$disk, $path] = [$backup->disk, $backup->object_path];

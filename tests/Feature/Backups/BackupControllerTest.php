@@ -13,6 +13,7 @@ use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
 use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
+use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\Models\Profile;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
@@ -221,6 +222,48 @@ class BackupControllerTest extends TestCase
     }
 
     /**
+     * Test that a user gets 30 download links an hour at most, of backups and bundles alike.
+     *
+     * @return void
+     */
+    public function testLimitsTheDownloadLinksOfAnHour(): void
+    {
+        $backup = $this->backup();
+        $run = app(BackupRuns::class)->scheduled($this->policy());
+        $user = $this->actAs($this->profile, 'accountant');
+        $this->issueLinks($user->id, 29);
+
+        $this->postJson("/api/organization/backups/$backup->id/download")->assertOk();
+        $this->postJson("/api/organization/backups/$backup->id/download")
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'You have downloaded 30 archives in the last hour already.');
+        $this->postJson("/api/organization/backup-runs/$run->id/bundle")->assertStatus(202);
+        $this->getJson("/api/organization/backup-runs/$run->id/bundle")->assertStatus(429);
+
+        $this->travel(1)->hour();
+        $this->getJson("/api/organization/backup-runs/$run->id/bundle")->assertOk()->assertJsonPath('data.status', 'ready');
+    }
+
+    /**
+     * Test that asking whether a bundle is ready, as the SPA does every few seconds, doesn't count as a download.
+     *
+     * @return void
+     */
+    public function testDoesNotCountTheChecksOfABundleAsDownloads(): void
+    {
+        $backup = $this->backup();
+        $run = app(BackupRuns::class)->scheduled($this->policy());
+        $this->actAs($this->profile, 'accountant');
+        BackupRun::query()->withoutGlobalScopes()->whereKey($run->id)->update(['bundle_status' => 'building']);
+
+        for ($i = 0; $i < 40; $i++) {
+            $this->getJson("/api/organization/backup-runs/$run->id/bundle")->assertOk()->assertJsonPath('data.status', 'building');
+        }
+
+        $this->postJson("/api/organization/backups/$backup->id/download")->assertOk();
+    }
+
+    /**
      * Test that only the organization's own profiles can be listed for a run.
      *
      * @return void
@@ -341,6 +384,24 @@ class BackupControllerTest extends TestCase
         $run = app(BackupRuns::class)->manual($this->profile->organization_id, null, null);
 
         return Backup::query()->withoutGlobalScopes()->where('run_id', $run->id)->sole();
+    }
+
+    /**
+     * Log download links, which the user was given just now.
+     *
+     * @param int $userId
+     * @param int $count
+     *
+     * @return void
+     */
+    private function issueLinks(int $userId, int $count): void
+    {
+        DB::table('backup_downloads')->insert(array_fill(0, $count, [
+            'organization_id' => $this->profile->organization_id,
+            'user_id' => $userId,
+            'kind' => 'profile',
+            'created_at' => now(),
+        ]));
     }
 
     /**

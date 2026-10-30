@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
+use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\ShowExportRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreExportRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupRunCollection;
@@ -34,6 +35,8 @@ use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
  */
 class ExportController extends CrudController
 {
+    use LimitsDownloads;
+
     /**
      * Resource, which wraps a model.
      *
@@ -92,7 +95,6 @@ class ExportController extends CrudController
         Route::post('exports', [static::class, 'export'])->name('exports.store');
         Route::get('exports/{export}', [static::class, 'exportStatus'])
             ->where('export', '[0-9A-Za-z]{26}')
-            ->middleware('throttle:30,60')
             ->name('exports.show');
     }
 
@@ -138,6 +140,10 @@ class ExportController extends CrudController
         $data = ['id' => $run->id, 'status' => $run->status->value, 'scope' => $run->scope];
 
         if ($backup?->hasArchive() && ($backup->expires_at?->isFuture() ?? true)) {
+            if ($refusal = $this->refuseDownload($request)) {
+                return $refusal;
+            }
+
             $expiresAt = now()->addMinutes((int) config('data-lifecycle.backups.url_lifetime'));
 
             BackupDownload::query()->create([

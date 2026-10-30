@@ -131,8 +131,7 @@ php artisan migrate --seed
 
 The app, the queue worker and the scheduler share the file: WAL and immediate transactions make a writer wait its turn
 rather than fail (`DB_JOURNAL_MODE`, `DB_BUSY_TIMEOUT`, `DB_TRANSACTION_MODE`). In Docker, set `DB_CONNECTION=sqlite`
-and `DB_DATABASE=/app/storage/database/prytax.sqlite`, and leave out the `mysql` profile. Backups move between the two:
-an archive made on one imports on the other.
+and `DB_DATABASE=/app/storage/database/prytax.sqlite`, and leave out the `mysql` profile.
 
 ### The desktop app
 

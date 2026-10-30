@@ -1,6 +1,6 @@
 # PryTax — Builds: Docker, SQLite and the desktop app (v1)
 
-Companion to `docs/specs/design.md` (v5.1). How PryTax runs besides a PHP server on MySQL: as a container image for
+Companion to `docs/specs/design.md` (v5.2). How PryTax runs besides a PHP server on MySQL: as a container image for
 the web (§2), on SQLite (§3), and as a desktop app for Linux, Windows and macOS, made with NativePHP (§4). The
 commands that run each are in `README.md`.
 
@@ -161,8 +161,9 @@ column to an existing table.
 ### 3.3 Queries
 
 - `InvoiceController`'s facets and `AccountingArchiveChecks` use `Sql::year/quarter/concat`.
-- `Selection` uses Laravel's JSON path (`where('col->key', $id)`) instead of `JSON_UNQUOTE`, and computes a quarter's
-  bounds in PHP (Carbon, `whereBetween`) instead of `MAKEDATE`/`INTERVAL`.
+- The backups' `Selection` reads a JSON path with a switch of its own (`CAST(json_extract(…) AS INTEGER)` on SQLite,
+  `JSON_UNQUOTE(JSON_EXTRACT(…))` on MySQL), and limits a quarter's or a month's rows by comparing their year and
+  quarter (or month) columns with the period's first and last, instead of `MAKEDATE`/`INTERVAL`.
 - The accounting view's invoices are ordered by id: MySQL returned them in that order by chance, SQLite doesn't.
 - Dates are stored as `Y-m-d` on SQLite too, so date comparisons behave as on MySQL.
 
@@ -171,12 +172,13 @@ column to an existing table.
 DataLifecycle stays self-contained: its driver switches are its own, not `PryTax\Helpers\Sql` (`backups.md`).
 - `SchemaInspector` keeps its single `information_schema` query on MySQL and uses the schema builder
   (`Schema::getTables/getColumns/getForeignKeys`) on SQLite; generated columns come from a column's `generation`.
-- `BackupRunner`'s snapshot is a plain `BEGIN` read transaction on SQLite (consistent under WAL), and
-  `UTC_TIMESTAMP()` becomes `now('UTC')`. `TenantPurger`'s `SET SESSION` runs on MySQL only.
-- `Column` detects JSON and dates from the registry or the casts, not MySQL's type names. SQLite declares JSON
-  columns as `text`, so its archives keep JSON as stored, without compacting it.
-- A column's scale isn't known on SQLite, so the manifest's checks are fixed-scale strings. That's what lets an
-  archive move between the drivers (desktop ↔ cloud); a test imports on one driver an archive made on the other.
+- `BackupRunner`'s snapshot is a `BEGIN DEFERRED` read transaction on SQLite (consistent under WAL), and
+  `UTC_TIMESTAMP()` becomes `datetime('now')`. `TenantPurger`'s `SET SESSION` runs on MySQL only.
+- `Column` tells JSON and dates by the declared type the inspector reads. SQLite declares JSON columns as `text`, so
+  its archives keep JSON as stored, without compacting it.
+- Values are exported as stored (decimals unformatted), but the manifest's checks are sums with two decimals on both
+  drivers (`AccountingArchiveChecks`: MySQL sums to `1234.50`, SQLite to `1234.5`). That's meant to let an archive
+  move between the drivers (desktop ↔ cloud); no test covers it yet (§5).
 
 ### 3.5 The connection
 
@@ -204,8 +206,9 @@ SQLite returns decimals and raw `SUM`s as floats.
 ### 3.8 Tests and checks
 
 - `composer test:sqlite` runs the suite on `:memory:`; both it and the MySQL run must pass. `VerifyDatabaseTest` uses
-  `Schema::disableForeignKeyConstraints()` instead of `SET FOREIGN_KEY_CHECKS`. New tests cover `Sql`,
-  `CheckConstraint` on both drivers (a negative amount is refused) and the archive across drivers.
+  `Schema::disableForeignKeyConstraints()` instead of `SET FOREIGN_KEY_CHECKS`. `SqlTest` covers `Sql`'s date parts
+  and strings, the case of Ukrainian letters, and `CheckConstraint` (a negative amount is refused), on whichever
+  driver the suite runs.
 - The demo practice seeded into both databases gives 76 identical report responses (Облік, Податки, the books, ЄСВ,
   fees, declarations, invoices, payments, accounts, clients; four ФОП).
 - On SQLite the screens render in uk and en, an invoice's PDF downloads, a manual backup and a period export complete
@@ -307,7 +310,9 @@ notifications. `LaunchCatchUp` (from the window's provider) queues them on every
   it; one at a time, so a second launch doesn't queue another. Meanwhile a receipt takes a manual rate, as it always
   may. The boot itself never calls the network.
 - **`prytax:schedule-tax-periods`** and **`prytax:sync-alerts`**, queued.
-- **Backups** need nothing: a policy's missed window is due at the scheduler's next run.
+- **Backups** need nothing: a policy's missed window is due at the dispatcher's next run (every five minutes). The
+  backups' pruning (05:30), the rolling cleanup (03:40) and the weekly check (Sunday 06:00) aren't caught up: they run
+  only when the app is open at that time (§5).
 
 ### 4.8 Files and downloads
 
@@ -361,6 +366,9 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 - **Restoring the desktop from an in-app backup archive** (§4.6), after `backups.md` §5.3.
 - **XLSX exports:** openspout isn't installed, and the bundled PHP has no xmlwriter or xmlreader (§4.1).
 - **Job timeouts on the desktop:** the bundled PHP has no pcntl, so a stuck job isn't stopped.
+- **The desktop's daily backup jobs:** pruning, the rolling cleanup and the weekly check aren't caught up on launch
+  (§4.7), so a desktop that is closed at night never prunes its archives to the owner's policy.
 - **Updates:** NativePHP's updater has no provider set up, so a new version is installed by hand.
 - **Sorting on SQLite** is byte order (§3.6).
+- **An archive moved between MySQL and SQLite** isn't tested (§3.4).
 - **FrankenPHP's worker mode** would need an audit of state between requests (§2.1).

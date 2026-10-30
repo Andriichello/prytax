@@ -189,7 +189,7 @@ const exportQuarter = computed(() => apiUrl(path(`accounting/${year.value}/${qua
             <template v-if="data">
                 <section v-if="data.card" class="flex flex-col gap-2.5">
                     <SectionTitle>{{ t('accounting.quarters.summary') }}</SectionTitle>
-                    <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" :row="isDesktop" />
+                    <QuarterSummaryCard :card="data.card" :year="year" :quarter="quarter" :cards="isDesktop" />
                 </section>
 
                 <section class="flex flex-col gap-2.5">

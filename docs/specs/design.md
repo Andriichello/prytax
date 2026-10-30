@@ -22,7 +22,7 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
 - **«Як це працює»** (§17.2): at the end of a page's content, never a column beside it.
 - **Width** (§17.1, §17.2, §17.6): the app's box is at most 1200 px, and every page's content fills it beside the
-  sidebar, without 760 or 880 px columns.
+  sidebar, without 760 or 880 px columns; Облік's three summary cards stand one under another (§17.4).
 - **Головна** (§17.4): on desktop the sections' cards stand above the invoices, in place of the income limit, the
   quarter's taxes and the notifications.
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
@@ -1661,8 +1661,8 @@ Only what differs from mobile; copy, data and logic are mobile's.
 - **Filters:** a chip opens its own popover under it (one at a time): Інвойси's statuses as checkboxes; Облік's period
   as a year and a quarter; Податки's as a year and a quarter range (§16.2's rules). The footer «Скинути» and
   «Застосувати»: the popover edits a draft, Застосувати commits it, Esc discards it.
-- **Облік:** the chips «🗓 IV кв. 2026 ⌄», «По місяцях ⌄», the switches on the right; «Підсумок кварталу» as three cards
-  in a row; «Надходження» with CSV, XLSX (and the backups' «Архів ZIP») right-aligned on its heading; month cards with a
+- **Облік:** the chips «🗓 IV кв. 2026 ⌄», «По місяцях ⌄», the switches on the right; «Підсумок кварталу» as three cards,
+  one under another, each the page's whole width (v5.1, the owner, 2026-10-30; the board drew them in a row); «Надходження» with CSV, XLSX (and the backups' «Архів ZIP») right-aligned on its heading; month cards with a
   dark header and a table: Інвойс `minmax(0,1fr)` · Дата 96 · Сума 130 · Курс НБУ 96 · Дохід ₴ 150 · ЄП 5 % 136 · ВЗ 1 %
   136, gap 16. ЄП and ВЗ cells: the amount right-aligned with the badge under it. Fee rows use the same grid.
 - **Податки:** «Підсумок за період» as a table card (tax · bar · Нараховано · Надіслано · Сплачено; the black total row
@@ -1722,8 +1722,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
   beside a page's side columns: Інвойси's table puts the period under the client and the payment
   under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date
-  under the invoice and the income ₴ and the NBU rate under the amount under 920 px; its summary is two cards with
-  the taxes under them under 960 px; Податки's summary narrows its columns under 760 px; Книги's cards by tax are
+  under the invoice and the income ₴ and the NBU rate under the amount under 920 px; Податки's summary narrows its columns under 760 px; Книги's cards by tax are
   three, two or one a row.
 - **Panels:** a record's route (`meta.panel`: `of`, `wide`, `dialog`) renders in `RecordPanel` over a background
   route — the page it was opened from (`panelBackground` in the router), kept while one record leads to another, or

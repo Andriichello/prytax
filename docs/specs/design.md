@@ -5,8 +5,8 @@ package (organizations, users, Sanctum tokens, spatie roles/permissions, HTTP fi
 Laravel 12/13, MySQL 8, Vue 3 SPA (mobile-first with a desktop layout from 600 px, Ukrainian and English UI) consuming
 the API (Blade only for PDF/email templates). Functional rules live in `accounting.md`; this document is the
 implementation of them. §16 fixes the phase-1 UI scope («Minimal»), §17 its desktop layout; the invoice PDF is
-specified in `invoice.md`; backups and retention in `backups.md`; what is deferred or still to decide is in
-`suggestions.md`.
+specified in `invoice.md`; backups and retention in `backups.md`; Docker, SQLite and the desktop app in `builds.md`;
+what is deferred or still to decide is in `suggestions.md`.
 
 ### Changes in v5.1 (the owner's feedback from the desktop app's window, 2026-10-29/30)
 

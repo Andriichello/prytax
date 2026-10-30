@@ -24,6 +24,18 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Client address as text (2026-10-30, branch `feat/client-invoice-address` from `dev`)
+
+The user wanted the client's address typed as it should print, not built from parts. `clients.address` (JSON) now
+holds `{text}`, printed line by line (`InvoicePdfRenderer::clientAddress`); the old `{lines, city, state, zip}` shape
+still prints as before (city zip, then the country code) for snapshots and older archives — no new column, so no
+backup `format_version` bump. Migration `2026_10_30_140422_convert_client_addresses_to_text` turns parts into the
+text (lines, then `city state zip`, then the country code; `ClientAddressMigrationTest`). API: `address` is
+`array:text`, parts are 422. SPA: one `TextAreaField` (`ClientAddressFields`), `clientAddressText()` reads either
+shape. The desktop dev DB isn't migrated yet: run `native:migrate` (with `CACHE_STORE=file`) after merging, or
+the form shows the parts without the country line. Same day: `fix/item-card-wrap` (an item card's amount wraps under
+quantity × price) and `fix/pdf-details-spacing` (payment details rows 3 pt apart) are separate branches from `dev`.
+
 ## Phone access over ngrok (2026-10-30, evening; the user asked)
 
 A web version on the desktop app's data, for the user's phone: `ngrok http 8012` (this time

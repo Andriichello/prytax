@@ -24,7 +24,7 @@ import { type InheritedDocument, useInvoiceDocument } from '@/composables/useInv
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, t } from '@/i18n';
-import { countryName, suggestAbbreviation } from '@/utils/clients';
+import { clientAddressText, countryName, suggestAbbreviation } from '@/utils/clients';
 import { dateParts, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import type { PurposeSample } from '@/utils/invoiceDocument';
@@ -55,10 +55,7 @@ const blank = (): ClientForm => ({
     legal_name_uk: '',
     country: 'US',
     currency: null,
-    lines: ['', ''],
-    city: '',
-    state: '',
-    zip: '',
+    address: '',
     tax_id: '',
     vat_number: '',
     email: '',
@@ -85,10 +82,7 @@ function formOf(client: Client): ClientForm {
         legal_name_uk: client.legal_name_uk ?? '',
         country: client.country ?? '',
         currency: client.currency,
-        lines: [...client.address?.lines ?? [], '', ''].slice(0, Math.max(2, client.address?.lines?.length ?? 0)).map((line) => line ?? ''),
-        city: client.address?.city ?? '',
-        state: client.address?.state ?? '',
-        zip: client.address?.zip ?? '',
+        address: clientAddressText(client.address),
         tax_id: client.tax_id ?? '',
         vat_number: client.vat_number ?? '',
         email: client.email ?? '',
@@ -213,8 +207,6 @@ const withSource = (value: string, own: boolean): string => t('clients.form.with
 /** The fields of each group, as the API takes them. */
 function fields(group: Group | 'all'): Record<string, unknown> {
     const values = form.value;
-    const lines = values.lines.map((line) => line.trim()).filter(Boolean);
-    const address = { lines, city: values.city.trim() || null, state: values.state.trim() || null, zip: values.zip.trim() || null };
     const doc = values.document;
     const parts: Record<Group, Record<string, unknown>> = {
         main: {
@@ -224,7 +216,7 @@ function fields(group: Group | 'all'): Record<string, unknown> {
             legal_name_uk: values.legal_name_uk.trim() || null,
             country: values.country || null,
         },
-        address: { address: lines.length || address.city || address.state || address.zip ? address : null },
+        address: { address: values.address.trim() ? { text: values.address.trim() } : null },
         tax: { tax_id: values.tax_id.trim() || null, vat_number: values.vat_number.trim() || null, email: values.email.trim() || null },
         look: { currency: values.currency || null, invoice_locale: doc.locale, show_contract: doc.show_contract, invoice_style: doc.style },
         texts: {
@@ -308,12 +300,6 @@ const generalError = computed(() => (saveError.value
 
 const abbreviationValid = computed(() => /^[A-Z0-9]+$/.test(form.value.abbreviation.trim()));
 
-/** The address as it prints, one line each. */
-const addressLines = computed(() => {
-    const saved = savedForm.value;
-
-    return [...saved.lines.filter((line) => line.trim()), [saved.city, saved.state, saved.zip].filter(Boolean).join(', ')].filter(Boolean);
-});
 </script>
 
 <template>
@@ -373,7 +359,7 @@ const addressLines = computed(() => {
 
                 <AccordionGroup id="address" :title="t('clients.form.invoiceAddress')" :editable="canSave" :saving="saving" :error="generalError" @open="open" @save="saveGroup('address')">
                     <ReadRow :label="t('core.common.address')">
-                        <span class="whitespace-pre-line">{{ addressLines.join('\n') || '—' }}</span>
+                        <span class="whitespace-pre-line">{{ savedForm.address.trim() || '—' }}</span>
                     </ReadRow>
                     <template #edit>
                         <ClientAddressFields v-model="form" />

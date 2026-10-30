@@ -16,7 +16,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, t } from '@/i18n';
-import { countryName } from '@/utils/clients';
+import { clientAddressText, countryName } from '@/utils/clients';
 import { rateOn } from '@/utils/contracts';
 import { formatDate, today } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
@@ -148,19 +148,8 @@ async function toggleActive(): Promise<void> {
     }
 }
 
-const addressLines = computed(() => {
-    const address = client.value?.address;
-
-    if (!address) {
-        return [];
-    }
-
-    return [
-        ...(address.lines ?? []),
-        [address.city, address.state, address.zip].filter(Boolean).join(', '),
-        countryName(client.value?.country),
-    ].filter((line): line is string => !!line);
-});
+/** The address as its invoices print it, line by line. */
+const addressLines = computed(() => clientAddressText(client.value?.address).split('\n').filter(Boolean));
 </script>
 
 <template>

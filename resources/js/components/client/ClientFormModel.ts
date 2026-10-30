@@ -10,10 +10,8 @@ export interface ClientForm {
     legal_name_uk: string;
     country: string;
     currency: string | null;
-    lines: string[];
-    city: string;
-    state: string;
-    zip: string;
+    /** The address as the invoices print it, line by line. */
+    address: string;
     tax_id: string;
     vat_number: string;
     email: string;
@@ -21,9 +19,6 @@ export interface ClientForm {
     /** The client's level of the invoice settings, each null to take the ФОП's. */
     document: InvoiceDocumentSettings;
 }
-
-/** The most address lines a client has. */
-export const MAX_LINES = 4;
 
 /** The currencies a client's invoices are offered in. */
 export const CLIENT_CURRENCIES = ['USD', 'EUR', 'GBP', 'PLN', 'CHF', 'CAD', 'UAH'];

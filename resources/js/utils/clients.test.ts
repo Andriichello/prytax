@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAbbreviation, suggestAbbreviation } from '@/utils/clients';
+import { clientAddressText, normalizeAbbreviation, suggestAbbreviation } from '@/utils/clients';
 
 describe('suggestAbbreviation', () => {
     it.each([
@@ -26,5 +26,20 @@ describe('normalizeAbbreviation', () => {
         expect(normalizeAbbreviation('bl-2')).toBe('BL2');
         expect(normalizeAbbreviation(' Nw ')).toBe('NW');
         expect(normalizeAbbreviation('БЛ')).toBe('');
+    });
+});
+
+describe('clientAddressText', () => {
+    it('keeps the text as typed, line by line', () => {
+        expect(clientAddressText({ text: '  500 Market St\nSan Francisco, CA 94105\nUnited States ' })).toBe('500 Market St\nSan Francisco, CA 94105\nUnited States');
+    });
+
+    it('joins the parts of an older archive: the lines, then the city, the state and the postal code', () => {
+        expect(clientAddressText({ lines: ['500 Market St', '', null], city: 'San Francisco', state: 'CA', zip: '94105' }))
+            .toBe('500 Market St\nSan Francisco CA 94105');
+    });
+
+    it('is empty without an address', () => {
+        expect(clientAddressText(null)).toBe('');
     });
 });

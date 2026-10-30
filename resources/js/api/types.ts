@@ -795,8 +795,12 @@ export interface TransferStats {
 
 // ---- Clients & contracts ----
 
-/** A client's postal address. */
+/**
+ * A client's address: the text its invoices print, line by line. An archive of before 2026-10-30 may still hold its
+ * parts (the lines, the city, the state, the postal code).
+ */
 export interface ClientAddress {
+    text?: string | null;
     lines?: (string | null)[];
     city?: string | null;
     state?: string | null;

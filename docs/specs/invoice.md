@@ -103,7 +103,7 @@ on its own.
                "tax_id": "1234500592", "tax_id_kind": "rnokpp", "registered_at": "2021-03-01",
                "email": "mykola@example.com", "phone": "+3801237654", "signature_file_id": null },
   "client": { "name": "Bring IT LLC", "country": "US", "vat_number": null, "tax_id": null,
-              "address": { "lines": ["500 Market St, Suite 200"], "city": "New Jersey", "zip": "25902" },
+              "address": { "text": "500 Market St, Suite 200\nNew Jersey 25902\nUS" },
               "email": "billing@bringit.example" },
   "contract": { "name": "Service Agreement", "number": "109-23", "subject": "IT services",
                 "started_at": "2026-09-01", "ends_at": null, "payment_terms_days": 14 },
@@ -192,8 +192,10 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
 - In the banded styles the head sits in a `.band`.
 
 **Strip** (`v3/strip`):
-- BILL TO: the client's name (`.party-name-lg`), its address lines (the lines, then `city zip`, then the country), and
-  `VAT:` and `Tax ID:` rows when they are set.
+- BILL TO: the client's name (`.party-name-lg`), its address as typed, line by line (`address.text`; since
+  2026-10-30, the owner: «not much control» over the parts), and `VAT:` and `Tax ID:` rows when they are set. A
+  snapshot of before keeps the parts and prints them as then: the lines, then `city zip`, then the country code.
+  The migration turned every client's parts into that text (the lines, then `city state zip`, then the country).
 - PERIOD: two lines, `{start} –` and `{end}`, each `nowrap`.
 - ISSUED, and DUE when there is a due date: each a label with a mono value.
 - CONTRACT: its own row across the full width, with a top border. It reads `{name} No. {number}`, the number part only

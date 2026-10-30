@@ -1,7 +1,9 @@
+import type { ClientAddress } from '@/api/types';
 import { locale, type Locale } from '@/i18n';
 
 /**
- * Helpers for clients: the name of a country, initials for the avatar, and an abbreviation to suggest.
+ * Helpers for clients: the name of a country, the address as text, initials for the avatar, and an abbreviation to
+ * suggest.
  */
 
 const regions = new Map<Locale, Intl.DisplayNames | null>();
@@ -38,6 +40,25 @@ export function countryName(code: string | null | undefined): string {
 }
 
 const LEGAL_FORMS = /^(llc|l\.l\.c\.|inc\.?|ltd\.?|limited|gmbh|ag|sa|s\.a\.|bv|b\.v\.|oy|ab|as|sp\.|z|o\.o\.|s\.r\.o\.|corp\.?|co\.?|plc|ou|oü)$/i;
+
+/**
+ * A client's address as its invoices print it, line by line: its text, or the parts of an older archive (the lines,
+ * then the city, the state and the postal code).
+ */
+export function clientAddressText(address: ClientAddress | null | undefined): string {
+    if (!address) {
+        return '';
+    }
+
+    if (typeof address.text === 'string') {
+        return address.text.trim();
+    }
+
+    return [...(address.lines ?? []), [address.city, address.state, address.zip].filter(Boolean).join(' ')]
+        .map((line) => (line ?? '').trim())
+        .filter(Boolean)
+        .join('\n');
+}
 
 /**
  * Two letters for a client's avatar: the first letters of its first two words, legal forms left out.

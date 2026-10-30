@@ -5,8 +5,9 @@ import { t } from '@/i18n';
 import { formatAmount } from '@/utils/money';
 
 /**
- * A line of an invoice: the project's code and the work type, the description, and quantity × price = amount. With
- * `editable`, the whole card is a button that opens the item.
+ * A line of an invoice: the project's code and the work type, the description, and quantity × price = amount, the
+ * amount going under them, on the right, when the row can't hold both. With `editable`, the whole card is a button
+ * that opens the item.
  */
 export interface ItemView {
     project_code: string | null;
@@ -53,11 +54,11 @@ const UNITS: Record<ItemUnit, string> = {
             <Icon v-if="editable" name="chevronRight" :size="18" class="text-ink-2" />
         </span>
         <span class="text-14 leading-[1.45]">{{ item.description || t('invoices.detail.noDescription') }}</span>
-        <span class="flex items-baseline justify-between border-t border-divider pt-2">
+        <span class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-divider pt-2">
             <span class="num text-13 text-ink-2">
                 {{ formatAmount(item.quantity) }} {{ UNITS[item.unit] }}<template v-if="item.unit_price"> × {{ formatAmount(item.unit_price) }}</template>
             </span>
-            <span class="num text-16 font-semibold">{{ item.amount ? formatAmount(item.amount) : '—' }}</span>
+            <span class="num ml-auto text-16 font-semibold">{{ item.amount ? formatAmount(item.amount) : '—' }}</span>
         </span>
     </component>
 </template>

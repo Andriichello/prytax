@@ -34,7 +34,7 @@ settings page and grouped. Built:
   (the user asked, after two columns): ФОП (the card and Змінити ФОП only) · Налаштування ФОП (Профіль і реквізити,
   Податки й сповіщення) · Гроші (Рахунки, Перекази та комісії) · Клієнти й інвойси
   (Клієнти й договори, Нумерація, Документ інвойсу) · Керування (Користувачі й ролі, Резервні копії). Desktop: titled
-  Налаштування, no language/Вийти (the sidebar's foot has them). Phone: one list, as before.
+  Налаштування, a centred 760 px column (`TabScreen`'s new `width="column"`), no language/Вийти (the sidebar's foot has them). Phone: one list, as before.
 - **Sub-pages** (Рахунки, Перекази, Комісії, Клієнти, the four settings, Користувачі, Резервні копії) lost
   `meta.section`, so on desktop they show «←» back to Налаштування (their `back` was already `more`).
 - **i18n:** `shell.more.money`, `shell.more.clientsInvoices`; `fopSettings` kept for its group; `moneyCounterparties`

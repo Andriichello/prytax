@@ -1,7 +1,7 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are built on
-`feat/invoice-preview`** (from `dev`, 8 commits, not merged, not pushed; see "Invoice PDF preview"). Before it, as of
+Status as of 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
+(fast-forward to `feat/invoice-preview`, the user asked; not `main`, not pushed; see "Invoice PDF preview"). Before it, as of
 2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
 (fast-forward to `feat/desktop`, the user asked "finish all of those"; not `main`, not pushed). With it, the user's
 feedback from the desktop window (compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes),
@@ -24,7 +24,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## Invoice PDF preview (2026-10-30, branch `feat/invoice-preview`, not merged, not pushed)
+## Invoice PDF preview (2026-10-30, branch `feat/invoice-preview`, merged into `dev`, not `main`, not pushed)
 
 The user asked to preview an invoice's PDF in the app "irregardless of the state of that invoice", then for zoom in
 both previews instead of a lens. Their choices: a draft's preview is marked as a draft; it works once the draft is

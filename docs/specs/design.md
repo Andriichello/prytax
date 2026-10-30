@@ -19,6 +19,8 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
   before the first invoice; the editor's number card offers Автоматичний | Лічильник | Власний, and a draft can hold a
   counter of its own.
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
+- **Головна** (§17.4): on desktop the sections' cards stand above the invoices, in place of the income limit, the
+  quarter's taxes and the notifications.
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
   page (Ще on a phone) groups the rest in one column: ФОП, Налаштування ФОП, Гроші, Клієнти й інвойси, Керування.
 - **Перегляд PDF** (§16.5, `invoice.md` §8): an invoice's PDF in the app whatever its status; a draft's is rendered as
@@ -1584,8 +1586,8 @@ wins; for domain rules §16 does.
   keeps 248 px and the content is fluid. **From 600 to 1023 px** the sidebar is a 64 px rail (☰, the ФОП's
   avatar and the sections' icons, the groups apart), whose ☰ opens the whole sidebar over the page, and the pages have
   24 px sides instead of 40; the sign-in pages and the recovery kit keep one centred column there. **Under 1280 px**
-  the right-hand columns (Головна's 360 px column, the 300 px side notes) move under the main column (the owner,
-  2026-10-28). No horizontal scroll from 600 to 1440.
+  the right-hand columns (the 300 px side notes; Головна's 360 px column until v5.1) move under the main column (the
+  owner, 2026-10-28). No horizontal scroll from 600 to 1440.
 - **Routes are the same.** A record's route renders a full page on mobile and a **panel over the list it belongs to**
   on desktop, the list staying mounted under it: nested routes with the panel as the list's child, so a deep link to
   `/invoices/:id` opens Інвойси with the panel.
@@ -1641,10 +1643,12 @@ and the status badge under it (#81).
 ### 17.4 Screens
 
 Only what differs from mobile; copy, data and logic are mobile's.
-- **Головна:** two columns. Left, the invoices by quarter as a table (Номер · Клієнт · період · Сума · Статус; under the
-  client the period and «сплатити до …» or «прострочено, до …»; «3 100.00 · 80 %» under a sent one's amount). Right,
-  360 px: the income-limit band, «Податки IV кв.» (ЄСВ, ЄП, ВЗ with due dates, «Усі податки»), and the latest
-  notifications.
+- **Головна:** the sections' cards, then the invoices by quarter as a table (Номер · Клієнт · період · Сума · Статус;
+  under the client the period and «сплатити до …» or «прострочено, до …»; «3 100.00 · 80 %» under a sent one's
+  amount). v5.1 (the owner, 2026-10-30) dropped the board's right-hand column (the income-limit band, «Податки IV
+  кв.», the latest notifications: Облік, Податки and 🔔 have them) for the cards Інвойси · Облік · Податки · Книги ·
+  Налаштування (`HomeNavCards`: an icon on accent-soft, the name, a line of what it holds; five a row, three or two as
+  the page narrows), which open their sections.
 - **Інвойси:** the chips «🗓 2026 ⌄» (dark) · «Усі клієнти ⌄» · «Усі статуси ⌄» · «Усі валюти ⌄» and the search «Номер
   або клієнт» on the right; a table per quarter (Номер · Клієнт · Період · Сума · Оплата · Статус; Оплата «до 14.11»,
   «прострочено, до 19.10» in red, or «—»; the virtual marker in place of the number). Rows open panels; no split view.
@@ -1710,7 +1714,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   record («Зберегти», «Додати надходження») stays in the footer of its panel, dialog or form, and an action inside a
   section («+ Додати», «+ Договір») stays a blue text link.
 - **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
-  beside Головна's 360 px column from 1280 px: Інвойси's table puts the period under the client and the payment
+  beside a page's side columns: Інвойси's table puts the period under the client and the payment
   under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date
   under the invoice and the income ₴ and the NBU rate under the amount under 920 px; its summary is two cards with
   the taxes under them under 960 px; Податки's summary narrows its columns under 760 px; Книги's cards by tax are
@@ -1737,7 +1741,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
   the date pickers (`DatePickerPopover`).
-- **Pages:** Головна (tables by quarter, `HomeAside`), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
+- **Pages:** Головна (tables by quarter; `HomeNavCards` above them since v5.1, `HomeAside` gone), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
   cards, the switches on the filter row, `ReceiptTable`), Податки (the summary table, one-line ledger rows), Книги
   (the whole width, the cards in grids), the settings with their side notes, Рахунки in two columns, Перекази,
   Клієнти and Користувачі at 880 px, Вхід split.

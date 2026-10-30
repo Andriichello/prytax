@@ -24,6 +24,14 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Головна's cards (2026-10-30, branch `feat/home-nav-cards` from `feat/settings-page`)
+
+The user disliked desktop Головна on wide screens: its right-hand column (`HomeAside`: income limit, the quarter's
+taxes, the latest notifications) is gone, deleted with its texts, and `HomeNavCards` stands above the invoices:
+Інвойси · Облік · Податки · Книги · Налаштування (icon, name, a line of what each holds; five a row from 880 px of
+page, three from 560, else two; tabs go back to where they were left, via `tabPaths`). The phone's Головна never had
+the column and is unchanged. Checked at 1920 and 735 px. Stacked on `feat/settings-page` (the ⚙ icon and `/settings`).
+
 ## Налаштування page (2026-10-30, branch `feat/settings-page` from `dev`)
 
 The user asked for a Settings item under Книги in the sidebar, with everything that was below Книги moved into a

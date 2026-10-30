@@ -169,7 +169,7 @@ export default {
         savesPerGroup: 'A group’s changes are saved at once.',
         saveDraft: 'Save draft',
         draftStored: 'The draft is saved.',
-        notSavedYet: 'Not saved yet: “Save draft” stores the invoice.',
+        notSavedYet: 'Not saved yet: “Save draft” stores the invoice, and then its PDF can be previewed.',
         toSave: 'Not saved yet. To save it, set the {missing}.',
         needs: {
             client: 'client',
@@ -334,6 +334,16 @@ export default {
         magnify: 'Magnifier',
         magnifyHint: 'Click the page to magnify it; click again or press Esc to stop.',
         magnifyHintTouch: 'Tap the page to magnify it and drag to move; tap again to stop.',
+    },
+
+    pdfPreview: {
+        title: 'PDF preview',
+        open: 'Preview PDF',
+        draftSubtitle: 'Draft · {number}',
+        draftNote: 'A draft: its number and content may still change, so every page is marked as a draft.',
+        draftDocument: 'Draft PDF',
+        draftDocumentHint: 'Marked as a draft · the final PDF is made when it’s frozen',
+        failed: 'Couldn’t show the PDF',
     },
 
     table: {

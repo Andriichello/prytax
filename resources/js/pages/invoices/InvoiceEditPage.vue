@@ -33,6 +33,7 @@ import InvoiceDocumentLook from '@/components/invoice/InvoiceDocumentLook.vue';
 import InvoiceDocumentTexts from '@/components/invoice/InvoiceDocumentTexts.vue';
 import InvoiceItemCard, { type ItemView } from '@/components/invoice/InvoiceItemCard.vue';
 import InvoiceItemSheet, { type ItemDraft } from '@/components/invoice/InvoiceItemSheet.vue';
+import InvoicePdfPreview from '@/components/invoice/InvoicePdfPreview.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -61,8 +62,10 @@ import { formatAmount, formatMoney, multiplyAmounts, parseAmount, sumAmounts } f
  * one with the counter the user chose, or one typed in whole, prefilled with the preview —, then accordion
  * groups — Клієнт і договір, Період і дати, Отримання коштів, Документ (its style, language, contract section, payment
  * purpose, act note and the two notes, each the client's unless the invoice has its own) and Внутрішня примітка —
- * and its items, which aren't a group. The draft is saved after each group and each item; «Зафіксувати» asks before
- * freezing. An external one stays one form with «Зберегти». Leaving an open group with changes asks first.
+ * and its items, which aren't a group. The draft is saved after each group and each item; «Переглянути PDF» shows a
+ * saved draft's PDF as the freeze would print it now, marked as a draft; «Зафіксувати» asks before freezing. An
+ * external one stays one form with «Зберегти», its uploaded PDF previewed too. Leaving an open group with changes asks
+ * first.
  */
 const route = useRoute();
 const router = useRouter();
@@ -938,6 +941,17 @@ async function askFreeze(): Promise<void> {
     }
 }
 
+const previewOpen = ref(false);
+
+/** Preview the saved draft's PDF; changes not saved yet are saved first, as the freeze does, so the PDF shows them. */
+async function askPreview(): Promise<void> {
+    if ((dirty.value || pending.value) && !(await save())) {
+        return;
+    }
+
+    previewOpen.value = true;
+}
+
 async function freeze(): Promise<void> {
     if (!existing.value) {
         return;
@@ -1442,6 +1456,15 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         <span v-else-if="pendingFile" class="text-12 text-ink-3">{{ t('invoices.editor.readyServerChecks') }}</span>
                         <span v-else class="text-12 text-positive">{{ t('invoices.editor.uploadedMainDocument') }}</span>
                     </span>
+                    <button
+                        v-if="!pendingFile && existing?.primary_file_id"
+                        type="button"
+                        :aria-label="t('invoices.pdfPreview.open')"
+                        class="flex size-11 items-center justify-center text-ink"
+                        @click="previewOpen = true"
+                    >
+                        <Icon name="eye" :size="20" />
+                    </button>
                     <button v-if="pendingFile" type="button" :aria-label="t('invoices.editor.removeFile')" class="flex size-11 items-center justify-center text-ink-2" @click="dropFile">
                         <Icon name="close" :size="20" />
                     </button>
@@ -1563,10 +1586,16 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                         {{ t('invoices.editor.freeze') }}
                     </PrimaryButton>
                 </div>
-                <PrimaryButton v-else :disabled="loading || saving" @click="askFreeze">
-                    <Icon name="lock" :size="20" />
-                    {{ t('invoices.editor.freeze') }}
-                </PrimaryButton>
+                <div v-else class="grid grid-cols-[1fr_1.4fr] gap-2.5">
+                    <SecondaryButton :disabled="loading || saving" @click="askPreview">
+                        <Icon name="eye" :size="20" />
+                        {{ t('invoices.pdfPreview.open') }}
+                    </SecondaryButton>
+                    <PrimaryButton :disabled="loading || saving" @click="askFreeze">
+                        <Icon name="lock" :size="20" />
+                        {{ t('invoices.editor.freeze') }}
+                    </PrimaryButton>
+                </div>
             </Dimmable>
             <div v-else class="grid grid-cols-[1fr_1.4fr] gap-2.5">
                 <SecondaryButton :busy="saving && !freezeOpen" :disabled="loading || form.client_id === null" @click="save">{{ t('core.common.save') }}</SecondaryButton>
@@ -1590,6 +1619,14 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
             :removable="form.items.some((item) => item.key === editing?.key)"
             @save="saveItem"
             @remove="removeItem"
+        />
+
+        <InvoicePdfPreview
+            v-if="existing"
+            v-model:open="previewOpen"
+            :invoice-id="existing.id"
+            :draft="existing.source === 'generated'"
+            :number="existing.source === 'generated' ? numberPreview : existing.number"
         />
 
         <FreezeSheet

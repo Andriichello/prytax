@@ -1,9 +1,47 @@
-# PryTax — Backups, data safety & retention (design v1.7)
+# PryTax — Backups, data safety & retention (design v1.8)
 
-Companion to `docs/specs/design.md` (v5). Covers (1) protecting the platform's data against loss,
-(2) per-organization backups / exports that owners configure and download, and (3) data retention and deletion
-(§9). Stack: Laravel 13, PHP 8.5, MySQL 8, PHPUnit 12, queue workers, scheduler with `->onOneServer()`, Google Cloud
-Storage (private buckets).
+Companion to `docs/specs/design.md` (v5.2) and `docs/specs/builds.md` (Docker, SQLite and the desktop app). Covers (1)
+protecting the platform's data against loss, (2) per-organization backups / exports that owners configure and download,
+and (3) data retention and deletion (§9). Stack: Laravel 13, PHP 8.5, MySQL 8 or SQLite (`builds.md` §3), PHPUnit 12,
+queue workers, scheduler with `->onOneServer()`, Google Cloud Storage (private buckets) in production and a local disk
+elsewhere (§3).
+
+### Changes in v1.8 (SQLite, the desktop app and restoring in the app)
+
+As built on 2026-10-29/30 (`feat/sqlite`, `feat/desktop` and the client's address, merged into `dev`). What changed
+since v1.7:
+- **SQLite** (`builds.md` §3.4): the engine runs on MySQL and on SQLite, with driver switches of its own (PryTax's
+  `AccountingArchiveChecks` uses `PryTax\Helpers\Sql`). On SQLite `SchemaInspector` reads the schema through the schema
+  builder, the run's snapshot is a `BEGIN DEFERRED` read transaction (one version of the file under WAL, no statement
+  time limit) with `snapshot_at` from `datetime('now')` (UTC), the audit log's selection uses `json_extract`, and the
+  purge skips MySQL's `innodb_lock_wait_timeout` (§4.2, §4.3, §9.5).
+- **Archives move between the drivers:** `Column` goes by the declared type, and SQLite declares JSON columns `text`
+  and keeps decimals as numbers, so an archive written there holds JSON as stored and decimals without trailing zeros
+  (`1234.5`). The manifest's `checks` are two-decimal strings on both drivers, so an archive made on one should import
+  and check out on the other: the desktop app ↔ a server (§2.5, §2.6). No test covers it yet (§8).
+- **Restoring in the app** («Відновити з архіву», 2026-10-29): `POST /api/organization/backups/import` and the owners'
+  new `import` permission on backups. An uploaded ФОП archive (with its password, when it was downloaded with one: the
+  importer opens AES archives) is checked with `dry_run`, then imported as a **new** ФОП of the organization, never in
+  place. A ФОП the organization has (deleted ones too), a run's bundle, a period export, and a missing or wrong password
+  are refused. SPA `/backups/import`, linked from Резервні копії. That is §5.3's self-service restore, upload only;
+  restoring into the same organization stays open (D7, D9, §4.7, §4.8, §5.1, §5.3).
+- **The desktop app** (`builds.md` §4): backups run on the app's own queue worker and stay on the computer; a policy's
+  missed window is due at the scheduler's next run, while the pruner, the weekly verification and the rolling
+  retention run at fixed times, which the launch doesn't catch up (§4.3). Its owner keeps the recovery kit again from
+  Резервні копії (§4.8). It has no Layer A (§1), and restoring it from an in-app archive waits for §5.3.
+- **The client's address** is JSON `{text}` (2026-10-30) in the same `clients.address` column: no registry change, so
+  no `format_version` bump and no upcaster. Older archives import their parts as they are, which the invoice PDF and
+  the SPA still read (D11, §4.2).
+- **UI:** Резервні копії is in the «Керування» group of Ще on a phone and of Налаштування on desktop; a run card
+  narrower than 720 px puts a ФОП's size under its name; the desktop app's side note (§4.8).
+- **Corrected where the body still had the design:** the run job's retries and its snapshot's connection (§4.3), the
+  weekly verification (§5.2), the build order (§7), the rolling retention's command (§9.5), the module's layout (§10.2,
+  §10.4), `composer.json` (§12).
+- **Tests not written yet:** besides v1.7's three, an archive made on one driver imported on the other, and the import
+  refusing a bundle.
+- **Open, found here:** on the desktop, pruning and the rolling retention wait for the app to be open at 05:30 and
+  03:40 (§4.3); the download's limit of 30 an hour is one counter with the import and the status polls of a bundle and
+  a period export (§4.7); an import's upload is capped at 32 MB by PHP in Docker and the desktop app (§5.1).
 
 ### Changes in v1.7 (as built on `feat/backups`, and the UI handoff)
 
@@ -175,11 +213,11 @@ to a single Laravel deployable:
 | D4 | "Zipped and gzipped"? | **Only `.zip` (deflate).** Gzipping a zip saves ~0 % (the content is already compressed) and turns a double-click archive into a two-step one on Windows/macOS. |
 | D5 | Unit of storage | **One archive per profile per run.** The organization archive ("one zip, a folder per profile") is **assembled on demand** from the profile archives of the same run, so nothing is stored twice and all profiles in it share one snapshot instant. |
 | D6 | Encrypted columns (`profiles.tax_id`, `accounts.iban`, `accounts.account_number`, `invoices.snapshot` — the snapshot copies the РНОКПП and IBAN) | **Exported decrypted**, the snapshot as JSON (ciphertext is useless outside the app's `APP_KEY`). The list is derived from the models' `encrypted*` casts by a test, never maintained by hand. The archive is therefore sensitive: private bucket, signed short-lived download URLs, downloads audited, an optional password set at download time. |
-| D7 | Who configures / downloads | **Owner** configures the policy and downloads. **Accountant** can download (they run the books) and trigger a manual backup. **Viewer**: no access (bulk export of personal data). |
+| D7 | Who configures / downloads | **Owner** configures the policy, downloads, and restores an archive as a new ФОП (`import`, §5.1). **Accountant** can download (they run the books) and trigger a manual backup. **Viewer**: no access (bulk export of personal data). |
 | D8 | Retention | **Grandfather-father-son** per organization (keep N daily / N weekly / N monthly + manual), enforced by an app-side pruner; a bucket lifecycle rule is the hard ceiling. **The latest completed backup of a profile is never pruned.** |
-| D9 | Restore | Phase 1: ops-only `artisan` import **into a new profile** (never in place), plus an automated export→import round-trip test. Later: self-service "restore as a new ФОП". No in-place overwrite, ever. |
+| D9 | Restore | Always **into a new profile** (never in place): the ops tool `prytax:backup:import` and, since 2026-10-29, the owners' «Відновити з архіву» in the app (§5.1), plus an automated export→import round-trip test. A ФОП the organization still has can't be restored into it (§5.3, open). No in-place overwrite, ever. |
 | D10 | `APP_KEY` | Layer A backups are useless without the key that encrypted the columns. It lives in Secret Manager with every historical version; key rotation uses `APP_PREVIOUS_KEYS`. |
-| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. Backups are never produced with an *old* definition; old *archives* are read through importer upcasters. |
+| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. A new shape of the JSON inside a column isn't a registry change either, while the code reads both shapes (`clients.address`, §4.2). Backups are never produced with an *old* definition; old *archives* are read through importer upcasters (none yet: format 1 is the only one, and the importer refuses any other). |
 | D13 | Module or scattered code? | **A module in the app**, not a composer package: engine `PryTax\DataLifecycle\` (generic, no knowledge of accounting; built on api-core's base classes), definitions `PryTax\Backups\` + `PryTax\Retention\` (PryTax-specific), four contracts between them, a PHPUnit test for the direction of dependencies (§10). |
 | D14 | Does api-core take part? | **No.** api-core (`Core\`) stays free of backup code, migrations and GCS/zip dependencies. PryTax registers the api-core tables it needs and owns the user-removal handler (§11). Extraction later goes to a sibling package, never into api-core. |
 | D12 | Data retention & deletion | **Families × actions × periods in config**, executed by deletion runs with per-family jobs and a `due_at`. Accounting data is never deleted on a timer while the organization exists; offboarding = lock immediately → final export → grace period → FK-ordered purge (DB rows, documents, backups). Credentials and technical data have short rolling cutoffs (§9). |
@@ -189,6 +227,10 @@ to a single Laravel deployable:
 ## 1. Layer A — platform disaster recovery (not tenant-configurable)
 
 Target: **RPO ≤ 5 min, RTO ≤ 1 h** for the database; **no loss** of uploaded documents.
+
+Layer A is the hosted platform's. The other installations (`builds.md`) have none: a self-hosted Docker one has what
+its operator sets up, and the desktop app's database is one SQLite file on the computer, which the owner copies with
+the recovery kit to restore it elsewhere (`builds.md` §4.4–§4.6); its Layer B archives stay on the same computer.
 
 ### 1.1 Database (Cloud SQL for MySQL; equivalents noted for self-managed MySQL)
 
@@ -392,10 +434,13 @@ stay inside each profile folder, so any folder can be copied out and is self-con
 - RFC 4180: comma separator, `"` quoting, `\r\n` rows, header row with the database column names (snake_case).
 - **UTF-8 with BOM** (Excel otherwise mangles Cyrillic).
 - Decimals as stored: `1234.99` (dot, no grouping) — never formatted with `display.money_format`. Rates: 4 dp.
+  SQLite keeps decimals as numbers, so an archive written there drops trailing zeros (`1234.5`, `1234`); both drivers
+  should import either (not tested yet, §8).
 - Dates `YYYY-MM-DD`; timestamps ISO 8601 UTC `2026-10-27T02:37:11Z`.
 - `NULL` = empty unquoted field; empty string = `""`. Readers that don't distinguish lose nothing important
   (`schema.json` marks nullability).
-- Booleans `1` / `0`; enums as their string value; JSON columns as compact JSON strings.
+- Booleans `1` / `0`; enums as their string value; JSON columns as compact JSON strings. SQLite declares JSON columns
+  `text`, so there they are written as stored; decrypted JSON (`invoices.snapshot`) is compacted on both.
 - Rows ordered by `id`.
 - Excel note in README: open via *Data → From Text/CSV* (UTF-8, comma) in Ukrainian locales, where Excel expects
   `;`. **Machine-readability wins** — no locale-specific CSV variant. A human-friendly XLSX ("Облік доходів" per
@@ -430,8 +475,10 @@ stay inside each profile folder, so any folder can be copied out and is self-con
 }
 ```
 
-`checks` are recomputed after an import; any mismatch fails the import (§5). `content_hash` drives
-`skip_unchanged`.
+`checks` are recomputed after an import; any mismatch fails the import (§5). They are amounts with two decimals on
+either driver (MySQL sums decimals as strings, SQLite as floats), so an archive made on one should check out on the
+other.
+`content_hash` drives `skip_unchanged`.
 
 ### 2.7 Period exports (year / quarter / range)
 
@@ -448,6 +495,10 @@ the period on its own:
 ---
 
 ## 3. Storage (GCS)
+
+The buckets are production's. As built, no GCS adapter is installed (§7), so every installation (development, Docker,
+the desktop app) keeps its archives on the local `backups` disk (`storage/app/backups`; the desktop app's storage is
+in its data folder, `builds.md` §4.1), and downloads go through the signed route of §3.3.
 
 ### 3.1 Buckets
 
@@ -477,9 +528,9 @@ tmp/exports/{export_ulid}.zip
   the DR copy in another project (§1.1–1.2). A real writer/pruner split needs the pruner to run as its own deployment
   (a Cloud Run job with its own service account); revisit when that is worth its operations cost.
 - **Downloads**: V4 signed URLs, valid 10 min, `response-content-disposition: attachment; filename="…"`, issued only
-  by the API after a policy check; every issue is logged in `backup_downloads`. On a local disk (development) the
-  link is the app's signed route `backups.archive` (`/backups-storage/{path}?disk=…&name=…`), which saves the archive
-  under the same name.
+  by the API after a policy check; every issue is logged in `backup_downloads`. On a local disk (development, Docker,
+  the desktop app) the link is the app's signed route `backups.archive` (`/backups-storage/{path}?disk=…&name=…`),
+  which saves the archive under the same name.
 - Encryption at rest: Google-managed by default; CMEK (Cloud KMS) if a customer requires it.
 
 ### 3.4 Cost order of magnitude
@@ -606,7 +657,7 @@ the table name.
 | `TableSpec::profile` | every `[P]` table | `WHERE t.profile_id = ?` |
 | `TableSpec::child(parent, fk)` | `[child]` tables | `JOIN parent ON t.fk = parent.id WHERE parent.profile_id = ?` (chains resolve recursively) |
 | `TableSpec::morph(name)` | api-core `settings` (`model_*`), `sequences` (`model_*`), `files` (`fileable_*`) | `WHERE (t.{name}_type = 'models.profiles' AND t.{name}_id IN (SELECT id FROM profiles WHERE id = ?)) OR (t.{name}_type = 'models.invoices' AND t.{name}_id IN (SELECT id FROM invoices WHERE profile_id = ?)) OR …` — one branch per registered **non-reference** table that has a morph alias, each subquery being **that owner's own selection** |
-| `TableSpec::profileJson(column, path)` | api-core `audit_logs` (`metadata.profile_id`, written by PryTax — see "Audit entries" below) | `WHERE CAST(t.metadata->>'$.profile_id' AS UNSIGNED) = ?` — not indexed; fine for an export or a purge |
+| `TableSpec::profileJson(column, path)` | api-core `audit_logs` (`metadata.profile_id`, written by PryTax — see "Audit entries" below) | `WHERE CAST(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.profile_id')) AS UNSIGNED) = ?` (SQLite: `CAST(json_extract(…) AS INTEGER)`) — not indexed; fine for an export or a purge |
 | `TableSpec::reference(via)` | global lookup tables | `WHERE id IN (SELECT DISTINCT fk FROM <exported via-tables>)` — only referenced rows, never the whole table. On import they are **matched, never inserted** (`matchOn()`, §5.1) |
 
 **Morph strategy details.**
@@ -749,6 +800,12 @@ table is breaking and requires the `format_version` bump (with an upcaster); an 
 export must contain their own PII to be useful and restorable. Only credentials, secrets and derived values are
 omitted.
 
+**The JSON inside a column can change shape without a bump** while the code reads both shapes, since neither the
+column snapshot nor `registry_hash` sees it. `clients.address` (2026-10-30) went from parts (`{lines, city, state,
+zip}`) to the text the invoices print (`{text}`): a migration converted the stored rows once, and an archive from before
+imports its parts as they are, which the invoice PDF prints as it did (`invoice.md` §2) and the SPA's client form turns
+into the text. `format_version` stays 1.
+
 **Registry hash** = `sha256(json_encode(normalize($registry->tables()), JSON_UNESCAPED_UNICODE |
 JSON_UNESCAPED_SLASHES))` with keys sorted, computed when a run starts (cheap; nothing to cache). Stored on `backups`
 and in the manifest; the importer keys its upcaster chain on `format_version` and logs `registry_hash` for diagnosis.
@@ -761,22 +818,28 @@ deployable, one registry class is easier to review, and an old definition can re
 
 ```
 Scheduler (every 5 min, onOneServer)
-  └─ DispatchDueBackups: policies WHERE enabled AND next_run_at <= now()
+  └─ prytax:backup:dispatch: gives an organization without a policy the default one, then
+     policies WHERE enabled AND next_run_at <= now()
        → backup_runs row (queued), then RunOrganizationBackup::dispatchFor($policy->organization_id, $run->id)
          ->onQueue('backups')                       // api-core AsyncJob: the scheduler has no current organization
-       → next_run_at = next slot (frequency + per-org offset)
+       → next_run_at = the next slot after now (frequency + per-org offset)
   Manual and automatic runs create their backup_runs row the same way and dispatch the same job.
 
-RunOrganizationBackup($runId)  (AsyncJob; middleware WithoutOverlapping("backups:{org}")->releaseAfter(60);
-                                tries 3; backoff 5/15/45 min; timeout 15 min)
+RunOrganizationBackup($runId)  (AsyncJob; middleware WithoutOverlapping("backups:{org}")->releaseAfter(60)
+                                ->expireAfter(1200); tries 0, maxExceptions 3, retryUntil 12 h;
+                                backoff 5/15/45 min; timeout 15 min)
   0. Load the run; a run already completed/partial/failed → return. Profiles that already have a backups row
      for this run (completed or skipped) are skipped, so a retry resumes the run instead of duplicating it.
   1. backup_runs row → running
-  2. Data, inside one consistent snapshot on a dedicated read connection (replica if present), opened with
-     DB::connection('backup')->unprepared(…) — DB::transaction() can't open it:
-       SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-       START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY;
-     snapshot_at = SELECT UTC_TIMESTAMP(6)
+  2. Data, inside one consistent snapshot on the connection `data-lifecycle.connection` (`BACKUP_DB_CONNECTION`:
+     one of its own or a replica; the default one when unset), opened with ->unprepared(…) — DB::transaction()
+     can't open it:
+       MySQL:  SET SESSION MAX_EXECUTION_TIME = 600000;
+               SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+               START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY;
+               snapshot_at = SELECT UTC_TIMESTAMP()
+       SQLite: BEGIN DEFERRED;                      // reads one version of the file under WAL, blocks no writer
+               snapshot_at = SELECT datetime('now') // UTC
      For each included profile not yet done in this run:
        - ProfileArchiveWriter::writeData($profile, $spec)  → local tmp .zip with CSVs + manifest (§4.4)
        - skip_unchanged and content_hash equals the last completed backup's → delete tmp,
@@ -792,7 +855,7 @@ RunOrganizationBackup($runId)  (AsyncJob; middleware WithoutOverlapping("backups
   5. Write runs/{run}/manifest.json; run → completed|partial|failed
   6. Notify per policy (mail to owners on failure/partial; in-app status on the Backups screen)
 
-PruneBackups (daily, onOneServer)
+prytax:backup:prune (daily at 05:30, onOneServer)
   per organization × profile, among status=completed, tier=scheduled — grandfather-father-son from created_at:
     keep the newest backup of each of the last retention_daily days that have one,
          the newest of each of the last retention_weekly ISO weeks,
@@ -813,6 +876,15 @@ happen. `WithoutOverlapping` keeps them apart and releases the second back onto 
 
 Data size makes one snapshot transaction per organization fine (seconds). Guardrail: `max_execution_time` per
 statement on the backup connection, and the job aborts the run, not the database, if the snapshot exceeds 10 min.
+SQLite has no such limit.
+
+**In the desktop app** (`builds.md` §4.1, §4.2, §4.7) the runs, bundles and exports go to the app's own queue worker,
+and Electron runs the scheduler every minute while the app is open. The app is rarely open between 01:00 and 05:00, so
+a policy's `next_run_at` passes while it is closed and is due at the scheduler's next run: the backup is taken soon
+after the app opens, once, and `next_run_at` moves to the next slot. The pruner (05:30), the verification (Sundays
+06:00, §5.2) and the rolling retention (03:40, §9.5) run at fixed times, and the launch doesn't catch them up
+(`LaunchCatchUp` queues the rates, the tax periods and the alerts), so on a desktop they run only when the app is open
+then. Open: a desktop's archives aren't pruned to its policy while that is so.
 
 ### 4.4 Writing the archive
 
@@ -914,7 +986,7 @@ not password-protected: scheduled runs would have to keep the password, which de
 
 ### 4.7 API (organization-level; not under `profiles/{profile}`)
 
-As built (ids are ULIDs; v1.7 adds what the UI needs, marked «UI»):
+As built (ids are ULIDs; v1.7 adds what the UI needs, marked «UI»; v1.8 the restore, §5.1):
 
 ```
 GET    /api/organization/backup-policy                     owner, accountant (read)
@@ -925,6 +997,8 @@ GET    /api/organization/backup-runs/{run}                 status + per-profile 
 POST   /api/organization/backup-runs/{run}/bundle          owner, accountant   → 202
 GET    /api/organization/backup-runs/{run}/bundle          → {status, url?, expires_at?}
 GET    /api/organization/backups?filter[profile_id]=       owner, accountant
+POST   /api/organization/backups/import                    owner   {archive, password?, dry_run?} (multipart)
+                                                    → {dry_run, tenant_id, tenant, rows, documents, skipped_files}
 GET    /api/organization/backups/{backup}
 POST   /api/organization/backups/{backup}/download         owner, accountant   {password?} → {url, expires_at}
 DELETE /api/organization/backups/{backup}                  owner; manual runs only
@@ -934,7 +1008,7 @@ POST   /api/profiles/{profile}/exports                     owner, accountant   {
 GET    /api/profiles/{profile}/exports/{export}            → {status, url?}
 ```
 
-- Pagination is api-core's page numbers, as everywhere in the app (design.md decision 4), not a cursor.
+- Pagination is api-core's page numbers, as everywhere in the app (`design.md` §10), not a cursor.
 - **`keep_until`** (UI) on every backup: when the copy will disappear under the current policy, computed on read by a
   dry run of the pruner's selection (§4.3): a scheduled copy kept as a day's, week's or month's keeper gets the date it
   falls out of that window, with `keep_reason` `day|week|month`; the newest completed copy of a profile `null` (never
@@ -948,7 +1022,11 @@ GET    /api/profiles/{profile}/exports/{export}            → {status, url?}
   owners) cancels the purge.
 - Scoping: `backups` / `backup_runs` use api-core's organization scope (an organization bundle has no single profile).
   Rate limits: manual runs 5/day/org, downloads 30/hour/user. Every download → `backup_downloads` + an `audit_logs`
-  entry (`models.backups.downloaded`, §v1.7).
+  entry (`models.backups.downloaded`, §v1.7); every import but a dry run → `models.backups.imported` with
+  `metadata.tenant_id` and `file_name`.
+- **The hourly limit as built** is `throttle:30,60` on the download, the import, and the status of a bundle and of a
+  period export. Laravel keys a plain `throttle` by the user alone, so the four share one counter, and the SPA's polls
+  of a bundle (every 2.5 s) or an export (every 2 s) count against the downloads. Open.
 - **Notices** (UI): a partial or failed run, a ready bundle and a ready period export are api-core database
   notifications (`notifications`, per user: the owners for runs, the requesting user for a bundle or an export), listed
   through api-core's `NotificationController` and shown in Сповіщення. E-mails follow `notify` and carry no links.
@@ -958,10 +1036,10 @@ GET    /api/profiles/{profile}/exports/{export}            → {status, url?}
 The screens follow `BACKUPS_UI.md` of the handoff (`storage/handoff-28-10-2026/prytax-backups-handoff/`; boards
 `M-BK-*` at 390 px, `D-BK-*` at 1440 px; exact copy in `screens/html`). They reuse design.md §16.6 and §17's
 components: accordion cards, the sheet or dialog, badges, the export block, the sidebar.
-- **Entry:** Ще › Організація › «Резервні копії» (between Користувачі й ролі and Мова застосунку; on the right the
-  time of the last copy) on mobile; a sidebar item under «Налаштування» on desktop. Routes `/backups` and
-  `/backups/policy` (`/settings/backups` redirects). Organization-level: it doesn't change with the current ФОП.
-  Viewers have no entry point and get 403.
+- **Entry:** «Резервні копії» in the «Керування» group, after Користувачі й ролі, with the time of the last copy on
+  the right: on Ще on a phone, on Налаштування (from the sidebar) on desktop (v1.8; `design.md` §16.5, §17.2). Routes
+  `/backups`, `/backups/policy` and `/backups/import` (`/settings/backups` redirects). Organization-level: it doesn't
+  change with the current ФОП. Viewers have no entry point and get 403.
 - **Status card** in five states: the last run OK (✓ green, «Остання копія · Сьогодні, 02:37 · 4 ФОП · 4.2 МБ · за
   розкладом»), a run in progress (spinner, «Зараз · Створюється копія… · 2 з 4 ФОП», a bar), a partial run (⚠ red, the
   failed ФОП named), no copies yet (clock, «Ще немає копій · Перша — сьогодні вночі ≈ 02:37, або створіть зараз»), the
@@ -977,8 +1055,18 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
   when inactive), the name, the status chip (Готово green, Без змін grey, Помилка red, Створюється accent-soft, У черзі
   dashed), the meta («1.8 МБ · 41 документ», «0.9 МБ · копія від 25.10», or the error in red) and a 40 px ⤓, or
   «Повторити» on a failure (a manual run of that ФОП). «Без змін» downloads the profile's last completed archive.
-  Desktop grid `minmax(0,1fr) 100px 220px 72px`. The footnote (the side note on desktop, which also tells of Layer A's
-  30 days and points to Облік › Експорт).
+  Desktop grid `minmax(0,1fr) 100px 220px 72px`; a card narrower than 720 px drops the 220 px column and puts the meta
+  under the name. The footnote (the side note «Як це працює» on desktop, which also tells of Layer A's 30 days and
+  points to Облік › Експорт; in the desktop app it says instead that the copies stay on this computer and that the
+  recovery kit with the database file restores the whole of PryTax on another one).
+- **Links under the status card:** «Відновити з архіву» (owners, below) and, in the desktop app, «Набір відновлення»
+  (owners; `builds.md` §4.5), which opens the kit to keep it again and closes back to Резервні копії.
+- **«Відновити з архіву»** (`/backups/import`, owners: `import` on backups; v1.8): «Обрати архів (.zip)», then «Пароль
+  архіву» («Лише якщо архів завантажено з паролем»); [Перевірити] runs a dry run and shows «В архіві»: the ФОП's name
+  with «•••• 4821» and «{rows} записів · документів: {documents}»; then [Відновити як новий ФОП], and «Відновлено:
+  {name}» with [Перейти до ФОП], which makes it the current ФОП and opens Головна. A refusal shows under the file. The
+  side note: a restore never overwrites a ФОП, one the organization has can't be restored here, and a bundle of every
+  ФОП doesn't fit.
 - **«Створити копію зараз»** (a sheet; a 480 px dialog): «Усі ФОП організації» (default) or «Лише поточний ФОП»; the
   info «… До 5 ручних запусків на день — сьогодні ще N.», at 0 «Створити» disabled with «Ліміт на сьогодні вичерпано —
   спробуйте завтра.»; [Скасувати] [Створити]. The new run appears on top running; the page polls the run every 3 s
@@ -1019,6 +1107,11 @@ and `components/accounting/PeriodExportSheet.vue` (Рік / Квартал / П�
 downloads it), XLSX on Облік (the package couldn't be installed here), and the banner tells the signed link's 10 minutes
 rather than the bundle's 24 hours.
 
+**As built since v1.7 (2026-10-28/30):** `pages/backups/BackupImportPage.vue` and its link, the recovery
+kit's link (`useDesktopApp`), the desktop app's side note, the run card's container query, and the entry in
+«Керування». Довідка (`/help`) has a Резервні копії topic for those who see backups. Still not built: the in-app
+notices, XLSX and the banner's 24 hours, as above.
+
 ---
 
 ## 5. Restore
@@ -1030,7 +1123,10 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
 ```
 
 1. Validate `manifest.json` (`format`, `format_version` ≤ supported, `restorable = true`), file sha256s, `schema.json`.
-   Older `format_version`s go through upcasters (`BackupUpcaster_v1_to_v2`, …).
+   Older `format_version`s go through upcasters (`BackupUpcaster_v1_to_v2`, …); none exist yet, so the importer
+   refuses any version but its own (1). A run's bundle (`format: prytax-backup-bundle`) and a period export
+   (`restorable: false`) are refused with their own messages. An archive downloaded with a password (§4.6) is opened
+   with it; without it, or with another, it is refused.
 2. **Reference rows are matched first, never inserted** (`matchOn()`): `tax_rules` by `effective_from`,
    `exchange_rates` by `(currency, rate_date)` (both unique), `users` by e-mail among the target organization's users.
    A missing tax rule or exchange rate fails the import (rules come with migrations; a rate can be fetched first); a
@@ -1041,13 +1137,30 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
    skipped; morph `*_id` columns remapped through their owner's id map; `rewrite()` columns rewritten (§4.2 "Ids inside
    values"); deferred columns (`invoices.primary_file_id`) set in a final pass; `sequences` restored, with their keys
    rewritten, so numbering continues per client; `exportOnly()` tables (`alerts`, `audit_logs`) skipped; documents
-   uploaded to the files disk and `files.disk` / `files.path` rewritten. After the commit, AlertSync runs for the new
-   profile.
+   uploaded to the files disk and `files.disk` / `files.path` rewritten. An archive written without its documents
+   (`include_documents` off) leaves out its `files` rows (`skipped_files`), and what points at them becomes NULL.
+   After the commit, AlertSync runs for the new profile (`ArchiveImported`).
 4. Verification inside the transaction: row counts = manifest (export-only tables excluded); recompute `checks`
    (income by quarter, invoice totals, tax paid) = manifest; otherwise roll back.
 5. Constraint: `UNIQUE(organization_id, tax_id_hash)` means the same ФОП cannot be imported into an organization
    where it still exists (soft-deleted rows count too). Import into another organization, or purge the original
-   first. The tool reports this before writing.
+   first. The tool reports this before writing (`ProfileTenantRoot::importConflict()`, naming the profile and whether
+   it is deleted).
+
+**In the app** («Відновити з архіву», 2026-10-29; the screen is in §4.8). `POST /api/organization/backups/import`
+(`BackupController::handleImport`, `ImportBackupRequest`, owners: `import` on backups) runs the same importer on an
+uploaded archive, in the request (`set_time_limit(300)`), always into the request's organization (`orgId()`) as a new
+ФОП:
+- `archive`: the `.zip` as downloaded. The request allows 200 MB, but PHP takes uploads up to 32 MB in Docker and the
+  desktop app (`builds.md` §2.1, §4.2), which an archive with years of documents can exceed.
+- `password`: an AES archive's (§4.6), never stored. `prytax:backup:import` takes none.
+- `dry_run`: import, verify and roll back, to tell whose archive it is (the manifest's profile: name, the last four
+  digits of the РНОКПП) and what it holds (rows, documents) before restoring it.
+- A refusal (the importer's `ImportException`) is a 422 of `archive`, in the user's language for the fixed messages
+  (not a zip, the password, a bundle, a period export, another app's archive, a ФОП the organization has); those with
+  values in them (a format version, a damaged file, a failed verification) stay in English.
+- Restoring a ФОП on another installation (the desktop app ↔ a server) is meant to go this way, as archives should move
+  between the drivers (§2.5, §2.6; not tested yet, §8).
 
 ### 5.2 Continuous verification
 
@@ -1055,18 +1168,25 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
   `TaxReconciler` balance, every holding, and every invoice PDF hash (a re-render draws the restored profile's own
   signature) is identical; the restored settings name the restored accounts; a new invoice of a restored client
   continues its counter.
-- Weekly `VerifyRandomBackup` job: pick a random completed archive, import with `--dry-run` into a scratch
-  schema, record pass/fail in `backups.verified_at`; a failure alerts ops.
+- Weekly `prytax:backup:verify` (Sundays 06:00; `BackupVerifier`): a random completed archive of the last month that
+  isn't verified yet, its sha256 checked, then imported in a dry run into a scratch organization, both rolled back; a
+  pass sets `backups.verified_at`, a failure is reported (`report()` and the log) for ops.
 
 ### 5.3 Later — self-service
 
 "Відновити з архіву як новий ФОП" (owner): upload or pick an archive → dry-run report (counts, checks, conflicts) →
 confirm → new profile. In-place restore is never offered.
 
+**Built on 2026-10-29** as «Відновити з архіву» (§5.1 "In the app", §4.8): upload → «Перевірити» (whose it is, its
+rows and documents; a conflict is a refusal) → «Відновити як новий ФОП». Not built: picking one of the organization's
+stored archives instead of uploading it, and the checks in the report.
+
 **Open decision: restoring into the same organization.** `UNIQUE(organization_id, tax_id_hash)` counts soft-deleted
 profiles, so while the original exists (even deleted, during its 30-day grace) its archive can't be restored next to
 it. That is the usual case ("my data got messed up, give me last week's"), and comparing the two side by side is
-impossible as the schema stands. Options:
+impossible as the schema stands. The importer refuses it today, in the app too (§5.1, step 5; for a deleted ФОП its
+message says to purge it first, which an owner can't do before the grace ends, §9.3), and `builds.md` §4.6 leaves
+restoring the desktop app from an in-app archive to this decision. Options:
 1. **Keep the constraint**: a same-organization restore replaces the original — the original is purged first
    (immediately, after its own final backup), then the archive is imported. Simple, but no side-by-side comparison.
 2. **Relax it to one active profile per РНОКПП**: a stored generated `active_tax_id_hash` (NULL when the profile is
@@ -1082,6 +1202,8 @@ impossible as the schema stands. Options:
 - Archives contain РНОКПП, IBANs, client addresses: private buckets only, no personal data in object names or URLs,
   signed URLs ≤ 10 min, no links in e-mails (e-mail says "готово, відкрийте PryTax").
 - Owner/accountant only; viewer excluded; every download audited (user, IP, UA, time).
+- Restoring in the app (§5.1) is the owners'; the upload is read in the request and not kept, its password is never
+  stored, and every restore is audited (`models.backups.imported`).
 - Existing archives are protected by the bucket's 30-day soft delete, which the app's identity can't bypass (§3.3);
   the data they hold is also in Layer A's copies in the DR project (§1.1), from which any archive can be produced
   again. The app itself can delete archives, as owners and retention need it to.
@@ -1114,6 +1236,12 @@ impossible as the schema stands. Options:
 
 Retention (§9) runs in parallel: the technical rolling cutoffs (§9.2, "global" rows) and the user-removal flow
 ship with phase 1; the organization / profile deletion runs ship with step 3 (they need the final export).
+
+**As built (2026-10-30):** steps 2–7 and retention: Layer B, retention, `prytax:verify-db` and the weekly verification
+on 2026-10-28 (`feat/backups`, the screens on `feat/backups-ui`); the engine on SQLite and the restore in the app
+(upload only, §5.3) on 2026-10-29. Not built: step 1 (Layer A is infrastructure, and nothing is deployed), the GCS
+adapter (a package to approve), the final organization bundle and its e-mail (§9.3), an organization delete endpoint,
+a restore into the same organization (§5.3), and the in-app notices (§4.8).
 
 ## 8. Tests (PHPUnit)
 
@@ -1162,6 +1290,12 @@ a user is in no ФОП's archive and survives a profile purge · api-core's `not
 Module (§10–11): the three dependency rules · every `Core\` table in the database is classified (registered, excluded or
 assigned a retention family) · the column snapshot fails after a simulated api-core migration that adds a column to
 `users` · the engine's own tests run with an in-memory fake registry (no PryTax tables), proving it is generic.
+
+Restore in the app and SQLite (v1.8): an owner restores a ФОП's archive into another organization; only owners may;
+a ФОП the organization has is a 422; an archive downloaded with a password opens only with it; a file that isn't a zip
+is a 422 · the whole suite also runs on SQLite (`composer test:sqlite`, `builds.md` §3.8). Not written yet: an archive
+made on one driver imported on the other, the import refusing a bundle, and v1.7's three (a concurrent write during the
+snapshot, the engine's tests with a fake registry, an upcaster).
 
 ---
 
@@ -1214,7 +1348,7 @@ separate families exist for their rolling rules while the profile lives.
 | **User removed** from an organization (owner action) | api-core's own `DELETE /api/users/{id}`: soft delete, the account can't sign in, its tokens stop working; roles removed | none | `credentials`, `access`, `user_pii` (after api-core's delete, never instead of it) |
 | **Profile deleted** (soft delete exists) | profile hidden, excluded from schedules and notifications; automatic final backup | 30 days; owner can restore during grace | `accounting` (all registry tables except the `profiles` row, so `alerts`, `settings`, `sequences`, `files` rows and `audit_logs` go with it) → `documents` → `backups` (archives, `backups` / `backup_downloads` rows, **then** the `profiles` row, since `backups.profile_id` is RESTRICT) |
 | **Organization deleted** (owner action, re-auth required) | api-core's soft delete of the organization, which soft-deletes its users with it (restoring it restores them); tokens revoked, backup policy disabled; final organization bundle built and e-mailed as "ready" (no link in the e-mail) | 30 days; cancel restores access | per profile as above, then the remaining `audit_logs WHERE organization_id = ?` (user-, organization- and auth-level entries), then the organization's users (`credentials`, `access`, `user_pii` → hard delete of user rows), then api-core organization row |
-| **Profile moved to another organization** (e.g. a ФОП leaves the accountant) | — | — | export → `prytax:backup:import` into the target organization (§5) → then "profile deleted" in the source |
+| **Profile moved to another organization** (e.g. a ФОП leaves the accountant) | — | — | export → import into the target organization (`prytax:backup:import`, or the target's owner in the app, §5.1) → then "profile deleted" in the source |
 
 There is no "delete my data now" path without grace in phase 1. If one is needed (a legal erasure request), ops runs the
 same run with `immediate: true` (all `due_at = now`) after the lock step, as the reference design does.
@@ -1250,7 +1384,7 @@ Scheduler (every 5 min, onOneServer) → ExecuteDueRetentionJobs
     WHERE id = ? AND status = 'pending'          -- affected rows = 1 → we own it
   → RunRetentionJob::dispatch($jobId)->onQueue('retention')
 
-Daily (onOneServer) → CreateGlobalRetentionRun: one run with the technical / communication rolling jobs, due now.
+Daily (03:40, onOneServer) → prytax:retention:rolling: one run with the technical rolling job, due now.
   Rolling cutoffs that have a model use Laravel's own pruning instead (Prunable / MassPrunable + `model:prune`, as
   `routes/console.php` already does for AccessToken, AuditLog and IdempotencyKey; `queue:prune-failed`,
   `queue:prune-batches`); the global run keeps only what has no model (orphaned morph rows, `tmp/` objects).
@@ -1264,7 +1398,7 @@ RunRetentionJob → FamilyHandler::handle(job): RetentionResult
 
 ```php
 DB::transaction(function () use ($profileId, $result) {
-    DB::statement('SET SESSION innodb_lock_wait_timeout = 30');
+    DB::statement('SET SESSION innodb_lock_wait_timeout = 30');   // MySQL only; SQLite waits for its busy_timeout
     foreach ($this->registry->tables() as $table) {               // 1. break cycles: null deferred columns
         $table->nullDeferredQuery(DB::connection(), $profileId)?->update();   // invoices.primary_file_id = NULL
     }
@@ -1327,43 +1461,59 @@ enforced by tests, moving it into a package later is a mechanical move (§11.2).
 
 ### 10.2 Layout
 
+As built (v1.8; the design had a few other names, such as `PruneBackups` and `VerifyRandomBackup` jobs, which are
+commands now):
+
 ```
 app/
 ├── DataLifecycle/                       PryTax\DataLifecycle\        ← generic engine (extractable as-is)
 │   ├── Contracts/
-│   │   ├── TableRegistry.php            tables(): list<TableSpec>
-│   │   ├── TenantRoot.php               table/key of the tenant root, archive folder name, label
+│   │   ├── TableRegistry.php            tables(), excluded(), formatVersion()
+│   │   ├── TenantRoot.php               table/key of the tenant root, archive folder name, label, import conflict
 │   │   ├── ArchiveChecks.php            compute(tenantId, ConnectionInterface, RunSpec): array
-│   │   └── RetentionFamilyHandler.php   family(): string; handle(RetentionJob): RetentionResult
-│   ├── Registry/                        TableSpec, ColumnPolicy, RegistryHasher, ColumnSnapshot
+│   │   └── RetentionFamilyHandler.php   families(): list<string>; handle(RetentionJob): RetentionResult; TAG
+│   ├── Registry/                        TableSpec, Rewrite, Column, SchemaInspector (information_schema on MySQL,
+│   │                                    the schema builder on SQLite), MorphAliases, ColumnSnapshot, RegistryHasher
 │   ├── Backup/
-│   │   ├── Internal/                    ArchiveWriter, CsvSerializer, ManifestBuilder, ArchiveStore (any disk),
-│   │   │                                BundleBuilder, Pruner, ArchiveImporter, upcasters
-│   │   ├── Jobs/                        RunOrganizationBackup, BuildOrganizationBundle, PruneBackups, VerifyRandomBackup
-│   │   ├── Models/                      BackupPolicy, BackupRun, Backup, BackupDownload
-│   │   ├── Http/                        controllers, requests, resources, routes.php
-│   │   └── Events/                      BackupCompleted, BackupFailed, BundleReady
+│   │   ├── Internal/                    Selection, Csv, Values, ArchiveWriter, ArchiveImporter, ArchiveStore (any
+│   │   │                                disk), BackupRunner, Pruner, RetentionEstimate, BundleBuilder,
+│   │   │                                ArchiveRepacker, BackupVerifier
+│   │   ├── Jobs/                        RunOrganizationBackup, BuildOrganizationBundle
+│   │   ├── Models/, Enums/              BackupPolicy, BackupRun, Backup, BackupDownload
+│   │   ├── Http/                        controllers (BackupPolicy, BackupRun, Backup, Export, Archive), requests,
+│   │   │                                resources; Policies/, Repositories/, Queries/ beside it
+│   │   ├── Events/                      BackupRunFinished, ArchiveImported
+│   │   └── BackupRuns, RunSpec, ImportResult, ImportException
 │   ├── Retention/
-│   │   ├── Internal/                    RunFactory, JobClaimer, ExecuteDueJobs, generic rolling handlers
-│   │   ├── Jobs/                        RunRetentionJob, CreateGlobalRetentionRun
+│   │   ├── Internal/                    DueJobs (the atomic claim), RetentionHandlers, TechnicalHandler
+│   │   ├── Jobs/                        RunRetentionJob
 │   │   ├── Models/                      RetentionRun, RetentionJob
-│   │   └── Events/                      RetentionRunCompleted, RetentionJobFailed
-│   ├── Console/                         prytax:backup:*, prytax:retention:*
-│   ├── database/migrations/
-│   ├── config/data-lifecycle.php        buckets, queues, caps, retention families and periods
+│   │   ├── Events/                      RetentionJobFailed, RetentionRunCancelled
+│   │   └── RetentionRuns, TenantPurger, RetentionResult
+│   ├── Console/                         prytax:backup:{dispatch,prune,verify,import,snapshot},
+│   │                                    prytax:retention:{execute,rolling,status,retry,cancel}
+│   ├── database/migrations/             the five tables of §4.1 and §9.4
+│   ├── resources/views/                 the archive's README
+│   ├── config/data-lifecycle.php        the snapshot's connection, disk, queues, caps, grace and cleanup days
 │   └── DataLifecycleServiceProvider.php routes, migrations, schedule, config, commands
 ├── Backups/                             PryTax\Backups\              ← PryTax definitions
 │   ├── PryTaxTableRegistry.php          implements TableRegistry (§4.2)
 │   ├── ApiCoreTables.php                Core\ tables PryTax backs up (§11.1)
-│   ├── ProfileTenantRoot.php            implements TenantRoot (profiles, slug_p{id})
-│   └── AccountingArchiveChecks.php      implements ArchiveChecks (income by quarter, invoice totals, tax paid)
+│   ├── ProfileTenantRoot.php            implements TenantRoot (profiles, slug_p{id}, the tax id's conflict)
+│   ├── AccountingArchiveChecks.php      implements ArchiveChecks (income by quarter, invoice totals, tax paid)
+│   ├── ProfileAuditTagger.php           metadata.profile_id on audit entries (§4.2)
+│   └── BackupRunNotifier.php, BackupRunNotification.php   the owners' e-mails (`notify`)
 ├── Retention/                           PryTax\Retention\            ← PryTax handlers
 │   ├── AccountingFamilyHandler.php      reversed-registry purge (§9.5)
 │   ├── DocumentsFamilyHandler.php
 │   ├── ProfileFinalizeHandler.php       backups of the profile, then the profiles row
-│   └── UserRemovalHandler.php           credentials + access + user_pii on Core\ tables (§11.1)
+│   ├── UserRemovalHandler.php           credentials + access + user_pii on Core\ tables (§11.1)
+│   ├── OrganizationPurgeHandler.php     a deleted organization's ФОП, users, audit log and row (§9.3)
+│   ├── RetentionTriggers.php            model listeners that plan the deletions (§9.3)
+│   └── RetentionFamilies.php            the family of every table outside the registry (§9.2)
 └── Providers/DataLifecycleBindings.php  binds the contracts to PryTax\Backups / PryTax\Retention classes,
-                                         tags the family handlers, listens to module events (notifications, mail)
+                                         tags the family handlers, the audit tagger, listens to the module's events
+                                         (the owners' e-mails, AlertSync after an import)
 ```
 
 The `Internal/` folders are the module's private implementation; everything outside the module talks to it only
@@ -1402,7 +1552,7 @@ extra CI step. Revisit when there are several modules with a layering diagram to
 | `TableRegistry` | `PryTax\Backups\PryTaxTableRegistry` | export order, import order, purge order (reversed), registry hash, column snapshot |
 | `TenantRoot` | `PryTax\Backups\ProfileTenantRoot` (`profiles.id`, folder `slug(full_name_en)_p{id}`) | scoping, archive and folder names; another app would point it at `organizations` |
 | `ArchiveChecks` | `PryTax\Backups\AccountingArchiveChecks` | manifest `checks`, import verification |
-| `RetentionFamilyHandler` (tagged, many) | `PryTax\Retention\*` | the `accounting`, `documents`, `profile_finalize`, `user_removal` families; the engine ships the generic `technical` and `communication` rolling handlers itself |
+| `RetentionFamilyHandler` (tagged, many) | `PryTax\Retention\*` | the `accounting`, `documents`, `profile_finalize`, `credentials` / `access` / `user_pii` and `organization_*` families; the engine ships the generic `technical` rolling handler itself (`communication`'s cutoff is `Alert`'s `model:prune`) |
 
 Anything beyond these four (pluggable storage drivers, formats other than CSV, per-profile policy overrides) waits
 for a real need.
@@ -1524,6 +1674,8 @@ When a second app (e.g. the restaurant menu app) needs backups:
 - **Never commit a path repository** pointing at `../api-core`: it breaks every build where that sibling folder
   doesn't exist. **Today's `composer.json` does exactly that** (a `path` repository `../api-core`, symlinked, with
   `"andriichello/api-core": "dev-dev"`): fix it before the first CI or production build, independently of backups.
+  Still so as built (v1.8): the builds work around it by taking api-core from a checkout beside PryTax and copying it
+  over the link (`builds.md` §1.2); the tagged dependency isn't done.
 - **Local linking:** a git-ignored override, either `COMPOSER=composer.local.json composer update` with a local file
   that adds `{"type": "path", "url": "../api-core", "options": {"symlink": true}}`, or `wikimedia/composer-merge-plugin`
   merging a git-ignored `composer.local.json`.

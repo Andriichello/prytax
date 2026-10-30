@@ -181,7 +181,7 @@ databases that already exist are unaffected.
 ## Phase 3: Desktop with NativePHP, branch `feat/desktop`
 **Built so far** (2026-10-29, `feat/desktop`):
 - **Steps 2–4.** `config/nativephp.php` sets the identity (`com.prytax.desktop`) and the cleanup lists: `APP_KEY`,
-  `DB_*` and `MAIL_*`, plus development data, docs and tests. The window is 1280×800, at least 1024 px wide, remembers
+  `DB_*` and `MAIL_*`, plus development data, docs and tests. The window is 1280×800, at least 600 px wide (the desktop layout's compact range, with the sidebar as a rail below 1024 px), remembers
   its state, and has Chromium's PDF viewer. Under NativePHP: file cache, log mail, the window's host is stateful,
   `IMMEDIATE` transactions, registration on, and the roles synced after NativePHP's migrations
   (`SyncRolesAfterMigrations`; without it the first owner couldn't register). `GET /api/environment` tells the SPA it's
@@ -197,8 +197,12 @@ databases that already exist are unaffected.
   - Restoring from an in-app backup archive waits for §5.3.
 - **Step 7.** `LaunchCatchUp` runs when the window boots. It queues `FetchRatesJob`, which releases after 1, 5, 15 and
   30 minutes for up to 12 hours, and `schedule-tax-periods` and `sync-alerts`. Backups catch up by themselves.
-- **Step 8.** The user's first session saved a backup zip through Electron's own download handling, with no code of
-  ours. The other downloads are still to be checked; the `useDownload` layer is built only if one of them fails.
+- **Step 8.** The user's first session saved a backup zip through Electron's own download handling (its native save
+  dialog), with no code of ours. On 2026-10-30 every other download was checked in the development window, driven
+  over DevTools with the browser's downloads sent to a folder instead of the dialog: Облік's CSV, Книги's PDF, an
+  invoice's PDF, a backup's zip and Облік's period archive (a queued export, then `window.location`) all arrive whole,
+  and the style preview renders and opens its PDF in a window of its own, in Chromium's viewer. So the `useDownload`
+  layer and the desktop-only save endpoint aren't needed and aren't built.
 - **Step 9 (builds).**
   - `php artisan native:build linux x64` makes `nativephp/electron/dist/PryTax-0.1.0.AppImage` (161 MB) and
     `prytax_0.1.0_amd64.deb` (123 MB). Run it with Node 24 on the PATH, and with a `php` that is 8.5, for the build's
@@ -218,7 +222,14 @@ databases that already exist are unaffected.
     `desktop-v*` tag. It checks api-core out beside PryTax with the `API_CORE_TOKEN` secret (api-core is private).
     Untested until it's pushed and the secret is set.
   - **Running the AppImage on Ubuntu 24.04+** needs `--no-sandbox` (its `chrome-sandbox` can't be setuid inside the
-    image); the `.deb` installs it properly. Signing (macOS notarization, Windows) needs certificates.
+    image); the `.deb` installs it properly.
+  - **Signing is left out** (the owner, 2026-10-30: no certificates): the builds stay unsigned, so macOS Gatekeeper
+    and Windows SmartScreen warn on the first launch. NativePHP's builder signs when its variables are set (Apple:
+    `NATIVEPHP_APPLE_ID`, `NATIVEPHP_APPLE_ID_PASS`, `NATIVEPHP_APPLE_TEAM_ID` and a Developer ID certificate; Windows:
+    `NATIVEPHP_AZURE_*` for Azure Trusted Signing), should it be wanted later.
+  - **The CI is still untested:** the owner chose not to push (2026-10-30), and the `API_CORE_TOKEN` secret isn't
+    set. `workflow_dispatch` only shows once the workflow is on `main`, the default branch; a pushed `desktop-v*` tag
+    runs it from any commit.
 
 **Spike results** (2026-10-29). `nativephp/desktop` 2.4.0 is installed: the user ran the require, then I pinned it to
 `^2.4`. `native:install` added `native:dev` and a `post-update-cmd` hook to `composer.json`, `config/nativephp.php` and
@@ -339,7 +350,8 @@ the provider, which moved to `PryTax\Providers`.
    - Local: `php artisan native:build linux`.
    - Then a GitHub Actions matrix (ubuntu, windows, macos) with api-core checked out alongside and
      api-core copied over its link in `vendor/` (Phase 0), producing unsigned builds first.
-   - macOS notarization and Windows signing come later and need your certificates.
+   - macOS notarization and Windows signing come later and need your certificates (left out for now, see "Built so
+     far").
    - NativePHP runs migrations on version change, so Phase 2's SQLite suite is the guard for upgrades.
 
 ## Verification

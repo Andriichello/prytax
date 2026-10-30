@@ -24,6 +24,25 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Phone access over ngrok (2026-10-30, evening; the user asked)
+
+A web version on the desktop app's data, for the user's phone: `ngrok http 8012` (this time
+`https://94df-91-247-39-221.ngrok-free.app`; a new URL on each start) and, behind it, PHP's built-in server run
+directly — not `artisan serve`, whose child process doesn't see `LARAVEL_STORAGE_PATH` in `$_ENV`/`$_SERVER`:
+
+    cd public && H=<ngrok host> APP_URL=https://$H ASSET_URL=https://$H DB_CONNECTION=sqlite \
+      DB_DATABASE=/var/www/prytax/database/nativephp.sqlite LARAVEL_STORAGE_PATH=$HOME/.config/prytax-dev/storage \
+      SESSION_DRIVER=file CACHE_STORE=file QUEUE_CONNECTION=sync SANCTUM_STATEFUL_DOMAINS=$H TRUSTED_PROXIES='*' \
+      PRYTAX_REGISTRATION=false PHP_CLI_SERVER_WORKERS=4 php8.5 -d variables_order=EGPCS -S 127.0.0.1:8012 \
+      -t /var/www/prytax/public /var/www/prytax/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
+
+- Same database and files as the desktop window (its storage is `~/.config/prytax-dev/storage`, where the invoice
+  PDFs and backups are); registration is off on it, so the URL can't create organizations; `.env` is untouched.
+- Checked through the tunnel at 390 px as olena@example.com: sign-in, Головна, an invoice's PDF preview.
+- Stop: the two background processes (the ngrok and `php -S` ones); nothing to undo.
+- Don't `pkill -f`/`pgrep -f` a pattern that the same shell command contains: it matches and kills that shell (exit
+  144). Find PIDs with `ps -eo pid,args | awk …` on the binary's path instead.
+
 ## Boards' actions in the filters' row (2026-10-30, branch `feat/board-actions-in-filters` from `feat/home-attention`)
 
 The user: on desktop «+ Новий інвойс» (Інвойси) and «+ Надходження» (Облік) go to the right end of the filters' row,

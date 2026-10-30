@@ -7,12 +7,13 @@ below, newest first; not `main`, not pushed; `dev` is 124 commits ahead of `orig
 `feat/client-invoice-address`, 7 commits stacked on `dev` (the PDF's payment details spacing, the item card's
 spacing and its Safari fix, the client address as text), checked out; the user is checking it on the phone, then
 merging into `dev` and `native:migrate` on the desktop DB are to ask. Stacked on it, `feat/help-page` (Довідка, see its
-section; not merged). **Running:** the desktop dev window
-(`native:run`, CDP 9333), the ngrok tunnel and the phone's web server on 8012 (see "Phone access over ngrok").
+section; not merged), and on that `docs/builds-spec` (`APP-BUILDS-PLAN.md` as `docs/specs/builds.md`, see "Builds
+spec"; not merged). **Not running** (found stopped later on 2026-10-30, after a reboot): the desktop dev window, the
+ngrok tunnel and the phone's web server (see "Phone access over ngrok" and "App builds" to start them again).
 Last runs: 558 PHP tests on SQLite (553 on MySQL before the address), 737 SPA tests. Before it, as of
 2026-10-30 (evening): **the invoice's PDF preview and the previews' zoom are merged into `dev`**
 (fast-forward to `feat/invoice-preview`, the user asked; not `main`, not pushed; see "Invoice PDF preview"). Before it, as of
-2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`) is merged into `dev`**
+2026-10-30 (later): **the NativePHP desktop app (phase 3 of `APP-BUILDS-PLAN.md`, now `docs/specs/builds.md` §4) is merged into `dev`**
 (fast-forward to `feat/desktop`, the user asked "finish all of those"; not `main`, not pushed). With it, the user's
 feedback from the desktop window (compact layout from 600 px, numbering by counter, sidebar, centred pages, fixes),
 then the last open points: every download checked in the window, Ще's «Керування», design.md v5.1. Signing is left
@@ -33,6 +34,21 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Builds spec (2026-10-30, branch `docs/builds-spec` from `feat/help-page`)
+
+The user asked to turn `APP-BUILDS-PLAN.md` into a spec in `docs/specs` and remove it, and to add how to run it to
+README.md. `docs/specs/builds.md` (v1) is the plan as built: §1 the shape (§1.2 api-core in builds, §1.3 the first
+owner and registration), §2 Docker, §3 SQLite, §4 the desktop app (§4.2 the window and its settings, §4.4 the key,
+§4.5 the kit, §4.6 restore, §4.7 catching up, §4.9 builds and CI, §4.10 development), §5 what's open. The plan itself
+is in git's history.
+- **Comments** in the code, tests, Docker files and the CI workflow cite its sections (`builds.md §4.6`) instead of
+  the plan's phases and steps. `config/nativephp.php` no longer lists the plan among the bundle's excluded files
+  (`docs` is excluded anyway). design.md's header links it.
+- **README:** the documentation list (with invoice.md and backups.md, which were missing), «Running on SQLite», «The
+  desktop app» (development in four steps, and the installers); the setup's last step now builds the SPA and runs the
+  queue worker too. The SQLite steps were tried on a scratch file (`migrate --seed`); nothing else ran, as nothing
+  but comments changed.
 
 ## Довідка (2026-10-30, branch `feat/help-page` from `feat/client-invoice-address`)
 
@@ -191,7 +207,11 @@ saved (not before «Зберегти чернетку»); the zoom replaces Пе
   `PdfPages` and drags them both ways (pointer capture past 3 px, ✋ cursor); touch keeps the browser's own panning.
   Checked in the window with DevTools mouse events at 150 %.
 
-## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`; phases 1–3 merged into `dev`, not `main`, not pushed)
+## App builds (2026-10-29/30, `APP-BUILDS-PLAN.md`, now `docs/specs/builds.md`; phases 1–3 merged into `dev`, not `main`, not pushed)
+
+The plan became `docs/specs/builds.md` on 2026-10-30 (see "Builds spec"): "the plan" below is that spec now, where
+phase 1 is §2, phase 2 §3, and phase 3's steps are §4.2 (window, settings), §4.4 (key), §4.5 (kit), §4.6 (restore),
+§4.7 (catch-up), §4.8 (downloads) and §4.9 (builds); the spike's answers are §4.1, the development quirks §4.10.
 
 The user asked how PryTax could run as a cross-platform desktop app, and for Docker for the web. The plan, written
 down at their request in `APP-BUILDS-PLAN.md` (repo root), has three phases: (1) Docker, (2) SQLite support, (3) a

@@ -331,9 +331,6 @@ export default {
         languageShort: 'Language',
         styleShort: 'Style',
         languageHint: 'The same as the document language of the ФОП profile.',
-        magnify: 'Magnifier',
-        magnifyHint: 'Click the page to magnify it; click again or press Esc to stop.',
-        magnifyHintTouch: 'Tap the page to magnify it and drag to move; tap again to stop.',
     },
 
     pdfPreview: {

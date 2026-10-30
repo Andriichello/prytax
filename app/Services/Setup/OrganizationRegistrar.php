@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 /**
  * Class OrganizationRegistrar.
  *
- * A new organization with its owner (APP-BUILDS-PLAN.md): registered from the sign-in page, or the first one of an
+ * A new organization with its owner (builds.md §1.3): registered from the sign-in page, or the first one of an
  * installation. The organization is active and the owner verified, with a password of their own, so they sign in
  * right away; then they invite the others.
  *

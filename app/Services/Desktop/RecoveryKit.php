@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 /**
  * Class RecoveryKit.
  *
- * The desktop installation's recovery kit (APP-BUILDS-PLAN.md, phase 3, step 5): a text with its key, its
+ * The desktop installation's recovery kit (builds.md §4.5): a text with its key, its
  * organizations and the way to restore it on another computer. Without the key, a copy of the database can't be
  * read, so the owner keeps the kit away from the computer before working. It's never sent anywhere.
  *

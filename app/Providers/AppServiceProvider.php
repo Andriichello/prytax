@@ -106,12 +106,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RecoveryKit::class, fn ($app) => new RecoveryKit($app->make(InstallationKey::class), (string) Desktop::databasePath()));
         $this->app->singleton(DatabaseRestore::class, fn ($app) => new DatabaseRestore($app->make(InstallationKey::class), (string) Desktop::databasePath()));
 
-        // The desktop app (APP-BUILDS-PLAN.md, phase 3): NativePHP runs it in a window of its own on 127.0.0.1
+        // The desktop app (builds.md §4): NativePHP runs it in a window of its own on 127.0.0.1
         if (Desktop::isRunning()) {
             config([
                 // Made on the installation's first launch, before anything encrypts with it; the bundle has none
                 'app.key' => $this->app->make(InstallationKey::class)->resolve(config('app.key') ?: null),
-                // The window's first screen registers the organization (APP-BUILDS-PLAN.md, phase 3, step 6)
+                // The window's first screen registers the organization (builds.md §4.5)
                 'prytax.registration' => true,
                 // Files, as a database store would be bound to the configured connection before NativePHP replaces it
                 'cache.default' => 'file',

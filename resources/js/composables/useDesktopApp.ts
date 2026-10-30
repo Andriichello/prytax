@@ -3,7 +3,7 @@ import { api } from '@/api/client';
 import type { ApiResponse, AppEnvironment, RecoveryKit, RestoreChoice, SavedRecoveryKit } from '@/api/types';
 
 /**
- * The desktop app (APP-BUILDS-PLAN.md, phase 3): whether the SPA runs in its window, and the installation's recovery
+ * The desktop app (builds.md §4.2): whether the SPA runs in its window, and the installation's recovery
  * kit, which its owner keeps before working. Not the desktop layout (≥ 600 px), which `useBreakpoint` tells.
  */
 let environment: Promise<AppEnvironment> | null = null;

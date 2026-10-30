@@ -8,7 +8,7 @@ use Illuminate\Encryption\Encrypter;
 /**
  * Class InstallationKey.
  *
- * The application key of a desktop installation (APP-BUILDS-PLAN.md, phase 3, step 5), which encrypts its tax IDs,
+ * The application key of a desktop installation (builds.md §4.4), which encrypts its tax IDs,
  * IBANs and invoice snapshots. The bundle carries no key, so each installation makes its own on the first launch and
  * keeps it beside its database (`database.sqlite.key`, readable by the user only); the recovery kit is its copy for
  * a new computer. While developing (`native:run` with the `.env`'s key), and for a database with data but no key

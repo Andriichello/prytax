@@ -11,7 +11,7 @@ use Tests\TestCase;
 /**
  * Class LaunchCatchUpTest.
  *
- * What the desktop app catches up on at launch (APP-BUILDS-PLAN.md, phase 3, step 7): the day's rates, tax periods
+ * What the desktop app catches up on at launch (builds.md §4.7): the day's rates, tax periods
  * and notifications, queued rather than done before the window opens.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

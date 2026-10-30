@@ -13,7 +13,7 @@ use Tests\TestCase;
 /**
  * Class DesktopRestoreControllerTest.
  *
- * Restoring the desktop app on a new computer from its first screen (APP-BUILDS-PLAN.md, phase 3): only in the
+ * Restoring the desktop app on a new computer from its first screen (builds.md §4.6): only in the
  * desktop app, and only before anyone registered; the files come from native dialogs, and a restore relaunches it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

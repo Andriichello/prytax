@@ -11,7 +11,7 @@ use Tests\TestCase;
 /**
  * Class CreateOwnerTest.
  *
- * The first owner of a fresh installation (APP-BUILDS-PLAN.md, phase 1): created once, verified and signed in with
+ * The first owner of a fresh installation (builds.md §1.3): created once, verified and signed in with
  * their own password; refused once any user exists.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

@@ -13,7 +13,7 @@ use Tests\TestCase;
 /**
  * Class DatabaseRestoreTest.
  *
- * Restoring the desktop app on a new computer (APP-BUILDS-PLAN.md, phase 3): a recovery kit's key, which must open the
+ * Restoring the desktop app on a new computer (builds.md §4.6): a recovery kit's key, which must open the
  * old database, checked before the database and the key replace the new installation's.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

@@ -12,7 +12,7 @@ use PryTax\Services\Rates\DailyRateFetcher;
 /**
  * Class FetchRatesJob.
  *
- * The NBU rates of a day, which the desktop app queues on launch (APP-BUILDS-PLAN.md, phase 3, step 7), as it may be
+ * The NBU rates of a day, which the desktop app queues on launch (builds.md §4.7), as it may be
  * closed at 01:00, when `prytax:fetch-rates` runs. Offline (on a train, during an outage), a day that can't be
  * fetched puts the job back for a while (1, 5, 15 minutes, then every 30) rather than failing it, for 12 hours; a
  * receipt meanwhile takes a manual rate, as it always may. One at a time: a second launch doesn't queue another.

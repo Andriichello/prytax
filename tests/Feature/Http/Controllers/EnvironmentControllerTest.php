@@ -7,7 +7,7 @@ use Tests\TestCase;
 /**
  * Class EnvironmentControllerTest.
  *
- * Where the SPA runs (APP-BUILDS-PLAN.md, phase 3): the desktop app's window, when NativePHP runs PryTax.
+ * Where the SPA runs (builds.md §4.2): the desktop app's window, when NativePHP runs PryTax.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Http\Controllers

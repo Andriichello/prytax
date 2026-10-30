@@ -1,4 +1,4 @@
-# The desktop app's installers (APP-BUILDS-PLAN.md, phase 3, step 9): Linux (AppImage, deb), Windows (NSIS) and macOS
+# The desktop app's installers (builds.md §4.9): Linux (AppImage, deb), Windows (NSIS) and macOS
 # (dmg), unsigned for now. Run it by hand (Actions → Desktop builds → Run workflow) or by pushing a `desktop-v*` tag.
 #
 # api-core is private: the `API_CORE_TOKEN` secret is a fine-grained token, which may read Andriichello/api-core.

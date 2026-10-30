@@ -19,7 +19,7 @@ use PryTax\Services\Setup\OrganizationRegistrar;
 /**
  * Class RegistrationController.
  *
- * Registering a new organization from the sign-in page (APP-BUILDS-PLAN.md), when `prytax.registration` allows it:
+ * Registering a new organization from the sign-in page (builds.md §1.3), when `prytax.registration` allows it:
  * `GET registration` tells the SPA whether to offer it, and whether the installation has no user yet (the desktop
  * app's first launch, which opens the form at once); `POST registration` creates the organization and its owner,
  * and signs the SPA in, as api-core's login does.

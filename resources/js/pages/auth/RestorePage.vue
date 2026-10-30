@@ -11,7 +11,7 @@ import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Відновлення: the desktop app's PryTax of another computer (APP-BUILDS-PLAN.md, phase 3), from the new installation's
+ * Відновлення: the desktop app's PryTax of another computer (builds.md §4.6), from the new installation's
  * first screen: its recovery kit and its database file, each chosen in a native dialog. A key, which doesn't open the
  * database, is refused before anything changes; once restored, the app relaunches with the old data and key. Only
  * before anyone registered (otherwise back to Вхід).

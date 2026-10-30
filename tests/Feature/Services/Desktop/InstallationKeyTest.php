@@ -9,7 +9,7 @@ use Tests\TestCase;
 /**
  * Class InstallationKeyTest.
  *
- * The desktop installation's own key (APP-BUILDS-PLAN.md, phase 3, step 5): made on the first launch, kept beside the
+ * The desktop installation's own key (builds.md §4.4): made on the first launch, kept beside the
  * database for the user only, and the same from then on; the bundled one only while developing or for data it
  * encrypted.
  *

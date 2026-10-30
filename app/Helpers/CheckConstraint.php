@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Class CheckConstraint.
  *
- * A CHECK of a table's rows, which the migrations add after creating the table (APP-BUILDS-PLAN.md, phase 2). MySQL
+ * A CHECK of a table's rows, which the migrations add after creating the table (builds.md §3.1). MySQL
  * adds it to the table, exactly as the migrations did before. SQLite only takes CHECKs inside CREATE TABLE, so there
  * two triggers check the rows instead, after an insert and after an update: they abort the statement when the
  * condition is false, and let it be when it's true or NULL, as a CHECK does.

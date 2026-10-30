@@ -263,7 +263,7 @@ router.beforeEach(async (to, from) => {
             return { name: 'home' };
         }
 
-        // In the desktop app, the owner keeps the installation's recovery kit before working (APP-BUILDS-PLAN.md)
+        // In the desktop app, the owner keeps the installation's recovery kit before working (builds.md §4.5)
         if (to.name === 'recovery-kit') {
             return true;
         }

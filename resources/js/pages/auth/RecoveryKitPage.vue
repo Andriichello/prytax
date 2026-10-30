@@ -12,7 +12,7 @@ import { formatDate, kyivDate } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 
 /**
- * Набір відновлення: the desktop installation's key (APP-BUILDS-PLAN.md, phase 3), which the owner keeps away from the
+ * Набір відновлення: the desktop installation's key (builds.md §4.5), which the owner keeps away from the
  * computer before working: saved to a file through a native dialog, or copied with their word that it's somewhere
  * safe. Without it a copy of the database can't be read. Opened again from Резервні копії, it tells when it was kept,
  * downloads it again, and closes back to where it was opened from.

@@ -12,7 +12,7 @@ use Tests\TestCase;
 /**
  * Class RegistrationControllerTest.
  *
- * Registering a new organization from the sign-in page (APP-BUILDS-PLAN.md): only when `prytax.registration` allows
+ * Registering a new organization from the sign-in page (builds.md §1.3): only when `prytax.registration` allows
  * it; the owner is verified and signed in at once; an e-mail, which an account has, is refused.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

@@ -61,7 +61,7 @@ return [
      * You may use wildcards to match multiple keys.
      */
     'cleanup_env_keys' => [
-        // Each installation generates its own key on the first launch (APP-BUILDS-PLAN.md, phase 3, step 5)
+        // Each installation generates its own key on the first launch (builds.md §4.4)
         'APP_KEY',
         // The development machine's database, mail, cache and proxy settings, which the desktop replaces
         'DB_*',
@@ -119,7 +119,6 @@ return [
         'storage/handoff',
         'storage/handoff-*',
         'MEMORY.md',
-        'APP-BUILDS-PLAN.md',
         'CLAUDE.md',
         '.env.docker*',
     ],

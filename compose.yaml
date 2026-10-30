@@ -1,4 +1,4 @@
-# PryTax for the web (APP-BUILDS-PLAN.md, phase 1): the app, the queue worker and the scheduler run one image.
+# PryTax for the web (builds.md §2): the app, the queue worker and the scheduler run one image.
 #
 #   MySQL in a container:   DB_HOST=mysql in .env, then `docker compose --profile mysql up -d --build`
 #   An external MySQL:      DB_HOST and the credentials in .env, then `docker compose up -d --build`

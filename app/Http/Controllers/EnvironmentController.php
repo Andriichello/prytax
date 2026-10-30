@@ -9,7 +9,7 @@ use PryTax\Helpers\Desktop;
  * Class EnvironmentController.
  *
  * Where the SPA runs (`GET environment`): in the desktop app's window, it saves files through native dialogs and
- * asks the owner to keep the recovery kit (APP-BUILDS-PLAN.md, phase 3).
+ * asks the owner to keep the recovery kit (builds.md §4.2).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers

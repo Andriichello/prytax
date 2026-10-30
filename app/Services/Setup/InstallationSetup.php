@@ -9,7 +9,7 @@ use PryTax\Exceptions\InstallationAlreadySetUpException;
 /**
  * Class InstallationSetup.
  *
- * The first owner of a fresh installation (APP-BUILDS-PLAN.md): the API has no sign-up, as users come from an owner's
+ * The first owner of a fresh installation (builds.md §1.3): the API has no sign-up, as users come from an owner's
  * invitations, so a new server or desktop install gets its organization and owner here, verified and with a password
  * of their own, so they can sign in right away. Once any user exists, it refuses.
  *

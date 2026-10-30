@@ -17,7 +17,7 @@ use PryTax\Services\Setup\InstallationSetup;
 /**
  * Class DesktopRestoreController.
  *
- * Restoring the desktop app on a new computer (APP-BUILDS-PLAN.md, phase 3, step 6), from its first screen: the
+ * Restoring the desktop app on a new computer (builds.md §4.6), from its first screen: the
  * recovery kit and the old computer's database, each chosen in a native dialog, checked together, and installed in
  * place of the new, empty installation, which then relaunches. Only in the desktop app, and only before anyone
  * registered on it.

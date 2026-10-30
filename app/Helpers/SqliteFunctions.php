@@ -8,7 +8,7 @@ use Pdo\Sqlite;
 /**
  * Class SqliteFunctions.
  *
- * Ukrainian text on SQLite as on MySQL (APP-BUILDS-PLAN.md, phase 2): SQLite's own `LOWER()`, `UPPER()` and `LIKE`
+ * Ukrainian text on SQLite as on MySQL (builds.md §3.6): SQLite's own `LOWER()`, `UPPER()` and `LIKE`
  * only know ASCII's cases, so `LOWER('ОЛЕНА')` stays `ОЛЕНА` and `'олена' LIKE 'Олена'` is false, while MySQL's
  * collation ignores the case of every letter. These replace them on every SQLite connection (AppServiceProvider binds
  * a connector, which registers them) with Unicode-aware ones, which api-core's case-insensitive filters

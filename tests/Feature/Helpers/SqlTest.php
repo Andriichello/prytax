@@ -14,7 +14,7 @@ use Tests\TestCase;
 /**
  * Class SqlTest.
  *
- * SQL that MySQL and SQLite write differently (APP-BUILDS-PLAN.md, phase 2): the dates' parts, conditions and joined
+ * SQL that MySQL and SQLite write differently (builds.md §3.1): the dates' parts, conditions and joined
  * strings, Ukrainian letters' cases, and the CHECKs of the tables, which give the same results on either; the suite
  * runs on both (`composer test` and `composer test:sqlite`).
  *

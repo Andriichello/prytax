@@ -1,5 +1,5 @@
 #!/bin/sh
-# The entrypoint of PryTax's image (APP-BUILDS-PLAN.md, phase 1), for the app, the worker and the scheduler alike.
+# The entrypoint of PryTax's image (builds.md §2), for the app, the worker and the scheduler alike.
 set -e
 
 cd /app

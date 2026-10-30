@@ -12,7 +12,7 @@ use PDOException;
 /**
  * Class DatabaseRestore.
  *
- * Restoring the desktop app on a new computer (APP-BUILDS-PLAN.md, phase 3, step 6): the old computer's database
+ * Restoring the desktop app on a new computer (builds.md §4.6): the old computer's database
  * file and its recovery kit, whose key must decrypt the database's tax IDs. Both are checked before anything is
  * replaced; then the database takes the new installation's place, and the key its key's.
  *

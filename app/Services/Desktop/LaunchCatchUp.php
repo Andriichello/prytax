@@ -8,7 +8,7 @@ use PryTax\Jobs\FetchRatesJob;
 /**
  * Class LaunchCatchUp.
  *
- * What the desktop app catches up on, when it's launched (APP-BUILDS-PLAN.md, phase 3, step 7): it's rarely open at
+ * What the desktop app catches up on, when it's launched (builds.md §4.7): it's rarely open at
  * 01:00, when the day's rates, tax periods and notifications are done on a server, so its queue does them now,
  * without delaying the window. Backups need nothing: a policy's missed window is due at the scheduler's next run.
  *

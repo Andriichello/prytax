@@ -10,7 +10,7 @@ use Tests\TestCase;
 /**
  * Class SyncRolesAfterMigrationsTest.
  *
- * The desktop app's roles, which follow NativePHP's migrations (APP-BUILDS-PLAN.md, phase 3): a new installation has
+ * The desktop app's roles, which follow NativePHP's migrations (builds.md §4.2): a new installation has
  * none until then, and the first owner couldn't register.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

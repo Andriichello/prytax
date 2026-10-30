@@ -13,7 +13,7 @@ use Tests\TestCase;
 /**
  * Class FetchRatesJobTest.
  *
- * The rates of the day, which the desktop app queues on launch (APP-BUILDS-PLAN.md, phase 3, step 7): cached, when the
+ * The rates of the day, which the desktop app queues on launch (builds.md §4.7): cached, when the
  * NBU answers; put back for a while, when it can't be reached, for up to 12 hours.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

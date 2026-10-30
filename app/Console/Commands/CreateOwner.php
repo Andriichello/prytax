@@ -17,7 +17,7 @@ use function Laravel\Prompts\text;
  * Class CreateOwner.
  *
  * Creates the organization and the owner of a fresh installation, such as a new Docker deployment, which has no
- * sign-up (APP-BUILDS-PLAN.md, phase 1). The details come from the options or prompts; the password is always
+ * sign-up (builds.md §1.3). The details come from the options or prompts; the password is always
  * prompted, so it stays out of the shell's history and the process list.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

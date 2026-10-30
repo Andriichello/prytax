@@ -1,4 +1,4 @@
-# FrankenPHP's server for PryTax (APP-BUILDS-PLAN.md, phase 1). `php_server` without a `worker` keeps the classic
+# FrankenPHP's server for PryTax (builds.md §2). `php_server` without a `worker` keeps the classic
 # mode: Laravel boots on every request. TLS is left to a proxy in front, so SERVER_NAME is a plain port (:8080).
 {
 	admin off

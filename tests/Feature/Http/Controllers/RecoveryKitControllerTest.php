@@ -11,7 +11,7 @@ use Tests\TestCase;
 /**
  * Class RecoveryKitControllerTest.
  *
- * The desktop installation's recovery kit (APP-BUILDS-PLAN.md, phase 3, step 6): only for an owner in the desktop
+ * The desktop installation's recovery kit (builds.md §4.5): only for an owner in the desktop
  * app; saved through a native dialog, or copied on the owner's word.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

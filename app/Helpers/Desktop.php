@@ -5,7 +5,7 @@ namespace PryTax\Helpers;
 /**
  * Class Desktop.
  *
- * The desktop app (APP-BUILDS-PLAN.md, phase 3): PryTax run by NativePHP in a window of its own, against a SQLite
+ * The desktop app (builds.md §4): PryTax run by NativePHP in a window of its own, against a SQLite
  * database in the user's application data, or in `database/nativephp.sqlite` while developing (`native:run`).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Class Sql.
  *
- * SQL that MySQL and SQLite write differently (APP-BUILDS-PLAN.md, phase 2): PryTax runs on MySQL on servers and on
+ * SQL that MySQL and SQLite write differently (builds.md §3.1): PryTax runs on MySQL on servers and on
  * SQLite on the desktop. On MySQL each expression is exactly what the migrations and queries wrote before, so the
  * existing databases and their generated columns stay as they are. Expressions are raw SQL, not values: never pass
  * user input to them.

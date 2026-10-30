@@ -13,7 +13,7 @@ use PryTax\Services\Desktop\RecoveryKit;
 /**
  * Class RecoveryKitController.
  *
- * The desktop installation's recovery kit, for its owners (APP-BUILDS-PLAN.md, phase 3, step 6): its text, saving it
+ * The desktop installation's recovery kit, for its owners (builds.md §4.5): its text, saving it
  * through a native dialog, and the owner's word that they copied it somewhere safe. Until then the SPA asks for it
  * before anything else. Outside the desktop app it doesn't exist (404).
  *

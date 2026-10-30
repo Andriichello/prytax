@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# PryTax's web image (APP-BUILDS-PLAN.md, phase 1): one image for the app, the queue worker and the scheduler.
+# PryTax's web image (builds.md §2): one image for the app, the queue worker and the scheduler.
 #
 # api-core comes from a second build context, as PryTax's composer.json takes it from the path repository
 # `../api-core`. composer.lock pins that repository's symlink (which COMPOSER_MIRROR_PATH_REPOS can't override), so

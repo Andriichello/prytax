@@ -44,7 +44,7 @@ saved (not before «Зберегти чернетку»); the zoom replaces Пе
   window: a frozen invoice, a draft (saved, previewed, deleted again: invoice 44, soft-deleted), 390 px, the zoom by
   buttons and Ctrl+wheel, the style preview at 1091 and 390 px. Pinch was not tried on a real touch screen.
 - **Specs:** `invoice.md` §8, `design.md` v5.1 (changes, §16.5, §17.6 overlays).
-- **Drag to move** (the user asked next, branch `feat/preview-drag` from `dev`): the mouse grabs the pages in
+- **Drag to move** (the user asked next, branch `feat/preview-drag`, fast-forwarded into `dev` when they asked): the mouse grabs the pages in
   `PdfPages` and drags them both ways (pointer capture past 3 px, ✋ cursor); touch keeps the browser's own panning.
   Checked in the window with DevTools mouse events at 150 %.
 

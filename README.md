@@ -9,6 +9,9 @@ roles and the CRUD layer, for a Vue 3 SPA.
 
 - [docs/specs/accounting.md](docs/specs/accounting.md): the functional rules, i.e. what the application must do.
 - [docs/specs/design.md](docs/specs/design.md): the implementation, i.e. the schema, the services and the build order.
+- [docs/specs/invoice.md](docs/specs/invoice.md): the invoice PDF, its template and its styles.
+- [docs/specs/backups.md](docs/specs/backups.md): backups, data safety and retention.
+- [docs/specs/builds.md](docs/specs/builds.md): Docker, SQLite and the desktop app.
 - [docs/specs/suggestions.md](docs/specs/suggestions.md): the open decisions and review items.
 - api-core's documentation is installed in `vendor/andriichello/api-core/docs/`, listed in
   `vendor/andriichello/api-core/docs/00-index.md`.
@@ -21,8 +24,8 @@ tables.
 
 - PHP 8.5 with the `pdo_mysql` and `fileinfo` extensions, and Composer.
 - MySQL 8.0.13 or newer, for both the application and its tests (the schema uses generated columns, `CHECK`s and
-  indexes over expressions). MariaDB isn't supported. SQLite 3.38 or newer works too (the desktop app's database, see
-  `APP-BUILDS-PLAN.md`): `PryTax\Helpers\Sql` and `CheckConstraint` write what the two say differently.
+  indexes over expressions). MariaDB isn't supported. SQLite 3.38 or newer works too, with `pdo_sqlite` (see
+  "Running on SQLite").
 - api-core checked out next to this repository, in `../api-core`: Composer symlinks it from there (see below).
 - Node 20.19 or newer, for the frontend's Vite 8.
 
@@ -64,11 +67,14 @@ tables.
    $admin->assignRole('super-admin');
    ```
 
-6. Serve the API on `http://localhost:8000`, and run the scheduler, which prunes expired tokens and old audit log
-   entries daily:
+6. Build the SPA, serve the app on `http://localhost:8000`, and run the queue worker, which runs backups, bundles and
+   period exports, and the scheduler, which fetches the day's rates, schedules the tax periods and notifications,
+   takes backups and prunes old records:
 
    ```bash
+   npm install && npm run build
    php artisan serve
+   php artisan queue:work --queue=backups,retention,default
    php artisan schedule:work
    ```
 
@@ -107,6 +113,87 @@ In a development checkout, whose `.env` is the local one, save the settings as `
 proxy, set `APP_URL` to the `https://` address, `SANCTUM_STATEFUL_DOMAINS` to its host, `SESSION_SECURE_COOKIE` to
 `true` and `TRUSTED_PROXIES` to the proxy's address (or `*`). The files, backups and logs live in the `storage`
 volume.
+
+### Running on SQLite
+
+PryTax runs on SQLite 3.38 or newer as it does on MySQL, with PHP's `pdo_sqlite` (`docs/specs/builds.md` §3). Point
+`.env` at a file, create it and migrate:
+
+```dotenv
+DB_CONNECTION=sqlite
+DB_DATABASE=/absolute/path/to/prytax.sqlite
+```
+
+```bash
+touch /absolute/path/to/prytax.sqlite
+php artisan migrate --seed
+```
+
+The app, the queue worker and the scheduler share the file: WAL and immediate transactions make a writer wait its turn
+rather than fail (`DB_JOURNAL_MODE`, `DB_BUSY_TIMEOUT`, `DB_TRANSACTION_MODE`). In Docker, set `DB_CONNECTION=sqlite`
+and `DB_DATABASE=/app/storage/database/prytax.sqlite`, and leave out the `mysql` profile. Backups move between the two:
+an archive made on one imports on the other.
+
+### The desktop app
+
+PryTax runs as a desktop app for Linux, Windows and macOS, made with [NativePHP](https://nativephp.com): its bundled PHP
+8.5 serves the app on `127.0.0.1` against a SQLite database in the user's application data, and an Electron window
+shows it (`docs/specs/builds.md` §4). Each installation makes its own `APP_KEY` on the first launch. The first launch
+opens Реєстрація; after it the owner keeps the recovery kit, a text file with the key, without which a copy of the
+database can't be read. On a new computer, Відновлення on the first screen takes the kit and the old computer's
+database.
+
+#### Running it in development
+
+It needs Node 22 or newer, and PHP 8.5 as `php` on the `PATH`, which NativePHP's commands call.
+
+1. Install NativePHP's Electron. Composer's `post-update-cmd` runs it too; it keeps `config/nativephp.php` and the
+   provider as they are:
+
+   ```bash
+   php artisan native:install --force --no-interaction
+   ```
+
+2. On Linux, Electron's sandbox helper must belong to root and be setuid, again after every `native:install`:
+
+   ```bash
+   sudo chown root:root vendor/nativephp/desktop/resources/electron/node_modules/electron/dist/chrome-sandbox
+   sudo chmod 4755 vendor/nativephp/desktop/resources/electron/node_modules/electron/dist/chrome-sandbox
+   ```
+
+3. Build the SPA and open the window (or run `composer native:dev`, which runs Vite's dev server beside it):
+
+   ```bash
+   npm run build
+   php artisan native:run
+   ```
+
+4. After the first launch, and after new migrations, migrate the window's database. NativePHP's own migration runs
+   before the backups module registers its migrations, and these commands run outside NativePHP, so they need the
+   file cache:
+
+   ```bash
+   CACHE_STORE=file php artisan native:migrate
+   ```
+
+In development the window uses `database/nativephp.sqlite`, the storage in `~/.config/prytax-dev/storage` (the PDFs
+and backups) and the `.env`'s `APP_KEY`. After SPA changes, run `npm run build` and press Ctrl+R in the window; restart
+it after changing providers or jobs, as its queue worker keeps the old code.
+
+#### Building the installers
+
+```bash
+php artisan native:build linux x64
+```
+
+The build runs `npm run build`, bundles the app with api-core copied in and a `.env` without the key, database, mail
+or Sanctum settings, and writes an AppImage and a `.deb` to `nativephp/electron/dist/`. On Ubuntu 24.04 and newer the
+AppImage needs `--no-sandbox`; the `.deb` doesn't.
+
+`.github/workflows/desktop.yml` builds Linux (AppImage, deb), Windows (NSIS) and macOS (dmg) installers, by hand
+(Actions → Desktop builds → Run workflow, once the workflow is on `main`) or on a pushed `desktop-v*` tag. It needs
+the `API_CORE_TOKEN` secret, a token that may read api-core. The installers aren't signed, so macOS and Windows warn on
+their first launch; `docs/specs/builds.md` §4.9 lists NativePHP's signing variables.
 
 ### api-core
 

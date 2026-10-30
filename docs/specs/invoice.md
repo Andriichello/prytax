@@ -355,7 +355,8 @@ are in `design.md` §4.1.
   BRIT-2026-10-31-2 to Bring IT LLC, three items in USD through Payoneer, with the contract, the act and both notes.
   Its ФОП is Myrchuk Mykola, or Prykhodko Andrii in the Andriichello group.
 - **In the SPA:** `InvoiceStylePreview.vue` draws page 1 with `pdfjs-dist` (6.4.299, a lazily loaded chunk), so the
-  server needs no rasterizer. "Відкрити PDF" opens the blob in a new tab.
+  server needs no rasterizer, through `PdfPages.vue`, whose zoom (50–300 %) replaced the lens on 2026-10-30. "Відкрити
+  PDF" opens the blob in a new tab.
 
 **An invoice's PDF in the app** (2026-10-30, the owner: "regardless of the state of that invoice"):
 `GET /api/profiles/{profile}/invoices/{id}/preview` returns `application/pdf`, inline, with `no-store`.
@@ -371,8 +372,8 @@ are in `design.md` §4.1.
   (`base.css`): DejaVu Sans Bold 88 pt, letter-spaced, from the bottom left to the top right of every page at 8 %
   ink. It is a fixed element, which dompdf repeats on every page, with a `z-index`, without which dompdf paints it
   under the content. The renderer adds it with `render(…, draft: true)`; the invoice's own PDF never has it.
-- **In the SPA:** `InvoicePdfPreview.vue` («Перегляд PDF») draws every page with pdf.js at the column's width (about
-  760 px in the wide desktop dialog), with «Відкрити PDF» (the browser's or the desktop app's own viewer) and, for a
+- **In the SPA:** `InvoicePdfPreview.vue` («Перегляд PDF») draws every page with pdf.js (`PdfPages.vue`, with the zoom)
+  at the column's width at 100 % (about 760 px in the wide desktop dialog), with «Відкрити PDF» (the browser's or the desktop app's own viewer) and, for a
   document, «Завантажити PDF»; a draft's has a note that its number and content may still change. It opens from the
   invoice's document card (👁) and its ⋯ menu, from a saved draft's editor («Переглянути PDF», which saves pending
   changes first, as «Зафіксувати» does), and beside an external draft's uploaded PDF. A new invoice previews once

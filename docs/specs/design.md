@@ -21,6 +21,8 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
 - **Перегляд PDF** (§16.5, `invoice.md` §8): an invoice's PDF in the app whatever its status; a draft's is rendered as
   the freeze would print it now, marked «ЧЕРНЕТКА» / «DRAFT» across every page and stored nowhere.
+- **Zoom** (§17.6, overlays): Перегляд PDF and Перегляд стилю zoom from 50 to 300 %; it replaces Перегляд стилю's
+  «Лупа».
 
 ### Changes in v5 (the third Minimal handoff and «Minimal (Desktop)»)
 
@@ -1724,9 +1726,12 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   view panel of board 037.
 - **Overlays:** `BottomSheet` and `FullScreenSheet` are centred dialogs on desktop (520 and 560 px, their header,
   content and footer spanning the rounded card, with a thin scrollbar; `FullScreenSheet size="wide"` is up to
-  1120 × 960 px: Перегляд стилю, the page about 760 px wide on the left and its controls on the right, with «Лупа»: a
-  click on the page turns on a 1.35× lens that follows the pointer, a click again or Escape turns it off, as does
-  another style or language; on touch a tap turns it on, a drag moves it, a tap turns it off); `Popover` (anchored,
+  1120 × 960 px: Перегляд стилю and Перегляд PDF, the pages about 760 px wide at 100 % on the left and the style's
+  controls on the right; v5.1 replaced Перегляд стилю's «Лупа» with the zoom of both (`PdfPages`, the owner,
+  2026-10-30): a floating «− 100 % +» over the pages, 50–300 %, the percentage back to 100 %, Ctrl+wheel (a
+  touchpad's pinch) and a two-finger pinch around the pointer or the fingers; the pages are drawn sharp again once
+  the zoom settles, and scroll both ways; on a phone the style's page keeps its A4 frame, inside which it scrolls);
+  `Popover` (anchored,
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
   the date pickers (`DatePickerPopover`).

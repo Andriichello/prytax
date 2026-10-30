@@ -105,10 +105,6 @@ bring back its screen.
     інвойсу» appears in Інвойси's status filter only while such a record exists (facets).
   - The kopeck between a quarter's ВЗ and its sum per receipt is §1's first item.
 - **Found while the specs were brought up to date** (2026-10-30), to fix or to decide:
-  - A client without any address prints its country code alone under its name, while the client form says the
-    country prints only when it's typed into the address (`invoice.md` §4).
-  - The backups' hourly limit is one counter per user for downloads, imports and the status checks of an organization
-    archive and a period archive, which the SPA polls every 2–2.5 s: a slow archive uses it up (`backups.md` §4.7).
   - Restoring in the app allows a 200 MB archive, but PHP takes uploads of 32 MB in Docker and the desktop app; its
     refusals with values in them stay in English; a deleted ФОП's refusal says to purge it first, which an owner can't
     do before its grace ends (`backups.md` §5.1, §5.3).

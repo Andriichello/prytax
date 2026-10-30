@@ -40,8 +40,8 @@ since v1.7:
 - **Tests not written yet:** besides v1.7's three, an archive made on one driver imported on the other, and the import
   refusing a bundle.
 - **Open, found here:** on the desktop, pruning and the rolling retention wait for the app to be open at 05:30 and
-  03:40 (§4.3); the download's limit of 30 an hour is one counter with the import and the status polls of a bundle and
-  a period export (§4.7); an import's upload is capped at 32 MB by PHP in Docker and the desktop app (§5.1).
+  03:40 (§4.3); an import's upload is capped at 32 MB by PHP in Docker and the desktop app (§5.1). The download limit
+  shared with the import and the status polls was fixed the same day (§4.7).
 
 ### Changes in v1.7 (as built on `feat/backups`, and the UI handoff)
 
@@ -1024,9 +1024,12 @@ GET    /api/profiles/{profile}/exports/{export}            → {status, url?}
   Rate limits: manual runs 5/day/org, downloads 30/hour/user. Every download → `backup_downloads` + an `audit_logs`
   entry (`models.backups.downloaded`, §v1.7); every import but a dry run → `models.backups.imported` with
   `metadata.tenant_id` and `file_name`.
-- **The hourly limit as built** is `throttle:30,60` on the download, the import, and the status of a bundle and of a
-  period export. Laravel keys a plain `throttle` by the user alone, so the four share one counter, and the SPA's polls
-  of a bundle (every 2.5 s) or an export (every 2 s) count against the downloads. Open.
+- **The hourly limit as built** counts the user's download links in `backup_downloads` over the last hour
+  (`data-lifecycle.backups.downloads_per_hour`, 30; the `LimitsDownloads` trait): a backup's download, and the status
+  of a bundle or of a period export once it gives the link, are refused with a 429 past it, while the status checks
+  before that (the SPA polls every 2–2.5 s) don't count. The import has a throttle of its own, 30 an hour
+  (`throttle:30,60,backups-import`). Until 2026-10-30 a plain `throttle:30,60` on all four routes was one counter per
+  user, which a slow bundle's polls used up.
 - **Notices** (UI): a partial or failed run, a ready bundle and a ready period export are api-core database
   notifications (`notifications`, per user: the owners for runs, the requesting user for a bundle or an export), listed
   through api-core's `NotificationController` and shown in Сповіщення. E-mails follow `notify` and carry no links.

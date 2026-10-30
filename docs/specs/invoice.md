@@ -212,8 +212,9 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
   prints without its blank lines, and without the client's `country` of its own: the client form asks for the country
   in the text when it should print. A snapshot of before keeps the parts and prints them as then: the lines, then
   `city zip`, then the country code. The migration turned every client's parts into that text (the lines, then `city
-  state zip`, then the country). `InvoicePdfRenderer::clientAddress()` tells the shapes apart by `text`, so a client
-  without any address (`null`) takes the older path, and its country code prints alone.
+  state zip`, then the country). `InvoicePdfRenderer::clientAddress()` tells the shapes apart by their parts: a client
+  without any address (`null`) prints no address lines, its country neither (fixed on 2026-10-30; it used to print the
+  country code alone).
 - PERIOD: two lines, `{start} –` and `{end}`, each `nowrap`.
 - ISSUED, and DUE when there is a due date: each a label with a mono value.
 - CONTRACT: its own row across the full width, with a top border. It reads `{name} No. {number}`, the number part only
@@ -434,6 +435,7 @@ are in `design.md` §4.1.
   - the monogram; Ukrainian labels, units and dates; the item columns fitted to their longest values;
   - the client's address as typed, line by line, without its blank lines or its country of its own; an older
     snapshot's parts as they printed then;
+  - no address lines, not even the country, for a client without an address;
   - the signature drawn only from the invoice's own profile;
   - the fonts embedded per style;
   - the draft mark in each language, and none without it.

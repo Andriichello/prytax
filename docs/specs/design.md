@@ -22,11 +22,15 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
 - **«Як це працює»** (§17.2): at the end of a page's content, never a column beside it.
 - **Width** (§17.1, §17.2, §17.6): the app's box is at most 1200 px, and every page's content fills it beside the
-  sidebar, without 760 or 880 px columns; Облік's three summary cards stand one under another (§17.4).
+  sidebar, without 760 or 880 px columns; Облік's summary cards stand one under another (§17.4).
 - **Головна** (§16.5, §17.4): only what needs attention — the quick actions «+ Новий інвойс» and «+ Нове
   надходження», the invoices to be paid or drafted, and the receipts still on a platform (`payments/untransferred`),
-  each with «Усе гаразд» when there is none; no quarter lists, subtitle or header pill. On desktop the sections' cards
-  stand above it, in place of the income limit, the quarter's taxes and the notifications.
+  each with «Усе гаразд» when there is none, or «… ще немає» (an ⓘ, not the green check) while the ФОП has none at
+  all; no quarter lists, subtitle or header pill. On desktop the two actions end their sections' header rows; no
+  section cards (tried and dropped the same day), no income limit, taxes or notifications.
+- **Облік** (§16.5): the summary leaves out the year's income limit, which Книги has.
+- **Rail** (§17.1): its foot has 🌐 (the language popover) and «Вийти»; «Вийти» asks first, in the rail and the
+  sidebar alike.
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
   page (Ще on a phone) groups the rest in one column: ФОП, Налаштування ФОП, Гроші, Клієнти й інвойси, Керування.
 - **Перегляд PDF** (§16.5, `invoice.md` §8): an invoice's PDF in the app whatever its status; a draft's is rendered as
@@ -1422,7 +1426,7 @@ Board numbers are in brackets.
 | Головна (002) | v5.1 (the owner, 2026-10-30): only what needs attention, no subtitle and no quarter lists. **Quick actions:** «+ Новий інвойс» (accent) and «+ Нове надходження» (→ Інвойс для надходження), each for those who may. **Інвойси** (with «Усі інвойси» on the right): «До оплати X» (ready and sent, per currency), «Прострочено Y» in red, «Чернетки N», then the drafts, ready and sent invoices — overdue first, then by due date, drafts last — in the rows of before (the number, «наст. …» on drafts, the status with its date; the client and the total; the period and «сплатити до …» or «прострочено, до …»; the paid bar on a sent one); none → «Усе гаразд: усі інвойси оплачені й зафіксовані.» with a green check. **Надходження** (with «Новий переказ» from the oldest one's account): «На платформах X», «Час переказати Y» in red, then each receipt with money still on a platform or a foreign bank (`GET payments/untransferred`, `UntransferredReceipts`): the invoice's number or «Без інвойсу» and what it still holds there; the day, the account, the client; «переказати до …» by the repatriation rule, or «прострочено, з …» in red; a row opens the receipt; none → «Усе гаразд: усі надходження переказані на рахунок ФОП.» |
 | Інвойси (003, 004) | Grouped by the month of `issued_at` («IV кв. · Жовтень · 2026», its quarter first), each with its count as Головна's quarters have it («N інвойсів», «N записи» with a virtual one; the last month on screen counts once loaded whole), with infinite scroll; the sticky block holds the title, «+ Новий» and the badges. Rows exactly as on Головна (one component): period, «сплатити до» or «прострочено, до» in red, the dated status, the paid bar of a sent invoice (the owner, 2026-10-25). **A virtual row** reads «Без інвойсу» + «Оплачено {дд.мм}», then the client and the amount, then «Період …»: no date after the marker, no contract, no note. |
 | Фільтри інвойсів (012) | As built, plus the status «Без інвойсу». |
-| Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): the black income-limit band (`%`, YTD income, «з 10 091 049 ₴», ticks at 80/90 %), then «Дохід IV кв.» per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; CSV / XLSX at the foot. |
+| Облік (005–007) | **Header:** the sticky title with «+ Надходження» (→ Інвойс для надходження) and the badges (period, grouping). **«Підсумок кварталу»** (§7): «Дохід IV кв.» (v5.1 dropped the board's black income-limit band before it: Книги has the limit) per currency (a bar, «отримано X з Y»), «Дохід для податків: N ₴», and «Податки IV кв.»: ЄСВ · ЄП · ВЗ, each with «сплачено». **«Надходження»:** the switches «Податки» (on) and «Комісії й чисто» (off), which apply at once; the month cards; CSV / XLSX at the foot. |
 | Сповіщення (008, 009) | A sticky header with only «Усі · N» and «Непрочитані · N». A notification becomes read when it is tapped, on its action, or on ✓ (§9). |
 | Податки (second handoff: `M-Taxes`, `M-TaxesFilters`, `M-TaxesSummaryStates`; replaces 010, 011) | §8.5, at `/taxes`. **Header:** the sticky title and the badges Період · Податки · Статус (§16.2); no action and no mode switch. **«Підсумок за період»:** one white card. **The «Усього податків» band** comes first, only when two or more taxes show. It is black, edge to edge, like Облік's income-limit band: the paid share on the right, saying what it means («57.3 % сплачено», paid ÷ accrued; rule 3); a 10 px bar, paid in light green then sent in amber, with a tick per quarter; and the three columns on dark. **Then a row per tax,** ЄСВ, ЄП, ВЗ in that order: (1) the name, with the due label on the right: the earliest deadline not yet paid («до 19.02.2027» for ЄП and ВЗ, «до 19.01.2027» for ЄСВ, its quarter's, rather than the board's «жовтень — до 19.11»), or «✓ закрито» in green when all is paid. (2) An 8 px bar: paid in green (`#17683F`, never blue), then sent in amber. Tick marks overhang it like the 80/90 % ones, splitting it per month of the period for ЄСВ and per quarter for ЄП and ВЗ (12 and 4 for the whole year). (3) Three columns: **Нараховано** · **Надіслано** (amber above zero) · **Сплачено** (green above zero). (4) When «Не пройшов» is selected and an attempt failed, a red «7 945.41 не пройшло (не враховано)». There is no «До сплати» and no «+ X надіслано» anywhere. **«Податки за місяцями»:** month cards, newest first. The dark header has the month and the same three columns, summed from the card's rows (the failed ones left out). **A row** has three lines. (1) The tax (a 44 px label), the amount (bold mono; struck through and grey when failed) and the status badge. (2) The invoice number in mono · the client (ЄП, ВЗ; the «Без інвойсу» marker for a virtual one), or «за жовтень» (ЄСВ). (3) «надійшло 19 жовтня · сплатити до 19.02.2027» on an unpaid ЄП/ВЗ; «сплатити до 19.01.2027» on an unpaid ЄСВ (its quarter's deadline, not the board's 19.11.2026); «12 жовтня · ПриватБанк ФОП · UAH» on a payment (`Monobank ФОП · USD → UAH` from a foreign one). A row opens its payment (§8.4). **Footnote:** «У кожному місяці: спершу несплачене (ЄП і ВЗ — у місяці надходження, ЄСВ — у місяці, за який він), далі «Не пройшов», «Надіслано» й «Сплачено». «Надіслано» борг не зменшує; «Не пройшов» ніде не враховується.» **Empty:** «Немає сплат за обраний період і податки.» **The spec board** `M-TaxesSummaryStates` draws the summary's eight states: nothing paid or sent; sent only; all sent; part paid; paid, sent and unpaid over two quarters; all paid; a failed payment; one tax. |
 | Новий інвойс (013, 014, 072–079) | **Top:** the source switch «Створити в PryTax \| Зовнішній PDF»; the number preview card («BL-2026-10-31-14», «Присвоюється під час фіксації: абревіатура клієнта, кінець періоду й лічильник клієнта.», «Ввести власний»). **Groups:** Клієнт і договір (the contract's terms: currency, rate, payment days) · Період і дати (quick picks 01–14, 15–31, the month, other; issued = the period's end; due by the contract's terms) · Отримання коштів (active accounts in the currency, the last invoice's one first) · Документ (Стиль · Мова · Показувати договір · Призначення платежу · Примітка «акт» · Примітка щодо оплати · Інша примітка) · Позиції (not a group; dimmed while a group is open; «+ Знижка або коригування») · Внутрішня примітка. **Footer:** «Чернетка зберігається після кожної групи» and «Зафіксувати»; a saved draft's footer is «👁 Переглянути PDF» \| «Зафіксувати» (v5.1: its PDF as the freeze would print it now, marked as a draft, after saving pending changes), and before the first save the status line says the PDF can be previewed once saved. The board has no currency field: the currency follows the contract, else the client. |
@@ -1590,7 +1594,7 @@ wins; for domain rules §16 does.
 - From **600 px** the desktop layout (v5.1; the owner's feedback from the desktop app's window, 2026-10-29);
   below it the mobile one, unchanged. The boards are 1440 px wide; from 1024 px (Tailwind `lg`) to 1440 the sidebar
   keeps 248 px and the content is fluid. **From 600 to 1023 px** the sidebar is a 64 px rail (☰, the ФОП's
-  avatar and the sections' icons, the groups apart), whose ☰ opens the whole sidebar over the page, and the pages have
+  avatar and the sections' icons; at its foot 🌐 and «Вийти», v5.1), whose ☰ opens the whole sidebar over the page, and the pages have
   24 px sides instead of 40; the sign-in pages and the recovery kit keep one centred column there. **Under 1280 px**
   the right-hand columns moved under the main column (the owner, 2026-10-28); since v5.1 there are none: Головна's
   360 px column is gone and the side notes are always under the column (the owner, 2026-10-30). No horizontal scroll from 600 to 1440.
@@ -1606,7 +1610,7 @@ wins; for domain rules §16 does.
   Налаштування (v5.1, the owner, 2026-10-30: ⚙, under Книги; its page, §16.5's Ще, holds what the board listed here —
   Рахунки, Перекази та комісії, Клієнти й договори, the ФОП's and the invoices' settings, Користувачі й ролі and
   Резервні копії — and the item stays current on each of their pages, which have a «←» back to it); the footer: the language row «🌐 Українська · UK ⌄» (the language popover), the e-mail and
-  role, «Вийти» in red. Items are 36 px high at least, radius 10, a 20 px icon; the active one accent-soft
+  role, «Вийти» in red, which asks «Вийти з PryTax?» first (v5.1). Items are 36 px high at least, radius 10, a 20 px icon; the active one accent-soft
   (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px high; below that the nav scrolls and the
   footer stays.
 - **Page header** (padding 28 40 20): an optional 40 px round back button, the 30 px title, an optional muted sub-line;
@@ -1651,20 +1655,20 @@ and the status badge under it (#81).
 ### 17.4 Screens
 
 Only what differs from mobile; copy, data and logic are mobile's.
-- **Головна:** the sections' cards, then §16.5's quick actions (half the width) and its two sections, the invoices as
-  a table (Номер · Клієнт · період · Сума · Статус; under the client the period and «сплатити до …» or «прострочено,
-  до …»; «3 100.00 · 80 %» under a sent one's amount). v5.1 (the owner, 2026-10-30) dropped the board's right-hand column (the income-limit band, «Податки IV
-  кв.», the latest notifications: Облік, Податки and 🔔 have them) for the cards Інвойси · Облік · Податки · Книги ·
-  Налаштування (`HomeNavCards`: an icon on accent-soft, the name, a line of what it holds; five a row, three or two as
-  the page narrows), which open their sections.
+- **Головна:** §16.5's two sections, each header row ending with «Усі інвойси» / «Новий переказ» and the accent pill
+  «+ Новий інвойс» / «+ Нове надходження» (the phone has the two as buttons above the sections); the invoices as a
+  table (Номер · Клієнт · період · Сума · Статус; under the client the period and «сплатити до …» or «прострочено,
+  до …»; «3 100.00 · 80 %» under a sent one's amount). v5.1 (the owner, 2026-10-30) dropped the board's right-hand
+  column (the income-limit band, «Податки IV кв.», the latest notifications: Облік, Податки and 🔔 have them).
 - **Інвойси:** the chips «🗓 2026 ⌄» (dark) · «Усі клієнти ⌄» · «Усі статуси ⌄» · «Усі валюти ⌄» and the search «Номер
   або клієнт» on the right; a table per quarter (Номер · Клієнт · Період · Сума · Оплата · Статус; Оплата «до 14.11»,
   «прострочено, до 19.10» in red, or «—»; the virtual marker in place of the number). Rows open panels; no split view.
 - **Filters:** a chip opens its own popover under it (one at a time): Інвойси's statuses as checkboxes; Облік's period
   as a year and a quarter; Податки's as a year and a quarter range (§16.2's rules). The footer «Скинути» and
   «Застосувати»: the popover edits a draft, Застосувати commits it, Esc discards it.
-- **Облік:** the chips «🗓 IV кв. 2026 ⌄», «По місяцях ⌄», the switches on the right; «Підсумок кварталу» as three cards,
-  one under another, each the page's whole width (v5.1, the owner, 2026-10-30; the board drew them in a row); «Надходження» with CSV, XLSX (and the backups' «Архів ZIP») right-aligned on its heading; month cards with a
+- **Облік:** the chips «🗓 IV кв. 2026 ⌄», «По місяцях ⌄», the switches on the right; «Підсумок кварталу» as two cards,
+  one under the other, each the page's whole width (v5.1, the owner, 2026-10-30: the board drew three in a row, the
+  income limit first, which Облік no longer shows); «Надходження» with CSV, XLSX (and the backups' «Архів ZIP») right-aligned on its heading; month cards with a
   dark header and a table: Інвойс `minmax(0,1fr)` · Дата 96 · Сума 130 · Курс НБУ 96 · Дохід ₴ 150 · ЄП 5 % 136 · ВЗ 1 %
   136, gap 16. ЄП and ВЗ cells: the amount right-aligned with the badge under it. Fee rows use the same grid.
 - **Податки:** «Підсумок за період» as a table card (tax · bar · Нараховано · Надіслано · Сплачено; the black total row
@@ -1748,7 +1752,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   flipped, kept 24 px inside the viewport, one at a time) carries the shell's popovers (notifications in `BarActions`,
   the ФОП switcher and the language in `Sidebar`), the filter popovers (`FilterSurface`, the sheets' `only` part) and
   the date pickers (`DatePickerPopover`).
-- **Pages:** Головна (tables by quarter; `HomeNavCards` above them since v5.1, `HomeAside` gone), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
+- **Pages:** Головна (what needs attention since v5.1: `InvoiceTable`, `UntransferredList`; `HomeAside` gone), Інвойси (`InvoiceTable` by quarter), Облік (the summary's three
   cards, the switches on the filter row, `ReceiptTable`), Податки (the summary table, one-line ledger rows), Книги
   (the whole width, the cards in grids), the settings with their side notes, Рахунки in two columns, Перекази,
   Клієнти and Користувачі at 880 px, Вхід split.

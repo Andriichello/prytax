@@ -33,9 +33,15 @@ and only what needs attention, or «Усе гаразд». Their choices: receip
   `Services\Transfers\UntransferredReceipts`): per receipt and platform/foreign-bank account (`needsRepatriation()`)
   what it holds (`HoldingCalculator::holdingsOn`), the `RepatriationRule` deadline and `overdue`; `meta.totals` per
   currency (count, amount, overdue). Two tests in `PaymentControllerTest`.
-- **SPA:** `HomePage` (quick actions, Інвойси: drafts/ready/sent sorted overdue → due date → drafts, with «До оплати»,
+- **SPA:** `HomePage` (Інвойси: drafts/ready/sent sorted overdue → due date → drafts, with «До оплати»,
   «Прострочено», «Чернетки» from `invoices/outstanding`; Надходження: `UntransferredList`, «На платформах», «Час
-  переказати», «Новий переказ» → `transfer-new?from=`), `HomeNavCards` still on top on desktop.
+  переказати», «Новий переказ» → `transfer-new?from=`). Then, at the user's word: on desktop «+ Новий інвойс» / «+ Нове
+  надходження» are `NewPill`s at the right of their sections' header rows (the phone keeps the two buttons on top);
+  «… ще немає» with ⓘ when the ФОП has no invoices / receipts at all (counts from `page[size]=1`), else «Усе гаразд»
+  with the green check; `HomeNavCards` deleted. Same round: Облік's summary lost the income-limit band
+  (`QuarterSummaryCard`, its `year` prop and two texts gone); the sidebar's rail got 🌐 and «Вийти» at its foot, and
+  «Вийти» asks first (`ConfirmSheet`) in the rail and the sidebar; the language popover now hangs from whichever is
+  shown (`languageAnchor`). Mobile Ще's «Вийти» still signs out at once.
 - **Checked** in the window (the user's ФОП: one ready invoice, no receipts) and, for data, with a throwaway
   `artisan serve` on 8011 over `database/nativephp.sqlite` (env: sqlite, file session/cache,
   `SANCTUM_STATEFUL_DOMAINS=127.0.0.1:8011`) and headless Chrome signed in as olena@example.com — the window's own

@@ -1614,8 +1614,9 @@ wins; for domain rules §16 does.
   (`#E9EDFB`), text `#1F338C` at 600, `aria-current="page"`. It fits 900 px high; below that the nav scrolls and the
   footer stays.
 - **Page header** (padding 28 40 20): an optional 40 px round back button, the 30 px title, an optional muted sub-line;
-  on the right the page's actions (one accent pill, 44 px: «+ Новий інвойс», «+ Надходження», «+ Новий»; optional
-  secondary buttons), then the 📖 | 🔔 capsule (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
+  on the right the page's actions (one accent pill, 44 px: «+ Новий», «Запросити»; optional secondary buttons), then
+  the 📖 | 🔔 capsule; a board's pill («+ Новий інвойс» on Інвойси, «+ Надходження» on Облік) ends its filters' row
+  instead, over the table (v5.1, the owner, 2026-10-30) (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
   notifications popover).
 - **Content:** padding 0 40 48, 20 px gaps; every page's content takes the page's whole width, which the app's
   1200 px box keeps at most 872 px (v5.1, the owner, 2026-10-30; the boards drew 760 px columns for settings and
@@ -1719,12 +1720,15 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
   button. The shell (sidebar and page) is at most 1200 px wide (v5.1; the boards' 1440 px before) and centred on a
   wider screen, so content is at most 872 px; the record panel opens at its right edge. A page's
   title keeps its width, and its actions go under it when they don't fit beside it.
-- **Primary actions:** a page's own action («+ Новий інвойс», «+ Надходження», «+ Новий», «Запросити», «Створити
-  копію зараз») is a `NewPill` in the page header, left of the 📖 | 🔔 capsule, on every desktop page (Рахунки,
+- **Primary actions:** a page's own action («+ Новий», «Запросити», «Створити копію зараз») is a `NewPill` in the page
+  header, left of the 📖 | 🔔 capsule, on every desktop sub-page (Рахунки,
   Клієнти, Перекази, Користувачі and ФОП pass their title, sub-line and pill to the header there; on mobile they keep
   the title row in the content); a secondary one sits left of it as an outlined button. What finishes a form or a
   record («Зберегти», «Додати надходження») stays in the footer of its panel, dialog or form, and an action inside a
   section («+ Додати», «+ Договір») stays a blue text link.
+- **A board's action** (`TabScreen`'s `title-action`: «+ Новий інвойс» on Інвойси, «+ Надходження» on Облік) ends the
+  filters' row on desktop, after the chips and Облік's switches, over the table — not by the capsule (v5.1, the owner,
+  2026-10-30); the phone keeps it beside the title.
 - **Tables and card rows follow their own width** (container queries), not the window's, since the same table sits
   beside a page's side columns: Інвойси's table puts the period under the client and the payment
   under the amount under 1020 px, Головна's the status under the amount under 690 px; Облік's receipts put the date

@@ -9,9 +9,9 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
  * A root screen (Головна, Інвойси, Облік, Податки, Ще; design.md §16.2): the top bar scrolls away, while a block
  * with the title, its action (`title-action`), an optional subtitle, a mode switch (`switcher`) and the filter badges
  * (`filters`) sticks to the top, with a rule and a soft shadow once stuck. Then the content and the tab bar. On
- * desktop (§17.2) the page header holds the title with its sub-line on the left and the action with the 📖 | 🔔
- * capsule on the right (under the title, when they don't fit beside it); the switch and the filters follow it, and
- * the sidebar replaces the tab bar.
+ * desktop (§17.2) the page header holds the title with its sub-line on the left and the 📖 | 🔔 capsule on the right
+ * (under the title, when they don't fit beside it); the switch follows it, then the filters' row, whose right end
+ * holds the action (the owner, 2026-10-30: over the table, not by the capsule); the sidebar replaces the tab bar.
  */
 const { title } = defineProps<{ title: string }>();
 
@@ -47,13 +47,17 @@ onBeforeUnmount(() => observer?.disconnect());
                 <slot name="subtitle" />
             </div>
             <div class="ml-auto flex shrink-0 items-center gap-3">
-                <slot name="title-action" />
                 <BarActions />
             </div>
         </header>
-        <div v-if="$slots.switcher || $slots.filters" class="flex flex-col gap-3.5 pb-5" :class="gutter">
+        <div v-if="$slots.switcher || $slots.filters || $slots['title-action']" class="flex flex-col gap-3.5 pb-5" :class="gutter">
             <slot name="switcher" />
-            <slot name="filters" />
+            <div v-if="$slots.filters || $slots['title-action']" class="flex items-center gap-3">
+                <div class="min-w-0 flex-1">
+                    <slot name="filters" />
+                </div>
+                <slot name="title-action" />
+            </div>
         </div>
         <main class="flex flex-1 flex-col gap-5 pb-12" :class="gutter">
             <slot />

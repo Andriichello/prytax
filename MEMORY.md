@@ -24,6 +24,13 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Boards' actions in the filters' row (2026-10-30, branch `feat/board-actions-in-filters` from `feat/home-attention`)
+
+The user: on desktop «+ Новий інвойс» (Інвойси) and «+ Надходження» (Облік) go to the right end of the filters' row,
+over the table, not by 📖 | 🔔. Done once in `TabScreen` (its `title-action` slot renders after the filters on desktop;
+the phone keeps it by the title). Sub-pages (`SubScreen`: Рахунки, Клієнти, Перекази, Користувачі, Резервні копії)
+still have their pill in the header; not asked.
+
 ## Головна: what needs attention (2026-10-30, branch `feat/home-attention` from `feat/accounting-summary-rows`)
 
 The user: no header «+ Новий інвойс» pill and no «Відкриті інвойси · … до оплати» subtitle; Головна shows quick actions

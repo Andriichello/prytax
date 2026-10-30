@@ -33,7 +33,8 @@ settings page and grouped. Built:
 - **The page** is Ще (`MorePage`), now at `/settings` (`/more` an alias, the route still named `more`): ФОП (card,
   Змінити ФОП, Профіль і реквізити, Податки й сповіщення) · Гроші (Рахунки, Перекази та комісії) · Клієнти й інвойси
   (Клієнти й договори, Нумерація, Документ інвойсу) · Керування (Користувачі й ролі, Резервні копії). Desktop: titled
-  Налаштування, two columns from 1024 px, no language/Вийти (the sidebar's foot has them). Phone: one list, as before.
+  Налаштування, the ФОП full width and the rest in two columns from 720 px of page (container query; the user
+  asked), no language/Вийти (the sidebar's foot has them). Phone: one list, as before.
 - **Sub-pages** (Рахунки, Перекази, Комісії, Клієнти, the four settings, Користувачі, Резервні копії) lost
   `meta.section`, so on desktop they show «←» back to Налаштування (their `back` was already `more`).
 - **i18n:** `shell.more.money`, `shell.more.clientsInvoices`; `moneyCounterparties`, `fopSettings` and

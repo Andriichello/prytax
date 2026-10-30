@@ -87,7 +87,7 @@ function caption(account: Account): string {
         :back="{ name: 'more' }"
     >
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.accounts')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.accounts')" />
         </template>
         <template v-if="isDesktop && can('create', 'accounts')" #action>
             <NewPill :to="{ name: 'account-new' }" />

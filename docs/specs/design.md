@@ -19,6 +19,7 @@ specified in `invoice.md`; backups and retention in `backups.md`; what is deferr
   before the first invoice; the editor's number card offers Автоматичний | Лічильник | Власний, and a draft can hold a
   counter of its own.
 - **«✎ Змінити»** on a desktop page (Рахунок, Клієнт, Переказ) ends the row of the record's title.
+- **«Як це працює»** (§17.2): at the end of a page's column, never a column beside it.
 - **Головна** (§17.4): on desktop the sections' cards stand above the invoices, in place of the income limit, the
   quarter's taxes and the notifications.
 - **Налаштування** (§17.2, §16.5): the sidebar lists Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose
@@ -1586,8 +1587,8 @@ wins; for domain rules §16 does.
   keeps 248 px and the content is fluid. **From 600 to 1023 px** the sidebar is a 64 px rail (☰, the ФОП's
   avatar and the sections' icons, the groups apart), whose ☰ opens the whole sidebar over the page, and the pages have
   24 px sides instead of 40; the sign-in pages and the recovery kit keep one centred column there. **Under 1280 px**
-  the right-hand columns (the 300 px side notes; Головна's 360 px column until v5.1) move under the main column (the
-  owner, 2026-10-28). No horizontal scroll from 600 to 1440.
+  the right-hand columns moved under the main column (the owner, 2026-10-28); since v5.1 there are none: Головна's
+  360 px column is gone and the side notes are always under the column (the owner, 2026-10-30). No horizontal scroll from 600 to 1440.
 - **Routes are the same.** A record's route renders a full page on mobile and a **panel over the list it belongs to**
   on desktop, the list staying mounted under it: nested routes with the panel as the list's child, so a deep link to
   `/invoices/:id` opens Інвойси with the panel.
@@ -1607,8 +1608,10 @@ wins; for domain rules §16 does.
   on the right the page's actions (one accent pill, 44 px: «+ Новий інвойс», «+ Надходження», «+ Новий»; optional
   secondary buttons), then the 📖 | 🔔 capsule (the book to `/books`, `?tab=taxes` from Податки; the bell opens the
   notifications popover).
-- **Content:** padding 0 40 48, 20 px gaps; settings and detail pages are one 760 px column with an optional 300 px
-  side note «Як це працює» (grey, sticky). The boards Головна, Інвойси, Облік and Податки take the content's whole
+- **Content:** padding 0 40 48, 20 px gaps; settings and detail pages are one 760 px column with an optional note «Як
+  це працює» (grey) at its end, as wide as the column — never a column beside it (v5.1, the owner, 2026-10-30; the
+  board drew a 300 px sticky one); the note doesn't repeat an accordion page's «one group is open at a time», which
+  the page has under its groups. The boards Головна, Інвойси, Облік and Податки take the content's whole
   width, which the shell's 1440 px keeps at most 1112 px, rather than a column (the owner, 2026-10-30).
 
 ### 17.3 Overlays (one rule set, `008 D-RecordPanels`)
@@ -1703,7 +1706,7 @@ columns and a flexible first one, numbers right-aligned in mono tabular figures)
 - **Layout switch:** `useBreakpoint()` (`isDesktop` from 600 px, `isCompact` from 600 to 1023 px, while the sidebar
   is a rail, and `isWide` from 1280 px; v5.1). The window of the desktop app is at least 600 px wide. `App.vue` renders the
   sidebar and the page; `TabScreen` and `SubScreen` render the desktop page header (and `SubScreen` its column: 760 px,
-  880 px for lists, or the whole width; its `aside` slot is the side note). Sidebar pages (`meta.section`: Книги since v5.1)
+  880 px for lists, or the whole width; its `aside` slot is the note at the column's end). Sidebar pages (`meta.section`: Книги since v5.1)
   have no back button. The shell (sidebar and page) is at most 1440 px wide, the boards' width, and centred on a wider screen, so
   tables and cards keep the boards' widths (1112 px of content); the record panel opens at its right edge. A page's
   title keeps its width, and its actions go under it when they don't fit beside it.

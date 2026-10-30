@@ -24,6 +24,13 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Notes under the column (2026-10-30, branch `feat/notes-below` from `feat/home-nav-cards`)
+
+The user: no «Як це працює» as a second column on any page. `SubScreen`'s `aside` is now always at the end of the
+page's column (as wide as it); the `frame` computed and `useBreakpoint().isWide` (1280 px) are gone, nothing used them
+any more. `SideNote` lost its `accordion` prop and the «one group is open» line, which the accordion pages already
+print under their groups (it was doubled once stacked, and wrong on the import page). Checked at 1920 px.
+
 ## Головна's cards (2026-10-30, branch `feat/home-nav-cards` from `feat/settings-page`)
 
 The user disliked desktop Головна on wide screens: its right-hand column (`HomeAside`: income limit, the quarter's

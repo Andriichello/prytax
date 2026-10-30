@@ -99,7 +99,7 @@ function chooseYear(event: Event): void {
 <template>
     <SubScreen :title="t('accounting.books.title')" :subtitle="subtitle" :back="{ name: 'home' }">
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.books')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.books')" />
         </template>
 
         <template #action>

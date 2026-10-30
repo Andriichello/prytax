@@ -137,7 +137,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
         :back="{ name: 'more' }"
     >
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.users')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.users')" />
         </template>
         <template v-if="isDesktop && can('create', 'users')" #action>
             <NewPill :label="t('settings.users.invite')" @click="open(null)" />

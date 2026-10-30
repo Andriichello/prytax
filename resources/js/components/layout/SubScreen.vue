@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useSlots } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router';
 import BarActions from '@/components/layout/BarActions.vue';
 import SubHeader from '@/components/layout/SubHeader.vue';
@@ -16,10 +16,10 @@ import { panelBackground } from '@/router';
  * a `toolbar` (such as the filter chips of Сповіщення), the header and the toolbar stick to the top together.
  * On desktop (design.md §17.2–§17.3) a page gets the page header (a round back button, unless it is a sidebar's page
  * — `meta.section` —, with the kind of record beside it when `title` is a context line, the title, the action and the
- * 📖 | 🔔 capsule) over a column of `width`: 760 px for settings
- * and records, 880 px for lists, or the whole page, with the `aside` slot (the side note «Як це працює») as a 300 px
- * sticky column beside it, under it and as wide as the column below 1280 px; the column and the note are centred in
- * the page, with the same space on both sides, under the header's row, which spans the page. The page's primary action (`NewPill`) is the `action`, left of the
+ * 📖 | 🔔 capsule) over a column of `width`: 760 px for settings and records, 880 px for lists, or the whole page,
+ * with the `aside` slot (the side note «Як це працює») at its end, as wide as the column, never beside it (the owner,
+ * 2026-10-30); the column is centred in the page under the header's row, which spans the page. The page's primary
+ * action (`NewPill`) is the `action`, left of the
  * capsule; the title keeps its width, the sub-line wraps, and the actions go under the title when they don't fit. In
  * the record panel it gets the panel's header (← back to the record it came from; the kind of record, `title`, over
  * the record's own title, `record`, with the `sub` line and the `badges` under it; «✎ Змінити» to `edit` when the
@@ -43,10 +43,9 @@ const { title, back, heading, muted = false, subtitle = undefined, closable = fa
     edit?: RouteLocationRaw;
 }>();
 
-const slots = useSlots();
 const route = useRoute();
 const router = useRouter();
-const { isDesktop, isCompact, isWide } = useBreakpoint();
+const { isDesktop, isCompact } = useBreakpoint();
 const panel = usePanel();
 
 /** The page's route: under the record panel, the page the panel was opened over (the current route is the panel's). */
@@ -67,20 +66,11 @@ function goBack(): void {
     }
 }
 
+/** The centred column of the page's toolbar, content, side note and footer; the header's row keeps the page's width. */
 const column = computed(() => ({ column: 'max-w-190', list: 'max-w-220', full: '' })[width]);
 
 /** The page's sides: 40 px, or 24 px while the sidebar is a rail (below 1024 px). */
 const gutter = computed(() => (isCompact.value ? 'px-6' : 'px-10'));
-
-/**
- * The centred frame of the page's content and footer: the column, with the side note beside it (24 px apart, 300 px)
- * where it fits, so the space left over is the same on both sides; the header's row keeps the page's whole width.
- */
-const frame = computed(() => {
-    const besideNote = Boolean(slots.aside) && isWide.value;
-
-    return ({ column: besideNote ? 'max-w-271' : 'max-w-190', list: besideNote ? 'max-w-301' : 'max-w-220', full: '' })[width];
-});
 </script>
 
 <template>
@@ -146,23 +136,23 @@ const frame = computed(() => {
             </div>
         </header>
         <div v-if="$slots.toolbar" class="pb-4" :class="gutter">
-            <div class="mx-auto w-full" :class="frame">
-                <div :class="column"><slot name="toolbar" /></div>
+            <div class="mx-auto w-full" :class="column">
+                <slot name="toolbar" />
             </div>
         </div>
         <div class="flex-1 pb-12" :class="gutter">
-            <div class="mx-auto flex w-full gap-6" :class="[frame, isWide ? 'items-start' : 'flex-col']">
-                <main class="flex w-full min-w-0 flex-col gap-5" :class="column">
+            <div class="mx-auto flex w-full flex-col gap-6" :class="column">
+                <main class="flex w-full min-w-0 flex-col gap-5">
                     <slot />
                 </main>
-                <aside v-if="$slots.aside" class="flex flex-col gap-2 rounded-card bg-muted p-4" :class="isWide ? 'sticky top-6 w-75 shrink-0' : ['w-full', column]">
+                <aside v-if="$slots.aside" class="flex w-full flex-col gap-2 rounded-card bg-muted p-4">
                     <slot name="aside" />
                 </aside>
             </div>
         </div>
         <footer v-if="$slots.footer" class="sticky bottom-0 z-10 border-t border-line bg-surface py-3" :class="gutter">
-            <div class="mx-auto w-full" :class="frame">
-                <div :class="column"><slot name="footer" /></div>
+            <div class="mx-auto w-full" :class="column">
+                <slot name="footer" />
             </div>
         </footer>
     </div>

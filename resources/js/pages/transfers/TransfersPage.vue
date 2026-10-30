@@ -75,7 +75,7 @@ const lossTone = (percent: string): string => (Number(percent) >= 1 ? 'text-nega
         :back="{ name: 'more' }"
     >
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.transfers')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.transfers')" />
         </template>
         <template v-if="isDesktop && can('create', 'account-transfers')" #action>
             <NewPill :to="{ name: 'transfer-new' }" />

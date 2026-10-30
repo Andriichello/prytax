@@ -76,7 +76,7 @@ const grid = 'grid grid-cols-[52px_1fr_1fr_1fr] items-center gap-2 px-3.5';
 <template>
     <SubScreen title="" muted :back="{ name: 'more' }">
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.fees')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.fees')" />
         </template>
 
         <div class="-mt-1 flex flex-col gap-1">

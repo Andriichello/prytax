@@ -74,7 +74,7 @@ const overdue = (client: Client) => (client.outstanding ?? []).some((entry) => c
 <template>
     <SubScreen :title="isDesktop ? t('core.common.clients') : ''" :muted="!isDesktop" :back="{ name: 'more' }">
         <template #aside>
-            <SideNote :text="t('settings.sideNotes.clients')" :accordion="false" />
+            <SideNote :text="t('settings.sideNotes.clients')" />
         </template>
 
         <template v-if="isDesktop && can('create', 'clients')" #action>

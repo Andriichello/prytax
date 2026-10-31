@@ -69,7 +69,9 @@ PryTax (MCP)"; design.md the page.
   tools: each call in a rolled-back transaction, recorded after). `laravel/mcp` ^1.0 (v1.1.2) is now in `require`.
 - **SPA:** `pages/settings/IntegrationsPage.vue`, `composables/useClaudeIntegration`, `utils/integrations`, a `plug`
   icon, Ще's «Керування» row, `probe` among the client's compute-only POSTs.
-- **Starter:** Tools → Claude (`McpAction`, `prytax:claude-connection`).
+- **Starter:** Tools → Claude (`McpAction`, `prytax:claude-connection`). The user, running `./prytax` web here on
+  `database/database.sqlite`, found it offered only the desktop's and `.env`'s data: now the last app's data comes
+  first, then desktop, `.env`, Docker (while it runs, asked in its container with `--folder`), another SQLite file.
 - **Checked live** on a scratch demo SQLite (own storage, a `fonts` folder, or DemoSeeder fails on dompdf's fonts):
   13 tools over stdio, counts unchanged; the page at 1440/390 px with a scratch HOME's fixture configs; off refuses;
   the starter. Never touched: the user's Claude configs, their real desktop data. Last runs: 645 PHP tests on SQLite

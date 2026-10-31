@@ -23,6 +23,7 @@ use PryTax\Http\Controllers\DesktopRestoreController;
 use PryTax\Http\Controllers\EnvironmentController;
 use PryTax\Http\Controllers\EsvObligationController;
 use PryTax\Http\Controllers\ExchangeRateController;
+use PryTax\Http\Controllers\InstallationBackupController;
 use PryTax\Http\Controllers\InvoiceController;
 use PryTax\Http\Controllers\InvoiceFileController;
 use PryTax\Http\Controllers\PaymentController;
@@ -79,6 +80,9 @@ Route::get('environment', [EnvironmentController::class, 'show'])->name('environ
 
 // Restoring the desktop app on a new computer, before anyone registered on it
 DesktopRestoreController::routes();
+
+// A full backup of the installation, and restoring one in its place, where `prytax.full_backups` allows it
+InstallationBackupController::routes();
 
 Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use ($crud, $all) {
     UserController::routes();

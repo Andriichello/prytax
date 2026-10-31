@@ -23,6 +23,7 @@
         "nativephp/desktop": "^2.4"
     },
     "require-dev": {
+        "brianium/paratest": "^7.20",
         "fakerphp/faker": "^1.23",
         "laravel/boost": "^2.10",
         "laravel/pail": "^1.2.5",
@@ -59,13 +60,15 @@
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "@putenv XDEBUG_MODE=off",
+            "@php artisan test --parallel --processes=6"
         ],
         "test:sqlite": [
             "@php artisan config:clear --ansi @no_additional_args",
+            "@putenv XDEBUG_MODE=off",
             "@putenv DB_CONNECTION=sqlite",
             "@putenv DB_DATABASE=:memory:",
-            "@php artisan test"
+            "@php artisan test --parallel --processes=6"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

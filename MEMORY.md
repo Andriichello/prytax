@@ -1,6 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (late night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+Status as of 2026-10-31 (later): branch **`feat/claude-mcp`** (from `dev`, not merged, not pushed) adds Claude over
+MCP, turned on in Налаштування → Інтеграції (see "Claude over MCP"). Before it, as of 2026-10-31 (late night):
+**everything is merged into `dev`** (the user: "merge everything into dev"; a
 fast-forward to `fix/made-up-email-in-sidebar`, then this note; not `main`, not pushed; `dev` is 20 commits ahead of
 `origin/dev` = 2f8241f, checked out; `main` = `origin/main` = fe94985). It added `feat/start` (`./start`, `./prytax`'s
 PHP container, `prytax:summary` and the starters' «Again»; see "`./start`, `./prytax` without PHP, the overview and
@@ -48,6 +50,35 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Claude over MCP, turned on in Налаштування → Інтеграції (2026-10-31, late night; branch `feat/claude-mcp` from `dev`, not merged, not pushed)
+
+The user: "can you make an MCP server for Claude that will allow it to work in this app?"; then: local first,
+read-only, `laravel/mcp` added; two entries (desktop data, web data); the starter's Tools item and README. Then the
+correction (the plan rejected): **off by default**, an owner turns it on and configures it in Налаштування →
+Інтеграції, which stores and shows who turned it on and when, with a status (Claude Code / Claude Desktop connected, a
+probe). Chosen (AskUserQuestion): a connection key; configure the acting user, the ФОП and the connection; status =
+recorded handshakes + a local probe; keep the starter item. builds.md §7 is the spec as built; README "Claude and
+PryTax (MCP)"; design.md the page.
+- **Backend:** `integrations` + `Integration` (key encrypted + SHA-256 `key_hash`; `last_*` outside audit and the full
+  copies' comparison); owner-only `viewAny`/`configure models.integrations`; `IntegrationController`
+  (`organization/integrations/claude`: show, PUT, key, connection, probe); `Services/Integrations/{ClaudeIntegration,
+  ClaudeConnection, ClaudeProbe}`; `BackupState` extracted from `BackupRunController::handleStatus`.
+- **Server:** `routes/ai.php` → `Mcp\Servers\PryTaxServer` (`mcp:start prytax`), `McpSession` (PRYTAX_MCP_KEY →
+  integration, on, acting user), `DatabaseKey` (a SQLite file's `.key`), `RecordedInitialize`, `Tools\ReadTool` (+13
+  tools: each call in a rolled-back transaction, recorded after). `laravel/mcp` ^1.0 (v1.1.2) is now in `require`.
+- **SPA:** `pages/settings/IntegrationsPage.vue`, `composables/useClaudeIntegration`, `utils/integrations`, a `plug`
+  icon, Ще's «Керування» row, `probe` among the client's compute-only POSTs.
+- **Starter:** Tools → Claude (`McpAction`, `prytax:claude-connection`).
+- **Checked live** on a scratch demo SQLite (own storage, a `fonts` folder, or DemoSeeder fails on dompdf's fonts):
+  13 tools over stdio, counts unchanged; the page at 1440/390 px with a scratch HOME's fixture configs; off refuses;
+  the starter. Never touched: the user's Claude configs, their real desktop data. Last runs: 645 PHP tests on SQLite
+  (one skipped: the SQLite ↔ MySQL test), SPA 805, typecheck, build.
+- **Gotchas:** `\R` without `/u` splits UTF-8 «х» (D1 85); `artisan serve` under php.ini-development drops
+  `LARAVEL_STORAGE_PATH` (`$_ENV` only, `variables_order` without E): use `php -d variables_order=EGPCS -S` from
+  `public/`, or a scratch server writes into the checkout's storage (its stale permission cache gave a 403; six cache
+  files removed); PHP attributes don't inherit, so `ReadTool` overrides `annotations()`; `expectsChoice` checks a
+  question's last ask; `json_encode` escapes Cyrillic unless `JSON_UNESCAPED_UNICODE`, which hid the `\R` bug.
 
 ## A made-up e-mail in the menus (2026-10-31, late night; branch `fix/made-up-email-in-sidebar` from `feat/start`, fast-forwarded into `dev` at the user's request, not pushed)
 

@@ -1,7 +1,9 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (night): branch **`feat/full-backups`** (stacked on `feat/organization-from-backups`, on
-`feat/starter`; none merged or pushed) backs up the whole app and restores it after a comparison (see "A copy of the
+Status as of 2026-10-31 (night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+fast-forward to `feat/full-backups`, then this note; not `main`, not pushed; `dev` is 194 commits ahead of
+`origin/dev`, checked out). Before the merge, branch **`feat/full-backups`** (stacked on
+`feat/organization-from-backups`, on `feat/starter`) backs up the whole app and restores it after a comparison (see "A copy of the
 whole app"), and adds one person's installation (see "One person's installation"). The desktop DB was migrated by the user through the starter at 11:32 (a copy beside it), so the client
 address's `native:migrate` is done. Before it, branch **`feat/organization-from-backups`** restores a new
 organization's ФОПs from backup archives (see "A new organization's ФОПs from backups").

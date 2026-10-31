@@ -355,11 +355,14 @@ PryTax's own routes go into the group with the `organization` middleware, nested
 ### Testing
 
 ```bash
-php artisan test
+composer test
 ```
 
 The tests run on the MySQL database `prytax_test` (set in `phpunit.xml`), with the credentials from `.env`, and
-refresh it on every run. `composer test:sqlite` runs them on SQLite, in memory; both must pass. Format the code with `vendor/bin/pint`, whose `pint.json` is api-core's house style.
+refresh it on every run. `composer test:sqlite` runs them on SQLite, in memory; both must pass. Both run in 6
+processes with paratest, as api-core's do (MySQL gets a `prytax_test_test_N` database per process); arguments pass
+through, such as `composer test -- --filter=InvoiceTest`. Format the code with `vendor/bin/pint`, whose `pint.json` is
+api-core's house style.
 
 ### Claude and PryTax (MCP)
 

@@ -29,14 +29,22 @@ class DatabaseAction extends Action
      */
     protected function handle(): int
     {
-        $target = select('Which database?', [
+        // The desktop app's storage is outside the checkout, which is all the starter's container sees
+        $target = select('Which database?', array_filter([
             'web' => ucfirst(Database::web()->label),
-            'desktop' => 'The desktop app\'s — database/nativephp.sqlite',
+            'desktop' => $this->toolchain->inContainer() ? null : 'The desktop app\'s — database/nativephp.sqlite',
             'sqlite' => 'Another SQLite file',
-        ], default: 'web');
+        ]), default: 'web');
+        $path = $target === 'sqlite' ? text('Which SQLite file?', default: database_path('database.sqlite'), required: true) : null;
+        $path = $path === null || str_starts_with($path, '/') ? $path : base_path($path);
+
+        if ($path !== null && !$this->reachable($path)) {
+            return Start::FAILURE;
+        }
+
         $database = match ($target) {
             'desktop' => Database::desktop($this->toolchain),
-            'sqlite' => Database::sqlite(text('Which SQLite file?', default: database_path('database.sqlite'), required: true)),
+            'sqlite' => Database::sqlite((string) $path),
             default => Database::web(),
         };
 

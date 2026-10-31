@@ -223,6 +223,24 @@ abstract class Action
     }
 
     /**
+     * Get whether the starter reaches the file, and say why not: its container sees the checkout alone.
+     *
+     * @param string $path
+     *
+     * @return bool
+     */
+    protected function reachable(string $path): bool
+    {
+        if (!$this->toolchain->inContainer() || str_starts_with($path, base_path() . '/')) {
+            return true;
+        }
+
+        error("$path is outside the checkout, which is all the starter's container sees: choose a file in it, such as database/database.sqlite.");
+
+        return false;
+    }
+
+    /**
      * Remember that the choice's app started now (builds.md §6): the starters show it and offer it again, with when it
      * was set up here (anew with a new database) and when its database was created, as its overview tells.
      *

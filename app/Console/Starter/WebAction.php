@@ -149,7 +149,8 @@ class WebAction extends Action
         }
 
         $path = $this->start->option('sqlite') ?? text('Which SQLite file?', default: database_path('database.sqlite'), required: true);
+        $path = str_starts_with($path, '/') ? $path : base_path($path);
 
-        return Database::sqlite(str_starts_with($path, '/') ? $path : base_path($path));
+        return $this->reachable($path) ? Database::sqlite($path) : null;
     }
 }

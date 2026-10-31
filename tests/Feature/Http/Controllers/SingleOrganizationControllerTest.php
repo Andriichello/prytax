@@ -26,7 +26,7 @@ class SingleOrganizationControllerTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Turn one person's installation and registration on.
+     * Turn one person's installation on, with registration off, as a server's settings have it.
      *
      * @return void
      */
@@ -34,16 +34,16 @@ class SingleOrganizationControllerTest extends TestCase
     {
         parent::setUp();
 
-        config(['prytax.single_organization' => true, 'prytax.registration' => true]);
+        config(['prytax.single_organization' => true, 'prytax.registration' => false]);
     }
 
     /**
-     * Test that the only organization is registered with a password alone, its name and e-mail made up and a recovery
-     * code given, and that no second one is.
+     * Test that the only organization is registered with a password alone, though registration is off, its name and
+     * e-mail made up and a recovery code given, and that no second one is.
      *
      * @return void
      */
-    public function testRegistersTheOnlyOrganizationWithAPasswordAlone(): void
+    public function testRegistersTheOnlyOrganizationWithAPasswordAloneThoughRegistrationIsOff(): void
     {
         $this->getJson('/api/registration')->assertOk()
             ->assertJsonPath('data', ['enabled' => true, 'first_owner' => true, 'single_organization' => true, 'password_only' => false]);

@@ -88,6 +88,29 @@ class StartTest extends TestCase
     }
 
     /**
+     * Test that Back goes to the question asked before it, past one, which asked nothing (no pending migrations), and
+     * from the first one to the menu it was chosen in, without starting anything.
+     *
+     * @return void
+     */
+    public function testGoesBackAQuestionAtATimeThenToTheMenu(): void
+    {
+        Process::fake();
+
+        $this->artisan('prytax:start')
+            ->expectsQuestion('Which platform?', 'web')
+            ->expectsQuestion('Where should the web app run?', 'web')
+            ->expectsQuestion('Which database?', 'mysql')
+            ->expectsQuestion('How should the SPA be served?', 'back')
+            ->expectsQuestion('Which database?', 'back')
+            ->expectsQuestion('Where should the web app run?', 'back')
+            ->expectsQuestion('Which platform?', 'quit')
+            ->assertSuccessful();
+
+        Process::assertDidntRun(fn (PendingProcess $process) => in_array('serve', (array) $process->command, true));
+    }
+
+    /**
      * Test that the web app makes a new SQLite file with the demo data, then runs its server, queue worker and
      * scheduler on it, letting a tunnel's address sign in, until they end.
      *
@@ -100,8 +123,8 @@ class StartTest extends TestCase
         $file = $this->temporaryFile();
 
         $this->artisan('prytax:start', ['action' => 'web', '--db' => 'sqlite', '--sqlite' => $file])
-            ->expectsConfirmation('Add the demo data? (Практика Коваленко: sign in as olena@example.com / password)', 'yes')
-            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsQuestion("The SQLite file $file is new. Add the demo data?", 'yes')
+            ->expectsQuestion('How should the SPA be served?', 'no')
             ->assertSuccessful();
 
         $port = Listeners::webPort();
@@ -140,8 +163,8 @@ class StartTest extends TestCase
         $this->built();
 
         $this->artisan('prytax:start', ['action' => 'web', '--db' => 'sqlite', '--sqlite' => $file])
-            ->expectsConfirmation('Add the demo data? (Практика Коваленко: sign in as olena@example.com / password)', 'no')
-            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsQuestion("The SQLite file $file is new. Add the demo data?", 'no')
+            ->expectsQuestion('How should the SPA be served?', 'no')
             ->assertSuccessful();
 
         $last = app(StarterState::class)->last();
@@ -172,7 +195,7 @@ class StartTest extends TestCase
             ->expectsOutputToContain('Практика Коваленко (1 user)')
             ->expectsOutputToContain('Set up 01.10.2026 · database created 30.09.2026')
             ->expectsQuestion('Which platform?', 'again')
-            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsQuestion('How should the SPA be served?', 'no')
             ->expectsQuestion('Which platform?', 'quit')
             ->assertSuccessful();
 
@@ -193,7 +216,7 @@ class StartTest extends TestCase
         $this->artisan('prytax:start')
             ->expectsQuestion('Which platform?', 'web')
             ->expectsQuestion('Which database?', 'mysql')
-            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsQuestion('How should the SPA be served?', 'no')
             ->expectsChoice('Which platform?', 'quit', [
                 'again' => 'Again — Web · Here · MySQL',
                 'web' => 'Web — here',
@@ -305,6 +328,7 @@ class StartTest extends TestCase
                 'desktop' => "The desktop app's — database/nativephp.sqlite",
                 'web' => ucfirst(Database::web()->label),
                 'sqlite' => 'Another SQLite file',
+                'quit' => 'Quit',
             ])
             ->expectsOutputToContain("Claude isn't on in the SQLite file $file.")
             ->assertFailed();
@@ -412,7 +436,7 @@ class StartTest extends TestCase
         $file = $this->temporaryFile();
 
         $this->artisan('prytax:start', ['action' => 'docker', '--env-file' => $file])
-            ->expectsConfirmation("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
+            ->expectsQuestion("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
             ->expectsQuestion('Which database?', 'sqlite')
             ->expectsQuestion('PryTax runs in Docker at http://localhost:8080.', 'quit')
             ->assertSuccessful();
@@ -436,7 +460,7 @@ class StartTest extends TestCase
         $file = $this->temporaryFile();
 
         $this->artisan('prytax:start', ['action' => 'docker', '--env-file' => $file, '--mysql' => true])
-            ->expectsConfirmation("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
+            ->expectsQuestion("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
             ->expectsQuestion('PryTax runs in Docker at http://localhost:8080.', 'quit')
             ->assertSuccessful();
 

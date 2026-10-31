@@ -291,7 +291,8 @@ The first launch opens Реєстрація (§1.3), with a link to Віднов
   outside the desktop app): the text; saving it through a native save dialog (`Dialog::new()->save()`); the owner's
   word that they copied it somewhere safe. The time it was kept is recorded beside the database
   (`database.sqlite.recovery`) and shown on the page.
-- Резервні копії links back to it, so it can be kept again at any time.
+- Резервні копії shows it in its Ключ tab (2026-10-31; `RecoveryKitPanel`, which the setup's page frames too), so it
+  can be kept again at any time without leaving Налаштування.
 
 ### 4.6 Restore on a new computer
 

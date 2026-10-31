@@ -498,14 +498,28 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   container sees nothing else); `desktop`, `docker` and `phone` are refused with what to use (`./start` for Docker). Docker
   Desktop (macOS, Windows) needs its host networking turned on.
 - **`./start`** (2026-10-31, the owner's request: a simpler `./prytax`) is bash with nothing but Docker: Web, In
-  Docker and SQLite, never asked. It makes `.env.docker` from the example as `DockerSettings` does for SQLite (0600, a
-  key of its own) when it's missing, and refuses one on another database (`./prytax docker` runs it). It builds with
-  `gh auth token` when `COMPOSER_AUTH` is unset, runs `docker compose --env-file .env.docker up -d --build` as one
-  person's installation unless `app` runs already, prints `prytax:summary` from the app's container, and records the
+  Docker and SQLite, never asked. It runs **your local app, apart from development** (the owner's request, later the
+  same night, so `./prytax`'s work never rewrites it): its own settings, `.env.docker.local` (git-ignored), made from the
+  example when missing (0600, a key of its own, `DB_DATABASE=…/prytax.local.sqlite`, port 8090 in `APP_URL`,
+  `APP_PORT` and the stateful domain, and `COMPOSE_PROJECT_NAME=prytax-local`, which compose reads from `--env-file`,
+  so every `docker compose --env-file .env.docker.local` command names its own containers and storage volume). A
+  file on another database is refused. It builds with `gh auth token` when `COMPOSER_AUTH` is unset, runs `docker
+  compose --env-file .env.docker.local up -d --build` as one person's installation unless `app` runs already, prints `prytax:summary` from the app's container, and records the
   run; without a terminal it ends there. Its menu (numbers, q): the tunnel as `docker`'s (the same override file,
   ngrok in the foreground), the logs, stopping it; no first owner (the first visit chooses the password). Ctrl+C
   stops ngrok or the logs, not it (`trap ':' INT`); `exec` gets `/dev/null` as input, or it swallows what's typed
-  ahead for the menu.
+  ahead for the menu. Its runs are recorded as the `local` choice. `./prytax` knows it as the «Local app (./start)»
+  (`Listeners::localPort()`/`localSettings()`): its status and stopping (`down` with its settings), Web → «Your local
+  app» and `./prytax local` (`LocalAction`: `./start` in the foreground), Again, its overview, and Tools → Claude,
+  whose connection in its container names its settings (`PRYTAX_ENV_FILE`) and project (`COMPOSE_PROJECT_NAME`).
+  Checked live with a scratch project (`prytax-local-check`, 8093): the settings, the containers and volume, the file
+  in it, 200, the record, the second run's last-run line.
+- **Back, everywhere** (2026-10-31, the owner's request): each action asks its questions in a flow (`Action::ask()`;
+  `choose()`, `decide()` for yes or no as two options of their own words, `typed()` where Esc goes back), before the
+  work they decide (a new file's demo data, pending migrations, the SPA's build, Electron, Docker's settings). Back
+  goes to the question asked before it, past those an option answered or nothing asked, and from the first one to the
+  menu it was chosen in, which Web and Desktop show again (`Action::WENT_BACK`). The multi-selects (tests, builds,
+  stopping) are one choice with All.
 - **The overview and the last run** (2026-10-31, the owner's request): `prytax:summary` (`InstallationSummary`,
   `SummaryTable`) prints the database (size, when it was created: the `installations` row, which its migration writes
   with the first organization's or user's date on an older database), each organization with its ФОПs, the documents

@@ -81,13 +81,16 @@ tables.
 
 ### The quickest start: `./start`
 
-With nothing but Docker (and its compose plugin) on the machine, `./start` runs PryTax in Docker on SQLite: the web
-app, its queue worker and its scheduler, as one person's installation, whose first visit chooses the password. It
-makes `.env.docker` on SQLite when it's missing (a key of its own: keep the file), and refuses one on MySQL (`./prytax
-docker` runs that). Building takes api-core from its private repository: `./start` uses `gh auth token` when
-`COMPOSER_AUTH` isn't set (see "Running with Docker"). Once it runs, it shows what the app holds (its organizations,
-their ФОПs, their documents, backup archives and latest backup), then offers an ngrok tunnel for a phone, the logs, or
-stopping it; quitting leaves it running. It tells the last run of either starter, too.
+With nothing but Docker (and its compose plugin) on the machine, `./start` runs your local PryTax in Docker on SQLite,
+at http://localhost:8090: the web app, its queue worker and its scheduler, as one person's installation, whose first
+visit chooses the password. It's apart from what `./prytax` runs for development: its own settings
+(`.env.docker.local`, made when missing with a key of its own: keep the file), its own compose project
+(`prytax-local`, named in them: its containers and storage volume), its own SQLite file (`prytax.local.sqlite`) and
+port, so `./prytax docker`, a new `.env.docker` or a reset never touch your data. Building takes api-core from its
+private repository: `./start` uses `gh auth token` when `COMPOSER_AUTH` isn't set (see "Running with Docker"). Once
+it runs, it shows what the app holds (its organizations, their ФОПs, their documents, backup archives and latest
+backup), then offers an ngrok tunnel for a phone, the logs, or stopping it; quitting leaves it running. It tells the
+last run of either starter, too. Commands of its own: `docker compose --env-file .env.docker.local …`.
 
 ### The starter: `./prytax`
 
@@ -106,10 +109,12 @@ On macOS and Windows, Docker Desktop needs its host networking turned on.
 The menu first tells what of PryTax runs already, and the last app started, by either starter, with its overview
 (organizations, ФОПs, storage, latest backups), which it offers first as **Again** (its note: when it was set up here
 and when its database was created). In the container, a SQLite file must be inside the checkout. Then it asks for the
-platform: **Web** (in Docker, or here) or
+platform: **Web** (in Docker, here, or your local app, `./start`'s) or
 **Desktop** (the development window, with DevTools or without). Below the box, **Tools** leads to the status, the
-doctor, the tests, the builds and the databases, and **Quit** ends it; the menus after the first offer **Back**
-there too. Esc quits from any question. While the web app or the desktop window runs, **n** opens an ngrok tunnel for
+doctor, the tests, the builds and the databases, and **Quit** ends it. Every question after the first menu offers
+**Back**, which goes to the question before it (past those an option answered) and from an action's first question to
+the menu it was chosen in; yes-or-no questions are two options, and in a typed answer (a file's path) Esc goes back.
+Esc quits from a menu. While the web app or the desktop window runs, **n** opens an ngrok tunnel for
 a phone (and closes it), and Ctrl+C stops everything and comes back to the menu. Docker runs in the background, so
 once it's up a menu offers the tunnel, the first owner, the logs or stopping it. An app that runs already is offered
 to restart or stop (the web app), to close or to tunnel to (the desktop app), or the Docker menu.
@@ -117,6 +122,7 @@ to restart or stop (the web app), to close or to tunnel to (the desktop app), or
 | Action | What it does |
 |---|---|
 | `web` | The web app here: the server on APP_URL's port, the queue worker and the scheduler, with Vite's hot reload (`--vite`) or the built SPA, on `.env`'s MySQL or a SQLite file (`--db=sqlite`, `--sqlite=<file>`), until Ctrl+C; **n** tunnels to it (not with Vite) |
+| `local` | Your local app: `./start` in the foreground (its own settings, project, SQLite file and port 8090) |
 | `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing, on SQLite unless another database is chosen, `--db=mysql` or `--mysql`), then its menu |
 | `desktop` | The desktop app's development window (`native:run`), without DevTools unless `--devtools`; **n** serves its data to a phone over a tunnel |
 | `phone` | The app on a phone without a window: PHP's server on 8012 behind an ngrok tunnel, on the desktop app's data or the web app's (`--source`) |

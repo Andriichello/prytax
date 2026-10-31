@@ -295,5 +295,6 @@
     "This account is suspended.": "Цей обліковий запис призупинено.",
     "The password isn't right.": "Неправильний пароль.",
     "Archives of up to :size MB can be restored.": "Відновити можна архів до :size МБ.",
-    "Upload the archive again.": "Завантажте архів ще раз."
+    "Upload the archive again.": "Завантажте архів ще раз.",
+    "Turn Claude on in Settings → Integrations first.": "Спершу увімкніть Claude в Налаштування → Інтеграції."
 }

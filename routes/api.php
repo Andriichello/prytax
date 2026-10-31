@@ -24,6 +24,7 @@ use PryTax\Http\Controllers\EnvironmentController;
 use PryTax\Http\Controllers\EsvObligationController;
 use PryTax\Http\Controllers\ExchangeRateController;
 use PryTax\Http\Controllers\InstallationBackupController;
+use PryTax\Http\Controllers\IntegrationController;
 use PryTax\Http\Controllers\InvoiceController;
 use PryTax\Http\Controllers\InvoiceFileController;
 use PryTax\Http\Controllers\PaymentController;
@@ -102,6 +103,8 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
             // Backups of the organization's profiles (docs/specs/backups.md §4.7), whose ids are ULIDs
             Route::prefix('organization')->name('organization.')->where(['id' => '[0-9A-Za-z]{26}'])->group(function () {
                 BackupPolicyController::routes();
+                // Integrations (Claude), off until an owner turns one on (builds.md §7)
+                IntegrationController::routes();
                 BackupRunController::routes();
                 Route::get('deleted-profiles', [DeletedProfileController::class, 'deleted'])->name('deleted-profiles');
                 BackupController::routes();

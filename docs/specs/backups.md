@@ -1,10 +1,41 @@
-# PryTax — Backups, data safety & retention (design v1.8)
+# PryTax — Backups, data safety & retention (design v1.9)
 
 Companion to `docs/specs/design.md` (v5.2) and `docs/specs/builds.md` (Docker, SQLite and the desktop app). Covers (1)
 protecting the platform's data against loss, (2) per-organization backups / exports that owners configure and download,
 and (3) data retention and deletion (§9). Stack: Laravel 13, PHP 8.5, MySQL 8 or SQLite (`builds.md` §3), PHPUnit 12,
 queue workers, scheduler with `->onOneServer()`, Google Cloud Storage (private buckets) in production and a local disk
 elsewhere (§3).
+
+### Changes in v1.9 (a new organization from archives, bundles restored)
+
+Built on 2026-10-31 (branch `feat/organization-from-backups`), at the owner's request: a new organization lands on
+Новий ФОП, which offered no way to start from a backup. What changed since v1.8:
+- **Новий ФОП → «Відновити з архіву»** (owners): a card on the new-ФОП form, also while the organization has no ФОП
+  yet (the router lets `/backups/import` through then; its back arrow returns to Новий ФОП). §4.8, §5.3.
+- **A run's bundle is restored whole:** `POST organization/backups/import` takes a ФОП's archive or a bundle of every
+  ФОП of a backup, and restores all of its ФОПs in one transaction, or none (one the organization has refuses the
+  bundle; the documents stored for the others are removed again). The answer is `{dry_run, tenants: [{tenant_id,
+  tenant, rows, documents, skipped_files}]}`. `prytax:backup:import` does the same. §5.1.
+- **Engine:** `ArchiveImporter::import()` reads a tenant from a bundle's folder (`profiles/<folder>/`), `inspect()`
+  tells what an archive holds without importing it, and an import's result lists the documents it stored, so
+  `discard()` removes them when the caller's transaction rolls back. `ArchiveImports` (public, `Backup\`) is how the
+  app uses them (§10.3): `inspect()`, `importAll()`, `discard()`. `ImportException::PASSWORD_REQUIRED` tells an archive,
+  which needs its password.
+- **Missing NBU rates are fetched again:** a new contract, `ReferenceResolver` (§10.4), lets the app supply a reference
+  row this database lacks; PryTax's `NbuReferenceResolver` fetches the NBU's rate of an `exchange_rates` row (that
+  table is a cache of the NBU), so a new installation (the desktop app's first launch) restores ФОПs with foreign
+  income. Offline, the import is refused: «Курс НБУ USD на 05.10.2026, на який посилається архів, не вдалося отримати.
+  Підключіться до інтернету й спробуйте ще раз.» Reference rows are still never inserted from an archive. §5.1.
+- **`prytax:create-owner --from=<zip>`** (repeatable; `builds.md` §1.3): a fresh server's first organization starts
+  with the ФОПs of archives (bundles too; an AES archive's password is prompted), all of them or nothing created;
+  the same ФОП in two archives is refused. Moving from the desktop app to a server goes this way.
+- **The desktop app takes uploads of 200 MB** (`builds.md` §4.2), as large as the import's request allows; Docker
+  still caps them at 32 MB.
+- **Checked live** on scratch SQLite files: registering a new organization, then Новий ФОП → «Відновити з архіву»
+  with the demo practice's bundle (4 ФОПs, 39 documents): the check, the restore (25 NBU rates fetched), Головна of
+  the first. Tests: `BackupImportTest` (a bundle into an organization without a ФОП; a bundle with one the
+  organization has restores none), `ArchiveImporterTest` (an NBU rate fetched again, refused while offline),
+  `CreateOwnerTest` (`--from`, with a password; the same ФОП twice creates nothing).
 
 ### Changes in v1.8 (SQLite, the desktop app and restoring in the app)
 
@@ -1068,8 +1099,10 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
   архіву» («Лише якщо архів завантажено з паролем»); [Перевірити] runs a dry run and shows «В архіві»: the ФОП's name
   with «•••• 4821» and «{rows} записів · документів: {documents}»; then [Відновити як новий ФОП], and «Відновлено:
   {name}» with [Перейти до ФОП], which makes it the current ФОП and opens Головна. A refusal shows under the file. The
-  side note: a restore never overwrites a ФОП, one the organization has can't be restored here, and a bundle of every
-  ФОП doesn't fit.
+  side note: a restore never overwrites a ФОП, one the organization has can't be restored here. **v1.9:** a bundle of
+  every ФОП lists them all, [Відновити {count} ФОП як нові], «Відновлено ФОП: {count}» with each name, and [Перейти до
+  ФОП] opens the first; the page is also reached from Новий ФОП (a card «Відновити з архіву»), even before the
+  organization has a ФОП, and its back arrow goes there then.
 - **«Створити копію зараз»** (a sheet; a 480 px dialog): «Усі ФОП організації» (default) or «Лише поточний ФОП»; the
   info «… До 5 ручних запусків на день — сьогодні ще N.», at 0 «Створити» disabled with «Ліміт на сьогодні вичерпано —
   спробуйте завтра.»; [Скасувати] [Створити]. The new run appears on top running; the page polls the run every 3 s
@@ -1152,16 +1185,18 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
 
 **In the app** («Відновити з архіву», 2026-10-29; the screen is in §4.8). `POST /api/organization/backups/import`
 (`BackupController::handleImport`, `ImportBackupRequest`, owners: `import` on backups) runs the same importer on an
-uploaded archive, in the request (`set_time_limit(300)`), always into the request's organization (`orgId()`) as a new
-ФОП:
-- `archive`: the `.zip` as downloaded. The request allows 200 MB, but PHP takes uploads up to 32 MB in Docker and the
-  desktop app (`builds.md` §2.1, §4.2), which an archive with years of documents can exceed.
+uploaded archive, in the request (`set_time_limit(300)`), always into the request's organization (`orgId()`) as new
+ФОПs (v1.9: every ФОП of a run's bundle, in one transaction, or none):
+- `archive`: the `.zip` as downloaded. The request allows 200 MB, and so does the desktop app (v1.9), but PHP takes
+  uploads up to 32 MB in Docker (`builds.md` §2.1), which an archive with years of documents can exceed.
 - `password`: an AES archive's (§4.6), never stored. `prytax:backup:import` takes none.
 - `dry_run`: import, verify and roll back, to tell whose archive it is (the manifest's profile: name, the last four
   digits of the РНОКПП) and what it holds (rows, documents) before restoring it.
 - A refusal (the importer's `ImportException`) is a 422 of `archive`, in the user's language for the fixed messages
-  (not a zip, the password, a bundle, a period export, another app's archive, a ФОП the organization has); those with
-  values in them (a format version, a damaged file, a failed verification) stay in English.
+  (not a zip, the password, a period export, another app's archive, a ФОП the organization has, an NBU rate that
+  couldn't be fetched); those with values in them (a format version, a damaged file, a failed verification) stay in
+  English.
+- An NBU rate, which the archive references and this database lacks, is fetched again (`ReferenceResolver`, v1.9).
 - Restoring a ФОП on another installation (the desktop app ↔ a server) is meant to go this way, as archives should move
   between the drivers (§2.5, §2.6; not tested yet, §8).
 

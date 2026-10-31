@@ -55,6 +55,9 @@ its links followed (§4.9). The package's `config/` ships with it (`CoreServiceP
 - **`php artisan prytax:create-owner`**, through `InstallationSetup`, which refuses once any user exists (deleted ones
   included). The organization, name and email come from options or prompts; the password is always prompted, so it
   stays out of the shell's history, and the command needs a terminal. That's how a server gets its first owner.
+  `--from=<zip>` (repeatable, 2026-10-31) starts the organization with the ФОПs of backup archives, a ФОП's or a
+  run's bundle (an AES archive's password is prompted), all of them or nothing created (`backups.md` v1.9): moving
+  from the desktop app to a server goes this way.
 - **Registration from the sign-in page** (`RegistrationController`): `GET /api/registration` answers `{ enabled,
   first_owner }`, and `POST /api/registration` creates the organization and its owner and signs the SPA in, as
   api-core's login does. Both are under api-core's auth rate limit. `PRYTAX_REGISTRATION` (`prytax.registration`)
@@ -248,8 +251,8 @@ What NativePHP overrides when it runs (`NativeServiceProvider`):
   and notes, the development key files and api-core's own `vendor/`, `.git`, `node_modules` and `storage`.
 - **`NativeAppServiceProvider`:** the window, 1280 × 800, at least 600 × 640 px, so the desktop layout always applies
   (`design.md` §17.1: a rail of icons below 1024 px), with its state remembered and Chromium's PDF viewer
-  (`plugins`) for the invoice's preview. Its `phpIni()` gives every PHP process 512 MB and 32 MB uploads, without a
-  time limit. It also starts the launch's catching up (§4.7).
+  (`plugins`) for the invoice's preview. Its `phpIni()` gives every PHP process 512 MB and 200 MB uploads (as large
+  as a backup's import takes; 32 MB until 2026-10-31), without a time limit. It also starts the launch's catching up (§4.7).
 - **Under NativePHP** (`AppServiceProvider`, when `Desktop::isRunning()`): the installation's key (§4.4); registration
   on (§1.3); the file cache, as a `database` store would bind to the configured MySQL connection before NativePHP
   replaces it, and NativePHP's PHP has no driver for it; mail to the log; `sanctum.stateful` with the request's host,
@@ -298,8 +301,9 @@ in a native dialog. `DatabaseRestore` reads the kit's key and checks that it dec
 key or a file that isn't PryTax's is refused before anything is touched. Then the worker is stopped, NativePHP's
 connection closed, the file swapped in (the new installation's WAL removed), the key replaced, and the app relaunched.
 
-Restoring from an in-app backup archive waits for `backups.md` §5.3. A ФОП's archive can already be imported into an
-organization as a new ФОП (Відновити з архіву, `backups.md`).
+Restoring the whole installation from an in-app backup archive waits for `backups.md` §5.3. Its ФОПs can be restored
+instead (2026-10-31): register, then Новий ФОП → «Відновити з архіву» takes a ФОП's archive or a bundle of every ФОП,
+and the NBU rates the new installation lacks are fetched again (`backups.md` v1.9).
 
 ### 4.7 Catching up on launch
 
@@ -363,7 +367,8 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 
 - **Signing and notarization** (§4.9), and **the CI**, untested until it's pushed and `API_CORE_TOKEN` is set; so the
   Windows and macOS builds are unchecked.
-- **Restoring the desktop from an in-app backup archive** (§4.6), after `backups.md` §5.3.
+- **Restoring the desktop from an in-app backup archive** (§4.6), after `backups.md` §5.3; its ФОПs can be restored
+  from Новий ФОП meanwhile.
 - **XLSX exports:** openspout isn't installed, and the bundled PHP has no xmlwriter or xmlreader (§4.1).
 - **Job timeouts on the desktop:** the bundled PHP has no pcntl, so a stuck job isn't stopped.
 - **Mail on the desktop** goes to the log (§4.2), so its invitations, password resets («Забули пароль?») and the

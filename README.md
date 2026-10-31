@@ -138,6 +138,15 @@ so neither PHP nor Node is needed on the host.
    docker compose exec app php artisan prytax:create-owner
    ```
 
+   To start it with the ФОПs of backup archives (from the desktop app, say: a ФОП's archive or a backup's archive of
+   every ФОП), copy them into the container and name each with `--from`; all of them are restored, or nothing is
+   created:
+
+   ```bash
+   docker compose cp prytax_org-praktyka.zip app:/tmp/
+   docker compose exec app php artisan prytax:create-owner --from=/tmp/prytax_org-praktyka.zip
+   ```
+
 In a development checkout, whose `.env` is the local one, save the settings as `.env.docker` with
 `PRYTAX_ENV_FILE=.env.docker` in it, and add `--env-file .env.docker` to every `docker compose` command. Behind a TLS
 proxy, set `APP_URL` to the `https://` address, `SANCTUM_STATEFUL_DOMAINS` to its host, `SESSION_SECURE_COOKIE` to

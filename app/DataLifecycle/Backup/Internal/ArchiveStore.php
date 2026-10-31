@@ -167,7 +167,8 @@ final class ArchiveStore
     }
 
     /**
-     * Get the temporary objects of downloads (`tmp/downloads/`), with when each was last modified.
+     * Get the temporary objects of downloads (`tmp/downloads/`) and of uploads in pieces (`tmp/uploads/`), with when
+     * each was last modified.
      *
      * @return array<string, int>
      */
@@ -176,7 +177,7 @@ final class ArchiveStore
         $disk = $this->disk($this->diskName());
         $objects = [];
 
-        foreach ($disk->allFiles('tmp/downloads') as $path) {
+        foreach ([...$disk->allFiles('tmp/downloads'), ...$disk->allFiles('tmp/uploads')] as $path) {
             $objects[$path] = $disk->lastModified($path);
         }
 

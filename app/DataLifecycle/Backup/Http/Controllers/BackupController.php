@@ -14,14 +14,17 @@ use Illuminate\Validation\ValidationException;
 use PryTax\DataLifecycle\Backup\ArchiveImports;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
+use PryTax\DataLifecycle\Backup\Http\Requests\AppendArchiveUploadRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\DownloadBackupRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\ImportBackupRequest;
+use PryTax\DataLifecycle\Backup\Http\Requests\StartArchiveUploadRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupCollection;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupResource;
 use PryTax\DataLifecycle\Backup\ImportException;
 use PryTax\DataLifecycle\Backup\ImportResult;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveRepacker;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveStore;
+use PryTax\DataLifecycle\Backup\Internal\ArchiveUploads;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
 use PryTax\DataLifecycle\Backup\Policies\BackupPolicy;
@@ -33,7 +36,7 @@ use PryTax\DataLifecycle\Backup\Repositories\BackupRepository;
  * Backups of the organization's profiles (backups.md §4.7): `organization/backups`, filtered by `profile_id`,
  * `tier` and `status`; a download link of an archive (10 minutes, saved under its name; with a password, of an
  * archive packed again with AES-256), each logged with the user, the IP address and the browser, and in the audit
- * log; deleting a manual backup.
+ * log; deleting a manual backup; restoring an archive, uploaded whole or in pieces.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Backup\Http\Controllers
@@ -67,6 +70,8 @@ class BackupController extends CrudController
         'download' => DownloadBackupRequest::class,
         'destroy' => DestroyRequest::class,
         'import' => ImportBackupRequest::class,
+        'upload' => StartArchiveUploadRequest::class,
+        'appendUpload' => AppendArchiveUploadRequest::class,
     ];
 
     /**
@@ -77,13 +82,15 @@ class BackupController extends CrudController
      * @param ArchiveStore $store
      * @param ArchiveRepacker $repacker
      * @param ArchiveImports $imports
+     * @param ArchiveUploads $uploads
      */
     public function __construct(
         BackupPolicy $policy,
         BackupRepository $repository,
         protected ArchiveStore $store,
         protected ArchiveRepacker $repacker,
-        protected ArchiveImports $imports
+        protected ArchiveImports $imports,
+        protected ArchiveUploads $uploads,
     ) {
         parent::__construct($policy, $repository);
     }
@@ -97,6 +104,8 @@ class BackupController extends CrudController
     {
         Route::get('backups', [static::class, 'index'])->name('backups.index');
         Route::post('backups/import', [static::class, 'import'])->middleware('throttle:30,60,backups-import')->name('backups.import');
+        Route::post('backups/uploads', [static::class, 'upload'])->middleware('throttle:30,60,backups-uploads')->name('backups.uploads.start');
+        Route::post('backups/uploads/{upload}', [static::class, 'appendUpload'])->where('upload', '[A-Za-z0-9]{32}')->middleware('throttle:600,1,backups-pieces')->name('backups.uploads.append');
         Route::get('backups/{id}', [static::class, 'show'])->name('backups.show');
         Route::post('backups/{id}/download', [static::class, 'download'])->name('backups.download');
         Route::delete('backups/{id}', [static::class, 'destroy'])->name('backups.destroy');
@@ -178,10 +187,66 @@ class BackupController extends CrudController
     }
 
     /**
-     * Handle the `import` operation: restore the profiles of an archive, uploaded, as new profiles of the organization,
-     * never in place (backups.md §5.1): a profile's archive, or a run's bundle of every profile, all of them or none;
-     * a dry run imports, verifies and rolls back each, telling what the archive holds. A refused archive (another
-     * app's, a period's export, a profile the organization has, a wrong password) is a 422 of `archive`.
+     * Handle the `upload` operation: start uploading an archive in pieces, and tell its id and the bytes of a piece.
+     * One larger than the import takes is a 422 of `archive`.
+     *
+     * @param StartArchiveUploadRequest $request
+     *
+     * @return ApiResponse
+     * @throws ValidationException
+     */
+    protected function handleUpload(StartArchiveUploadRequest $request): ApiResponse
+    {
+        $this->refuseLarger($request->integer('size'));
+
+        return ApiResponse::ok(['data' => ['id' => $this->uploads->start(), 'piece' => $this->uploads->pieceSize()]]);
+    }
+
+    /**
+     * Handle the `appendUpload` operation: add a piece to an upload of the organization, which must start where the
+     * upload ends (else a 409 with its bytes, to go on from), and tell the upload's bytes.
+     *
+     * @param AppendArchiveUploadRequest $request
+     *
+     * @return ApiResponse
+     * @throws ValidationException
+     */
+    protected function handleAppendUpload(AppendArchiveUploadRequest $request): ApiResponse
+    {
+        $upload = (string) $request->route('upload');
+        $piece = $request->file('piece');
+        $size = $this->uploads->size($request->orgId(), $upload);
+
+        if ($size !== $request->integer('offset')) {
+            return ApiResponse::make(['data' => ['size' => $size]], 409, 'Conflict');
+        }
+
+        $this->refuseLarger($size + (int) $piece->getSize());
+
+        return ApiResponse::ok(['data' => ['size' => $this->uploads->append($request->orgId(), $upload, $size, (string) $piece->getRealPath())]]);
+    }
+
+    /**
+     * Refuse an archive larger than the import takes.
+     *
+     * @param int $bytes
+     *
+     * @return void
+     * @throws ValidationException
+     */
+    protected function refuseLarger(int $bytes): void
+    {
+        if ($bytes > ArchiveUploads::MAX_BYTES) {
+            throw ValidationException::withMessages(['archive' => [__('Archives of up to :size MB can be restored.', ['size' => intdiv(ArchiveUploads::MAX_BYTES, 1024 * 1024)])]]);
+        }
+    }
+
+    /**
+     * Handle the `import` operation: restore the profiles of an archive, uploaded whole or in pieces, as new profiles
+     * of the organization, never in place (backups.md §5.1): a profile's archive, or a run's bundle of every profile,
+     * all of them or none; a dry run imports, verifies and rolls back each, telling what the archive holds, and keeps
+     * the pieces for the import. A refused archive (another app's, a period's export, a profile the organization has,
+     * a wrong password, pieces that are gone) is a 422 of `archive`.
      *
      * @param ImportBackupRequest $request
      *
@@ -191,24 +256,32 @@ class BackupController extends CrudController
     protected function handleImport(ImportBackupRequest $request): ApiResponse
     {
         $dryRun = $request->boolean('dry_run');
+        $upload = $request->validated('upload');
         set_time_limit(300);
 
+        $path = $upload === null
+            ? (string) $request->file('archive')->getRealPath()
+            : $this->uploads->assemble($request->orgId(), $upload) ?? throw ValidationException::withMessages(['archive' => [__('Upload the archive again.')]]);
+
         try {
-            $results = $this->imports->importAll(
-                (string) $request->file('archive')->getRealPath(),
-                $request->orgId(),
-                $dryRun,
-                $request->validated('password'),
-            );
+            $results = $this->imports->importAll($path, $request->orgId(), $dryRun, $request->validated('password'));
         } catch (ImportException $exception) {
             throw ValidationException::withMessages(['archive' => [__($exception->getMessage())]]);
+        } finally {
+            if ($upload !== null) {
+                @unlink($path);
+            }
         }
 
         if (!$dryRun) {
+            if ($upload !== null) {
+                $this->uploads->discard($request->orgId(), $upload);
+            }
+
             foreach ($results as $result) {
                 AuditLog::record('backup_imported', null, [
                     'name' => (new Backup)->getMorphClass() . '.imported',
-                    'metadata' => ['tenant_id' => $result->tenantId, 'file_name' => $request->file('archive')->getClientOriginalName()],
+                    'metadata' => ['tenant_id' => $result->tenantId, 'file_name' => $request->file('archive')?->getClientOriginalName() ?? $request->validated('name')],
                 ]);
             }
         }

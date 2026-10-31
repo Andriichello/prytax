@@ -6,10 +6,12 @@ use Core\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveRepacker;
 use PryTax\DataLifecycle\Backup\Internal\BundleBuilder;
+use PryTax\DataLifecycle\Backup\Internal\Pruner;
 use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
 use PryTax\Models\Profile;
 use Tests\Concerns\ActsInProfiles;
@@ -22,7 +24,7 @@ use Tests\TestCase;
  * Restoring profiles from a backup's archive in the app (Резервні копії or Новий ФОП → Відновити з архіву): owners
  * only, as new profiles of their organization, never in place; a profile's archive, or a bundle of every profile of a
  * backup, all of them or none; a dry run tells what the archive holds first, and an archive, which can't be restored,
- * is a 422 of `archive`.
+ * is a 422 of `archive`. An archive comes whole or in pieces, which are the organization's alone.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Backups
@@ -177,6 +179,81 @@ class BackupImportTest extends TestCase
         $response = $this->post('/api/organization/backups/import', ['archive' => UploadedFile::fake()->createWithContent('backup.zip', 'not a zip')], ['Accept' => 'application/json']);
 
         $response->assertUnprocessable()->assertJsonValidationErrors(['archive' => 'The file isn\'t a zip archive.']);
+    }
+
+    /**
+     * Test that an archive uploaded in pieces is checked and restored, its pieces kept for the restore and removed by
+     * it, and that a piece, which doesn't start where the upload ends, is a 409 telling where it does.
+     *
+     * @return void
+     */
+    public function testRestoresAnArchiveUploadedInPieces(): void
+    {
+        $profile = $this->createProfile(attributes: ['full_name' => 'Ткаченко Ірина Петрівна']);
+        $contents = (string) file_get_contents($this->writeArchive($profile)->path);
+        $organization = Organization::factory()->create();
+        Sanctum::actingAs($this->userOf($organization));
+        $half = intdiv(strlen($contents), 2);
+
+        $upload = $this->postJson('/api/organization/backups/uploads', ['size' => strlen($contents)])->assertOk()->json('data.id');
+        $this->appendPiece($upload, substr($contents, 0, $half), 0)->assertOk()->assertJsonPath('data.size', $half);
+        $this->appendPiece($upload, substr($contents, $half), 0)->assertConflict()->assertJsonPath('data.size', $half);
+        $this->appendPiece($upload, substr($contents, $half), $half)->assertOk()->assertJsonPath('data.size', strlen($contents));
+
+        $this->postJson('/api/organization/backups/import', ['upload' => $upload, 'dry_run' => true])->assertOk()
+            ->assertJsonPath('data.tenants.0.tenant.full_name', 'Ткаченко Ірина Петрівна');
+        $import = $this->postJson('/api/organization/backups/import', ['upload' => $upload, 'name' => 'prytax_backup.zip'])->assertOk();
+
+        $copy = Profile::query()->withoutGlobalScopes()->findOrFail($import->json('data.tenants.0.tenant_id'));
+        $this->assertSame([$organization->id, 'Ткаченко Ірина Петрівна'], [$copy->organization_id, $copy->full_name]);
+        $this->assertSame([], Storage::disk('backups')->allFiles('tmp/uploads'));
+        $this->postJson('/api/organization/backups/import', ['upload' => $upload])->assertUnprocessable()
+            ->assertJsonValidationErrors(['archive' => 'Upload the archive again.']);
+    }
+
+    /**
+     * Test that an upload is its organization's alone, that an archive larger than the import takes is refused before
+     * it's sent, that only owners upload, and that the pieces of an upload left behind are pruned after a day.
+     *
+     * @return void
+     */
+    public function testKeepsAnUploadToItsOrganizationAndItsSize(): void
+    {
+        $profile = $this->createProfile();
+        $contents = (string) file_get_contents($this->writeArchive($profile)->path);
+        Sanctum::actingAs($this->userOf(Organization::factory()->create()));
+        $upload = $this->postJson('/api/organization/backups/uploads', ['size' => strlen($contents)])->json('data.id');
+        $this->appendPiece($upload, $contents, 0)->assertOk();
+
+        Sanctum::actingAs($this->userOf(Organization::factory()->create()));
+        $this->postJson('/api/organization/backups/import', ['upload' => $upload, 'dry_run' => true])->assertUnprocessable()
+            ->assertJsonValidationErrors(['archive' => 'Upload the archive again.']);
+        $this->postJson('/api/organization/backups/uploads', ['size' => 200 * 1024 * 1024 + 1])->assertUnprocessable()
+            ->assertJsonValidationErrors(['archive' => 'Archives of up to 200 MB can be restored.']);
+
+        Sanctum::actingAs($this->userOf(Organization::factory()->create(), 'accountant'));
+        $this->postJson('/api/organization/backups/uploads', ['size' => strlen($contents)])->assertForbidden();
+
+        $this->travel(25)->hours();
+        app(Pruner::class)->prune();
+        $this->assertSame([], Storage::disk('backups')->allFiles('tmp/uploads'));
+    }
+
+    /**
+     * Send a piece of an upload, which starts at the offset.
+     *
+     * @param string $upload
+     * @param string $contents
+     * @param int $offset
+     *
+     * @return TestResponse
+     */
+    private function appendPiece(string $upload, string $contents, int $offset): TestResponse
+    {
+        return $this->post("/api/organization/backups/uploads/$upload", [
+            'piece' => UploadedFile::fake()->createWithContent('piece', $contents),
+            'offset' => $offset,
+        ], ['Accept' => 'application/json']);
     }
 
     /**

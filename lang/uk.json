@@ -293,5 +293,7 @@
     "PryTax here has its organization already: sign in.": "У цьому PryTax організація вже є: увійдіть.",
     "The recovery code or key isn't right.": "Код відновлення чи ключ не підходить.",
     "This account is suspended.": "Цей обліковий запис призупинено.",
-    "The password isn't right.": "Неправильний пароль."
+    "The password isn't right.": "Неправильний пароль.",
+    "Archives of up to :size MB can be restored.": "Відновити можна архів до :size МБ.",
+    "Upload the archive again.": "Завантажте архів ще раз."
 }

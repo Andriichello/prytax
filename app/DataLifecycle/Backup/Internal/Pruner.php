@@ -261,8 +261,8 @@ final class Pruner
     }
 
     /**
-     * Delete the temporary objects (password-protected downloads), which are older than a day. The bucket's lifecycle
-     * does it too; a disk without one needs this.
+     * Delete the temporary objects (password-protected downloads, pieces of uploads), which are older than a day. The
+     * bucket's lifecycle does it too; a disk without one needs this.
      *
      * @return void
      */

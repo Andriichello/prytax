@@ -94,6 +94,7 @@ export default {
         copied: 'Скопійовано',
         storedSafely: 'Набір відновлення збережено в надійному місці поза цим комп’ютером',
         continue: 'Продовжити',
+        confirm: 'Підтвердити',
         savedTo: 'Збережено: {path}',
         keptOn: 'Збережено {date} о {time}.',
     },

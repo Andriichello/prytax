@@ -86,6 +86,7 @@ export default {
         copied: 'Copied',
         storedSafely: 'The recovery kit is stored somewhere safe, away from this computer',
         continue: 'Continue',
+        confirm: 'Confirm',
         savedTo: 'Saved to {path}',
         keptOn: 'Kept on {date} at {time}.',
     },

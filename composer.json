@@ -17,6 +17,7 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "brick/math": "^1.0",
         "laravel/framework": "^13.17",
+        "laravel/mcp": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "nativephp/desktop": "^2.4"

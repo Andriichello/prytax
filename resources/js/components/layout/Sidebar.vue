@@ -13,15 +13,16 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useOverlay } from '@/composables/useOverlay';
 import { useSession } from '@/composables/useSession';
+import { useSignedInAs } from '@/composables/useSignedInAs';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { tabPaths } from '@/router';
-import { signedInAs } from '@/utils/users';
 
 /**
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
  * ФОП popover; the sections — Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose page holds the money,
  * the clients, the ФОП's and the invoices' settings and the management, and which stays current on each of them —;
- * and at the foot Довідка, the language row (its popover), the user with the role, and «Вийти», which asks first. It
+ * and at the foot Довідка, the language row (its popover), who is signed in (`useSignedInAs`: nothing for the only
+ * user of one person's installation), and «Вийти», which asks first. It
  * replaces the tab bar and Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons,
  * and at its foot ?, 🌐 and «Вийти»), whose ☰ opens the whole sidebar over the page; a section chosen, ✕, Escape or
  * a click beside it closes it.
@@ -37,7 +38,8 @@ interface NavItem {
 
 const route = useRoute();
 const router = useRouter();
-const { user, can, signOut } = useSession();
+const { can, signOut } = useSession();
+const signedInAs = useSignedInAs();
 const { profile, profiles, reset } = useCurrentProfile();
 
 const { isCompact } = useBreakpoint();
@@ -245,7 +247,7 @@ async function leave(): Promise<void> {
                         <span class="num text-12 text-ink-3 uppercase">{{ locale }}</span>
                         <Icon name="chevronDown" :size="16" class="text-ink-3" />
                     </button>
-                    <p v-if="user" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ signedInAs(user) }}</p>
+                    <p v-if="signedInAs" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ signedInAs }}</p>
                     <button
                         type="button"
                         class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 font-medium text-negative hover:bg-paper"

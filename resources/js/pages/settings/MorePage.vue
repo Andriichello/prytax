@@ -14,10 +14,10 @@ import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
+import { useSignedInAs } from '@/composables/useSignedInAs';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { kyivTime, relativeDay } from '@/utils/backups';
 import { styleName } from '@/utils/invoiceStyles';
-import { signedInAs } from '@/utils/users';
 
 /**
  * Налаштування (Ще on a phone; M-More, design.md §16.5, §17.2), one column: the current ФОП with switching to another
@@ -29,6 +29,7 @@ import { signedInAs } from '@/utils/users';
  */
 const router = useRouter();
 const { user, can, signOut } = useSession();
+const signedInAs = useSignedInAs();
 const { profile, profiles, profileId, path, reset, settings } = useCurrentProfile();
 const { isDesktop } = useBreakpoint();
 
@@ -201,7 +202,7 @@ async function leave(): Promise<void> {
             </div>
 
             <p v-if="user" class="m-0 text-center text-13 text-ink-3">
-                PryTax · {{ signedInAs(user) }}
+                PryTax<template v-if="signedInAs"> · {{ signedInAs }}</template>
             </p>
 
             <LanguageSheet v-model:open="languageOpen" :note="t('shell.more.appLanguageNote')" />

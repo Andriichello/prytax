@@ -9,9 +9,18 @@ export function isMadeUpEmail(email: string): boolean {
     return /@[^@]*invalid$/i.test(email.trim());
 }
 
-/** Who is signed in, as the menus show it: the e-mail and the roles, or the roles alone with a made-up e-mail. */
-export function signedInAs(user: Pick<Me, 'email' | 'roles'>): string {
+/**
+ * Who is signed in, as the menus show it: the e-mail and the roles; the roles alone with a made-up e-mail; nothing for
+ * the only user of one person's installation with a made-up e-mail, who couldn't be anyone else.
+ *
+ * @param isOnlyUser Whether the installation is one person's with this user alone (`password_only`).
+ */
+export function signedInAs(user: Pick<Me, 'email' | 'roles'>, isOnlyUser: boolean): string | null {
     const roles = user.roles.map(roleName).join(', ');
 
-    return isMadeUpEmail(user.email) ? roles : `${user.email} · ${roles}`;
+    if (!isMadeUpEmail(user.email)) {
+        return `${user.email} · ${roles}`;
+    }
+
+    return isOnlyUser ? null : roles;
 }

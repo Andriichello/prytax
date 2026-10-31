@@ -47,6 +47,13 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## A made-up e-mail in the menus (2026-10-31, late night; branch `fix/made-up-email-in-sidebar` from `feat/start`)
+
+The user: the sidebar showed one person's installation's generated e-mail (`4jl-cud-0ca@prytax.invalid · власник`);
+show the role alone for an `@…invalid` e-mail. `utils/users.ts`: `isMadeUpEmail`, `signedInAs` (the e-mail and the
+roles, or the roles alone); the sidebar's footer and Ще's last line use it. Налаштування → Користувачі still lists the
+e-mail. Tests: `users.test.ts`; SPA 786, typecheck, build. Not checked in a browser.
+
 ## `./start`, `./prytax` without PHP, the overview and «Again» (2026-10-31, night; branch `feat/start` from `dev`, not merged, not pushed)
 
 The user: a simplified `./prytax` that only runs Web · In Docker · SQLite (no menus for them, `.env.docker` made when

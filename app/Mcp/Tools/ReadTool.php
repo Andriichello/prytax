@@ -154,7 +154,7 @@ abstract class ReadTool extends Tool
 
     /**
      * Get the ФОП, which the argument names, among those of the organization, which the integration allows: by id, by
-     * its full or short name, or by part of it; or the only one, or the only active one, when none is named.
+     * its full, short or English name, or by part of it; or the only one, or the only active one, when none is named.
      *
      * @param string|null $name
      * @param User $user
@@ -181,9 +181,9 @@ abstract class ReadTool extends Tool
         }
 
         $needle = mb_strtolower($name);
-        $exact = $profiles->filter(fn (Profile $profile) => in_array($needle, [mb_strtolower($profile->full_name), mb_strtolower($profile->short_name)], true));
-        $matches = $exact->isNotEmpty() ? $exact : $profiles->filter(fn (Profile $profile) => str_contains(mb_strtolower($profile->full_name), $needle)
-            || str_contains(mb_strtolower($profile->short_name), $needle));
+        $names = fn (Profile $profile) => array_map('mb_strtolower', array_filter([$profile->full_name, $profile->short_name, $profile->full_name_en]));
+        $exact = $profiles->filter(fn (Profile $profile) => in_array($needle, $names($profile), true));
+        $matches = $exact->isNotEmpty() ? $exact : $profiles->filter(fn (Profile $profile) => array_any($names($profile), fn (string $known) => str_contains($known, $needle)));
 
         return match ($matches->count()) {
             1 => $matches->first(),

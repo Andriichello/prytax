@@ -55,20 +55,21 @@ class PryTaxServerTest extends TestCase
     }
 
     /**
-     * Test that a ФОП is named by part of its name, by its id, or left out when it's the only one; and that another
-     * organization's, or an ambiguous name, is refused with the candidates.
+     * Test that a ФОП is named by part of its name (Ukrainian or English), by its id, or left out when it's the only
+     * one; and that another organization's, or an ambiguous name, is refused with the candidates.
      *
      * @return void
      */
     public function testNamesTheProfileByNameOrIdOrAlone(): void
     {
         $organization = Organization::factory()->create();
-        $kovalenko = $this->createProfile($organization, ['full_name' => 'Коваленко Олена Петрівна']);
+        $kovalenko = $this->createProfile($organization, ['full_name' => 'Коваленко Олена Петрівна', 'full_name_en' => 'Olena Kovalenko']);
         $this->createProfile($organization, ['full_name' => 'Коваль Ігор Петрович']);
         $stranger = $this->createProfile();
         $owner = $this->claudeOf($organization);
 
         PryTaxServer::actingAs($owner)->tool(GetProfile::class, ['profile' => 'оленА'])->assertOk()->assertSee('Коваленко Олена Петрівна');
+        PryTaxServer::actingAs($owner)->tool(GetProfile::class, ['profile' => 'olena'])->assertOk()->assertSee('Коваленко Олена Петрівна');
         PryTaxServer::actingAs($owner)->tool(GetProfile::class, ['profile' => (string) $kovalenko->id])->assertOk()->assertSee('Коваленко Олена Петрівна');
         PryTaxServer::actingAs($owner)->tool(GetProfile::class, ['profile' => 'Ковал'])->assertHasErrors(['Several ФОП match «Ковал»']);
         PryTaxServer::actingAs($owner)->tool(GetProfile::class, ['profile' => (string) $stranger->id])->assertHasErrors(["There's no ФОП #$stranger->id here"]);

@@ -44,7 +44,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## A ФОП from the desktop app to a server (2026-10-31, night; branch `feat/archive-between-installations` from `dev`)
+## A ФОП from the desktop app to a server (2026-10-31, night; branch `feat/archive-between-installations`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user asked whether users can export a ФОП in the desktop app and import it into a hosted web app on Google Cloud,
 after registering an organization there; then "do both" of the two gaps found: a SQLite ↔ MySQL test and a chunked

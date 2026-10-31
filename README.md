@@ -125,7 +125,7 @@ to restart or stop (the web app), to close or to tunnel to (the desktop app), or
 | `test` | The PHP tests on MySQL or SQLite, the SPA's tests and types (`--filter`) |
 | `build` | The SPA, the desktop app's Linux installers, the invoice styles' thumbnails |
 | `db` | The web app's, the desktop app's or a SQLite file's migrations, starting over with the demo data, the first owner |
-| `mcp` | Claude: the connection of each Claude integration that is on, for the desktop app's data or the web app's, and whether the server answers (see "Claude and PryTax (MCP)") |
+| `mcp` | Claude: the connection of each Claude integration that is on, for the data of the app started last (first), the desktop app's, `.env`'s, Docker's while it runs or another SQLite file, and whether the server answers (see "Claude and PryTax (MCP)") |
 
 `php artisan prytax:summary` prints the same overview of whichever database it runs on (`--json` for scripts). The
 starters remember their last run in `storage/framework/prytax-starter.env` (git-ignored); a database knows when it was

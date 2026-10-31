@@ -646,9 +646,11 @@ the app, no longer only Boost's).
 - **The page** (`IntegrationsPage`, `/integrations`, a «Керування» row with «Claude увімкнено/вимкнено»): the switch
   (turning it off asks), who and when; Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
   to copy, the key's hint, a new key, which asks); Стан (the last connection and call; «Перевірити»).
-- **`./prytax` → Tools → Claude** (`McpAction`, `prytax:claude-connection [--desktop] [--json]`): the connection of
-  each integration on, for the desktop app's data or the web app's, and the server asked as Claude would (client
-  `prytax-starter`). Refused in the starter's container.
+- **`./prytax` → Tools → Claude** (`McpAction`, `prytax:claude-connection [--desktop] [--folder=] [--json]`): the
+  connection of each integration on, for the data of the app started last first (the web app here on its SQLite file),
+  then the desktop app's, `.env`'s, Docker's while it runs (asked in its container, with the host's folder, so the
+  connection needs nothing filled in), or another SQLite file; each says when its app runs now. Then the server is
+  asked as Claude would (client `prytax-starter`). Refused in the starter's container.
 - **Checked live** (2026-10-31, a scratch SQLite with the demo data and its own storage): the 13 tools over stdio
   (Коваленко's 2026 Q3 income 503 118.73; the tax periods', ЄСВ months' and audit rows' counts unchanged; stdout
   only JSON); the page at 1440 and 390 px (on, Доступ, Claude Code and Desktop configs, the probe with fixture

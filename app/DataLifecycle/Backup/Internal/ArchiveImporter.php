@@ -12,6 +12,7 @@ use PryTax\DataLifecycle\Backup\ImportException;
 use PryTax\DataLifecycle\Backup\ImportResult;
 use PryTax\DataLifecycle\Backup\RunSpec;
 use PryTax\DataLifecycle\Contracts\ArchiveChecks;
+use PryTax\DataLifecycle\Contracts\ReferenceResolver;
 use PryTax\DataLifecycle\Contracts\TableRegistry;
 use PryTax\DataLifecycle\Contracts\TenantRoot;
 use PryTax\DataLifecycle\Registry\MorphAliases;
@@ -30,7 +31,8 @@ use ZipArchive;
  * (foreign keys, morph pairs, ids inside values), encrypted columns encrypted again with the current key, generated
  * columns skipped, deferred columns set last, and documents uploaded to the files disk. The rows of each table and
  * the archive's checks are verified before the commit: any difference rolls everything back. Export-only tables are
- * skipped. A dry run does all of it and rolls back.
+ * skipped. A dry run does all of it and rolls back. A tenant's archive inside a run's bundle is read from its folder;
+ * `inspect()` tells what an archive holds without importing it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Backup\Internal
@@ -80,16 +82,25 @@ final class ArchiveImporter
     private array $uploaded = [];
 
     /**
+     * The folder of the tenant's archive within the zip: none, or a run's bundle's `profiles/<folder>/`.
+     *
+     * @var string
+     */
+    private string $folder = '';
+
+    /**
      * ArchiveImporter constructor.
      *
      * @param TableRegistry $registry
      * @param TenantRoot $root
      * @param ArchiveChecks $checks
+     * @param ReferenceResolver|null $references The app's way to reference rows this database lacks, if any.
      */
     public function __construct(
         private readonly TableRegistry $registry,
         private readonly TenantRoot $root,
         private readonly ArchiveChecks $checks,
+        private readonly ?ReferenceResolver $references = null,
     ) {}
 
     /**
@@ -99,11 +110,12 @@ final class ArchiveImporter
      * @param int $organizationId
      * @param bool $dryRun
      * @param string|null $password The password of an archive downloaded with one.
+     * @param string $folder The tenant's folder in a run's bundle (`profiles/<folder>/`), as `inspect()` tells it.
      *
      * @return ImportResult
      * @throws ImportException
      */
-    public function import(string $path, int $organizationId, bool $dryRun = false, ?string $password = null): ImportResult
+    public function import(string $path, int $organizationId, bool $dryRun = false, ?string $password = null, string $folder = ''): ImportResult
     {
         $this->maps = $this->deferred = $this->lateRewrites = $this->uploaded = [];
         $this->positions = [];
@@ -112,11 +124,8 @@ final class ArchiveImporter
             $this->positions[$table->table()] = $position;
         }
 
-        $this->zip = new ZipArchive;
-
-        if ($this->zip->open($path, ZipArchive::RDONLY) !== true) {
-            throw new ImportException('The file isn\'t a zip archive.');
-        }
+        $this->open($path);
+        $this->folder = $folder === '' ? '' : rtrim($folder, '/') . '/';
 
         try {
             $this->unlock($password);
@@ -159,8 +168,119 @@ final class ArchiveImporter
 
             throw $exception;
         } finally {
+            $this->folder = '';
             $this->zip->close();
         }
+    }
+
+    /**
+     * Tell what the archive holds, without importing it: each tenant's archive in it (one, or every folder of a run's
+     * bundle), as its manifest describes it, with the rows and documents an import would write. An archive, which
+     * `import()` would refuse to read, is refused alike.
+     *
+     * @param string $path Local path of the archive.
+     * @param string|null $password The password of an archive downloaded with one.
+     *
+     * @return list<array{folder: string, tenant: array<string, mixed>, organization: array<string, mixed>|null, snapshot_at: string|null, rows: int, documents: int}>
+     * @throws ImportException
+     */
+    public function inspect(string $path, ?string $password = null): array
+    {
+        $this->open($path);
+        $this->folder = '';
+
+        try {
+            $this->unlock($password);
+            $json = $this->zip->getFromName('manifest.json');
+            $root = $json === false ? null : json_decode($json, true);
+            $folders = is_array($root) && ($root['format'] ?? null) === ArchiveWriter::FORMAT . '-bundle'
+                ? array_map(fn (array $tenant) => rtrim((string) ($tenant['folder'] ?? ''), '/') . '/', $root['profiles'] ?? [])
+                : [''];
+            $tenants = [];
+
+            foreach ($folders as $folder) {
+                $this->folder = $folder;
+                $manifest = $this->manifest();
+                $tenants[] = [
+                    'folder' => $folder,
+                    'tenant' => $manifest[$this->root->manifestKey()] ?? [],
+                    'organization' => $manifest['organization'] ?? null,
+                    'snapshot_at' => $manifest['snapshot_at'] ?? null,
+                    'rows' => $this->importedRows($manifest),
+                    'documents' => (int) ($manifest['documents']['count'] ?? 0),
+                ];
+            }
+
+            return $tenants;
+        } finally {
+            $this->folder = '';
+            $this->zip->close();
+        }
+    }
+
+    /**
+     * Delete the documents, which an import stored, once the caller's own transaction rolled its rows back.
+     *
+     * @param ImportResult $result
+     *
+     * @return void
+     */
+    public function discard(ImportResult $result): void
+    {
+        foreach ($result->uploaded as [$disk, $path]) {
+            Storage::disk($disk)->delete($path);
+        }
+    }
+
+    /**
+     * Open the archive.
+     *
+     * @param string $path
+     *
+     * @return void
+     * @throws ImportException When it isn't a zip archive.
+     */
+    private function open(string $path): void
+    {
+        $this->zip = new ZipArchive;
+
+        if ($this->zip->open($path, ZipArchive::RDONLY) !== true) {
+            throw new ImportException('The file isn\'t a zip archive.');
+        }
+    }
+
+    /**
+     * Get the name of an entry of the tenant's archive within the zip.
+     *
+     * @param string $name As the tenant's archive names it (`data/payments.csv`).
+     *
+     * @return string
+     */
+    private function entry(string $name): string
+    {
+        return $this->folder . $name;
+    }
+
+    /**
+     * Get the rows, which an import of the manifest's archive writes: of its tables, which are neither references nor
+     * export-only.
+     *
+     * @param array<string, mixed> $manifest
+     *
+     * @return int
+     */
+    private function importedRows(array $manifest): int
+    {
+        $listed = array_column($manifest['files'] ?? [], 'rows', 'path');
+        $rows = 0;
+
+        foreach ($this->registry->tables() as $table) {
+            if (!$table->isReference() && !$table->isExportOnly()) {
+                $rows += (int) ($listed[$table->archivePath()] ?? 0);
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -173,19 +293,19 @@ final class ArchiveImporter
      */
     private function unlock(?string $password): void
     {
-        $encrypted = ($this->zip->statName('manifest.json')['encryption_method'] ?? ZipArchive::EM_NONE) !== ZipArchive::EM_NONE;
+        $encrypted = ($this->zip->statName($this->entry('manifest.json'))['encryption_method'] ?? ZipArchive::EM_NONE) !== ZipArchive::EM_NONE;
 
         if (!$encrypted) {
             return;
         }
 
         if ($password === null || $password === '') {
-            throw new ImportException('The archive is protected by a password.');
+            throw new ImportException('The archive is protected by a password.', ImportException::PASSWORD_REQUIRED);
         }
 
         $this->zip->setPassword($password);
 
-        if ($this->zip->getFromName('manifest.json') === false) {
+        if ($this->zip->getFromName($this->entry('manifest.json')) === false) {
             throw new ImportException('The password doesn\'t open the archive.');
         }
     }
@@ -197,7 +317,7 @@ final class ArchiveImporter
      */
     private function manifest(): array
     {
-        $json = $this->zip->getFromName('manifest.json');
+        $json = $this->zip->getFromName($this->entry('manifest.json'));
 
         try {
             $manifest = $json === false ? null : json_decode($json, true, 512, JSON_THROW_ON_ERROR);
@@ -249,7 +369,7 @@ final class ArchiveImporter
                 continue;
             }
 
-            $csv = $this->zip->getFromName($table->archivePath());
+            $csv = $this->zip->getFromName($this->entry($table->archivePath()));
 
             if ($csv === false || hash('sha256', $csv) !== $file['sha256']) {
                 throw new ImportException("{$table->archivePath()} is missing or damaged.");
@@ -305,6 +425,10 @@ final class ArchiveImporter
                 }
 
                 $id = $query->value('id');
+
+                if ($id === null && !$match['orNull']) {
+                    $id = $this->references?->resolve($name, $row);
+                }
 
                 if ($id === null && !$match['orNull']) {
                     $values = implode(', ', array_map(fn (string $column) => "$column {$row[$column]}", $match['columns']));
@@ -382,6 +506,7 @@ final class ArchiveImporter
             $manifest['checks'] ?? [],
             $dryRun,
             $manifest[$this->root->manifestKey()] ?? [],
+            $dryRun ? [] : $this->uploaded,
         );
     }
 
@@ -473,7 +598,7 @@ final class ArchiveImporter
     private function upload(TableSpec $table, array $row, array $values): array
     {
         ['disk' => $diskColumn, 'path' => $pathColumn] = $table->documentColumns();
-        $contents = $this->zip->getFromName((string) $row['archive_path']);
+        $contents = $this->zip->getFromName($this->entry((string) $row['archive_path']));
 
         if ($contents === false) {
             throw new ImportException("The document {$row['archive_path']} is missing from the archive.");

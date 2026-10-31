@@ -16,5 +16,10 @@ use RuntimeException;
  */
 class ImportException extends RuntimeException
 {
-    //
+    /**
+     * The code of an archive, which has a password, but none was given: asking for it is the way on.
+     *
+     * @var int
+     */
+    public const int PASSWORD_REQUIRED = 1;
 }

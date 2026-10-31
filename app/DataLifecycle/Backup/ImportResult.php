@@ -6,7 +6,8 @@ namespace PryTax\DataLifecycle\Backup;
  * Class ImportResult.
  *
  * What an import wrote, or would write in a dry run: the new tenant, the rows of each table, the documents and the
- * files rows left out, since the archive doesn't hold their documents.
+ * files rows left out, since the archive doesn't hold their documents, and where the documents were stored, which a
+ * caller, whose own transaction rolls back, removes again (`ArchiveImports::discard()`).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\DataLifecycle\Backup
@@ -23,6 +24,7 @@ final class ImportResult
      * @param array<string, mixed> $checks
      * @param bool $dryRun
      * @param array<string, mixed> $tenant The tenant, as the archive's manifest describes it.
+     * @param array<int, array{0: string, 1: string}> $uploaded The documents stored: disk, path (none after a dry run).
      */
     public function __construct(
         public readonly ?int $tenantId,
@@ -32,5 +34,6 @@ final class ImportResult
         public readonly array $checks,
         public readonly bool $dryRun,
         public readonly array $tenant = [],
+        public readonly array $uploaded = [],
     ) {}
 }

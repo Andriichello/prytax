@@ -113,6 +113,8 @@ class AppServiceProvider extends ServiceProvider
                 'app.key' => $this->app->make(InstallationKey::class)->resolve(config('app.key') ?: null),
                 // The window's first screen registers the organization (builds.md §4.5)
                 'prytax.registration' => true,
+                // One person's computer, whose whole state may move to another (builds.md §4.11)
+                'prytax.full_backups' => true,
                 // Files, as a database store would be bound to the configured connection before NativePHP replaces it
                 'cache.default' => 'file',
                 'mail.default' => 'log',

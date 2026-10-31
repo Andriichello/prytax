@@ -29,4 +29,20 @@ return [
 
     'desktop_devtools' => env('PRYTAX_DEVTOOLS'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Full backups
+    |--------------------------------------------------------------------------
+    |
+    | Whether owners may back up the whole installation (every organization,
+    | its documents and key) and restore one in its place, after comparing
+    | them (builds.md §4.11). Only where PryTax runs on a SQLite file for one
+    | person: the desktop app, which always allows it, and a web app run on
+    | this computer. Never on a shared server, where a restore would replace
+    | every other organization.
+    |
+    */
+
+    'full_backups' => (bool) env('PRYTAX_FULL_BACKUPS', false),
+
 ];

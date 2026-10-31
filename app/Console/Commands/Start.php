@@ -25,9 +25,10 @@ use function Laravel\Prompts\intro;
  * Class Start.
  *
  * PryTax's starter (`./prytax`, which runs it with PHP 8.5): a menu, or an action named, that starts PryTax as a web
- * app (here or in Docker) or as the desktop app, with an ngrok tunnel for a phone, shows and stops what runs, checks
- * the machine, and runs the tests, the builds and the databases' tasks (builds.md §6). The menu asks for the platform
- * first, then how to run it; the tools are below it, beside Quit, and Esc quits.
+ * app (in Docker or here) or as the desktop app, always as one person's installation, with an ngrok tunnel for a
+ * phone, shows and stops what runs, checks the machine, and runs the tests, the builds and the databases' tasks
+ * (builds.md §6). The menu asks for the platform first, then how to run it; the tools are below it, beside Quit, and
+ * Esc quits.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
@@ -133,7 +134,7 @@ class Start extends Command
                 'web' => 'Web — ' . match (true) {
                     isset($running['web']) => "runs here at {$running['web']['url']}",
                     isset($running['docker']) => "runs in Docker at {$running['docker']['url']}",
-                    default => 'here or in Docker',
+                    default => 'in Docker or here',
                 },
                 'desktop' => 'Desktop — ' . (isset($running['desktop']) ? 'the development window runs' : 'the development window'),
             ], ['tools' => 'Tools — status, doctor, tests, builds, database']);
@@ -219,8 +220,8 @@ class Start extends Command
     protected function web(array $running): void
     {
         $choice = $this->menu('Where should the web app run?', [
-            'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
             'docker' => isset($running['docker']) ? "In Docker — runs at {$running['docker']['url']}" : 'In Docker — the image, with its worker and scheduler',
+            'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
         ]);
 
         if (in_array($choice, ['web', 'docker'], true)) {

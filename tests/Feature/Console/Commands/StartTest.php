@@ -244,6 +244,48 @@ class StartTest extends TestCase
     }
 
     /**
+     * Test that Tools → Claude prints the connection of the desktop app's integration and asks its server, as Claude
+     * would, telling its tools and the ФОП it reads.
+     *
+     * @return void
+     */
+    public function testPrintsClaudesConnectionAndAsksTheServer(): void
+    {
+        $connection = [
+            'organization' => 'Практика Коваленко', 'name' => 'prytax', 'command' => PHP_BINARY, 'args' => [base_path('artisan'), 'mcp:start', 'prytax'],
+            'env' => ['PRYTAX_MCP_KEY' => 'prytax_key'], 'claude_code' => 'claude mcp add --scope user prytax -e PRYTAX_MCP_KEY=prytax_key -- php artisan mcp:start prytax',
+            'claude_desktop' => '{"mcpServers":{}}', 'notes' => [], 'context' => 'local',
+        ];
+        $answers = implode("\n", [
+            json_encode(['jsonrpc' => '2.0', 'id' => 1, 'result' => ['serverInfo' => ['name' => 'PryTax']]]),
+            json_encode(['jsonrpc' => '2.0', 'id' => 2, 'result' => ['tools' => array_fill(0, 13, ['name' => 'tool'])]]),
+            // Unescaped, as the server writes it: «х» is D1 85 in UTF-8
+            json_encode(['jsonrpc' => '2.0', 'id' => 3, 'result' => ['structuredContent' => ['profiles' => [['full_name' => 'Михайленко Олена Петрівна']]]]], JSON_UNESCAPED_UNICODE),
+        ]);
+        Process::fake([
+            '*prytax:claude-connection*' => Process::result(json_encode([$connection])),
+            "*'mcp:start'*" => Process::result($answers),
+            '*' => Process::result(),
+        ]);
+        $directory = $this->temporaryFile();
+        mkdir($directory);
+        file_put_contents("$directory/nativephp.sqlite", 'migrated');
+        $this->app->useDatabasePath($directory);
+
+        $this->artisan('prytax:start', ['action' => 'mcp'])
+            ->expectsQuestion('Whose data should Claude read?', 'desktop')
+            ->expectsOutputToContain('claude mcp add --scope user prytax -e PRYTAX_MCP_KEY=prytax_key')
+            ->expectsOutputToContain("PryTax's server answers: 13 tools, reading Михайленко Олена Петрівна.")
+            ->assertSuccessful();
+
+        Process::assertRan(fn (PendingProcess $process) => in_array('--desktop', $process->command, true)
+            && $process->environment['DB_DATABASE'] === "$directory/nativephp.sqlite");
+        Process::assertRan(fn (PendingProcess $process) => in_array('mcp:start', $process->command, true)
+            && $process->environment['PRYTAX_MCP_KEY'] === 'prytax_key'
+            && str_contains((string) $process->input, '"name":"prytax-starter"'));
+    }
+
+    /**
      * Get the actions, which need this machine, with what the refusal says.
      *
      * @return array<string, array{string, string}>
@@ -254,6 +296,7 @@ class StartTest extends TestCase
             'the desktop window' => ['desktop', 'The desktop app\'s window needs PHP 8.5 on this machine'],
             'Docker' => ['docker', './start runs PryTax in Docker without PHP'],
             'the phone over ngrok' => ['phone', 'The phone over ngrok needs PHP 8.5 and ngrok on this machine'],
+            'Claude' => ['mcp', 'Claude starts PryTax\'s server with PHP 8.5 on this machine'],
         ];
     }
 

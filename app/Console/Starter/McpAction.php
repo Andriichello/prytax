@@ -10,9 +10,7 @@ use Throwable;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
-use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 /**
@@ -38,13 +36,22 @@ class McpAction extends Action
     protected function handle(): int
     {
         $sources = $this->sources();
-        $source = select('Whose data should Claude read?', array_map(fn (array $item) => $item['label'], $sources), default: array_key_first($sources));
+        $answers = $this->ask([
+            'source' => fn () => $this->choose('Whose data should Claude read?', array_map(fn (array $item) => $item['label'], $sources), array_key_first($sources)),
+            'path' => fn (array $answers) => $answers['source'] !== 'sqlite' ? null : $this->typed('Which SQLite file?', database_path('database.sqlite')),
+        ]);
+
+        if ($answers === null) {
+            return $this->ended();
+        }
+
+        $source = (string) $answers['source'];
 
         if ($source === 'docker') {
             $label = 'the Docker app';
             $connections = $this->connectionsOf($this->dockerCompose(['exec', '-T', 'app', 'php', 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', '--folder=' . base_path()]), []);
         } else {
-            $database = $sources[$source]['database'] ?? $this->otherSqlite();
+            $database = $sources[$source]['database'] ?? $this->otherSqlite((string) $answers['path']);
 
             if ($database === null) {
                 return Start::FAILURE;
@@ -119,13 +126,14 @@ class McpAction extends Action
     }
 
     /**
-     * Ask for another SQLite file, and get its database, or null when the starter can't reach it.
+     * Get another SQLite file's database, or null, told, when the starter can't reach it.
+     *
+     * @param string $path
      *
      * @return Database|null
      */
-    protected function otherSqlite(): ?Database
+    protected function otherSqlite(string $path): ?Database
     {
-        $path = text('Which SQLite file?', default: database_path('database.sqlite'), required: true);
         $path = str_starts_with($path, '/') ? $path : base_path($path);
 
         return $this->reachable($path) ? Database::sqlite($path) : null;

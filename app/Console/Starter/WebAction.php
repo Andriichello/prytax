@@ -4,12 +4,9 @@ namespace PryTax\Console\Starter;
 
 use PryTax\Console\Commands\Start;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\select;
-use function Laravel\Prompts\text;
 
 /**
  * Class WebAction.
@@ -34,19 +31,36 @@ class WebAction extends Action
         $port = (int) ($this->start->option('port') ?: Listeners::webPort());
 
         if ($this->listeners->isListening($port) && !$this->restarted($port)) {
-            return $this->start->isInteractive() ? Start::SUCCESS : Start::FAILURE;
+            return match (true) {
+                $this->end === 'back' => self::WENT_BACK,
+                $this->start->isInteractive() => Start::SUCCESS,
+                default => Start::FAILURE,
+            };
         }
 
-        $database = $this->database();
-        $newDatabase = $database?->isNew() ?? false;
+        $mysql = (string) config('database.connections.mysql.database');
+        $answers = $this->ask([
+            'db' => fn () => $this->start->option('db') ?? $this->choose('Which database?', [
+                'mysql' => "MySQL — .env's «{$mysql}»",
+                'sqlite' => 'A SQLite file — no database server needed',
+            ], config('database.default') === 'sqlite' ? 'sqlite' : 'mysql'),
+            'sqlite' => fn (array $answers) => $answers['db'] !== 'sqlite'
+                ? null
+                : $this->start->option('sqlite') ?? $this->typed('Which SQLite file?', database_path('database.sqlite')),
+            'database' => fn (array $answers) => $this->databaseOf((string) $answers['db'], $answers['sqlite']) ?? self::STOP,
+            'migrate' => fn (array $answers) => $this->migrationQuestion($answers['database']),
+            'vite' => fn () => $this->start->option('vite') ?: $this->decide('How should the SPA be served?', 'Vite\'s hot reload — changes show at once', 'The built SPA', false),
+            'build' => fn (array $answers) => $answers['vite'] ? null : $this->buildQuestion(),
+        ]);
 
-        if ($database === null || !$this->migrate($database)) {
-            return Start::FAILURE;
+        if ($answers === null) {
+            return $this->ended();
         }
 
-        $vite = $this->start->option('vite') ?: confirm('Use Vite\'s hot reload? (No: the built SPA)', default: false);
+        [$database, $vite] = [$answers['database'], $answers['vite'] === true];
+        $newDatabase = $database->isNew();
 
-        if (!$vite && !$this->ensureBuild()) {
+        if (!$this->migrateWith($database, $answers['migrate']) || (!$vite && !$this->buildWith($answers['build']))) {
             return Start::FAILURE;
         }
 
@@ -107,6 +121,10 @@ class WebAction extends Action
             'stop' => 'Stop it',
         ]);
 
+        if ($choice === 'back') {
+            $this->end = 'back';
+        }
+
         if (!in_array($choice, ['restart', 'stop'], true) || !$this->stopService('web') || $choice === 'stop') {
             return false;
         }
@@ -126,20 +144,18 @@ class WebAction extends Action
     }
 
     /**
-     * Get the database, which `--db` (and `--sqlite`) or the user chose, or null of an unknown one.
+     * Get the database chosen (`--db`, `--sqlite`, or the answers), or null, told, of an unknown one or a file the
+     * starter can't reach.
+     *
+     * @param string $choice
+     * @param string|null $path
      *
      * @return Database|null
      */
-    protected function database(): ?Database
+    protected function databaseOf(string $choice, ?string $path): ?Database
     {
-        $mysql = (string) config('database.connections.mysql.database');
-        $choice = $this->start->option('db') ?? select('Which database?', [
-            'mysql' => "MySQL — .env's «{$mysql}»",
-            'sqlite' => 'A SQLite file — no database server needed',
-        ], default: config('database.default') === 'sqlite' ? 'sqlite' : 'mysql');
-
         if ($choice === 'mysql') {
-            return new Database("MySQL «{$mysql}»", ['DB_CONNECTION' => 'mysql'], null);
+            return new Database('MySQL «' . config('database.connections.mysql.database') . '»', ['DB_CONNECTION' => 'mysql'], null);
         }
 
         if ($choice !== 'sqlite') {
@@ -148,8 +164,7 @@ class WebAction extends Action
             return null;
         }
 
-        $path = $this->start->option('sqlite') ?? text('Which SQLite file?', default: database_path('database.sqlite'), required: true);
-        $path = str_starts_with($path, '/') ? $path : base_path($path);
+        $path = str_starts_with((string) $path, '/') ? (string) $path : base_path((string) $path);
 
         return $this->reachable($path) ? Database::sqlite($path) : null;
     }

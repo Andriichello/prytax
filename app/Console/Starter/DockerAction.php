@@ -7,11 +7,9 @@ use Illuminate\Support\Facades\Process;
 use Laravel\Sanctum\Sanctum;
 use PryTax\Console\Commands\Start;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\select;
 
 /**
  * Class DockerAction.
@@ -46,8 +44,20 @@ class DockerAction extends Action
         $settings = is_file($path) ? Dotenv::parse((string) file_get_contents($path)) : [];
         $port = (int) (($settings['APP_PORT'] ?? null) ?: 8080);
 
-        if (!$this->listeners->isListening($port) && !$this->up($path, $file)) {
-            return Start::FAILURE;
+        if (!$this->listeners->isListening($port)) {
+            $answers = $this->ask([
+                'make' => fn () => is_file($path) ? null : $this->decide("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'Yes — make it', 'No — not now'),
+                'database' => fn (array $answers) => $answers['make'] === true ? $this->databaseQuestion() : null,
+                'mysql' => fn (array $answers) => $answers['make'] === false ? null : $this->mysqlQuestion($path, $file, $answers['database']),
+            ]);
+
+            if ($answers === null) {
+                return $this->ended();
+            }
+
+            if ($answers['make'] === false || !$this->up($path, $file, $answers)) {
+                return Start::FAILURE;
+            }
         }
 
         $sqlite = (Dotenv::parse((string) file_get_contents($path))['DB_CONNECTION'] ?? 'mysql') === 'sqlite';
@@ -59,46 +69,34 @@ class DockerAction extends Action
             return Start::SUCCESS;
         }
 
-        $this->menu($path, $port);
-
-        return Start::SUCCESS;
+        return $this->menu($path, $port) === 'back' ? self::WENT_BACK : Start::SUCCESS;
     }
 
     /**
-     * Start the containers, making the settings first when they're missing, and get whether they started.
+     * Start the containers, making the settings first when it was answered so, and get whether they started.
      *
      * @param string $path
      * @param string $file As compose finds it, relative to the project.
+     * @param array{make: bool|null, database: string|null, mysql: bool|null} $answers
      *
      * @return bool
      */
-    protected function up(string $path, string $file): bool
+    protected function up(string $path, string $file, array $answers): bool
     {
-        if (!is_file($path)) {
-            $database = confirm("There's no $file. Make it from .env.docker.example, with a new APP_KEY?") ? $this->database() : null;
+        if ($answers['make'] === true) {
+            $this->makeSettings($path, $file, (string) $answers['database']);
 
-            if ($database === null) {
-                return false;
-            }
-
-            $this->makeSettings($path, $file, $database);
-
-            if ($database === DockerSettings::EXTERNAL) {
+            if ($answers['database'] === DockerSettings::EXTERNAL) {
                 note("Made $file: fill in the MySQL's DB_HOST and credentials in it, then start again.");
 
                 return false;
             }
 
-            note("Made $file, on " . ($database === DockerSettings::SQLITE ? 'SQLite' : 'MySQL in a container') . ': check APP_URL in it.');
+            note("Made $file, on " . ($answers['database'] === DockerSettings::SQLITE ? 'SQLite' : 'MySQL in a container') . ': check APP_URL in it.');
         }
 
         // SQLite needs no database server; MySQL's own container, or the one DB_HOST names
-        $settings = Dotenv::parse((string) file_get_contents($path));
-        $mysql = ($settings['DB_CONNECTION'] ?? 'mysql') !== 'sqlite' && ($this->start->option('mysql') ?: confirm(
-            "Run MySQL in a container? (No: the MySQL, which $file's DB_HOST names)",
-            default: ($settings['DB_HOST'] ?? null) === 'mysql',
-        ));
-        $compose = ['docker', 'compose', '--env-file', $path, ...($mysql ? ['--profile', 'mysql'] : [])];
+        $compose = ['docker', 'compose', '--env-file', $path, ...($answers['mysql'] === true ? ['--profile', 'mysql'] : [])];
 
         if (!$this->run([...$compose, 'up', '-d', '--build'])) {
             return false;
@@ -110,14 +108,66 @@ class DockerAction extends Action
     }
 
     /**
-     * Offer what's done with the containers, which run, until Back, Quit or stopping them.
+     * Ask the database of new settings, unless `--mysql` or `--db` answers it (SQLite by default); get it, `BACK`, or
+     * `STOP`, told, for an unknown one.
+     *
+     * @return string
+     */
+    protected function databaseQuestion(): string
+    {
+        $choice = $this->start->option('mysql')
+            ? DockerSettings::MYSQL
+            : $this->start->option('db') ?? $this->choose('Which database?', DockerSettings::databases(), DockerSettings::SQLITE);
+
+        if (in_array($choice, [self::BACK, self::STOP], true) || array_key_exists($choice, DockerSettings::databases())) {
+            return $choice;
+        }
+
+        error('--db is ' . implode(', ', array_keys(DockerSettings::databases())) . ", not $choice.");
+
+        return self::STOP;
+    }
+
+    /**
+     * Ask whether MySQL runs in a container, for settings on MySQL (unless `--mysql` answers it); null for SQLite, or
+     * an external MySQL, whose settings are made to be filled in.
+     *
+     * @param string $path
+     * @param string $file
+     * @param string|null $database The database of new settings, or null for the existing ones.
+     *
+     * @return bool|string|null
+     */
+    protected function mysqlQuestion(string $path, string $file, ?string $database): bool|string|null
+    {
+        $settings = is_file($path) ? Dotenv::parse((string) file_get_contents($path)) : null;
+        $connection = $settings !== null ? ($settings['DB_CONNECTION'] ?? 'mysql') : ($database === DockerSettings::SQLITE ? 'sqlite' : 'mysql');
+
+        if ($connection === 'sqlite' || $database === DockerSettings::EXTERNAL) {
+            return null;
+        }
+
+        if ($this->start->option('mysql')) {
+            return true;
+        }
+
+        return $this->decide(
+            'Run MySQL in a container?',
+            'Yes — MySQL in a container',
+            "No — the MySQL, which $file's DB_HOST names",
+            $settings === null || ($settings['DB_HOST'] ?? null) === 'mysql',
+        );
+    }
+
+    /**
+     * Offer what's done with the containers, which run, until Back, Quit or stopping them, and get which ended it.
      *
      * @param string $path
      * @param int $port
      *
-     * @return void
+     * @return string
      */
-    protected function menu(string $path, int $port): void
+    protected function menu(string $path, int $port): string
     {
         $settings = Dotenv::parse((string) file_get_contents($path));
         $compose = ['docker', 'compose', '--env-file', $path];
@@ -138,6 +188,8 @@ class DockerAction extends Action
                 default => null,
             };
         } while (in_array($choice, ['tunnel', 'owner', 'logs'], true));
+
+        return $choice;
     }
 
     /**
@@ -206,27 +258,6 @@ class DockerAction extends Action
     protected function run(array $command, array $env = [], ?string $path = null): bool
     {
         return parent::run($command, [...self::SINGLE_ORGANIZATION, ...$env], $path);
-    }
-
-    /**
-     * Get the database of new settings, which `--mysql`, `--db` or the user chose (SQLite by default), or null of an
-     * unknown one.
-     *
-     * @return string|null
-     */
-    protected function database(): ?string
-    {
-        $choice = $this->start->option('mysql')
-            ? DockerSettings::MYSQL
-            : $this->start->option('db') ?? select('Which database?', DockerSettings::databases(), default: DockerSettings::SQLITE);
-
-        if (!array_key_exists($choice, DockerSettings::databases())) {
-            error('--db is ' . implode(', ', array_keys(DockerSettings::databases())) . ", not $choice.");
-
-            return null;
-        }
-
-        return $choice;
     }
 
     /**

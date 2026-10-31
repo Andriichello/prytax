@@ -5,7 +5,6 @@ namespace PryTax\Console\Starter;
 use PryTax\Console\Commands\Start;
 
 use function Laravel\Prompts\error;
-use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\table;
 use function Laravel\Prompts\warning;
 
@@ -50,7 +49,7 @@ class StatusAction extends Action
         $chosen = $this->chosen($running);
 
         if ($chosen === null) {
-            return Start::FAILURE;
+            return $this->end === null ? Start::FAILURE : $this->ended();
         }
 
         foreach ($chosen as $key) {
@@ -98,6 +97,17 @@ class StatusAction extends Action
             return $stopping ? null : [];
         }
 
-        return multiselect($stopping ? 'Stop which?' : 'Stop any of them?', $running, default: $stopping ? array_keys($running) : []);
+        $answers = $this->ask(['stop' => fn () => $this->choose($stopping ? 'Stop which?' : 'Stop any of them?', [
+            ...($stopping ? [] : ['none' => 'None — leave them running']),
+            ...$running,
+            'all' => 'All of them',
+        ], $stopping ? 'all' : 'none')]);
+
+        return match ($answers['stop'] ?? null) {
+            null => null,
+            'none' => [],
+            'all' => array_keys($running),
+            default => [$answers['stop']],
+        };
     }
 }

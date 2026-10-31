@@ -2,15 +2,17 @@
 
 namespace PryTax\Console\Starter;
 
+use Closure;
 use Illuminate\Support\Facades\Process;
+use Laravel\Prompts\Prompt;
 use Laravel\Sanctum\Sanctum;
 use PryTax\Console\Commands\Start;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
+use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 /**
@@ -25,6 +27,48 @@ use function Laravel\Prompts\warning;
  */
 abstract class Action
 {
+    /**
+     * The exit code of an action, which went back from its first question to the menu.
+     *
+     * @var int
+     */
+    public const int WENT_BACK = 3;
+
+    /**
+     * An answer, which goes back to the question asked before it.
+     *
+     * @var string
+     */
+    public const string BACK = "\0back";
+
+    /**
+     * An answer, which ends the questions: Quit, or a failure, which was told.
+     *
+     * @var string
+     */
+    public const string STOP = "\0stop";
+
+    /**
+     * Whether the question being asked can go back: to an earlier question, or to the menu.
+     *
+     * @var bool
+     */
+    protected bool $backable = false;
+
+    /**
+     * Whether the question being answered asked the person, rather than answering itself.
+     *
+     * @var bool
+     */
+    protected bool $prompted = false;
+
+    /**
+     * How the questions ended, when they did: `back`, `quit` or `failed`.
+     *
+     * @var string|null
+     */
+    protected ?string $end = null;
+
     /**
      * The starter's command, whose options and output the action uses.
      *
@@ -263,14 +307,184 @@ abstract class Action
     }
 
     /**
-     * Bring a database up to date before it's used: make a new SQLite file (with the demo data, if wanted), or offer
-     * its pending migrations, after a copy of a SQLite file. Get false when it can't be used.
+     * Ask the questions in turn: each a closure of the answers so far, which asks (`choose()`, `decide()`, `typed()`)
+     * or answers itself (an option given, a question, which doesn't apply), and returns its answer, `BACK` or `STOP`.
+     * Back goes to the question asked before it, the first one's to the menu; Stop ends them (Quit, or a failure, which
+     * was told). Get the answers, or null, when they ended (`ended()` tells how).
+     *
+     * @param array<string, Closure(array<string, mixed>): mixed> $questions
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function ask(array $questions): ?array
+    {
+        $keys = array_keys($questions);
+        [$asked, $answers, $this->end] = [[], [], null];
+
+        for ($index = 0; $index < count($keys);) {
+            $this->backable = $asked !== [] || $this->start->isInMenu();
+            $this->prompted = false;
+            $answer = $questions[$keys[$index]]($answers);
+
+            if ($answer === self::BACK) {
+                if ($asked === []) {
+                    $this->end = 'back';
+
+                    return null;
+                }
+
+                $index = array_pop($asked);
+
+                foreach (array_slice($keys, $index) as $key) {
+                    unset($answers[$key]);
+                }
+
+                continue;
+            }
+
+            if ($answer === self::STOP) {
+                $this->end = $this->start->isQuitting() ? 'quit' : 'failed';
+
+                return null;
+            }
+
+            $answers[$keys[$index]] = $answer;
+
+            if ($this->prompted) {
+                $asked[] = $index;
+            }
+
+            $index++;
+        }
+
+        return $answers;
+    }
+
+    /**
+     * Get the exit code of an action, whose questions ended: back to the menu, quit, or failed.
+     *
+     * @return int
+     */
+    protected function ended(): int
+    {
+        return match ($this->end) {
+            'back' => self::WENT_BACK,
+            'quit' => Start::SUCCESS,
+            default => Start::FAILURE,
+        };
+    }
+
+    /**
+     * Ask which of the options, with Back, when there's a question or a menu to go back to, and Quit; get the option's
+     * key, `BACK`, or `STOP` for Quit.
+     *
+     * @param string $label
+     * @param array<string, string> $options
+     * @param string|null $default
+     * @param string $hint
+     *
+     * @return string
+     */
+    protected function choose(string $label, array $options, ?string $default = null, string $hint = ''): string
+    {
+        $this->prompted = true;
+
+        return match ($choice = $this->start->pick($label, $options, $this->backable, $default, $hint)) {
+            'back' => self::BACK,
+            'quit' => self::STOP,
+            default => $choice,
+        };
+    }
+
+    /**
+     * Ask yes or no, as two options with their own words, with Back and Quit; get true or false, `BACK` or `STOP`.
+     *
+     * @param string $label
+     * @param string $yes
+     * @param string $no
+     * @param bool $default
+     *
+     * @return bool|string
+     */
+    protected function decide(string $label, string $yes, string $no, bool $default = true): bool|string
+    {
+        $choice = $this->choose($label, ['yes' => $yes, 'no' => $no], $default ? 'yes' : 'no');
+
+        return in_array($choice, [self::BACK, self::STOP], true) ? $choice : $choice === 'yes';
+    }
+
+    /**
+     * Ask for a typed answer, which Esc leaves for the question before it, when there's one to go back to; get it, or
+     * `BACK`.
+     *
+     * @param string $label
+     * @param string $default
+     *
+     * @return string
+     */
+    protected function typed(string $label, string $default = ''): string
+    {
+        $this->prompted = true;
+
+        if ($this->backable) {
+            Prompt::cancelUsing(fn () => self::BACK);
+        }
+
+        try {
+            return (string) text($label, default: $default, required: true, hint: $this->backable ? 'Esc goes back.' : '');
+        } finally {
+            Prompt::cancelUsing(null);
+        }
+    }
+
+    /**
+     * Ask what a database needs before it's used: a new SQLite file, whether it gets the demo data; pending
+     * migrations, whether to run them now (after a copy of a SQLite file). Get the answer, null when there's nothing
+     * to ask, or `STOP` when it doesn't answer.
      *
      * @param Database $database
      *
+     * @return bool|string|null
+     */
+    protected function migrationQuestion(Database $database): bool|string|null
+    {
+        if ($database->isNew()) {
+            return $this->decide(
+                ucfirst($database->label) . ' is new. Add the demo data?',
+                'Yes — Практика Коваленко: sign in as olena@example.com / password',
+                'No — an empty installation',
+            );
+        }
+
+        $pending = $database->pending($this->toolchain);
+
+        if ($pending === null) {
+            error(ucfirst($database->label) . ' doesn\'t answer.');
+            note($database->file === null ? 'Start MySQL (sudo systemctl start mysql), or choose SQLite.' : 'See ./prytax doctor.');
+
+            return self::STOP;
+        }
+
+        if ($pending === []) {
+            return null;
+        }
+
+        note(count($pending) . " migrations haven't run on $database->label: " . implode(', ', $pending));
+        $copied = $database->file === null ? '' : ' (a copy of the file is kept beside it)';
+
+        return $this->decide("Run them now$copied?", 'Yes — run them', 'No — not now');
+    }
+
+    /**
+     * Bring a database up to date, as answered: make a new SQLite file (with the demo data, if wanted), or run its
+     * pending migrations, after a copy of a SQLite file. Get false when it can't be used.
+     *
+     * @param Database $database
+     * @param bool|string|null $answer
+     *
      * @return bool
      */
-    protected function migrate(Database $database): bool
+    protected function migrateWith(Database $database, bool|string|null $answer): bool
     {
         if ($database->isNew()) {
             info("Making {$database->label}…");
@@ -281,27 +495,10 @@ abstract class Action
                 return false;
             }
 
-            return !confirm('Add the demo data? (Практика Коваленко: sign in as olena@example.com / password)')
-                || $this->artisan(['db:seed', '--class=Database\Seeders\DemoSeeder', '--force'], $database->env);
+            return $answer !== true || $this->artisan(['db:seed', '--class=Database\Seeders\DemoSeeder', '--force'], $database->env);
         }
 
-        $pending = $database->pending($this->toolchain);
-
-        if ($pending === null) {
-            error(ucfirst($database->label) . ' doesn\'t answer.');
-            note($database->file === null ? 'Start MySQL (sudo systemctl start mysql), or choose SQLite.' : 'See ./prytax doctor.');
-
-            return false;
-        }
-
-        if ($pending === []) {
-            return true;
-        }
-
-        note(count($pending) . " migrations haven't run on $database->label: " . implode(', ', $pending));
-        $copied = $database->file === null ? '' : ' (a copy of the file is kept beside it)';
-
-        if (!confirm("Run them now$copied?")) {
+        if ($answer !== true) {
             return true;
         }
 
@@ -314,12 +511,27 @@ abstract class Action
     }
 
     /**
-     * Offer to build the SPA when its build is missing or older than its sources, and get false when it must be built
-     * but couldn't be.
+     * Ask whether to build the SPA, when its build is missing or older than its sources; null when it's fresh.
+     *
+     * @return bool|string|null
+     */
+    protected function buildQuestion(): bool|string|null
+    {
+        return match ($this->doctor->buildState()) {
+            'fresh' => null,
+            'missing' => $this->decide('The SPA isn\'t built. Build it now?', 'Yes — npm run build', 'No — the app can\'t start without it'),
+            default => $this->decide('The SPA\'s build is older than its sources. Build it now?', 'Yes — npm run build', 'No — the older build'),
+        };
+    }
+
+    /**
+     * Build the SPA, as answered, and get false when it must be built but wasn't.
+     *
+     * @param bool|string|null $answer
      *
      * @return bool
      */
-    protected function ensureBuild(): bool
+    protected function buildWith(bool|string|null $answer): bool
     {
         $state = $this->doctor->buildState();
 
@@ -327,12 +539,6 @@ abstract class Action
             return true;
         }
 
-        $question = $state === 'missing' ? 'The SPA isn\'t built. Build it now?' : 'The SPA\'s build is older than its sources. Build it now?';
-
-        if (!confirm($question)) {
-            return $state === 'stale';
-        }
-
-        return $this->run(['npm', 'run', 'build']);
+        return $answer === true ? $this->run(['npm', 'run', 'build']) : $state === 'stale';
     }
 }

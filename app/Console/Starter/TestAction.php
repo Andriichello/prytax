@@ -4,7 +4,6 @@ namespace PryTax\Console\Starter;
 
 use PryTax\Console\Commands\Start;
 
-use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\table;
 
 /**
@@ -26,12 +25,20 @@ class TestAction extends Action
     protected function handle(): int
     {
         $mysql = config('database.default') === 'mysql' && $this->doctor->mysql()->status === Check::OK;
-        $suites = multiselect('Which tests?', [
+        $all = [$mysql ? 'php-mysql' : 'php-sqlite', 'spa', 'types'];
+        $answers = $this->ask(['suite' => fn () => $this->choose('Which tests?', [
+            'all' => 'All — PHP on ' . ($mysql ? 'MySQL' : 'SQLite') . ', the SPA\'s tests and types',
             'php-mysql' => 'PHP on MySQL (prytax_test)',
             'php-sqlite' => 'PHP on SQLite, in memory',
             'spa' => 'SPA (Vitest)',
             'types' => 'SPA types (vue-tsc)',
-        ], default: [$mysql ? 'php-mysql' : 'php-sqlite', 'spa', 'types'], required: true);
+        ], 'all')]);
+
+        if ($answers === null) {
+            return $this->ended();
+        }
+
+        $suites = $answers['suite'] === 'all' ? $all : [$answers['suite']];
 
         $filter = $this->start->option('filter');
         $php = [$this->toolchain->php(), 'artisan', 'test', '--compact', ...($filter ? ["--filter=$filter"] : [])];

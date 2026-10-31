@@ -5,7 +5,6 @@ namespace PryTax\Console\Starter;
 use Illuminate\Support\Number;
 use PryTax\Console\Commands\Start;
 
-use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\table;
 use function Laravel\Prompts\warning;
@@ -30,11 +29,18 @@ class BuildAction extends Action
     protected function handle(): int
     {
         // The desktop app's installers need Electron on this machine, not in the starter's container
-        $targets = multiselect('What should be built?', array_filter([
+        $targets = array_filter([
             'spa' => 'The SPA (npm run build)',
             'desktop' => $this->toolchain->inContainer() ? null : 'The desktop app for Linux: AppImage and deb (native:build linux x64)',
             'thumbnails' => 'The invoice styles\' thumbnails (pdftoppm)',
-        ]), default: ['spa'], required: true);
+        ]);
+        $answers = $this->ask(['target' => fn () => $this->choose('What should be built?', [...$targets, 'all' => 'All of them'], 'spa')]);
+
+        if ($answers === null) {
+            return $this->ended();
+        }
+
+        $targets = $answers['target'] === 'all' ? array_keys($targets) : [$answers['target']];
 
         $built = true;
 

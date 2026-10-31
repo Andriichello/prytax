@@ -7,7 +7,6 @@ use PryTax\Console\Commands\Start;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
-use function Laravel\Prompts\select;
 
 /**
  * Class PhoneAction.
@@ -42,13 +41,23 @@ class PhoneAction extends Action
             return Start::FAILURE;
         }
 
-        $source = $this->start->option('source') ?? select('Whose data should the phone see?', [
-            'desktop' => 'The desktop app\'s — database/nativephp.sqlite and its files',
-            'web' => 'The web app\'s — .env\'s database',
-        ], default: 'desktop');
-        $database = $source === 'web' ? Database::web() : Database::desktop($this->toolchain);
+        $databaseOf = fn (string $source) => $source === 'web' ? Database::web() : Database::desktop($this->toolchain);
+        $answers = $this->ask([
+            'source' => fn () => $this->start->option('source') ?? $this->choose('Whose data should the phone see?', [
+                'desktop' => 'The desktop app\'s — database/nativephp.sqlite and its files',
+                'web' => 'The web app\'s — .env\'s database',
+            ], 'desktop'),
+            'migrate' => fn (array $answers) => $this->migrationQuestion($databaseOf((string) $answers['source'])),
+            'build' => fn () => $this->buildQuestion(),
+        ]);
 
-        if (!$this->migrate($database) || !$this->ensureBuild()) {
+        if ($answers === null) {
+            return $this->ended();
+        }
+
+        $database = $databaseOf((string) $answers['source']);
+
+        if (!$this->migrateWith($database, $answers['migrate']) || !$this->buildWith($answers['build'])) {
             return Start::FAILURE;
         }
 

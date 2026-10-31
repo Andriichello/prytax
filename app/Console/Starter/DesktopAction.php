@@ -4,7 +4,6 @@ namespace PryTax\Console\Starter;
 
 use PryTax\Console\Commands\Start;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
@@ -34,9 +33,19 @@ class DesktopAction extends Action
         }
 
         $database = Database::desktop($this->toolchain);
+        $answers = $this->ask([
+            'electron' => fn () => $this->electronQuestion(),
+            'build' => fn () => $this->buildQuestion(),
+            'migrate' => fn () => $this->migrationQuestion($database),
+        ]);
+
+        if ($answers === null) {
+            return $this->ended();
+        }
+
         $newDatabase = $database->isNew();
 
-        if (!$this->checked() || !$this->ensureBuild() || !$this->migrate($database)) {
+        if (!$this->checkedWith($answers['electron']) || !$this->buildWith($answers['build']) || !$this->migrateWith($database, $answers['migrate'])) {
             return Start::FAILURE;
         }
 
@@ -78,6 +87,7 @@ class DesktopAction extends Action
         ])) {
             'phone' => $this->start->perform('phone', ['source' => 'desktop']),
             'close' => $this->stopService('desktop') ? Start::SUCCESS : Start::FAILURE,
+            'back' => self::WENT_BACK,
             default => Start::SUCCESS,
         };
     }
@@ -120,31 +130,59 @@ class DesktopAction extends Action
     }
 
     /**
-     * Check what the window needs, offering to install a missing Electron, and get whether it can open.
+     * Ask what the window needs before it opens: Electron, when it isn't installed, whether to install it now. Get the
+     * answer, null when nothing is missing, or `STOP`, told, when something else is (Node, the sandbox).
      *
-     * @return bool
+     * @return bool|string|null
      */
-    protected function checked(): bool
+    protected function electronQuestion(): bool|string|null
     {
         foreach ($this->doctor->desktop() as $check) {
             if (!$check->failed()) {
                 continue;
             }
 
-            if ($check->name === 'Electron' && confirm('NativePHP\'s Electron isn\'t installed. Install it now?')) {
-                if (!$this->artisan(['native:install', '--force', '--no-interaction'])) {
-                    return false;
-                }
-
-                $check = $this->doctor->sandbox();
-
-                if (!$check->failed()) {
-                    continue;
-                }
+            if ($check->name === 'Electron') {
+                return $this->decide('NativePHP\'s Electron isn\'t installed. Install it now?', 'Yes — native:install', 'No — the window can\'t open without it');
             }
 
             error("$check->name: $check->detail.");
             note((string) $check->hint);
+
+            return self::STOP;
+        }
+
+        return null;
+    }
+
+    /**
+     * Install Electron, as answered, and check its sandbox; get false, told, when the window can't open.
+     *
+     * @param bool|string|null $answer
+     *
+     * @return bool
+     */
+    protected function checkedWith(bool|string|null $answer): bool
+    {
+        if ($answer === null) {
+            return true;
+        }
+
+        if ($answer !== true) {
+            error('Electron: not installed.');
+
+            return false;
+        }
+
+        if (!$this->artisan(['native:install', '--force', '--no-interaction'])) {
+            return false;
+        }
+
+        $sandbox = $this->doctor->sandbox();
+
+        if ($sandbox->failed()) {
+            error("$sandbox->name: $sandbox->detail.");
+            note((string) $sandbox->hint);
 
             return false;
         }

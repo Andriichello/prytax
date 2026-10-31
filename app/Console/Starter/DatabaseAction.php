@@ -6,8 +6,6 @@ use PryTax\Console\Commands\Start;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
-use function Laravel\Prompts\select;
-use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 /**
@@ -29,61 +27,106 @@ class DatabaseAction extends Action
      */
     protected function handle(): int
     {
-        // The desktop app's storage is outside the checkout, which is all the starter's container sees
-        $target = select('Which database?', array_filter([
-            'web' => ucfirst(Database::web()->label),
-            'desktop' => $this->toolchain->inContainer() ? null : 'The desktop app\'s — database/nativephp.sqlite',
-            'sqlite' => 'Another SQLite file',
-        ]), default: 'web');
-        $path = $target === 'sqlite' ? text('Which SQLite file?', default: database_path('database.sqlite'), required: true) : null;
-        $path = $path === null || str_starts_with($path, '/') ? $path : base_path($path);
-
-        if ($path !== null && !$this->reachable($path)) {
-            return Start::FAILURE;
-        }
-
-        $database = match ($target) {
-            'desktop' => Database::desktop($this->toolchain),
-            'sqlite' => Database::sqlite((string) $path),
-            default => Database::web(),
-        };
-
-        $task = select("What should be done to $database->label?", [
-            'status' => 'Show its migrations',
-            'migrate' => 'Run the pending migrations',
-            'demo' => 'Start over with the demo data — erases it',
-            'owner' => 'Create the first owner of a new installation',
+        $answers = $this->ask([
+            // The desktop app's storage is outside the checkout, which is all the starter's container sees
+            'target' => fn () => $this->choose('Which database?', array_filter([
+                'web' => ucfirst(Database::web()->label),
+                'desktop' => $this->toolchain->inContainer() ? null : 'The desktop app\'s — database/nativephp.sqlite',
+                'sqlite' => 'Another SQLite file',
+            ]), 'web'),
+            'path' => fn (array $answers) => $answers['target'] === 'sqlite' ? $this->typed('Which SQLite file?', database_path('database.sqlite')) : null,
+            'database' => fn (array $answers) => $this->databaseOf((string) $answers['target'], $answers['path']) ?? self::STOP,
+            'task' => fn (array $answers) => $this->choose("What should be done to {$answers['database']->label}?", [
+                'status' => 'Show its migrations',
+                'migrate' => 'Run the pending migrations',
+                'demo' => 'Start over with the demo data — erases it',
+                'owner' => 'Create the first owner of a new installation',
+            ]),
+            'answer' => fn (array $answers) => match ($answers['task']) {
+                'migrate' => $this->migrationQuestion($answers['database']),
+                'demo' => $this->eraseQuestion($answers['database'], (string) $answers['target']),
+                default => null,
+            },
         ]);
 
-        return match ($task) {
+        if ($answers === null) {
+            return $this->ended();
+        }
+
+        $database = $answers['database'];
+
+        return match ($answers['task']) {
             'status' => $this->artisan(['migrate:status'], $database->env),
-            'migrate' => $this->migrate($database),
-            'demo' => $this->startOver($database, $target),
+            'migrate' => $this->migrateWith($database, $answers['answer']),
+            'demo' => $this->startOver($database, (string) $answers['answer']),
             'owner' => $this->artisan(['prytax:create-owner'], [...$database->env, ...self::SINGLE_ORGANIZATION]),
         } ? Start::SUCCESS : Start::FAILURE;
     }
 
     /**
-     * Erase the database and seed the demo data, once its name is typed, after a copy of a SQLite file.
+     * Get the database chosen, or null, told, of a SQLite file the starter can't reach.
+     *
+     * @param string $target
+     * @param string|null $path
+     *
+     * @return Database|null
+     */
+    protected function databaseOf(string $target, ?string $path): ?Database
+    {
+        if ($target === 'sqlite') {
+            $path = str_starts_with((string) $path, '/') ? (string) $path : base_path((string) $path);
+
+            return $this->reachable($path) ? Database::sqlite($path) : null;
+        }
+
+        return $target === 'desktop' ? Database::desktop($this->toolchain) : Database::web();
+    }
+
+    /**
+     * Ask for the database's name to be typed, before it's erased, unless its app runs; get what was typed, `BACK`,
+     * or `STOP`, told.
      *
      * @param Database $database
      * @param string $target
      *
-     * @return bool
+     * @return string
      */
-    protected function startOver(Database $database, string $target): bool
+    protected function eraseQuestion(Database $database, string $target): string
     {
         $port = $target === 'desktop' ? Listeners::DESKTOP_PORT : ($target === 'web' ? Listeners::webPort() : null);
 
         if ($port !== null && $this->listeners->isListening($port)) {
             error("The app on $database->label runs: close it first (./prytax stop).");
 
-            return false;
+            return self::STOP;
         }
 
-        $name = $database->file === null ? (string) config('database.connections.' . config('database.default') . '.database') : basename($database->file);
+        return $this->typed("This erases everything in $database->label. Type «{$this->nameOf($database)}» to go on");
+    }
 
-        if (text("This erases everything in $database->label. Type «{$name}» to go on") !== $name) {
+    /**
+     * Get the name, which erasing a database asks for: a SQLite file's, or the database's.
+     *
+     * @param Database $database
+     *
+     * @return string
+     */
+    protected function nameOf(Database $database): string
+    {
+        return $database->file === null ? (string) config('database.connections.' . config('database.default') . '.database') : basename($database->file);
+    }
+
+    /**
+     * Erase the database and seed the demo data, when its name was typed, after a copy of a SQLite file.
+     *
+     * @param Database $database
+     * @param string $typed
+     *
+     * @return bool
+     */
+    protected function startOver(Database $database, string $typed): bool
+    {
+        if ($typed !== $this->nameOf($database)) {
             warning('Nothing was erased.');
 
             return false;

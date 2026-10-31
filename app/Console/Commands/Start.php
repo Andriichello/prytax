@@ -5,6 +5,7 @@ namespace PryTax\Console\Commands;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use PryTax\Console\Starter\Action;
 use PryTax\Console\Starter\BuildAction;
 use PryTax\Console\Starter\DatabaseAction;
 use PryTax\Console\Starter\DesktopAction;
@@ -213,6 +214,43 @@ class Start extends Command
     }
 
     /**
+     * Ask which of the options, with Back below them when there's somewhere to go back (an action's earlier question,
+     * or the menu), and Quit last (Esc), and get the option's value, `back` or `quit`.
+     *
+     * @param string $label
+     * @param array<string, string> $options
+     * @param bool $back
+     * @param string|null $default
+     * @param string $hint
+     *
+     * @return string
+     */
+    public function pick(string $label, array $options, bool $back, ?string $default = null, string $hint = ''): string
+    {
+        return $this->choose($label, $options, $back ? ['back' => 'Back'] : [], $hint, $default);
+    }
+
+    /**
+     * Determine whether the menu runs, which an action's first question may go back to.
+     *
+     * @return bool
+     */
+    public function isInMenu(): bool
+    {
+        return $this->inMenu;
+    }
+
+    /**
+     * Determine whether Quit was chosen.
+     *
+     * @return bool
+     */
+    public function isQuitting(): bool
+    {
+        return $this->quitting;
+    }
+
+    /**
      * Perform an action, with the options given, and get its exit code.
      *
      * @param string $action
@@ -249,9 +287,9 @@ class Start extends Command
      *
      * @return string
      */
-    protected function choose(string $label, array $options, array $below = [], string $hint = ''): string
+    protected function choose(string $label, array $options, array $below = [], string $hint = '', ?string $default = null): string
     {
-        $choice = (string) (new Menu($label, $options, [...$below, 'quit' => 'Quit'], hint: $hint))->prompt();
+        $choice = (string) (new Menu($label, $options, [...$below, 'quit' => 'Quit'], $default, $hint))->prompt();
         $this->quitting = $this->quitting || $choice === 'quit';
 
         return $choice;
@@ -266,14 +304,14 @@ class Start extends Command
      */
     protected function web(array $running): void
     {
-        $choice = $this->menu('Where should the web app run?', [
-            'docker' => isset($running['docker']) ? "In Docker — runs at {$running['docker']['url']}" : 'In Docker — the image, with its worker and scheduler',
-            'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
-        ]);
-
-        if (in_array($choice, ['web', 'docker'], true)) {
-            $this->perform($choice);
-        }
+        // Back from the action's first question comes here again
+        do {
+            $choice = $this->menu('Where should the web app run?', [
+                'docker' => isset($running['docker']) ? "In Docker — runs at {$running['docker']['url']}" : 'In Docker — the image, with its worker and scheduler',
+                'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
+            ]);
+            $result = in_array($choice, ['web', 'docker'], true) ? $this->perform($choice) : null;
+        } while ($result === Action::WENT_BACK && !$this->quitting);
     }
 
     /**
@@ -291,14 +329,13 @@ class Start extends Command
             return;
         }
 
-        $choice = $this->menu('How should the desktop app open?', [
-            'window' => 'The development window',
-            'devtools' => 'The development window, with DevTools',
-        ]);
-
-        if (in_array($choice, ['window', 'devtools'], true)) {
-            $this->perform('desktop', ['devtools' => $choice === 'devtools']);
-        }
+        do {
+            $choice = $this->menu('How should the desktop app open?', [
+                'window' => 'The development window',
+                'devtools' => 'The development window, with DevTools',
+            ]);
+            $result = in_array($choice, ['window', 'devtools'], true) ? $this->perform('desktop', ['devtools' => $choice === 'devtools']) : null;
+        } while ($result === Action::WENT_BACK && !$this->quitting);
     }
 
     /**

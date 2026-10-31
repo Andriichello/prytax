@@ -11,11 +11,12 @@ import { errorMessage, fieldError } from '@/utils/errors';
 /**
  * Вхід: e-mail and password only, and «Запам’ятати мене», which keeps the user signed in past the session (handoff
  * §6.1). Where the installation allows registering a new organization, it links to Реєстрація, and opens it at once
- * on the installation's first launch, which has no user yet (the desktop app's).
+ * on the installation's first launch, which has no user yet (the desktop app's). One person's installation with one
+ * user asks for the password alone (builds.md §1.4).
  */
 const route = useRoute();
 const router = useRouter();
-const { signIn, registrationStatus } = useSession();
+const { signIn, signInWithPassword, registrationStatus } = useSession();
 
 const email = ref('');
 const password = ref('');
@@ -23,6 +24,8 @@ const remember = ref(true);
 const busy = ref(false);
 const error = ref<unknown>(null);
 const registrationOpen = ref(false);
+/** One person's installation with one user signs in with the password alone (builds.md §1.4). */
+const passwordOnly = ref(false);
 
 onMounted(async () => {
     const status = await registrationStatus().catch(() => null);
@@ -34,6 +37,7 @@ onMounted(async () => {
     }
 
     registrationOpen.value = status?.enabled ?? false;
+    passwordOnly.value = status?.password_only ?? false;
 });
 
 async function submit(): Promise<void> {
@@ -41,7 +45,7 @@ async function submit(): Promise<void> {
     error.value = null;
 
     try {
-        await signIn(email.value.trim(), password.value, remember.value);
+        await (passwordOnly.value ? signInWithPassword(password.value, remember.value) : signIn(email.value.trim(), password.value, remember.value));
 
         const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
             ? route.query.redirect
@@ -62,7 +66,9 @@ async function submit(): Promise<void> {
             <p v-if="route.query.restored !== undefined" class="m-0 rounded-card bg-positive-soft p-4 text-14 leading-normal" role="status">
                 {{ t('shell.login.restored') }}
             </p>
+            <p v-if="passwordOnly" class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.login.passwordOnlyHint') }}</p>
             <TextField
+                v-else
                 v-model="email"
                 :label="t('shell.login.email')"
                 type="email"
@@ -100,7 +106,7 @@ async function submit(): Promise<void> {
             </p>
         </form>
 
-        <template #footer>
+        <template v-if="!passwordOnly" #footer>
             {{ t('shell.login.accessNote') }}<br>{{ t('shell.login.accountantNote') }}
         </template>
     </AuthLayout>

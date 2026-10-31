@@ -54,7 +54,7 @@ const installation = ref<InstallationStatus | null>(null);
 
 onMounted(async () => {
     desktopApp.value = await useDesktopApp().isDesktopApp();
-    showsRecoveryKit.value = desktopApp.value && (user.value?.roles.includes('owner') ?? false);
+    showsRecoveryKit.value = (desktopApp.value || (await useDesktopApp().isSingleOrganization())) && (user.value?.roles.includes('owner') ?? false);
     installation.value = await useInstallationBackups().status().catch(() => null);
 });
 

@@ -14,7 +14,8 @@ import { errorMessage, fieldError } from '@/utils/errors';
 /**
  * Реєстрація: a new organization and its owner, who is signed in at once, when the installation allows it (otherwise
  * back to Вхід). On the installation's first launch (the desktop app's), Вхід opens it at once, without its way back,
- * and the desktop app offers restoring another computer's PryTax instead.
+ * and the desktop app offers restoring another computer's PryTax instead. One person's installation (builds.md §1.4)
+ * asks for a password alone; its owner keeps the recovery kit next, the only way back in without the password.
  */
 const router = useRouter();
 const { registrationStatus, register } = useSession();
@@ -23,6 +24,8 @@ const form = reactive<Registration>({ organization: '', name: '', email: '', pas
 const firstOwner = ref(false);
 const restorable = ref(false);
 const fullRestorable = ref(false);
+/** One person's installation registers with a password alone; its organization and e-mail are made up (builds.md §1.4). */
+const single = ref(false);
 const busy = ref(false);
 const error = ref<unknown>(null);
 
@@ -38,6 +41,7 @@ onMounted(async () => {
     }
 
     firstOwner.value = status.first_owner;
+    single.value = status.single_organization;
     restorable.value = status.first_owner && (await useDesktopApp().isDesktopApp());
 
     // A new computer may take another's whole app from a full backup (builds.md §4.11)
@@ -65,30 +69,32 @@ async function submit(): Promise<void> {
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
             <h1 class="m-0 text-22 font-semibold">{{ t('shell.register.title') }}</h1>
             <p class="m-0 text-15 leading-normal text-ink-2">
-                {{ firstOwner ? t('shell.register.firstOwnerHint') : t('shell.register.hint') }}
+                {{ single ? t('shell.register.singleHint') : firstOwner ? t('shell.register.firstOwnerHint') : t('shell.register.hint') }}
             </p>
-            <TextField
-                v-model="form.organization"
-                :label="t('shell.register.organization')"
-                autocomplete="organization"
-                required
-                :error="fieldError(error, 'organization')"
-            />
-            <TextField
-                v-model="form.name"
-                :label="t('shell.register.name')"
-                autocomplete="name"
-                required
-                :error="fieldError(error, 'name')"
-            />
-            <TextField
-                v-model="form.email"
-                :label="t('shell.login.email')"
-                type="email"
-                autocomplete="username"
-                required
-                :error="fieldError(error, 'email')"
-            />
+            <template v-if="!single">
+                <TextField
+                    v-model="form.organization"
+                    :label="t('shell.register.organization')"
+                    autocomplete="organization"
+                    required
+                    :error="fieldError(error, 'organization')"
+                />
+                <TextField
+                    v-model="form.name"
+                    :label="t('shell.register.name')"
+                    autocomplete="name"
+                    required
+                    :error="fieldError(error, 'name')"
+                />
+                <TextField
+                    v-model="form.email"
+                    :label="t('shell.login.email')"
+                    type="email"
+                    autocomplete="username"
+                    required
+                    :error="fieldError(error, 'email')"
+                />
+            </template>
             <TextField
                 v-model="form.password"
                 :label="t('shell.login.password')"

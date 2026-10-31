@@ -328,6 +328,10 @@ export interface InstallationComparison {
 export interface RegistrationStatus {
     enabled: boolean;
     first_owner: boolean;
+    /** One person's installation (builds.md §1.4): one organization, registered with a password alone. */
+    single_organization: boolean;
+    /** The password alone signs in: one person's installation with one user. */
+    password_only: boolean;
 }
 
 /** What registering a new organization takes (`POST registration`): its name, its owner's name and credentials. */
@@ -342,6 +346,8 @@ export interface Registration {
 /** Where the SPA runs (`GET environment`): in the desktop app's window, or a browser. */
 export interface AppEnvironment {
     desktop: boolean;
+    /** One person's installation (builds.md §1.4), whose owner keeps a recovery kit with a recovery code. */
+    single_organization: boolean;
 }
 
 /** The desktop installation's recovery kit (`GET desktop/recovery-kit`): its key, for another computer. */
@@ -350,6 +356,8 @@ export interface RecoveryKit {
     filename: string;
     /** When the owner saved or copied it, or null, until they do. */
     saved_at: DateTimeString | null;
+    /** It holds a recovery code, which sets a new password (one person's installation, builds.md §1.4). */
+    recovery_code: boolean;
 }
 
 /** A file chosen in a native open dialog to restore from: its path and name, or nulls, when it was cancelled. */

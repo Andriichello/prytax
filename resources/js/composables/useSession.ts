@@ -61,17 +61,52 @@ async function signIn(email: string, password: string, rememberMe = false): Prom
 
     const { data } = await api.post<ApiResponse<{ user: Me }>>('auth/login', { email, password, remember: rememberMe });
 
-    remember(data.user);
-    loading = Promise.resolve(data.user);
+    return signedIn(data.user);
+}
+
+/**
+ * Sign into one person's installation with the password alone (`POST single/login`, builds.md §1.4), while it has one
+ * user. A 422 carries the message of `password`.
+ */
+async function signInWithPassword(password: string, rememberMe = false): Promise<Me> {
+    await fetchCsrfCookie();
+
+    const { data } = await api.post<ApiResponse<{ user: Me }>>('single/login', { password, remember: rememberMe });
+
+    return signedIn(data.user);
+}
+
+/**
+ * Set a new password of one person's installation with its recovery code or the installation's key, and sign in
+ * (`POST single/password`). A 422 carries the messages of `secret` and `password`.
+ */
+async function resetWithRecovery(secret: string, password: string, confirmation: string): Promise<Me> {
+    await fetchCsrfCookie();
+
+    const { data } = await api.post<ApiResponse<{ user: Me }>>('single/password', {
+        secret,
+        password,
+        password_confirmation: confirmation,
+    });
+
+    return signedIn(data.user);
+}
+
+/**
+ * Keep the user, who signed in, and the language they chose on the sign-in screen, as their own.
+ */
+async function signedIn(signed: Me): Promise<Me> {
+    remember(signed);
+    loading = Promise.resolve(signed);
 
     const chosen = chosenLocale;
     chosenLocale = null;
 
-    if (chosen && chosen !== data.user.locale) {
+    if (chosen && chosen !== signed.locale) {
         await switchLocale(chosen).catch(() => setLocale(chosen));
     }
 
-    return user.value ?? data.user;
+    return user.value ?? signed;
 }
 
 /**
@@ -152,6 +187,8 @@ export function useSession() {
         isSignedIn: computed(() => user.value !== null),
         load,
         signIn,
+        signInWithPassword,
+        resetWithRecovery,
         registrationStatus,
         register,
         signOut,

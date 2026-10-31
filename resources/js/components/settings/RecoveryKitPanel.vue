@@ -10,8 +10,9 @@ import { formatDate, kyivDate } from '@/utils/dates';
 import { errorMessage } from '@/utils/errors';
 
 /**
- * The desktop installation's recovery kit (builds.md §4.5): its key, saved to a file through a native dialog, or
- * copied with the owner's word that it's somewhere safe, and when it was kept. In the setup (`setup`) it ends with
+ * The installation's recovery kit (builds.md §4.5, §1.4): its key in the desktop app, its recovery code in one
+ * person's installation (which sets a new password when it's forgotten), saved to a file (a native dialog in the
+ * desktop app, a download in a browser) or copied with the owner's word that it's somewhere safe, and when it was kept. In the setup (`setup`) it ends with
  * continuing (or closing, when it was kept before), which the page handles; in Резервні копії it stays, telling that
  * it's kept.
  */
@@ -90,7 +91,7 @@ async function confirm(): Promise<void> {
 
 <template>
     <div class="flex flex-col gap-4">
-        <p class="m-0 text-15 leading-normal text-ink-2">{{ t('shell.recoveryKit.explained') }}</p>
+        <p class="m-0 text-15 leading-normal text-ink-2">{{ kit?.recovery_code ? t('shell.recoveryKit.explainedSingle') : t('shell.recoveryKit.explained') }}</p>
         <pre
             v-if="kit"
             class="m-0 max-h-60 overflow-auto rounded-card border border-line bg-surface p-3 font-mono text-12 leading-relaxed break-all whitespace-pre-wrap select-all"

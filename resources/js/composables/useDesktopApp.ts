@@ -4,7 +4,7 @@ import type { ApiResponse, AppEnvironment, RecoveryKit, RestoreChoice, SavedReco
 
 /**
  * The desktop app (builds.md §4.2): whether the SPA runs in its window, and the installation's recovery
- * kit, which its owner keeps before working. Not the desktop layout (≥ 600 px), which `useBreakpoint` tells.
+ * kit, which its owner keeps before working, as does one person's installation (builds.md §1.4) in a browser. Not the desktop layout (≥ 600 px), which `useBreakpoint` tells.
  */
 let environment: Promise<AppEnvironment> | null = null;
 
@@ -14,18 +14,32 @@ let environment: Promise<AppEnvironment> | null = null;
 const kitSaved = ref<boolean | null>(null);
 
 /**
- * Whether the SPA runs in the desktop app's window (`GET environment`, asked once). A failure counts as a browser.
+ * The installation's environment (`GET environment`, asked once), or null when it can't be read.
  */
-async function isDesktopApp(): Promise<boolean> {
+async function environmentOf(): Promise<AppEnvironment | null> {
     environment ??= api.get<ApiResponse<AppEnvironment>>('environment').then(({ data }) => data);
 
     try {
-        return (await environment).desktop;
+        return await environment;
     } catch {
         environment = null;
 
-        return false;
+        return null;
     }
+}
+
+/**
+ * Whether the SPA runs in the desktop app's window. A failure counts as a browser.
+ */
+async function isDesktopApp(): Promise<boolean> {
+    return (await environmentOf())?.desktop ?? false;
+}
+
+/**
+ * Whether the installation is one person's (builds.md §1.4), whose owner keeps a recovery kit in a browser too.
+ */
+async function isSingleOrganization(): Promise<boolean> {
+    return (await environmentOf())?.single_organization ?? false;
 }
 
 /**
@@ -47,12 +61,26 @@ async function recoveryKit(): Promise<RecoveryKit> {
 }
 
 /**
- * Save the kit where the owner chooses in a native dialog; `path` is null, when they cancel it.
+ * Save the kit: where the owner chooses in the desktop app's native dialog (`path` is null, when they cancel it); a
+ * browser downloads it, and the kit is taken as kept (`path` is its file name).
  */
 async function saveRecoveryKit(): Promise<SavedRecoveryKit> {
-    const { data } = await api.post<ApiResponse<SavedRecoveryKit>>('desktop/recovery-kit/save');
+    if (await isDesktopApp()) {
+        const { data } = await api.post<ApiResponse<SavedRecoveryKit>>('desktop/recovery-kit/save');
 
-    return track(data);
+        return track(data);
+    }
+
+    const kit = await recoveryKit();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([kit.text], { type: 'text/plain;charset=utf-8' }));
+    link.download = kit.filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    const { data } = await api.post<ApiResponse<RecoveryKit>>('desktop/recovery-kit/confirm', { via: 'file' });
+
+    return track({ ...data, path: kit.filename });
 }
 
 /**
@@ -65,11 +93,11 @@ async function confirmRecoveryKit(): Promise<RecoveryKit> {
 }
 
 /**
- * Whether the owner still has to keep the kit: only in the desktop app, and only until they do. A failure asks nothing,
- * as the app shouldn't stop for it.
+ * Whether the owner still has to keep the kit: in the desktop app or one person's installation, until they do. A
+ * failure (an installation without a kit) asks nothing, as the app shouldn't stop for it.
  */
 async function needsRecoveryKit(): Promise<boolean> {
-    if (!(await isDesktopApp())) {
+    if (!(await isDesktopApp()) && !(await isSingleOrganization())) {
         return false;
     }
 
@@ -99,5 +127,5 @@ async function restore(kit: string, database: string): Promise<void> {
 }
 
 export function useDesktopApp() {
-    return { isDesktopApp, needsRecoveryKit, recoveryKit, saveRecoveryKit, confirmRecoveryKit, chooseRestoreFile, restore };
+    return { isDesktopApp, isSingleOrganization, needsRecoveryKit, recoveryKit, saveRecoveryKit, confirmRecoveryKit, chooseRestoreFile, restore };
 }

@@ -16,6 +16,7 @@ export default {
         rememberMe: 'Remember me',
         forgotPassword: 'Forgot your password?',
         signIn: 'Sign in',
+        passwordOnlyHint: 'Enter this PryTax’s password.',
         accessNote: 'Access is given by the organization’s owner.',
         accountantNote: 'An accountant sees every ФОП of their practice.',
         newHere: 'New to PryTax?',
@@ -26,6 +27,7 @@ export default {
     register: {
         title: 'New organization',
         hint: 'Create an organization — your own ФОП or an accountant’s practice — as its owner. You’ll invite the others later.',
+        singleHint: 'This PryTax is yours alone: set a password. Then keep the recovery kit: without the password, it is the only way back in.',
         firstOwnerHint: 'This is PryTax’s first launch: create the organization and its owner to start.',
         organization: 'Organization name',
         name: 'Your name',
@@ -40,6 +42,11 @@ export default {
         backToSignIn: 'Back to sign-in',
         title: 'Reset your password',
         hint: 'We’ll email you a link to set a new password.',
+        recoveryTitle: 'A new password',
+        recoveryHint: 'Enter the recovery code from the recovery kit (or the installation’s key), and set a new password.',
+        secret: 'Recovery code or key',
+        secretHint: 'Such as K7Q2M-9XTRA-4HWPE-LD3VN',
+        setPassword: 'Set the password and sign in',
         sendLink: 'Send link',
     },
 
@@ -81,6 +88,8 @@ export default {
         title: 'Recovery kit',
         explained:
             'This installation’s key decrypts the tax IDs, IBANs and invoice details. Without it, a copy of the database can’t be opened on another computer. Keep the kit away from this computer — in a password manager or printed — before you start.',
+        explainedSingle:
+            'The recovery kit is the only way back in when the password is forgotten: its recovery code (or the key) sets a new password on “Forgot password?”. Keep it away from this computer, such as in a password manager or printed, before you start.',
         saveToFile: 'Download the file…',
         copy: 'Copy',
         copied: 'Copied',

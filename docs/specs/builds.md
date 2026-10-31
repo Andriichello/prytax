@@ -74,9 +74,9 @@ desktop app always is (§4.2); a web app on this computer or a server kept for o
 both env examples. `PryTax\Services\Setup\SingleOrganization` holds its rules:
 - **One organization.** Registration (§1.3) is open only while there's none, deleted ones included; afterwards
   `GET /api/registration` answers `enabled: false` and `POST` is a 404.
-- **A password alone registers it.** Реєстрація asks only the password: the organization's name (`prytax+fud-tor-wik`,
-  three made-up syllables) and the owner's e-mail (`prytax+k3x9qa@prytax.invalid`, a domain reserved never to resolve,
-  so nothing is ever delivered) are made up. `prytax:create-owner` asks only the password too, and prints the e-mail
+- **A password alone registers it.** Реєстрація asks only the password: a made-up id (`k3x-9qa-w7m`, nine random
+  characters in lower case, as e-mails are kept so) is the organization's name and the owner's e-mail
+  (`k3x-9qa-w7m@prytax.invalid`, a domain reserved never to resolve, so nothing is ever delivered). `prytax:create-owner` asks only the password too, and prints the e-mail
   and the recovery code.
 - **A password alone signs in** while the installation has one organization and one user
   (`SingleOrganization::account()`): the status adds `single_organization` and `password_only`, Вхід asks only the

@@ -47,7 +47,8 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 ## One person's installation (2026-10-31, night; same branch `feat/full-backups`)
 
 The user: for the desktop app, a local web app or a self-hosted server, a setting allowing only one organization;
-registration asks only a password (the e-mail made up as `prytax+{6 chars}@…`, the name as `prytax+fui-tod-wir`);
+registration asks only a password (first a made-up e-mail and name; then, at their word, one id `Str::random(9)` as
+`xxx-xxx-xxx`, lower case, is both the name and the e-mail `k3x-9qa-w7m@prytax.invalid`, no `prytax+`);
 sign-in asks only the password; a recovery key brings back a forgotten one. They chose (AskUserQuestion): the domain
 `prytax.invalid`; both the recovery code and the `APP_KEY` reset the password; on by default in the desktop app,
 elsewhere by env; usable on a server kept for one person. builds.md §1.4 is the spec as built; README's configuration

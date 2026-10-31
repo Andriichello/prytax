@@ -3,6 +3,7 @@
 namespace PryTax\Console\Starter;
 
 use Illuminate\Support\Facades\Process;
+use Laravel\Sanctum\Sanctum;
 use PryTax\Console\Commands\Start;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
@@ -10,12 +11,14 @@ use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
+use function Laravel\Prompts\warning;
 
 /**
  * Class Action.
  *
  * One of the starter's actions (`prytax:start {action}`), with what they share: running a command in the foreground,
- * offering a database's pending migrations and a fresh build of the SPA, and refusing a port in use.
+ * offering a database's pending migrations and a fresh build of the SPA, refusing a port in use, stopping what runs,
+ * and serving PryTax behind a tunnel for a phone.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -60,8 +63,8 @@ abstract class Action
     abstract protected function handle(): int;
 
     /**
-     * Run a command in the foreground, on the terminal when there is one (colours, prompts, Ctrl+C), and get whether
-     * it succeeded.
+     * Run a command in the foreground, on the terminal when there is one (colours, prompts), and get whether it
+     * succeeded. Ctrl+C stops the command, not the starter.
      *
      * @param list<string> $command
      * @param array<string, string> $env
@@ -72,12 +75,30 @@ abstract class Action
     protected function run(array $command, array $env = [], ?string $path = null): bool
     {
         $process = Process::forever()->path($path ?? base_path())->env($this->toolchain->env($env));
+        $previous = pcntl_signal_get_handler(SIGINT);
+        pcntl_async_signals(true);
+        // A handler of its own, not SIG_IGN, which the command would inherit
+        pcntl_signal(SIGINT, function () {});
 
-        if ($this->start->isInteractive() && SymfonyProcess::isTtySupported()) {
-            return $process->tty()->run($command)->successful();
+        try {
+            if ($this->start->isInteractive() && SymfonyProcess::isTtySupported()) {
+                return $process->tty()->run($command)->successful();
+            }
+
+            return $process->run($command, fn (string $type, string $output) => $this->start->getOutput()->write($output))->successful();
+        } finally {
+            pcntl_signal(SIGINT, $previous);
         }
+    }
 
-        return $process->run($command, fn (string $type, string $output) => $this->start->getOutput()->write($output))->successful();
+    /**
+     * Get a group of processes, which print to the starter's output.
+     *
+     * @return ProcessGroup
+     */
+    protected function group(): ProcessGroup
+    {
+        return new ProcessGroup(fn (string $line) => $this->start->getOutput()->writeln($line));
     }
 
     /**
@@ -111,6 +132,86 @@ abstract class Action
         note('./prytax status shows what runs, and stops it.');
 
         return false;
+    }
+
+    /**
+     * Stop a service of those `Listeners::services()` lists, and get whether it stopped: Docker's by `docker compose
+     * down`, the desktop app by closing its Electron, as its window would be (which stops its PHP server and worker),
+     * the others by their processes on its port.
+     *
+     * @param string $key
+     *
+     * @return bool
+     */
+    protected function stopService(string $key): bool
+    {
+        ['label' => $label, 'port' => $port] = $this->listeners->services()[$key];
+
+        if ($key === 'docker') {
+            $file = is_file(base_path('.env.docker')) ? base_path('.env.docker') : base_path('.env');
+
+            return $this->run(['docker', 'compose', '--env-file', $file, '--profile', 'mysql', 'down']);
+        }
+
+        $pids = $key === 'desktop' ? $this->listeners->desktopProcesses() : [];
+        $failed = $this->listeners->stop($pids ?: $this->listeners->listening()[$port] ?? []);
+
+        if ($failed !== []) {
+            warning("$label: couldn't stop " . implode(', ', $failed) . ' (another user\'s?).');
+            note('sudo kill ' . implode(' ', $failed));
+
+            return false;
+        }
+
+        info("Stopped: $label.");
+
+        return true;
+    }
+
+    /**
+     * Get the variables, with which a server lets a tunnel's address sign in: the requests' own host stateful
+     * (besides those configured), and ngrok's agent, on this machine, a proxy to trust, so its pages are https.
+     *
+     * @return array<string, string>
+     */
+    protected function tunnelled(): array
+    {
+        $stateful = array_filter((array) config('sanctum.stateful'));
+
+        return [
+            'SANCTUM_STATEFUL_DOMAINS' => implode(',', [...$stateful, Sanctum::$currentRequestHostPlaceholder]),
+            'TRUSTED_PROXIES' => '127.0.0.1',
+        ];
+    }
+
+    /**
+     * Start PHP's server for a phone on 8012 in the group, on the database's data, for a tunnel to it: with files for
+     * sessions and cache, and registration off, so the tunnel's address can't create organizations.
+     *
+     * @param ProcessGroup $group
+     * @param Database $database
+     *
+     * @return void
+     */
+    protected function servePhone(ProcessGroup $group, Database $database): void
+    {
+        $env = $this->toolchain->env([
+            ...$database->env,
+            ...$this->tunnelled(),
+            'SESSION_DRIVER' => 'file',
+            'CACHE_STORE' => 'file',
+            'QUEUE_CONNECTION' => 'sync',
+            'PRYTAX_REGISTRATION' => 'false',
+            'PHP_CLI_SERVER_WORKERS' => '4',
+        ]);
+        // PHP's own server, not `artisan serve`, whose server process wouldn't see LARAVEL_STORAGE_PATH; it serves
+        // from the working directory, so from public/
+        $server = [
+            $this->toolchain->php(), '-d', 'variables_order=EGPCS', '-S', '127.0.0.1:' . Listeners::PHONE_PORT,
+            '-t', public_path(), base_path('vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'),
+        ];
+
+        $group->start('phone', $server, $env, public_path());
     }
 
     /**

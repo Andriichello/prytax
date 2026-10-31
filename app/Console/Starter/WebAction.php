@@ -7,6 +7,7 @@ use PryTax\Console\Commands\Start;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
+use function Laravel\Prompts\note;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
 
@@ -15,7 +16,8 @@ use function Laravel\Prompts\text;
  *
  * The web app on this machine (`./prytax web`): PHP's server on APP_URL's port, the queue worker (backups, bundles,
  * period exports) and the scheduler, and Vite's hot reload or the built SPA, on `.env`'s MySQL or a SQLite file,
- * in the foreground until Ctrl+C.
+ * in the foreground until Ctrl+C, with `n` opening an ngrok tunnel to it for a phone. When it runs already, it offers
+ * to restart or stop it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -30,9 +32,14 @@ class WebAction extends Action
     protected function handle(): int
     {
         $port = (int) ($this->start->option('port') ?: Listeners::webPort());
+
+        if ($this->listeners->isListening($port) && !$this->restarted($port)) {
+            return $this->start->isInteractive() ? Start::SUCCESS : Start::FAILURE;
+        }
+
         $database = $this->database();
 
-        if ($database === null || !$this->free($port, 'The web app') || !$this->migrate($database)) {
+        if ($database === null || !$this->migrate($database)) {
             return Start::FAILURE;
         }
 
@@ -54,20 +61,64 @@ class WebAction extends Action
         }
 
         $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';
-        $env = $database->env;
-
-        // Another port than APP_URL's signs in only when it's stateful too
-        if ($port !== Listeners::webPort()) {
-            $env += ['APP_URL' => "http://$host:$port", 'SANCTUM_STATEFUL_DOMAINS' => "$host:$port,127.0.0.1:$port"];
-        }
+        // A tunnel may open later, so its address signs in too, and so does another port than APP_URL's
+        $env = $this->toolchain->env([
+            ...$database->env,
+            ...$this->tunnelled(),
+            ...($port === Listeners::webPort() ? [] : ['APP_URL' => "http://$host:$port"]),
+        ]);
 
         info("PryTax runs at http://$host:$port on $database->label. Ctrl+C stops it.");
+        $group = $this->group();
 
-        $interrupted = app(ProcessGroup::class)->run($commands, $this->toolchain->env($env), function (string $line) {
-            $this->start->getOutput()->writeln($line);
-        });
+        foreach ($commands as $name => $command) {
+            $group->start($name, $command, $env);
+        }
 
-        return $interrupted ? Start::SUCCESS : Start::FAILURE;
+        // Vite's hot reload serves the SPA from this machine only, so a phone couldn't load it
+        $keys = $vite ? [] : ['n' => ['open or close an ngrok tunnel for a phone', function () use ($group, $port, $database) {
+            app(Tunnel::class)->toggle($group, "127.0.0.1:$port", "on the phone, and sign in with an account of $database->label");
+        }]];
+
+        return $group->wait($keys) ? Start::SUCCESS : Start::FAILURE;
+    }
+
+    /**
+     * Offer to restart or stop the web app, which runs on the port already, and get whether it's to start again,
+     * stopped.
+     *
+     * @param int $port
+     *
+     * @return bool
+     */
+    protected function restarted(int $port): bool
+    {
+        if (!$this->start->isInteractive()) {
+            return $this->free($port, 'The web app');
+        }
+
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';
+        $choice = $this->start->menu("The web app runs already, at http://$host:$port.", [
+            'restart' => 'Restart it here',
+            'stop' => 'Stop it',
+        ]);
+
+        if (!in_array($choice, ['restart', 'stop'], true) || !$this->stopService('web') || $choice === 'stop') {
+            return false;
+        }
+
+        for ($attempt = 0; $attempt < 50 && $this->listeners->isListening($port); $attempt++) {
+            usleep(200_000);
+        }
+
+        if ($this->listeners->isListening($port)) {
+            error("Port $port is still in use.");
+            note('./prytax status shows what runs, and stops it.');
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

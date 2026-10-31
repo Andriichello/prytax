@@ -14,7 +14,8 @@ use function Laravel\Prompts\note;
  *
  * The desktop app's development window (`./prytax desktop`, builds.md §4.10): Node, Electron and its sandbox checked,
  * the SPA built and the desktop database migrated when they need it, then `native:run` in the foreground, with this
- * PHP as `php`, DevTools only when asked, and the DevTools protocol on 9333 for scripts.
+ * PHP as `php`, DevTools only when asked, and the DevTools protocol on 9333 for scripts; `n` serves its data to a phone
+ * over an ngrok tunnel meanwhile. When it runs already, it offers that tunnel, or to close it.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -29,24 +30,90 @@ class DesktopAction extends Action
     protected function handle(): int
     {
         if ($this->listeners->isListening(Listeners::DESKTOP_PORT)) {
-            info('The desktop app runs already. ./prytax stop closes it.');
-
-            return Start::SUCCESS;
+            return $this->running();
         }
 
-        if (!$this->checked() || !$this->ensureBuild() || !$this->migrate(Database::desktop($this->toolchain))) {
+        $database = Database::desktop($this->toolchain);
+
+        if (!$this->checked() || !$this->ensureBuild() || !$this->migrate($database)) {
             return Start::FAILURE;
         }
 
         $devtools = (bool) $this->start->option('devtools');
         info('Opening the desktop app' . ($devtools ? ' with DevTools' : '') . '. Close its window, or press Ctrl+C here, to stop it.');
 
-        $opened = $this->artisan(['native:run', '--no-dependencies'], [
+        $group = $this->group();
+        // Without interaction, its dev script doesn't take the terminal, which the group reads keys from; -v shows its log
+        $group->start('desktop', [$this->toolchain->php(), 'artisan', 'native:run', '--no-dependencies', '--no-interaction', '-v'], $this->toolchain->env([
             'PRYTAX_DEVTOOLS' => $devtools ? 'true' : 'false',
             'REMOTE_DEBUGGING_PORT' => (string) Listeners::DEVTOOLS_PORT,
-        ]);
+        ]));
+
+        $opened = $group->wait(['n' => ['open or close an ngrok tunnel for a phone, to its data', function () use ($group, $database) {
+            $this->togglePhone($group, $database);
+        }]]);
 
         return $opened ? Start::SUCCESS : Start::FAILURE;
+    }
+
+    /**
+     * Offer a tunnel to the desktop app's data for a phone, or to close it, as it runs already, and get the exit code.
+     *
+     * @return int
+     */
+    protected function running(): int
+    {
+        if (!$this->start->isInteractive()) {
+            info('The desktop app runs already. ./prytax stop desktop closes it.');
+
+            return Start::SUCCESS;
+        }
+
+        return match ($this->start->menu('The desktop app runs already.', [
+            'phone' => 'Open an ngrok tunnel for a phone, to its data',
+            'close' => 'Close it',
+        ])) {
+            'phone' => $this->start->perform('phone', ['source' => 'desktop']),
+            'close' => $this->stopService('desktop') ? Start::SUCCESS : Start::FAILURE,
+            default => Start::SUCCESS,
+        };
+    }
+
+    /**
+     * Serve the desktop app's data to a phone over an ngrok tunnel in the group, or stop serving it.
+     *
+     * @param ProcessGroup $group
+     * @param Database $database
+     *
+     * @return void
+     */
+    protected function togglePhone(ProcessGroup $group, Database $database): void
+    {
+        $tunnel = app(Tunnel::class);
+
+        if ($group->running('phone') || $group->running('ngrok')) {
+            $group->stop('ngrok');
+            $group->stop('phone');
+            $group->say('ngrok', 'Closed the tunnel.');
+
+            return;
+        }
+
+        if (!$tunnel->isInstalled()) {
+            $group->say('ngrok', '<fg=red>ngrok isn\'t installed:</> ' . Tunnel::INSTALL . '.');
+
+            return;
+        }
+
+        if ($this->listeners->isListening(Listeners::PHONE_PORT)) {
+            $group->say('phone', '<fg=red>The phone server needs port ' . Listeners::PHONE_PORT . ', which is in use.</>');
+
+            return;
+        }
+
+        $group->say('ngrok', 'Opening a tunnel…');
+        $this->servePhone($group, $database);
+        $tunnel->open($group, '127.0.0.1:' . Listeners::PHONE_PORT, "on the phone, and sign in with an account of $database->label");
     }
 
     /**

@@ -46,21 +46,35 @@ class Listeners
     public const int NGROK_PORT = 4040;
 
     /**
-     * Get PryTax's services, by key: what each is, and its port.
+     * Get PryTax's services, by key: what each is, its port, and the address it's opened at, if any.
      *
-     * @return array<string, array{label: string, port: int}>
+     * @return array<string, array{label: string, port: int, url: string|null}>
      */
     public function services(): array
     {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';
+
         return [
-            'web' => ['label' => 'Web app', 'port' => self::webPort()],
-            'vite' => ['label' => 'Vite (hot reload)', 'port' => 5173],
-            'desktop' => ['label' => 'Desktop app', 'port' => self::DESKTOP_PORT],
-            'phone' => ['label' => 'Phone server', 'port' => self::PHONE_PORT],
-            'ngrok' => ['label' => 'ngrok tunnel', 'port' => self::NGROK_PORT],
-            'docker' => ['label' => 'Docker app', 'port' => self::dockerPort()],
-            'mysql' => ['label' => 'MySQL', 'port' => 3306],
+            'web' => ['label' => 'Web app', 'port' => self::webPort(), 'url' => "http://$host:" . self::webPort()],
+            'vite' => ['label' => 'Vite (hot reload)', 'port' => 5173, 'url' => null],
+            'desktop' => ['label' => 'Desktop app', 'port' => self::DESKTOP_PORT, 'url' => null],
+            'phone' => ['label' => 'Phone server', 'port' => self::PHONE_PORT, 'url' => null],
+            'ngrok' => ['label' => 'ngrok tunnel', 'port' => self::NGROK_PORT, 'url' => null],
+            'docker' => ['label' => 'Docker app', 'port' => self::dockerPort(), 'url' => self::dockerSettings()['APP_URL'] ?? 'http://localhost:' . self::dockerPort()],
+            'mysql' => ['label' => 'MySQL', 'port' => 3306, 'url' => null],
         ];
+    }
+
+    /**
+     * Get PryTax's services, which run, by key.
+     *
+     * @return array<string, array{label: string, port: int, url: string|null}>
+     */
+    public function running(): array
+    {
+        $listening = $this->listening();
+
+        return array_filter($this->services(), fn (array $service) => array_key_exists($service['port'], $listening));
     }
 
     /**
@@ -80,9 +94,19 @@ class Listeners
      */
     public static function dockerPort(): int
     {
+        return (int) ((self::dockerSettings()['APP_PORT'] ?? null) ?: 8080);
+    }
+
+    /**
+     * Get the Docker app's settings: `.env.docker`'s, if it's there.
+     *
+     * @return array<string, string|null>
+     */
+    public static function dockerSettings(): array
+    {
         $settings = base_path('.env.docker');
 
-        return (int) ((is_file($settings) ? Dotenv::parse((string) file_get_contents($settings))['APP_PORT'] ?? null : null) ?: 8080);
+        return is_file($settings) ? Dotenv::parse((string) file_get_contents($settings)) : [];
     }
 
     /**

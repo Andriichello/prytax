@@ -11,22 +11,23 @@ use PryTax\Console\Starter\DesktopAction;
 use PryTax\Console\Starter\DockerAction;
 use PryTax\Console\Starter\DoctorAction;
 use PryTax\Console\Starter\Listeners;
+use PryTax\Console\Starter\Menu;
 use PryTax\Console\Starter\PhoneAction;
 use PryTax\Console\Starter\StatusAction;
 use PryTax\Console\Starter\TestAction;
 use PryTax\Console\Starter\WebAction;
+use Symfony\Component\Console\Input\InputInterface;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\intro;
-use function Laravel\Prompts\note;
-use function Laravel\Prompts\select;
 
 /**
  * Class Start.
  *
  * PryTax's starter (`./prytax`, which runs it with PHP 8.5): a menu, or an action named, that starts PryTax as a web
- * app (here or in Docker), as the desktop app or for a phone, shows and stops what runs, checks the machine, and
- * runs the tests, the builds and the databases' tasks (builds.md §6).
+ * app (here or in Docker) or as the desktop app, with an ngrok tunnel for a phone, shows and stops what runs, checks
+ * the machine, and runs the tests, the builds and the databases' tasks (builds.md §6). The menu asks for the platform
+ * first, then how to run it; the tools are below it, beside Quit, and Esc quits.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
@@ -48,29 +49,49 @@ use function Laravel\Prompts\select;
 class Start extends Command
 {
     /**
-     * The actions, by name: their class, and their line in the menu.
+     * The actions' classes, by name.
      *
-     * @var array<string, array{0: class-string, 1: string}>
+     * @var array<string, class-string>
      */
     protected const array ACTIONS = [
-        'web' => [WebAction::class, 'Web app — here: server, queue worker and scheduler, on MySQL or SQLite'],
-        'docker' => [DockerAction::class, 'Web app — in Docker'],
-        'desktop' => [DesktopAction::class, 'Desktop app — the development window'],
-        'phone' => [PhoneAction::class, 'Phone — the app over an ngrok tunnel'],
-        'status' => [StatusAction::class, 'Status — what runs, and stopping it'],
-        'doctor' => [DoctorAction::class, 'Doctor — check what PryTax needs here'],
-        'test' => [TestAction::class, 'Tests — PHP and SPA'],
-        'build' => [BuildAction::class, 'Build — the SPA, the desktop installers, the thumbnails'],
-        'db' => [DatabaseAction::class, 'Database — migrations, demo data, the first owner'],
-        'stop' => [StatusAction::class, 'Stop — what runs'],
+        'web' => WebAction::class,
+        'docker' => DockerAction::class,
+        'desktop' => DesktopAction::class,
+        'phone' => PhoneAction::class,
+        'status' => StatusAction::class,
+        'stop' => StatusAction::class,
+        'doctor' => DoctorAction::class,
+        'test' => TestAction::class,
+        'build' => BuildAction::class,
+        'db' => DatabaseAction::class,
     ];
 
     /**
-     * The actions, after which the menu comes back: those that don't keep running in the foreground.
+     * The tools, which the menu's Tools lists, by action.
      *
-     * @var list<string>
+     * @var array<string, string>
      */
-    protected const array RETURNING = ['docker', 'status', 'doctor', 'test', 'build', 'db'];
+    protected const array TOOLS = [
+        'status' => 'Status — what runs, and stopping it',
+        'doctor' => 'Doctor — check what PryTax needs here',
+        'test' => 'Tests — PHP and SPA',
+        'build' => 'Build — the SPA, the desktop installers, the thumbnails',
+        'db' => 'Database — migrations, demo data, the first owner',
+    ];
+
+    /**
+     * Whether the menu runs, rather than an action named, so that the actions' prompts offer Back too.
+     *
+     * @var bool
+     */
+    protected bool $inMenu = false;
+
+    /**
+     * Whether Quit was chosen.
+     *
+     * @var bool
+     */
+    protected bool $quitting = false;
 
     /**
      * Execute the console command.
@@ -90,6 +111,8 @@ class Start extends Command
                 return self::INVALID;
             }
 
+            Menu::escapeQuits();
+
             return $this->perform($action);
         }
 
@@ -99,16 +122,31 @@ class Start extends Command
             return self::INVALID;
         }
 
+        Menu::escapeQuits();
         intro('PryTax');
-        $this->noteRunning($listeners);
-        $menu = array_map(fn (array $action) => $action[1], array_diff_key(self::ACTIONS, ['stop' => true]));
+        $this->showRunning($listeners);
+        $this->inMenu = true;
 
-        do {
-            $action = select('What do you want to do?', [...$menu, 'quit' => 'Quit'], default: 'web', scroll: 11);
-            $result = $action === 'quit' ? self::SUCCESS : $this->perform($action);
-        } while (in_array($action, self::RETURNING, true));
+        while (!$this->quitting) {
+            $running = $listeners->running();
+            $platform = $this->choose('Which platform?', [
+                'web' => 'Web — ' . match (true) {
+                    isset($running['web']) => "runs here at {$running['web']['url']}",
+                    isset($running['docker']) => "runs in Docker at {$running['docker']['url']}",
+                    default => 'here or in Docker',
+                },
+                'desktop' => 'Desktop — ' . (isset($running['desktop']) ? 'the development window runs' : 'the development window'),
+            ], ['tools' => 'Tools — status, doctor, tests, builds, database']);
 
-        return $result;
+            match ($platform) {
+                'web' => $this->web($running),
+                'desktop' => $this->desktop($running),
+                'tools' => $this->tools(),
+                default => null,
+            };
+        }
+
+        return self::SUCCESS;
     }
 
     /**
@@ -122,33 +160,150 @@ class Start extends Command
     }
 
     /**
-     * Perform an action, and get its exit code.
+     * Ask which of the options, with Back below them in the menu and Quit last (Esc), and get the option's value,
+     * `back` or `quit`, which ends the menu.
      *
-     * @param string $action
+     * @param string $label
+     * @param array<string, string> $options
+     * @param string $hint
      *
-     * @return int
+     * @return string
      */
-    protected function perform(string $action): int
+    public function menu(string $label, array $options, string $hint = ''): string
     {
-        return app(self::ACTIONS[$action][0])($this);
+        return $this->choose($label, $options, $this->inMenu ? ['back' => 'Back'] : [], $hint);
     }
 
     /**
-     * Tell what of PryTax runs already, if anything.
+     * Perform an action, with the options given, and get its exit code.
+     *
+     * @param string $action
+     * @param array<string, mixed> $options
+     *
+     * @return int
+     */
+    public function perform(string $action, array $options = []): int
+    {
+        foreach ($options as $name => $value) {
+            $this->input->setOption($name, $value);
+        }
+
+        return app(self::ACTIONS[$action])($this);
+    }
+
+    /**
+     * Ask which of the options, with the lines below them and Quit last, and get the value chosen.
+     *
+     * @param string $label
+     * @param array<string, string> $options
+     * @param array<string, string> $below
+     * @param string $hint
+     *
+     * @return string
+     */
+    protected function choose(string $label, array $options, array $below = [], string $hint = ''): string
+    {
+        $choice = (string) (new Menu($label, $options, [...$below, 'quit' => 'Quit'], hint: $hint))->prompt();
+        $this->quitting = $this->quitting || $choice === 'quit';
+
+        return $choice;
+    }
+
+    /**
+     * Ask where the web app should run, and run it there.
+     *
+     * @param array<string, array{label: string, port: int, url: string|null}> $running
+     *
+     * @return void
+     */
+    protected function web(array $running): void
+    {
+        $choice = $this->menu('Where should the web app run?', [
+            'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
+            'docker' => isset($running['docker']) ? "In Docker — runs at {$running['docker']['url']}" : 'In Docker — the image, with its worker and scheduler',
+        ]);
+
+        if (in_array($choice, ['web', 'docker'], true)) {
+            $this->perform($choice);
+        }
+    }
+
+    /**
+     * Ask how the desktop app should open, and open it, or offer what's done with it when it runs already.
+     *
+     * @param array<string, array{label: string, port: int, url: string|null}> $running
+     *
+     * @return void
+     */
+    protected function desktop(array $running): void
+    {
+        if (isset($running['desktop'])) {
+            $this->perform('desktop');
+
+            return;
+        }
+
+        $choice = $this->menu('How should the desktop app open?', [
+            'window' => 'The development window',
+            'devtools' => 'The development window, with DevTools',
+        ]);
+
+        if (in_array($choice, ['window', 'devtools'], true)) {
+            $this->perform('desktop', ['devtools' => $choice === 'devtools']);
+        }
+    }
+
+    /**
+     * Ask which tool, and run it, until Back or Quit.
+     *
+     * @return void
+     */
+    protected function tools(): void
+    {
+        do {
+            $tool = $this->menu('Which tool?', self::TOOLS);
+
+            if (array_key_exists($tool, self::TOOLS)) {
+                $this->perform($tool);
+            }
+        } while (!$this->quitting && $tool !== 'back');
+    }
+
+    /**
+     * Tell which of PryTax's apps run, and what else of it does (Vite, the phone server, ngrok).
      *
      * @param Listeners $listeners
      *
      * @return void
      */
-    protected function noteRunning(Listeners $listeners): void
+    protected function showRunning(Listeners $listeners): void
     {
-        $listening = $listeners->listening();
-        $running = collect($listeners->services())
-            ->filter(fn (array $service) => array_key_exists($service['port'], $listening))
-            ->map(fn (array $service) => "{$service['label']} ({$service['port']})");
+        $running = $listeners->running();
+        $apps = ['web', 'docker', 'desktop'];
+        $services = $listeners->services();
+        unset($services['mysql']);
 
-        if ($running->isNotEmpty()) {
-            note('Running: ' . $running->implode(', ') . '.');
+        // The apps first, in this order
+        foreach (array_replace(array_flip($apps), $services) as $key => ['label' => $label, 'url' => $url]) {
+            if (isset($running[$key])) {
+                $this->output->writeln(sprintf('  <fg=green>●</> %-18s runs%s', $label, $url === null ? '' : " at $url"));
+            } elseif (in_array($key, $apps, true)) {
+                $this->output->writeln(sprintf('  <fg=gray>○ %-18s not running</>', $label));
+            }
         }
+    }
+
+    /**
+     * Configure the prompts' fallbacks, the menu's among them: a choice of its options and the lines below them.
+     *
+     * @param InputInterface $input
+     *
+     * @return void
+     */
+    protected function configurePrompts(InputInterface $input): void
+    {
+        parent::configurePrompts($input);
+
+        Menu::fallbackUsing(fn (Menu $menu) => $this->components->choice($menu->label, [...$menu->options, ...$menu->below], $menu->default));
     }
 }

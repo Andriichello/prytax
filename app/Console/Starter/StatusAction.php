@@ -5,9 +5,7 @@ namespace PryTax\Console\Starter;
 use PryTax\Console\Commands\Start;
 
 use function Laravel\Prompts\error;
-use function Laravel\Prompts\info;
 use function Laravel\Prompts\multiselect;
-use function Laravel\Prompts\note;
 use function Laravel\Prompts\table;
 use function Laravel\Prompts\warning;
 
@@ -55,7 +53,7 @@ class StatusAction extends Action
         }
 
         foreach ($chosen as $key) {
-            $this->stop($key, $listening[$this->listeners->services()[$key]['port']] ?? []);
+            $this->stopService($key);
         }
 
         return Start::SUCCESS;
@@ -95,38 +93,5 @@ class StatusAction extends Action
         }
 
         return multiselect($stopping ? 'Stop which?' : 'Stop any of them?', $running, default: $stopping ? array_keys($running) : []);
-    }
-
-    /**
-     * Stop a service.
-     *
-     * @param string $key
-     * @param list<int> $pids The processes on its port.
-     *
-     * @return void
-     */
-    protected function stop(string $key, array $pids): void
-    {
-        $label = $this->listeners->services()[$key]['label'];
-
-        if ($key === 'docker') {
-            $file = is_file(base_path('.env.docker')) ? base_path('.env.docker') : base_path('.env');
-            $this->run(['docker', 'compose', '--env-file', $file, '--profile', 'mysql', 'down']);
-
-            return;
-        }
-
-        // Closing the desktop app's Electron, as its window would be, stops its PHP server and worker with it
-        $desktop = $key === 'desktop' ? $this->listeners->desktopProcesses() : [];
-        $failed = $this->listeners->stop($desktop ?: $pids);
-
-        if ($failed !== []) {
-            warning("$label: couldn't stop " . implode(', ', $failed) . ' (another user\'s?).');
-            note('sudo kill ' . implode(' ', $failed));
-
-            return;
-        }
-
-        info("Stopped: $label.");
     }
 }

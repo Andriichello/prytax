@@ -49,7 +49,14 @@ use PryTax\Mcp\Tools\ReadSpreadsheet;
 class PryTaxServer extends Server
 {
     /**
-     * The tools, which only read.
+     * How many tools a list gives at once: all of them, which clients don't all page through.
+     *
+     * @var int
+     */
+    public int $defaultPaginationLength = 50;
+
+    /**
+     * The tools: reads, the API's endpoints and reads, a spreadsheet, and, once changes are allowed, the API's writes.
      *
      * @var array<int, class-string>
      */

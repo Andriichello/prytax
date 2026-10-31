@@ -78,6 +78,18 @@ class ApiToolsTest extends TestCase
     }
 
     /**
+     * Test that one list gives every tool, api-write among them while changes are allowed: clients don't all page.
+     *
+     * @return void
+     */
+    public function testListsEveryToolAtOnce(): void
+    {
+        $owner = $this->claudeOf($this->createProfile()->organization, writes: true);
+
+        PryTaxServer::actingAs($owner)->tools()->assertRegistered([ApiEndpoints::class, ApiRead::class, ApiWrite::class, ReadSpreadsheet::class]);
+    }
+
+    /**
      * Test that, with changes allowed, Claude creates what its user may, through the API, as that user.
      *
      * @return void

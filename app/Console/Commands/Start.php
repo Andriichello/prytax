@@ -347,9 +347,10 @@ class Start extends Command
     }
 
     /**
-     * Get the note of the last choice: when it was set up, when its database was created, and its last run.
+     * Get the note of the last choice, short enough for a narrow terminal: when it was set up, and when its database
+     * was created (its last run is told above the overview).
      *
-     * @param array{set_up_at: string|null, database_created_at: string|null, run_at: string|null, run_by: string|null} $last
+     * @param array{set_up_at: string|null, database_created_at: string|null} $last
      *
      * @return string
      */
@@ -358,7 +359,6 @@ class Start extends Command
         return implode(' · ', array_filter([
             $last['set_up_at'] === null ? null : 'Set up ' . SummaryTable::day($last['set_up_at']),
             $last['database_created_at'] === null ? null : 'database created ' . SummaryTable::day($last['database_created_at']),
-            $last['run_at'] === null ? null : 'last run ' . SummaryTable::moment($last['run_at']) . ($last['run_by'] === null ? '' : " by ./{$last['run_by']}"),
         ]));
     }
 
@@ -381,7 +381,8 @@ class Start extends Command
 
         $summary = spin(fn () => $summaries->of($last['choice'], $last['sqlite']), "Reading {$last['label']}…");
         $this->output->writeln('');
-        $this->output->writeln("  <options=bold>Last: {$last['label']}</>");
+        $run = $last['run_at'] === null ? '' : ', ' . SummaryTable::moment($last['run_at']) . ($last['run_by'] === null ? '' : " by ./{$last['run_by']}");
+        $this->output->writeln("  <options=bold>Last: {$last['label']}</>$run");
 
         if ($summary === null) {
             note(str_starts_with($last['choice'], 'web-docker')

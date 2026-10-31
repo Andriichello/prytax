@@ -7,14 +7,8 @@
     "license": "MIT",
     "repositories": [
         {
-            "type": "path",
-            "url": "../api-core",
-            "options": {
-                "symlink": true,
-                "versions": {
-                    "andriichello/api-core": "dev-dev"
-                }
-            }
+            "type": "vcs",
+            "url": "https://github.com/Andriichello/api-core.git"
         }
     ],
     "require": {

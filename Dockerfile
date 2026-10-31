@@ -2,13 +2,12 @@
 
 # PryTax's web image (builds.md §2): one image for the app, the queue worker and the scheduler.
 #
-# api-core comes from a second build context, as PryTax's composer.json takes it from the path repository
-# `../api-core`. composer.lock pins that repository's symlink (which COMPOSER_MIRROR_PATH_REPOS can't override), so
-# the link Composer makes in vendor/ is replaced with a copy:
+# api-core comes from its private GitHub repository, so Composer needs a token, which may read it. It's passed as a
+# build secret, so it stays out of the image's layers and history:
 #
-#     docker build --build-context api-core=../api-core -t prytax .
+#     COMPOSER_AUTH='{"github-oauth":{"github.com":"<token>"}}' docker build --secret id=composer_auth,env=COMPOSER_AUTH -t prytax .
 #
-# compose.yaml passes the context itself.
+# compose.yaml passes the secret itself, from the same variable.
 
 ARG PHP_IMAGE=dunglas/frankenphp:1-php8.5
 
@@ -31,12 +30,10 @@ COPY docker/php.ini "$PHP_INI_DIR/conf.d/zz-prytax.ini"
 # The PHP dependencies, without the development ones
 FROM base AS vendor
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY --from=api-core --exclude=vendor --exclude=.git --exclude=node_modules --exclude=tests --exclude=storage . /build/api-core
 WORKDIR /build/prytax
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --no-interaction --prefer-dist \
-    && rm vendor/andriichello/api-core \
-    && cp -R /build/api-core vendor/andriichello/api-core
+RUN --mount=type=secret,id=composer_auth,env=COMPOSER_AUTH \
+    composer install --no-dev --no-scripts --no-autoloader --no-interaction --prefer-dist
 COPY . .
 RUN composer dump-autoload --optimize --no-dev --no-interaction
 

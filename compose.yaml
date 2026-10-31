@@ -5,7 +5,8 @@
 #
 # The settings come from .env (see .env.docker.example). In a development checkout, whose .env is the local one, keep
 # them in .env.docker with PRYTAX_ENV_FILE=.env.docker in it, and add `--env-file .env.docker` to every command.
-# README.md ("Running with Docker") has the first owner.
+# Building takes api-core from its private GitHub repository: COMPOSER_AUTH, in the shell, holds a token, which may
+# read it (`gh auth token` gives one). README.md ("Running with Docker") has the first owner.
 
 x-prytax: &prytax
   image: prytax:latest
@@ -21,8 +22,9 @@ services:
     <<: *prytax
     build:
       context: .
-      additional_contexts:
-        api-core: ../api-core
+      # A token, which may read api-core's private repository (Dockerfile)
+      secrets:
+        - composer_auth
     environment:
       RUN_MIGRATIONS: "true"
     ports:
@@ -71,3 +73,8 @@ services:
 volumes:
   storage:
   mysql:
+
+secrets:
+  # Composer's credentials, from the shell that builds: COMPOSER_AUTH='{"github-oauth":{"github.com":"<token>"}}'
+  composer_auth:
+    environment: COMPOSER_AUTH

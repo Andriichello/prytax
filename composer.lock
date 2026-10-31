@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8e9fe6d250f8099880c9689d955c487e",
+    "content-hash": "1277a0d1bb111c955ec7bad68e84fece",
     "packages": [
         {
             "name": "andriichello/api-core",
             "version": "dev-dev",
-            "dist": {
-                "type": "path",
-                "url": "../api-core",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:Andriichello/api-core.git",
                 "reference": "bd4c5337d1b4452a7f3b153cbea356ffe3714dd2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Andriichello/api-core/zipball/bd4c5337d1b4452a7f3b153cbea356ffe3714dd2",
+                "reference": "bd4c5337d1b4452a7f3b153cbea356ffe3714dd2",
+                "shasum": ""
             },
             "require": {
                 "ext-fileinfo": "*",
@@ -38,6 +44,7 @@
                 "phpunit/phpunit": "^12.5.12",
                 "squizlabs/php_codesniffer": "^4.0"
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -88,10 +95,11 @@
                 "framework",
                 "laravel"
             ],
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "source": "https://github.com/Andriichello/api-core/tree/dev",
+                "issues": "https://github.com/Andriichello/api-core/issues"
+            },
+            "time": "2026-10-20T21:57:59+00:00"
         },
         {
             "name": "barryvdh/laravel-dompdf",

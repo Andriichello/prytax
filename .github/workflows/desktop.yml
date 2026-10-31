@@ -2,7 +2,7 @@
 # (dmg), unsigned for now. Run it by hand (Actions → Desktop builds → Run workflow) or by pushing a `desktop-v*` tag.
 #
 # api-core is private: the `API_CORE_TOKEN` secret is a fine-grained token, which may read Andriichello/api-core.
-# PryTax takes it from the path repository `../api-core`, so it's checked out beside PryTax.
+# Composer takes api-core from its GitHub repository with it (COMPOSER_AUTH).
 name: Desktop builds
 
 on:
@@ -20,6 +20,9 @@ jobs:
           - { runner: windows-latest, os: win, arch: x64 }
           - { runner: macos-latest, os: mac, arch: arm64 }
     runs-on: ${{ matrix.runner }}
+    # Every Composer of the job (the dependencies', and native:build's own `composer install --no-dev`)
+    env:
+      COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.API_CORE_TOKEN }}"}}'
     defaults:
       run:
         shell: bash
@@ -29,13 +32,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: prytax
-
-      - uses: actions/checkout@v4
-        with:
-          repository: Andriichello/api-core
-          ref: dev
-          path: api-core
-          token: ${{ secrets.API_CORE_TOKEN }}
 
       - uses: shivammathur/setup-php@v2
         with:

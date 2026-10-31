@@ -387,6 +387,31 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
+     * Test that an upload, whose `primary` isn't a boolean, is refused (422) and stores nothing.
+     *
+     * @return void
+     */
+    public function testReturns422WhenAnUploadsPrimaryIsNotABoolean(): void
+    {
+        Storage::fake('local');
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $this->createAccount($profile);
+        [$client, $contract] = $this->createClientWithContract($profile);
+        $id = $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-14', 'items' => [['quantity' => '1']],
+        ])->json('data.id');
+
+        $response = $this->postJson($this->profilePath($profile, "invoices/$id/files"), [
+            'file' => UploadedFile::fake()->create('NW-2026-031.pdf', 20, 'application/pdf'), 'primary' => 'maybe',
+        ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['primary' => 'The primary field must be true or false.']);
+        $this->assertDatabaseCount('files', 0);
+    }
+
+    /**
      * Test that a draft's uploaded PDF is deleted only when another one replaces it or the user deletes it: returning
      * the frozen invoice to its draft keeps it.
      *

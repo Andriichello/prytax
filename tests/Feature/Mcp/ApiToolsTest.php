@@ -5,6 +5,7 @@ namespace Tests\Feature\Mcp;
 use Core\Models\Organization;
 use Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PryTax\Mcp\Servers\PryTaxServer;
@@ -14,6 +15,7 @@ use PryTax\Mcp\Tools\ApiWrite;
 use PryTax\Mcp\Tools\ReadSpreadsheet;
 use PryTax\Models\Client;
 use PryTax\Models\Integration;
+use PryTax\Models\Invoice;
 use PryTax\Models\Profile;
 use PryTax\Services\Invoices\InvoiceWriter;
 use Tests\Concerns\ActsInProfiles;
@@ -172,6 +174,103 @@ class ApiToolsTest extends TestCase
     }
 
     /**
+     * Test that Claude changes an invoice as of the updated_at it read, which goes as If-Unmodified-Since.
+     *
+     * @return void
+     */
+    public function testChangesAnInvoiceAsOfTheUpdatedAtItRead(): void
+    {
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization, writes: true);
+        $invoice = $this->createDraft($profile);
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiWrite::class, [
+            'method' => 'PATCH',
+            'path' => "profiles/$profile->id/invoices/$invoice->id",
+            'body' => ['notes' => 'Paid in two parts'],
+            'if_unmodified_since' => $invoice->updated_at->toJSON(),
+        ]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json->where('status', 200)->where('body.data.notes', 'Paid in two parts')->etc());
+        $this->assertSame('Paid in two parts', Invoice::query()->withoutGlobalScopes()->find($invoice->id)->notes);
+    }
+
+    /**
+     * Test that a change of an invoice without its updated_at is the API's 428, with a hint of what to send, since the
+     * API's message is the SPA's, and changes nothing.
+     *
+     * @return void
+     */
+    public function testReturns428WithAHintWhenAnInvoicesChangeLacksItsUpdatedAt(): void
+    {
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization, writes: true);
+        $invoice = $this->createDraft($profile);
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiWrite::class, [
+            'method' => 'PATCH',
+            'path' => "profiles/$profile->id/invoices/$invoice->id",
+            'body' => ['notes' => 'Paid in two parts'],
+        ]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('status', 428)
+            ->where('hint', 'Send if_unmodified_since: the updated_at of what you change, as api-read gave it.')
+            ->etc());
+        $this->assertNull(Invoice::query()->withoutGlobalScopes()->find($invoice->id)->notes);
+    }
+
+    /**
+     * Test that a stored file comes described by its name, type and size, not as its bytes, which a streamed download
+     * would leave empty.
+     *
+     * @return void
+     */
+    public function testDescribesAStoredFileByItsNameTypeAndSize(): void
+    {
+        Storage::fake((string) config('api-core.files.disk'));
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization);
+        $invoice = $this->createDraft($profile);
+        $file = $this->inProfile($profile, fn () => $invoice->attachFile(
+            UploadedFile::fake()->createWithContent('Рахунок 7.pdf', "%PDF-1.4\n%%EOF\n"),
+            null,
+            Invoice::UPLOADED_COLLECTION,
+        ));
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiRead::class, ['path' => "profiles/$profile->id/invoices/$invoice->id/files/$file->id/download"]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('status', 200)
+            ->where('body.file', ['name' => 'Рахунок 7.pdf', 'type' => 'application/pdf', 'size' => 15])
+            ->has('body.note')
+            ->etc());
+    }
+
+    /**
+     * Test that a PDF rendered into the answer (a draft's preview) comes described too, not as its bytes, which aren't
+     * text.
+     *
+     * @return void
+     */
+    public function testDescribesARenderedPdfInsteadOfItsBytes(): void
+    {
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization);
+        $invoice = $this->createDraft($profile);
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiRead::class, ['path' => "profiles/$profile->id/invoices/$invoice->id/preview"]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('status', 200)
+            ->where('body.file.name', 'draft.pdf')
+            ->where('body.file.type', 'application/pdf')
+            ->where('body.file.size', fn (int $size) => $size > 1000)
+            ->has('body.note')
+            ->etc());
+    }
+
+    /**
      * Test that an error comes without where it was thrown, even in debug mode: its message, not the installation's
      * code and folders, nor a trace, which would fill Claude's context.
      *
@@ -218,6 +317,24 @@ class ApiToolsTest extends TestCase
         PryTaxServer::actingAs($writer)->tool(ApiEndpoints::class, ['search' => 'integrations'])
             ->assertOk()
             ->assertStructuredContent(fn ($json) => $json->where('endpoints', [])->etc());
+    }
+
+    /**
+     * Test that an invoice's upload lists `primary` among its fields, so Claude finds how an upload becomes the
+     * draft's document.
+     *
+     * @return void
+     */
+    public function testListsTheInvoiceUploadsPrimaryField(): void
+    {
+        $owner = $this->claudeOf($this->createProfile()->organization, writes: true);
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiEndpoints::class, ['search' => 'invoices/{invoice}/files']);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('endpoints', fn ($endpoints) => (collect($endpoints)->first(fn ($endpoint) => $endpoint['path'] === 'profiles/{profile}/invoices/{invoice}/files'
+                && in_array('POST', $endpoint['methods'], true))['fields']['primary'] ?? null) === 'sometimes|boolean')
+            ->etc());
     }
 
     /**

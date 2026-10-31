@@ -66,6 +66,7 @@ class WebAction extends Action
             ...$database->env,
             ...$this->tunnelled(),
             ...($port === Listeners::webPort() ? [] : ['APP_URL' => "http://$host:$port"]),
+            ...self::SINGLE_ORGANIZATION,
         ]);
 
         info("PryTax runs at http://$host:$port on $database->label. Ctrl+C stops it.");

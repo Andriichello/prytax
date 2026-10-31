@@ -8,9 +8,16 @@
 # Building takes api-core from its private GitHub repository: COMPOSER_AUTH, in the shell, holds a token, which may
 # read it (`gh auth token` gives one). README.md ("Running with Docker") has the first owner.
 
+# One person's installation (builds.md §1.4): as the file compose reads its variables from says (.env, or
+# --env-file's), and always when `./prytax docker` starts it, which sets it in compose's environment
+x-prytax-environment: &prytax-environment
+  PRYTAX_SINGLE_ORGANIZATION: ${PRYTAX_SINGLE_ORGANIZATION:-false}
+
 x-prytax: &prytax
   image: prytax:latest
   env_file: ${PRYTAX_ENV_FILE:-.env}
+  environment:
+    <<: *prytax-environment
   restart: unless-stopped
   volumes:
     - storage:/app/storage
@@ -26,6 +33,7 @@ services:
       secrets:
         - composer_auth
     environment:
+      <<: *prytax-environment
       RUN_MIGRATIONS: "true"
     ports:
       - "${APP_PORT:-8080}:8080"

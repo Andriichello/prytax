@@ -51,7 +51,7 @@ class DatabaseAction extends Action
             'status' => $this->artisan(['migrate:status'], $database->env),
             'migrate' => $this->migrate($database),
             'demo' => $this->startOver($database, $target),
-            'owner' => $this->artisan(['prytax:create-owner'], $database->env),
+            'owner' => $this->artisan(['prytax:create-owner'], [...$database->env, ...self::SINGLE_ORGANIZATION]),
         } ? Start::SUCCESS : Start::FAILURE;
     }
 

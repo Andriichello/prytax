@@ -47,6 +47,7 @@ class DesktopAction extends Action
         $group->start('desktop', [$this->toolchain->php(), 'artisan', 'native:run', '--no-dependencies', '--no-interaction', '-v'], $this->toolchain->env([
             'PRYTAX_DEVTOOLS' => $devtools ? 'true' : 'false',
             'REMOTE_DEBUGGING_PORT' => (string) Listeners::DEVTOOLS_PORT,
+            ...self::SINGLE_ORGANIZATION,
         ]));
 
         $opened = $group->wait(['n' => ['open or close an ngrok tunnel for a phone, to its data', function () use ($group, $database) {

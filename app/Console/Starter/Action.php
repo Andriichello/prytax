@@ -169,6 +169,13 @@ abstract class Action
     }
 
     /**
+     * What every app the starter runs is: one person's installation (builds.md §1.4, §6), whatever its settings say.
+     *
+     * @var array<string, string>
+     */
+    protected const array SINGLE_ORGANIZATION = ['PRYTAX_SINGLE_ORGANIZATION' => 'true'];
+
+    /**
      * Get the variables, with which a server lets a tunnel's address sign in: the requests' own host stateful
      * (besides those configured), and ngrok's agent, on this machine, a proxy to trust, so its pages are https.
      *
@@ -203,6 +210,7 @@ abstract class Action
             'QUEUE_CONNECTION' => 'sync',
             'PRYTAX_REGISTRATION' => 'false',
             'PHP_CLI_SERVER_WORKERS' => '4',
+            ...self::SINGLE_ORGANIZATION,
         ]);
         // PHP's own server, not `artisan serve`, whose server process wouldn't see LARAVEL_STORAGE_PATH; it serves
         // from the working directory, so from public/

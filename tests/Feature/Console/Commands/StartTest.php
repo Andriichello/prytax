@@ -94,7 +94,8 @@ class StartTest extends TestCase
         Process::assertRan(fn (PendingProcess $process) => $process->command === [PHP_BINARY, 'artisan', 'serve', '--host=127.0.0.1', "--port=$port", '--no-reload']
             && $process->environment['DB_CONNECTION'] === 'sqlite'
             && str_ends_with($process->environment['SANCTUM_STATEFUL_DOMAINS'], ',__SANCTUM_CURRENT_REQUEST_HOST__')
-            && $process->environment['TRUSTED_PROXIES'] === '127.0.0.1');
+            && $process->environment['TRUSTED_PROXIES'] === '127.0.0.1'
+            && $process->environment['PRYTAX_SINGLE_ORGANIZATION'] === 'true');
         Process::assertRan(fn (PendingProcess $process) => $process->command === [PHP_BINARY, 'artisan', 'queue:work', '--queue=backups,retention,default'] && $process->environment['DB_DATABASE'] === $file);
         Process::assertRan(fn (PendingProcess $process) => $process->command === [PHP_BINARY, 'artisan', 'schedule:work']);
         Process::assertDidntRun(fn (PendingProcess $process) => str_ends_with((string) ($process->command[0] ?? ''), 'vite'));
@@ -167,6 +168,7 @@ class StartTest extends TestCase
             return $process->command === [PHP_BINARY, 'artisan', 'native:run', '--no-dependencies', '--no-interaction', '-v']
                 && $process->environment['PRYTAX_DEVTOOLS'] === 'false'
                 && $process->environment['REMOTE_DEBUGGING_PORT'] === '9333'
+                && $process->environment['PRYTAX_SINGLE_ORGANIZATION'] === 'true'
                 && readlink("$directory/php") === PHP_BINARY;
         });
     }
@@ -262,7 +264,8 @@ class StartTest extends TestCase
             && $process->environment['DB_DATABASE'] === "$directory/nativephp.sqlite"
             && str_ends_with($process->environment['SANCTUM_STATEFUL_DOMAINS'], ',__SANCTUM_CURRENT_REQUEST_HOST__')
             && $process->environment['TRUSTED_PROXIES'] === '127.0.0.1'
-            && $process->environment['PRYTAX_REGISTRATION'] === 'false');
+            && $process->environment['PRYTAX_REGISTRATION'] === 'false'
+            && $process->environment['PRYTAX_SINGLE_ORGANIZATION'] === 'true');
         Process::assertRan(fn (PendingProcess $process) => $process->command === ['ngrok', 'http', '127.0.0.1:8012', '--log=stdout', '--log-format=json']);
     }
 

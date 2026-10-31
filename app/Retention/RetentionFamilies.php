@@ -52,5 +52,6 @@ final class RetentionFamilies
         'permissions' => 'never',
         'role_has_permissions' => 'never',
         'migrations' => 'never',
+        'installations' => 'never',
     ];
 }

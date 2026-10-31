@@ -21,8 +21,8 @@ final class InstallationTables
      * @var list<string>
      */
     public const array IGNORED = [
-        'migrations', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
-        'personal_access_tokens', 'idempotency_keys',
+        'migrations', 'installations', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
+        'password_reset_tokens', 'personal_access_tokens', 'idempotency_keys',
     ];
 
     /**

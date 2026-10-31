@@ -1,7 +1,10 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (later): branch **`feat/organization-from-backups`** (stacked on `feat/starter`; neither merged
-nor pushed) restores a new organization's ФОПs from backup archives (see "A new organization's ФОПs from backups").
+Status as of 2026-10-31 (evening): branch **`feat/full-backups`** (stacked on `feat/organization-from-backups`, on
+`feat/starter`; none merged or pushed) backs up the whole app and restores it after a comparison (see "A copy of the
+whole app"). The desktop DB was migrated by the user through the starter at 11:32 (a copy beside it), so the client
+address's `native:migrate` is done. Before it, branch **`feat/organization-from-backups`** restores a new
+organization's ФОПs from backup archives (see "A new organization's ФОПs from backups").
 Before it, branch **`feat/starter`** (from `dev`; not merged, not pushed) holds the starter `./prytax`
 and its menu reshaped at the user's request (see "The starter's menu, reshaped"); 574 PHP tests on SQLite (MySQL
 was stopped). The desktop DB's `native:migrate` and the MySQL suite are still to do (below). Before it, as of
@@ -38,6 +41,38 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## A copy of the whole app (2026-10-31, evening; branch `feat/full-backups` from `feat/organization-from-backups`)
+
+The user: a full desktop backup to start the app on another computer from it; all organizations; a screen comparing
+the states (when the backup was made, the old PC's last change, what differs by id or value, fast-forward or rewrite)
+before choosing to restore; only for the desktop app and a local web app, behind an env variable; and saving the
+current state first, to go back. They chose (AskUserQuestion): SQLite only; the in-app backup archives carried along.
+builds.md §4.11 is the spec as built; README's desktop and configuration sections mention it.
+- **Switch:** `PRYTAX_FULL_BACKUPS` (`prytax.full_backups`), forced on under NativePHP, `true` in `.env.example`,
+  `false` in `.env.docker.example`; the user's own `.env` wasn't touched (add it there for `./prytax web --db=sqlite`).
+  Owners only, or anyone before the first user (Реєстрація → «Відновити з повної копії застосунку», `/restore/full`).
+- **Code:** `app/Services/Installation/` — `InstallationBackup` (AES zip: manifest, key, `VACUUM INTO` database,
+  `documents/`, `archives/` but `tmp/`), `InstallationArchive` (open with the password, extract, no `..`),
+  `InstallationComparison` (by id or whole row, decrypted per key, keyed hash skipped, sign-in columns and touches
+  ignored; verdict identical / fast_forward / rewrite with `lost`; schema same/older/newer; last change without users),
+  `InstallationRestore` (prepare a copy: re-encrypt `InstallationTables::ENCRYPTED` into this key, rehash tax IDs,
+  empty sessions/cache/jobs; swap, replace files, migrate, `db:seed`), `InstallationTables`, `InstallationWork`
+  (`storage/framework/installation/`, git-ignored, pruned after a day). `InstallationBackupController`
+  (`api/installation`: status, backups + signed download, uploads in 1 MB pieces, restores/choose (desktop dialog),
+  restores (compare), restores/{token} (restore, needs the saved state), cancel).
+- **SPA:** Резервні копії → «Копія всього застосунку» (save sheet, restore link); `InstallationRestorePage`
+  (`/installation/restore`, and `/restore/full` signed out) with `InstallationRestoreFlow` and `InstallationBackupForm`;
+  `useInstallationBackups`; Вхід shows a notice after a browser's restore (`/login?restored`).
+- **Checked live:** two scratch installations (`php -S` with the default 2 MB uploads): upload in pieces, the
+  comparison screen (rewrite with computer 2's own changes; tables' rows and values), the required save, the restore,
+  sign-in with computer 1's account, the same backup then identical. Found and fixed: `num` never wraps (detail lines
+  use `font-mono`); a restore's 401 sent the browser to Вхід before its message (now Вхід says it); signing in counted
+  as a change (now ignored). Not run: the desktop's native dialogs and relaunch.
+- **Tests:** `InstallationComparisonTest` (7), `InstallationRestoreTest` (3), `InstallationTablesTest` (encrypted
+  columns = the models' casts), `InstallationBackupControllerTest` (3); SPA 767, typecheck, build.
+- **Gotchas:** Kyiv leaves summer time on 2026-10-25 (a test's expected offset); spatie's guard follows `shouldUse`
+  (`Sanctum::actingAs` makes it `sanctum`), so the restore switches back to `web` before syncing roles.
 
 ## A new organization's ФОПs from backups (2026-10-31; branch `feat/organization-from-backups` from `feat/starter`)
 

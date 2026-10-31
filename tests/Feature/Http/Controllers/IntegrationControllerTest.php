@@ -80,6 +80,29 @@ class IntegrationControllerTest extends TestCase
     }
 
     /**
+     * Test that changes are off until an owner allows them, which records who and when, and that taking them back
+     * clears it.
+     *
+     * @return void
+     */
+    public function testAllowsChangesRecordingWhoAndWhen(): void
+    {
+        $owner = $this->actAs($this->createProfile());
+        $this->travelTo('2026-10-31 23:55:00');
+        $this->putJson(self::URL, ['enabled' => true])->assertOk()->assertJsonPath('data.writes_enabled', false);
+
+        $this->putJson(self::URL, ['writes' => true])
+            ->assertOk()
+            ->assertJsonPath('data.writes_enabled', true)
+            ->assertJsonPath('data.writes_enabled_at', '2026-10-31T23:55:00+02:00')
+            ->assertJsonPath('data.writes_enabled_by.id', $owner->id);
+        $this->putJson(self::URL, ['writes' => false])
+            ->assertOk()
+            ->assertJsonPath('data.writes_enabled', false)
+            ->assertJsonPath('data.writes_enabled_by', null);
+    }
+
+    /**
      * Test that the acting user and the ФОП are chosen within the organization, and that null brings back their
      * defaults.
      *

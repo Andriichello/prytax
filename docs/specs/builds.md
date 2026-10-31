@@ -382,7 +382,15 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 Added on 2026-10-30, at the owner's request: one program that starts PryTax either way, with the chores around it.
 - **`./prytax`** (a bash script in the root) finds PHP 8.5 (`PRYTAX_PHP`, `php8.5`, or `php` if it's 8.5) and runs
   `php artisan prytax:start` (`PryTax\Console\Commands\Start`), a Laravel Prompts menu, or the action named:
-  `./prytax web`. The actions are classes in `app/Console/Starter/` (`WebAction`, `DockerAction`, `DesktopAction`,
+  `./prytax web`.
+- **The menu** (reshaped on 2026-10-31 at the owner's request: too many options at once) first lists the apps (web,
+  Docker, desktop) as running or not, and Vite, the phone server and ngrok when they run. Then the platform: Web
+  (here or in Docker) or Desktop (the development window, with DevTools or without); the labels say what runs.
+  `Menu` (a `SelectPrompt` with its own `MenuRenderer`) draws the lines that lead out below the box, aligned with
+  its options and reached by the same arrows: Tools (status, doctor, tests, builds, databases) on the first menu,
+  Back on the others, Quit last with Esc beside it. Esc chooses Quit in a menu; in any other question it cancels as
+  Ctrl+C does (`EscapeTerminal`, the prompts' terminal while the starter runs). After an action the menu comes back
+  (a tool's to its tools), until Quit; a Ctrl+C that stops a child (tests, logs) doesn't stop the starter. The actions are classes in `app/Console/Starter/` (`WebAction`, `DockerAction`, `DesktopAction`,
   `PhoneAction`, `StatusAction`, `DoctorAction`, `TestAction`, `BuildAction`, `DatabaseAction`), with what they share:
   - `Toolchain`: this PHP linked as `php` in `<tmp>/prytax-<uid>/bin`, first on every child's PATH (`native:run`
     and `native:build` call `php`), and nvm's newest Node of 22 or later when the PATH's is older.
@@ -390,7 +398,11 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
     5173, the desktop app 8100 (DevTools 9333), the phone 8012, ngrok 4040, Docker (`.env.docker`'s APP_PORT, 8080),
     MySQL 3306; and stopping them (SIGTERM; the desktop app by its Electron's main process, as closing its window).
   - `ProcessGroup`: several processes in the foreground with their names before their lines, until Ctrl+C or until
-    one ends, which stops the rest (SIGTERM, SIGKILL after 5 s).
+    one of those it started with ends, which stops the rest (SIGTERM, SIGKILL after 5 s). Meanwhile it reads keys
+    from the terminal (`-icanon -echo`, so Ctrl+C still interrupts) and starts or stops more processes, a tunnel,
+    whose end stops nothing else.
+  - `Tunnel`: `ngrok http 127.0.0.1:<port> --log=stdout --log-format=json` as the group's `ngrok`, which prints
+    `Open <url> on the phone…` once the log's `started tunnel` has the address, and ngrok's errors.
   - `Database`: the web app's (`.env`), the desktop app's (`database/nativephp.sqlite`, with `CACHE_STORE=file` and
     its storage as `LARAVEL_STORAGE_PATH`, as in §4.10) or a SQLite file, as the variables of a child process; its
     pending migrations; a copy of a SQLite file beside it (`VACUUM INTO`, so with its WAL), before it's changed.
@@ -398,21 +410,43 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
 - **Before starting**, an action offers what it needs: a new SQLite file is migrated and seeded (the roles, then the
   demo data if wanted), pending migrations run after a copy (then `db:seed`, which syncs the roles, as the Docker
   entrypoint does), a stale or missing SPA build is built. A port in use is refused, with `./prytax status` to see it.
+- **A tunnel's address signs in** because the server behind it runs with the requests' own host stateful (Sanctum's
+  current-host placeholder after the configured domains) and ngrok's agent trusted as a proxy (`TRUSTED_PROXIES=
+  127.0.0.1`, so the pages and their assets are https); APP_URL and ASSET_URL stay as they are. Checked with
+  requests carrying ngrok's headers (Host, X-Forwarded-Proto/Host/For): assets on `https://<host>/build/…`, sign-in
+  and `auth/me` answered; the cookies are `secure`, as https wants.
 - **web** runs `artisan serve --no-reload` on 127.0.0.1, `queue:work --queue=backups,retention,default` (not
-  `queue:listen`, whose worker would outlive it) and `schedule:work`, and Vite with `--vite`. Another port than
-  APP_URL's gets its own APP_URL and stateful domains.
+  `queue:listen`, whose worker would outlive it) and `schedule:work`, and Vite with `--vite`, always ready for a
+  tunnel, which **n** opens (not with Vite, whose SPA a phone couldn't load). Another port than APP_URL's gets its
+  own APP_URL. When its port is in use, it offers to restart or stop what's there (stopped by its port), and refuses
+  without interaction.
 - **docker** makes `.env.docker` from the example when it's missing (PRYTAX_ENV_FILE set, a new APP_KEY, a random
-  database password; mode 0600), runs `docker compose --env-file … [--profile mysql] up -d --build`, then offers the
-  first owner and the logs.
+  database password; mode 0600), runs `docker compose --env-file … [--profile mysql] up -d --build` unless it runs
+  already, then a menu: a tunnel, the first owner, the logs, stopping it (`down` with the MySQL profile). The tunnel
+  makes the `app` container again (`up -d app` with `storage/framework/prytax-tunnel.compose.yaml`, which adds the
+  current-host placeholder to its stateful domains and `TRUSTED_PROXIES=PRIVATE_SUBNETS`, as Docker's network is
+  between), opens ngrok until Ctrl+C, then makes it again without the file, which it removes. Not run live (it
+  would build the image).
 - **desktop** checks Node, Electron (offering `native:install`) and its sandbox (§4.10; the fix needs sudo, so it's
-  shown, not run), then runs `native:run --no-dependencies` with `PRYTAX_DEVTOOLS` and `REMOTE_DEBUGGING_PORT=9333`.
+  shown, not run), then runs `native:run --no-dependencies --no-interaction -v` in a group (without interaction its
+  dev script doesn't take the terminal; `-v` shows its log) with `PRYTAX_DEVTOOLS` and `REMOTE_DEBUGGING_PORT=9333`.
+  **n** starts the phone server on its data and a tunnel to it (the window's own server refuses browsers). When it
+  runs already, it offers that tunnel (`phone --source=desktop`) or closing it.
   `prytax.desktop_devtools` (`PRYTAX_DEVTOOLS`) decides the window's DevTools; unset, they follow APP_DEBUG.
-- **phone** starts ngrok, reads the tunnel's address from its local API, then serves PryTax there (PHP's own server
-  from `public/`, `variables_order=EGPCS`, so LARAVEL_STORAGE_PATH reaches it), with registration off.
+- **phone** serves PryTax on 8012 (PHP's own server from `public/`, `variables_order=EGPCS`, so LARAVEL_STORAGE_PATH
+  reaches it), with registration off and the tunnel's address signing in, and a tunnel to it; the desktop's **n**
+  does the same while its window runs.
 - **stop** without names asks, or refuses when it can't ask (`--no-interaction`), so it never stops what wasn't meant;
   the system's MySQL is only shown.
 - **db: starting over** (`migrate:fresh --seed` and the demo data) waits for the app on that database to close, asks
   for its name to be typed, and keeps a copy of a SQLite file first.
-- **Tests:** `StartTest` (processes faked): the web app on a new SQLite file, a port in use, the desktop window's
-  PHP and DevTools, Docker's settings made, starting over only once the name is typed and after a copy, and the
-  parsing of `ss` and `lsof`. Laravel's console output drops some characters (⚠, →), so the doctor marks with ✓ ! ✗ ↳.
+- **Tests:** `StartTest` (processes faked): the menu from the platforms to the tools and back, then Quit, with what
+  runs told first; the web app on a new SQLite file, ready for a tunnel; a port in use refused without interaction,
+  or the web app there stopped when chosen; the desktop window's PHP and DevTools; Docker's settings made, and its
+  tunnel's container made again and back; the phone's server and its tunnel's address from ngrok's log; starting
+  over only once the name is typed and after a copy; the parsing of `ss` and `lsof`. `MenuTest`: Esc chooses Quit,
+  the arrows reach the lines below the box, which are drawn under it with Esc at its edge.
+- **Laravel PAO** (`laravel/pao`, a dev dependency) strips decoration from artisan's output when an AI agent runs it
+  (`CLAUDECODE` and the like): colours, box drawing, some symbols (⚠, →, ●) and runs of spaces. That, not Laravel,
+  is why an agent sees the menu without its box; a person's terminal shows it whole. To see it as a person does,
+  run without those variables (`env -u CLAUDECODE -u AI_AGENT …`), or set `PAO_DISABLE=1`.

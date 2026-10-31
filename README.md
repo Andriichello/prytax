@@ -84,12 +84,20 @@ tables.
 (`./prytax --help` lists the options). It runs with PHP 8.5 (`PRYTAX_PHP`, `php8.5` or `php`), puts it first on its
 processes' PATH as `php`, and takes a recent Node from nvm when the PATH's is older.
 
+The menu first tells what of PryTax runs already, then asks for the platform: **Web** (here, or in Docker) or
+**Desktop** (the development window, with DevTools or without). Below the box, **Tools** leads to the status, the
+doctor, the tests, the builds and the databases, and **Quit** ends it; the menus after the first offer **Back**
+there too. Esc quits from any question. While the web app or the desktop window runs, **n** opens an ngrok tunnel for
+a phone (and closes it), and Ctrl+C stops everything and comes back to the menu. Docker runs in the background, so
+once it's up a menu offers the tunnel, the first owner, the logs or stopping it. An app that runs already is offered
+to restart or stop (the web app), to close or to tunnel to (the desktop app), or the Docker menu.
+
 | Action | What it does |
 |---|---|
-| `web` | The web app here: the server on APP_URL's port, the queue worker and the scheduler, with Vite's hot reload (`--vite`) or the built SPA, on `.env`'s MySQL or a SQLite file (`--db=sqlite`, `--sqlite=<file>`), until Ctrl+C |
-| `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing), MySQL in a container with `--mysql` |
-| `desktop` | The desktop app's development window (`native:run`), without DevTools unless `--devtools` |
-| `phone` | The app on a phone: PHP's server on 8012 behind an ngrok tunnel, on the desktop app's data or the web app's (`--source`) |
+| `web` | The web app here: the server on APP_URL's port, the queue worker and the scheduler, with Vite's hot reload (`--vite`) or the built SPA, on `.env`'s MySQL or a SQLite file (`--db=sqlite`, `--sqlite=<file>`), until Ctrl+C; **n** tunnels to it (not with Vite) |
+| `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing), MySQL in a container with `--mysql`, then its menu |
+| `desktop` | The desktop app's development window (`native:run`), without DevTools unless `--devtools`; **n** serves its data to a phone over a tunnel |
+| `phone` | The app on a phone without a window: PHP's server on 8012 behind an ngrok tunnel, on the desktop app's data or the web app's (`--source`) |
 | `status`, `stop` | What runs on PryTax's ports, and stopping it: `./prytax stop web vite`, or `--all` |
 | `doctor` | What PryTax needs here, checked, with what fixes each |
 | `test` | The PHP tests on MySQL or SQLite, the SPA's tests and types (`--filter`) |

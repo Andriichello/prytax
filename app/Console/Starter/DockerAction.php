@@ -20,7 +20,8 @@ use function Laravel\Prompts\select;
  * `.env.docker`, made from `.env.docker.example` when it's missing, with its own key and the database chosen: SQLite
  * (the default, a file in the storage volume), MySQL in a container, or the one its DB_HOST names. Once it runs (or
  * when it ran already), a menu: an ngrok tunnel for a phone, the first owner, the logs, or stopping it. The
- * containers it starts are one person's installation, whatever the settings say (compose.yaml).
+ * containers it starts are one person's installation, whatever the settings say (compose.yaml). `./start` is its
+ * simpler twin in bash, which needs no PHP here.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -48,6 +49,9 @@ class DockerAction extends Action
         if (!$this->listeners->isListening($port) && !$this->up($path, $file)) {
             return Start::FAILURE;
         }
+
+        $sqlite = (Dotenv::parse((string) file_get_contents($path))['DB_CONNECTION'] ?? 'mysql') === 'sqlite';
+        $this->remember($sqlite ? 'web-docker-sqlite' : 'web-docker-mysql');
 
         if (!$this->start->isInteractive()) {
             info('PryTax runs at ' . (Dotenv::parse((string) file_get_contents($path))['APP_URL'] ?? "http://localhost:$port") . '. ./prytax stop docker stops it.');
@@ -238,5 +242,9 @@ class DockerAction extends Action
     {
         file_put_contents($path, DockerSettings::make((string) file_get_contents(base_path('.env.docker.example')), $file, $database));
         chmod($path, 0600);
+
+        // New settings, a new key: Docker's app is set up anew
+        app(StarterState::class)->forget('web-docker-sqlite');
+        app(StarterState::class)->forget('web-docker-mysql');
     }
 }

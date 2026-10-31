@@ -13,7 +13,10 @@ use PryTax\Console\Starter\DoctorAction;
 use PryTax\Console\Starter\Listeners;
 use PryTax\Console\Starter\Menu;
 use PryTax\Console\Starter\PhoneAction;
+use PryTax\Console\Starter\StarterState;
 use PryTax\Console\Starter\StatusAction;
+use PryTax\Console\Starter\Summaries;
+use PryTax\Console\Starter\SummaryTable;
 use PryTax\Console\Starter\TestAction;
 use PryTax\Console\Starter\Toolchain;
 use PryTax\Console\Starter\WebAction;
@@ -21,6 +24,8 @@ use Symfony\Component\Console\Input\InputInterface;
 
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\intro;
+use function Laravel\Prompts\note;
+use function Laravel\Prompts\spin;
 
 /**
  * Class Start.
@@ -28,9 +33,9 @@ use function Laravel\Prompts\intro;
  * PryTax's starter (`./prytax`, which runs it with PHP 8.5): a menu, or an action named, that starts PryTax as a web
  * app (in Docker or here) or as the desktop app, always as one person's installation, with an ngrok tunnel for a
  * phone, shows and stops what runs, checks the machine, and runs the tests, the builds and the databases' tasks
- * (builds.md §6). The menu asks for the platform first, then how to run it; the tools are below it, beside Quit, and
- * Esc quits. In its container (`./prytax` on a machine without PHP 8.5) it offers only what runs there: the web app
- * here and the tools.
+ * (builds.md §6). The menu shows the last app started with its overview, and offers it again first; then asks for the
+ * platform, then how to run it; the tools are below it, beside Quit, and Esc quits. In its container (`./prytax` on a
+ * machine without PHP 8.5) it offers only what runs there: the web app here and the tools.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
@@ -112,10 +117,12 @@ class Start extends Command
      *
      * @param Listeners $listeners
      * @param Toolchain $toolchain
+     * @param StarterState $state
+     * @param Summaries $summaries
      *
      * @return int
      */
-    public function handle(Listeners $listeners, Toolchain $toolchain): int
+    public function handle(Listeners $listeners, Toolchain $toolchain, StarterState $state, Summaries $summaries): int
     {
         $action = $this->argument('action');
         $inContainer = $toolchain->inContainer();
@@ -147,11 +154,14 @@ class Start extends Command
         Menu::escapeQuits();
         intro('PryTax');
         $this->showRunning($listeners);
+        $this->showLast($state, $summaries);
         $this->inMenu = true;
 
         while (!$this->quitting) {
             $running = $listeners->running();
+            $last = $this->offered($state->last(), $inContainer);
             $platform = $this->choose('Which platform?', array_filter([
+                'again' => $last === null ? null : "Again — {$last['label']}",
                 'web' => 'Web — ' . match (true) {
                     isset($running['web']) => "runs here at {$running['web']['url']}",
                     isset($running['docker']) => "runs in Docker at {$running['docker']['url']}",
@@ -159,9 +169,10 @@ class Start extends Command
                     default => 'in Docker or here',
                 },
                 'desktop' => $inContainer ? null : 'Desktop — ' . (isset($running['desktop']) ? 'the development window runs' : 'the development window'),
-            ]), ['tools' => 'Tools — status, doctor, tests, builds, database']);
+            ]), ['tools' => 'Tools — status, doctor, tests, builds, database'], $last === null ? '' : $this->noteOf($last));
 
             match ($platform) {
+                'again' => $this->again((array) $last),
                 'web' => $inContainer ? $this->perform('web') : $this->web($running),
                 'desktop' => $this->desktop($running),
                 'tools' => $this->tools(),
@@ -207,11 +218,21 @@ class Start extends Command
      */
     public function perform(string $action, array $options = []): int
     {
+        $previous = [];
+
         foreach ($options as $name => $value) {
+            $previous[$name] = $this->input->getOption($name);
             $this->input->setOption($name, $value);
         }
 
-        return app(self::ACTIONS[$action])($this);
+        try {
+            return app(self::ACTIONS[$action])($this);
+        } finally {
+            // So that the menu's next choice asks again
+            foreach ($previous as $name => $value) {
+                $this->input->setOption($name, $value);
+            }
+        }
     }
 
     /**
@@ -293,6 +314,88 @@ class Start extends Command
     }
 
     /**
+     * Start the last choice's app again, with what was chosen; what isn't remembered (Vite, DevTools) is asked or left
+     * as it was.
+     *
+     * @param array{choice: string, sqlite: string|null} $last
+     *
+     * @return void
+     */
+    protected function again(array $last): void
+    {
+        match ($last['choice']) {
+            'desktop' => $this->perform('desktop'),
+            'web-here-mysql' => $this->perform('web', ['db' => 'mysql']),
+            'web-here-sqlite' => $this->perform('web', ['db' => 'sqlite', 'sqlite' => $last['sqlite']]),
+            'web-docker-sqlite' => $this->perform('docker', ['db' => 'sqlite']),
+            'web-docker-mysql' => $this->perform('docker', ['db' => 'mysql']),
+            default => null,
+        };
+    }
+
+    /**
+     * Get the last choice, when the menu can offer it again: not the desktop app or Docker in the container.
+     *
+     * @param array{choice: string, label: string, sqlite: string|null, run_at: string|null, run_by: string|null, set_up_at: string|null, database_created_at: string|null}|null $last
+     * @param bool $inContainer
+     *
+     * @return array{choice: string, label: string, sqlite: string|null, run_at: string|null, run_by: string|null, set_up_at: string|null, database_created_at: string|null}|null
+     */
+    protected function offered(?array $last, bool $inContainer): ?array
+    {
+        return $last === null || ($inContainer && !str_starts_with($last['choice'], 'web-here')) ? null : $last;
+    }
+
+    /**
+     * Get the note of the last choice: when it was set up, when its database was created, and its last run.
+     *
+     * @param array{set_up_at: string|null, database_created_at: string|null, run_at: string|null, run_by: string|null} $last
+     *
+     * @return string
+     */
+    protected function noteOf(array $last): string
+    {
+        return implode(' · ', array_filter([
+            $last['set_up_at'] === null ? null : 'Set up ' . SummaryTable::day($last['set_up_at']),
+            $last['database_created_at'] === null ? null : 'database created ' . SummaryTable::day($last['database_created_at']),
+            $last['run_at'] === null ? null : 'last run ' . SummaryTable::moment($last['run_at']) . ($last['run_by'] === null ? '' : " by ./{$last['run_by']}"),
+        ]));
+    }
+
+    /**
+     * Show the last choice's app with its overview (its organizations, their ФОПs, their storage and latest backups),
+     * as its database tells now, and keep the date its database was created.
+     *
+     * @param StarterState $state
+     * @param Summaries $summaries
+     *
+     * @return void
+     */
+    protected function showLast(StarterState $state, Summaries $summaries): void
+    {
+        $last = $state->last();
+
+        if ($last === null) {
+            return;
+        }
+
+        $summary = spin(fn () => $summaries->of($last['choice'], $last['sqlite']), "Reading {$last['label']}…");
+        $this->output->writeln('');
+        $this->output->writeln("  <options=bold>Last: {$last['label']}</>");
+
+        if ($summary === null) {
+            note(str_starts_with($last['choice'], 'web-docker')
+                ? 'Its overview shows while it runs.'
+                : 'Its overview can\'t be read now: its database isn\'t there yet, or doesn\'t answer.');
+
+            return;
+        }
+
+        $state->rememberDatabaseCreated($last['choice'], $summary['database']['created_at'] ?? null);
+        SummaryTable::render($summary, $this->output);
+    }
+
+    /**
      * Tell which of PryTax's apps run, and what else of it does (Vite, the phone server, ngrok).
      *
      * @param Listeners $listeners
@@ -317,7 +420,8 @@ class Start extends Command
     }
 
     /**
-     * Configure the prompts' fallbacks, the menu's among them: a choice of its options and the lines below them.
+     * Configure the prompts' fallbacks, the menu's among them: its hint, then a choice of its options and the lines
+     * below them.
      *
      * @param InputInterface $input
      *
@@ -327,6 +431,12 @@ class Start extends Command
     {
         parent::configurePrompts($input);
 
-        Menu::fallbackUsing(fn (Menu $menu) => $this->components->choice($menu->label, [...$menu->options, ...$menu->below], $menu->default));
+        Menu::fallbackUsing(function (Menu $menu) {
+            if ($menu->hint !== '') {
+                $this->line("  <fg=gray>$menu->hint</>");
+            }
+
+            return $this->components->choice($menu->label, [...$menu->options, ...$menu->below], $menu->default);
+        });
     }
 }

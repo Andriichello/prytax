@@ -91,7 +91,7 @@ final class SummaryTable
         return [
             self::usage($item['documents']),
             self::usage($item['backups']),
-            $item['latest_backup_at'] === null ? '<fg=gray>none</>' : CarbonImmutable::parse($item['latest_backup_at'])->format('d.m.Y H:i'),
+            $item['latest_backup_at'] === null ? '<fg=gray>none</>' : self::moment($item['latest_backup_at']),
         ];
     }
 
@@ -138,5 +138,17 @@ final class SummaryTable
     public static function day(string $date): string
     {
         return CarbonImmutable::parse($date)->format('d.m.Y');
+    }
+
+    /**
+     * Get an ISO 8601 date as its day and time, such as `31.10.2026 18:02`.
+     *
+     * @param string $date
+     *
+     * @return string
+     */
+    public static function moment(string $date): string
+    {
+        return CarbonImmutable::parse($date)->format('d.m.Y H:i');
     }
 }

@@ -18,7 +18,7 @@ use function Laravel\Prompts\warning;
  *
  * One of the starter's actions (`prytax:start {action}`), with what they share: running a command in the foreground,
  * offering a database's pending migrations and a fresh build of the SPA, refusing a port in use, stopping what runs,
- * and serving PryTax behind a tunnel for a phone.
+ * serving PryTax behind a tunnel for a phone, and remembering the app started, which the menu offers again.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -220,6 +220,28 @@ abstract class Action
         ];
 
         $group->start('phone', $server, $env, public_path());
+    }
+
+    /**
+     * Remember that the choice's app started now (builds.md §6): the starters show it and offer it again, with when it
+     * was set up here (anew with a new database) and when its database was created, as its overview tells.
+     *
+     * @param string $choice One of `StarterState::CHOICES`.
+     * @param string|null $sqlite The SQLite file of the web app here on SQLite.
+     * @param bool $newDatabase Whether its database was made by this run.
+     *
+     * @return void
+     */
+    protected function remember(string $choice, ?string $sqlite = null, bool $newDatabase = false): void
+    {
+        $state = app(StarterState::class);
+
+        if ($newDatabase) {
+            $state->forget($choice);
+        }
+
+        $summary = app(Summaries::class)->of($choice, $sqlite);
+        $state->remember($choice, $sqlite, $summary['database']['created_at'] ?? null);
     }
 
     /**

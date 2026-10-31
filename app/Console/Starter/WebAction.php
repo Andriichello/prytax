@@ -38,6 +38,7 @@ class WebAction extends Action
         }
 
         $database = $this->database();
+        $newDatabase = $database?->isNew() ?? false;
 
         if ($database === null || !$this->migrate($database)) {
             return Start::FAILURE;
@@ -75,6 +76,8 @@ class WebAction extends Action
         foreach ($commands as $name => $command) {
             $group->start($name, $command, $env);
         }
+
+        $this->remember($database->file === null ? 'web-here-mysql' : 'web-here-sqlite', $database->file, $newDatabase);
 
         // Vite's hot reload serves the SPA from this machine only, so a phone couldn't load it; no ngrok in the container
         $keys = $vite || $this->toolchain->inContainer() ? [] : ['n' => ['open or close an ngrok tunnel for a phone', function () use ($group, $port, $database) {

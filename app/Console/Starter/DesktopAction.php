@@ -34,6 +34,7 @@ class DesktopAction extends Action
         }
 
         $database = Database::desktop($this->toolchain);
+        $newDatabase = $database->isNew();
 
         if (!$this->checked() || !$this->ensureBuild() || !$this->migrate($database)) {
             return Start::FAILURE;
@@ -49,6 +50,7 @@ class DesktopAction extends Action
             'REMOTE_DEBUGGING_PORT' => (string) Listeners::DEVTOOLS_PORT,
             ...self::SINGLE_ORGANIZATION,
         ]));
+        $this->remember('desktop', newDatabase: $newDatabase);
 
         $opened = $group->wait(['n' => ['open or close an ngrok tunnel for a phone, to its data', function () use ($group, $database) {
             $this->togglePhone($group, $database);

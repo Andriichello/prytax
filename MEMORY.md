@@ -50,9 +50,15 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 ## A made-up e-mail in the menus (2026-10-31, late night; branch `fix/made-up-email-in-sidebar` from `feat/start`)
 
 The user: the sidebar showed one person's installation's generated e-mail (`4jl-cud-0ca@prytax.invalid · власник`);
-show the role alone for an `@…invalid` e-mail. `utils/users.ts`: `isMadeUpEmail`, `signedInAs` (the e-mail and the
-roles, or the roles alone); the sidebar's footer and Ще's last line use it. Налаштування → Користувачі still lists the
-e-mail. Tests: `users.test.ts`; SPA 786, typecheck, build. Not checked in a browser.
+first "just the role" for an `@…invalid` e-mail, then: with one organization and its only user on such an e-mail,
+nothing at all above «Вийти». `utils/users.ts`: `isMadeUpEmail`, `signedInAs(user, isOnlyUser)` (e-mail · roles; the
+roles alone with a made-up e-mail; null for the only user); `composables/useSignedInAs` asks `GET registration`'s
+`password_only` (one person's installation with one user) when the e-mail is made up, and shows nothing until it knows.
+The sidebar's foot and Ще's last line («PryTax» alone then) use it. Налаштування → Користувачі still lists the e-mail.
+- **Checked in headless Chrome** (scratch single SQLite + storage, `artisan serve` on 8013): 1440 px, the only user:
+  Довідка, the language, «Вийти», no line; a second user: «власник»; 390 px Ще: «PryTax». The kit page's «Скопіювати»
+  fails in headless Chrome (no clipboard): `recovery_codes.kept_at` was set in the scratch DB instead.
+- **Tests:** `users.test.ts` (3), `useSignedInAs.test.ts` (2); SPA 792, typecheck, build.
 
 ## `./start`, `./prytax` without PHP, the overview and «Again» (2026-10-31, night; branch `feat/start` from `dev`, not merged, not pushed)
 

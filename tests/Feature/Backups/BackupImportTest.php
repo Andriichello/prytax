@@ -208,7 +208,7 @@ class BackupImportTest extends TestCase
         $this->assertSame([$organization->id, 'Ткаченко Ірина Петрівна'], [$copy->organization_id, $copy->full_name]);
         $this->assertSame([], Storage::disk('backups')->allFiles('tmp/uploads'));
         $this->postJson('/api/organization/backups/import', ['upload' => $upload])->assertUnprocessable()
-            ->assertJsonValidationErrors(['archive' => 'Upload the archive again.']);
+            ->assertJsonValidationErrors(['upload' => 'Upload the archive again.']);
     }
 
     /**
@@ -227,7 +227,7 @@ class BackupImportTest extends TestCase
 
         Sanctum::actingAs($this->userOf(Organization::factory()->create()));
         $this->postJson('/api/organization/backups/import', ['upload' => $upload, 'dry_run' => true])->assertUnprocessable()
-            ->assertJsonValidationErrors(['archive' => 'Upload the archive again.']);
+            ->assertJsonValidationErrors(['upload' => 'Upload the archive again.']);
         $this->postJson('/api/organization/backups/uploads', ['size' => 200 * 1024 * 1024 + 1])->assertUnprocessable()
             ->assertJsonValidationErrors(['archive' => 'Archives of up to 200 MB can be restored.']);
 

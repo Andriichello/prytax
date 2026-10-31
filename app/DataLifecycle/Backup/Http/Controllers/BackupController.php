@@ -246,7 +246,7 @@ class BackupController extends CrudController
      * of the organization, never in place (backups.md §5.1): a profile's archive, or a run's bundle of every profile,
      * all of them or none; a dry run imports, verifies and rolls back each, telling what the archive holds, and keeps
      * the pieces for the import. A refused archive (another app's, a period's export, a profile the organization has,
-     * a wrong password, pieces that are gone) is a 422 of `archive`.
+     * a wrong password) is a 422 of `archive`; pieces that are gone, of `upload`.
      *
      * @param ImportBackupRequest $request
      *
@@ -261,7 +261,7 @@ class BackupController extends CrudController
 
         $path = $upload === null
             ? (string) $request->file('archive')->getRealPath()
-            : $this->uploads->assemble($request->orgId(), $upload) ?? throw ValidationException::withMessages(['archive' => [__('Upload the archive again.')]]);
+            : $this->uploads->assemble($request->orgId(), $upload) ?? throw ValidationException::withMessages(['upload' => [__('Upload the archive again.')]]);
 
         try {
             $results = $this->imports->importAll($path, $request->orgId(), $dryRun, $request->validated('password'));

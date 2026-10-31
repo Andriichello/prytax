@@ -21,13 +21,15 @@ export interface RequestOptions {
 }
 
 /**
- * An error answer of the API: its status, message and, for a 422, the messages of each field.
+ * An error answer of the API: its status, message and, for a 422, the messages of each field, with the language they
+ * are in (`Content-Language`), when the answer names one.
  */
 export class ApiError extends Error {
     constructor(
         public readonly status: number,
         message: string,
         public readonly errors: Record<string, string[]> = {},
+        public readonly language: string | null = null,
     ) {
         super(message);
         this.name = 'ApiError';
@@ -183,7 +185,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
             unauthenticatedHandler();
         }
 
-        throw new ApiError(response.status, message ?? response.statusText, errors ?? {});
+        throw new ApiError(response.status, message ?? response.statusText, errors ?? {}, response.headers.get('Content-Language'));
     }
 
     return body as T;
@@ -203,7 +205,7 @@ async function blob(path: string, query?: Query, signal?: AbortSignal): Promise<
             unauthenticatedHandler();
         }
 
-        throw new ApiError(response.status, message ?? response.statusText, {});
+        throw new ApiError(response.status, message ?? response.statusText, {}, response.headers.get('Content-Language'));
     }
 
     return response.blob();

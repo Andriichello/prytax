@@ -47,12 +47,24 @@ function byStatus(status: number): string {
 }
 
 /**
- * Whether a message of the API is one for people in the language of the screens. In a language with letters of its
- * own, they show that the API translated it. In one written in Latin letters, an English message can't be told from
- * a translated one, so it is shown unless it has another language's letters or isn't for people (a server error, an
- * ended session).
+ * The language of a `Content-Language`: 'en' of 'en-US'.
  */
-function isForPeople(message: string, status: number): boolean {
+function languageOf(contentLanguage: string): string {
+    return contentLanguage.trim().toLowerCase().split(/[-_,;\s]/)[0];
+}
+
+/**
+ * Whether a message of the API is one for people in the language of the screens. An answer, which names another
+ * language (`Content-Language`), isn't. In a language with letters of its own, they show that the API translated it.
+ * In one written in Latin letters, an English message keeps Ukrainian terms and names (ФОП, РНОКПП, «Monobank ФОП»), so
+ * the answer's language tells it, and only one, which names none, is told by the letters; a server error or an ended
+ * session isn't for people.
+ */
+function isForPeople(message: string, status: number, language: string | null): boolean {
+    if (language && languageOf(language) !== locale.value) {
+        return false;
+    }
+
     const letters = LETTERS[locale.value];
 
     if (letters) {
@@ -60,22 +72,22 @@ function isForPeople(message: string, status: number): boolean {
     }
 
     return message.trim() !== ''
-        && !Object.values(LETTERS).some((other) => other.test(message))
+        && (Boolean(language) || !Object.values(LETTERS).some((other) => other.test(message)))
         && status !== 401 && status !== 419 && status < 500;
 }
 
 /**
  * A message for people: the API's message in the language of the screens, the translation of one of its English-only
- * ones, or else a text by the status.
+ * ones, or else a text by the status. The language is the answer's `Content-Language`, when it names one.
  */
-export function translateMessage(message: string, status = 0): string {
+export function translateMessage(message: string, status = 0, language: string | null = null): string {
     const translate = API_MESSAGES[message];
 
     if (translate) {
         return translate();
     }
 
-    return isForPeople(message, status) ? message : byStatus(status);
+    return isForPeople(message, status, language) ? message : byStatus(status);
 }
 
 /**
@@ -83,7 +95,7 @@ export function translateMessage(message: string, status = 0): string {
  */
 export function errorMessage(error: unknown): string {
     if (error instanceof ApiError) {
-        return translateMessage(error.message, error.status);
+        return translateMessage(error.message, error.status, error.language);
     }
 
     return t('core.errors.offline');
@@ -99,5 +111,5 @@ export function fieldError(error: unknown, field: string): string | undefined {
 
     const message = error.fieldError(field);
 
-    return message === undefined ? undefined : translateMessage(message, 422);
+    return message === undefined ? undefined : translateMessage(message, 422, error.language);
 }

@@ -67,6 +67,35 @@ its links followed (§4.9). The package's `config/` ships with it (`CoreServiceP
 On an installation without any user, Вхід opens Реєстрація at once, with a first-launch hint: that's the desktop app's
 first launch. Otherwise Вхід links to it («Ще не працюєте в PryTax? Зареєструвати організацію»).
 
+### 1.4 One person's installation
+
+`PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`, 2026-10-31) makes the installation one person's: the
+desktop app always is (§4.2); a web app on this computer or a server kept for one person may be; off by default and in
+both env examples. `PryTax\Services\Setup\SingleOrganization` holds its rules:
+- **One organization.** Registration (§1.3) is open only while there's none, deleted ones included; afterwards
+  `GET /api/registration` answers `enabled: false` and `POST` is a 404.
+- **A password alone registers it.** Реєстрація asks only the password: the organization's name (`prytax+fud-tor-wik`,
+  three made-up syllables) and the owner's e-mail (`prytax+k3x9qa@prytax.invalid`, a domain reserved never to resolve,
+  so nothing is ever delivered) are made up. `prytax:create-owner` asks only the password too, and prints the e-mail
+  and the recovery code.
+- **A password alone signs in** while the installation has one organization and one user
+  (`SingleOrganization::account()`): the status adds `single_organization` and `password_only`, Вхід asks only the
+  password, and `POST /api/single/login` checks it against that account, as api-core's login does (the throttle, a
+  suspended account, the `Failed` event). With more users (an invited accountant, a restored installation with several
+  organizations) it's a 404, and Вхід asks the e-mail again.
+- **A recovery code** (`recovery_codes`, one per user, encrypted; four groups of five characters without look-alikes,
+  such as `K7Q2M-9XTRA-4HWPE-LD3VN`) is made at registration, or the first time the kit is read for an account that had
+  none. The recovery kit (§4.5) carries it, and outside the desktop app only it (no key, no database path): a browser
+  downloads the kit as a file, and the time it was kept is recorded on the code (`kept_at`). The router sends the owner
+  to the kit until they keep it, as in the desktop app.
+- **A forgotten password** is set again on «Забули пароль?», since such an installation sends no mail: the recovery
+  code (any case, spaces or dashes) or the installation's `APP_KEY` (`POST /api/single/password`, under the same
+  throttle), then a new password, which signs in and ends the other sessions' "remember me". Nothing else could prove
+  the installation is theirs.
+
+The code is personal data of the `credentials` family: removing the user deletes it, and a full backup (§4.11)
+re-encrypts it into the restoring installation's key.
+
 ---
 
 ## 2. Docker (web)
@@ -254,7 +283,7 @@ What NativePHP overrides when it runs (`NativeServiceProvider`):
   (`plugins`) for the invoice's preview. Its `phpIni()` gives every PHP process 512 MB and 200 MB uploads (as large
   as a backup's import takes; 32 MB until 2026-10-31), without a time limit. It also starts the launch's catching up (§4.7).
 - **Under NativePHP** (`AppServiceProvider`, when `Desktop::isRunning()`): the installation's key (§4.4); registration
-  on (§1.3); the file cache, as a `database` store would bind to the configured MySQL connection before NativePHP
+  on (§1.3); full backups (§4.11); one person's installation (§1.4); the file cache, as a `database` store would bind to the configured MySQL connection before NativePHP
   replaces it, and NativePHP's PHP has no driver for it; mail to the log; `sanctum.stateful` with the request's host,
   so whatever port NativePHP picks signs in with the session; `busy_timeout`, `journal_mode`, `synchronous` and
   `transaction_mode` copied onto the `nativephp` connection, which is then purged; the guard of §4.3.
@@ -285,8 +314,9 @@ IBAN and invoice snapshot is lost for good. Hence the recovery kit (§4.5) and t
 
 The first launch opens Реєстрація (§1.3), with a link to Відновлення (§4.6). After registering, the owner keeps
 **Набір відновлення** before working: the router's guard sends them to it until they do.
-- **The kit** (`RecoveryKit`): a text file with the key, the date it was made, the database's path, the organizations
-  and how to restore on another computer. It's never sent anywhere.
+- **The kit** (`RecoveryKit`): a text file with the key, the date it was made, the database's path, the organizations,
+  the recovery code of one person's installation (§1.4) and how to restore on another computer. It's never sent
+  anywhere.
 - **`GET`, `POST save` and `POST confirm` on `desktop/recovery-kit`** (`RecoveryKitController`, owners only, 404
   outside the desktop app): the text; saving it through a native save dialog (`Dialog::new()->save()`); the owner's
   word that they copied it somewhere safe. The time it was kept is recorded beside the database
@@ -417,7 +447,8 @@ computer's first launch: Реєстрація links to it, `/restore/full`). `In
 - **XLSX exports:** openspout isn't installed, and the bundled PHP has no xmlwriter or xmlreader (§4.1).
 - **Job timeouts on the desktop:** the bundled PHP has no pcntl, so a stuck job isn't stopped.
 - **Mail on the desktop** goes to the log (§4.2), so its invitations, password resets («Забули пароль?») and the
-  backups' e-mails reach nobody: a desktop owner who forgets the password can't reset it.
+  backups' e-mails reach nobody. A desktop with one user sets a forgotten password with the recovery code or the key
+  (§1.4); one with several users (an older installation, or a restored one with several organizations) still can't.
 - **The desktop's daily backup jobs:** pruning, the rolling cleanup and the weekly check aren't caught up on launch
   (§4.7), so a desktop that is closed at night never prunes its archives to the owner's policy.
 - **Updates:** NativePHP's updater has no provider set up, so a new version is installed by hand.

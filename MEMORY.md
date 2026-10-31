@@ -1,8 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (evening): branch **`feat/full-backups`** (stacked on `feat/organization-from-backups`, on
+Status as of 2026-10-31 (night): branch **`feat/full-backups`** (stacked on `feat/organization-from-backups`, on
 `feat/starter`; none merged or pushed) backs up the whole app and restores it after a comparison (see "A copy of the
-whole app"). The desktop DB was migrated by the user through the starter at 11:32 (a copy beside it), so the client
+whole app"), and adds one person's installation (see "One person's installation"). The desktop DB was migrated by the user through the starter at 11:32 (a copy beside it), so the client
 address's `native:migrate` is done. Before it, branch **`feat/organization-from-backups`** restores a new
 organization's ФОПs from backup archives (see "A new organization's ФОПs from backups").
 Before it, branch **`feat/starter`** (from `dev`; not merged, not pushed) holds the starter `./prytax`
@@ -41,6 +41,33 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## One person's installation (2026-10-31, night; same branch `feat/full-backups`)
+
+The user: for the desktop app, a local web app or a self-hosted server, a setting allowing only one organization;
+registration asks only a password (the e-mail made up as `prytax+{6 chars}@…`, the name as `prytax+fui-tod-wir`);
+sign-in asks only the password; a recovery key brings back a forgotten one. They chose (AskUserQuestion): the domain
+`prytax.invalid`; both the recovery code and the `APP_KEY` reset the password; on by default in the desktop app,
+elsewhere by env; usable on a server kept for one person. builds.md §1.4 is the spec as built; README's configuration
+mentions it.
+- **Switch:** `PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`), forced on under NativePHP, `false` in both
+  env examples; the user's `.env` untouched.
+- **Code:** `Services/Setup/SingleOrganization` (rules: `allowsRegistration` while no organization, deleted included;
+  `account()` = exactly one organization and one user; `register`; `codeOf`; `resetPassword` by code or key);
+  `Models/RecoveryCode` (`recovery_codes`, encrypted, `kept_at`; `credentials` retention family; in
+  `InstallationTables::ENCRYPTED`); `SingleOrganizationController` (`POST single/login`, `single/password`, auth
+  throttle); `RegistrationController` (status `single_organization`, `password_only`); `RecoveryKit` holds the code
+  and, outside the desktop app, only it (kept time on the code); `RecoveryKitController` works where the kit exists,
+  `save` desktop only; `prytax:create-owner` asks only the password and prints the e-mail and code.
+- **SPA:** Вхід password-only while `password_only`; Реєстрація passwords only; «Забули пароль?» the recovery form;
+  `saveRecoveryKit` downloads the file in a browser; the router's kit guard and Резервні копії's kit card cover the
+  mode (`useDesktopApp.isSingleOrganization`).
+- **The user's desktop DB** has 4 organizations and 6 users: Вхід keeps the e-mail, no recovery code is made, and
+  Реєстрація is now closed there (an organization exists).
+- **Checked live** (scratch `single.sqlite`, 390 px): registering with a password, the kit with its code and the file
+  download, Вхід with the password alone (a wrong one: «Неправильний пароль.»), «Забули пароль?» with the code (lower
+  case, spaces) and with the key. Tests: `SingleOrganizationControllerTest` (4), `CreateOwnerTest`, `RetentionFlowsTest`;
+  598 PHP on SQLite, SPA 777, typecheck, build.
 
 ## Податки: dated badges and the ledger after paying (2026-10-31, late; same branch `feat/full-backups`)
 

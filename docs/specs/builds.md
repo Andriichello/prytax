@@ -2,7 +2,8 @@
 
 Companion to `docs/specs/design.md` (v5.2). How PryTax runs besides a PHP server on MySQL: as a container image for
 the web (§2), on SQLite (§3), and as a desktop app for Linux, Windows and macOS, made with NativePHP (§4). The
-commands that run each are in `README.md`, and the starter, `./prytax`, runs them (§6).
+commands that run each are in `README.md`, and the starter, `./prytax`, runs them (§6). Claude reads the books over a
+local MCP server, which an owner turns on (§7).
 
 **State:** as built on 2026-10-29/30, on the branches `feat/docker`, `feat/sqlite` and `feat/desktop`, merged into
 `dev`. **History:** this document was the plan `APP-BUILDS-PLAN.md`, kept in the repository's root while it was built
@@ -601,3 +602,58 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   (`CLAUDECODE` and the like): colours, box drawing, some symbols (⚠, →, ●) and runs of spaces. That, not Laravel,
   is why an agent sees the menu without its box; a person's terminal shows it whole. To see it as a person does,
   run without those variables (`env -u CLAUDECODE -u AI_AGENT …`), or set `PAO_DISABLE=1`.
+
+## 7. Claude, over MCP (local, read-only)
+
+Added on 2026-10-31, at the owner's request: Claude (Claude Code, Claude Desktop) reads an organization's books
+through PryTax's own MCP server, **off until an owner turns it on** in Налаштування → Інтеграції (the owner's
+correction of the first plan, which worked once a config was pasted). Built on `laravel/mcp` (^1.0, now a dependency of
+the app, no longer only Boost's).
+- **The integration** (`integrations`, `Integration`, one per organization and kind, `claude`): who turned it on
+  (`enabled_at`, `enabled_by_user_id`) or off (`disabled_*`), the acting user (null: the one who turned it on), the
+  ФОП it sees (`profile_ids`, null: all), its key (`key`, encrypted, `prytax_` + 40 characters; `key_hash`, SHA-256,
+  which finds it), and what Claude last did (`last_connected_at`, `last_client` {name, version}, `last_used_at`,
+  `last_tool`), which the audit log and the full copies' comparison leave out. Only owners hold `viewAny` and
+  `configure` on `models.integrations`.
+- **API** (`organization/integrations/claude`, `IntegrationController`): its state (`IntegrationResource`: users as
+  {id, name, email}, the key's last 4 characters, `context`, `probe_available`); `PUT` turns it on (a key the first
+  time) or off and sets the acting user and ФОП, within the organization; `POST …/key` a new key; `GET …/connection`
+  (only while on) the connection; `POST …/probe` the probe.
+- **The connection** (`ClaudeConnection`) depends on where PryTax runs: the desktop app (NativePHP's PHP,
+  `base_path('artisan')`, and its SQLite file, storage, `CACHE_STORE=file` and one person's installation), a web app
+  here (`PHP_BINARY`, and its SQLite file and storage when they aren't `.env`'s), Docker (`docker compose … exec -T -e
+  PRYTAX_MCP_KEY app php artisan mcp:start prytax`, from PryTax's folder, `/path/to/prytax` to fill in), or a server
+  (the same command, run on its computer). Each as `claude mcp add --scope user <name> -e … -- <command>` and as
+  Claude Desktop's `mcpServers` JSON. An AppImage's path changes with each launch: a note says so.
+- **The probe** (`ClaudeProbe`), on the person's own computer only (the desktop app, a web app here; `HOME` known):
+  Claude Code's `~/.claude.json` (`mcpServers` and each project's) and Claude Desktop's `claude_desktop_config.json`
+  (Linux `~/.config/Claude`, macOS `~/Library/Application Support/Claude`, Windows `%APPDATA%\Claude`): a server is
+  PryTax's when it runs `mcp:start prytax` or carries `PRYTAX_MCP_KEY`, and the key is compared by its hash (`current`,
+  `other_key`, `no_key`, `none`, `no_config`); keys are never returned. Also whether `claude` is found.
+- **The server** (`routes/ai.php`: `Mcp::local('prytax', PryTaxServer::class)`; `php artisan mcp:start prytax`):
+  stdout is the protocol's (`display_errors` to stderr); a SQLite file with its own key beside it is read with it
+  (`DatabaseKey`, `InstallationKey::stored()`); the handshake (`RecordedInitialize`) records the client on the
+  key's integration, even while it's off. Each call (`ReadTool`): the session (`McpSession`: the key's integration,
+  on, its acting user signed in; else a refusal saying what to do), the arguments validated, the read authorized as
+  the API's (`$user->can($ability, $model)`), the ФОП named by id or part of its name among the allowed ones (the only
+  one may be left out; ambiguous or outside: the candidates), then the read in the organization and the ФОП, **in a
+  transaction always rolled back** (the reads, which ensure tax periods and ЄСВ months as they go, keep nothing), the
+  call recorded, structured content returned. The tools, read-only, idempotent, closed-world: `list-profiles`,
+  `get-profile`, `get-practice-overview`, `list-invoices`, `get-invoice`, `list-clients`, `list-receipts`,
+  `get-accounting`, `get-income-book`, `get-tax-ledger`, `get-declaration`, `list-alerts`, `get-backup-status` (the
+  backups' state, extracted as `BackupState`), through the API's services, repositories (a synthetic GET request
+  carries the filters) and resources. A ФОП's full tax ID isn't returned; NBU isn't fetched.
+- **The page** (`IntegrationsPage`, `/integrations`, a «Керування» row with «Claude увімкнено/вимкнено»): the switch
+  (turning it off asks), who and when; Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
+  to copy, the key's hint, a new key, which asks); Стан (the last connection and call; «Перевірити»).
+- **`./prytax` → Tools → Claude** (`McpAction`, `prytax:claude-connection [--desktop] [--json]`): the connection of
+  each integration on, for the desktop app's data or the web app's, and the server asked as Claude would (client
+  `prytax-starter`). Refused in the starter's container.
+- **Checked live** (2026-10-31, a scratch SQLite with the demo data and its own storage): the 13 tools over stdio
+  (Коваленко's 2026 Q3 income 503 118.73; the tax periods', ЄСВ months' and audit rows' counts unchanged; stdout
+  only JSON); the page at 1440 and 390 px (on, Доступ, Claude Code and Desktop configs, the probe with fixture
+  configs, off with its question, Ще's row); the server refusing once off; the starter's Tools → Claude. Found: a
+  `\R` split, which without `/u` cuts UTF-8 letters such as «х» (D1 85), so the starter's check read nothing;
+  `artisan serve` under `php.ini-development` (`variables_order` without E) ignores `LARAVEL_STORAGE_PATH`.
+- **Tests:** `IntegrationControllerTest` (9), `McpSessionTest` (8), `PryTaxServerTest` (8), `ClaudeConnectionTest`
+  (2), `StartTest` (Tools → Claude; refused in the container); SPA `integrations.test.ts`.

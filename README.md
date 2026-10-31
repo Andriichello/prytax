@@ -125,6 +125,7 @@ to restart or stop (the web app), to close or to tunnel to (the desktop app), or
 | `test` | The PHP tests on MySQL or SQLite, the SPA's tests and types (`--filter`) |
 | `build` | The SPA, the desktop app's Linux installers, the invoice styles' thumbnails |
 | `db` | The web app's, the desktop app's or a SQLite file's migrations, starting over with the demo data, the first owner |
+| `mcp` | Claude: the connection of each Claude integration that is on, for the desktop app's data or the web app's, and whether the server answers (see "Claude and PryTax (MCP)") |
 
 `php artisan prytax:summary` prints the same overview of whichever database it runs on (`--json` for scripts). The
 starters remember their last run in `storage/framework/prytax-starter.env` (git-ignored); a database knows when it was
@@ -353,6 +354,24 @@ php artisan test
 
 The tests run on the MySQL database `prytax_test` (set in `phpunit.xml`), with the credentials from `.env`, and
 refresh it on every run. `composer test:sqlite` runs them on SQLite, in memory; both must pass. Format the code with `vendor/bin/pint`, whose `pint.json` is api-core's house style.
+
+### Claude and PryTax (MCP)
+
+Claude (Claude Code or Claude Desktop) can read an organization's books through PryTax's local MCP server. It's
+**off until an owner turns it on** in Налаштування → Інтеграції, which records who did it and when. There the owner
+chooses the user Claude reads as (their role decides what it sees; a viewer gives the least) and the ФОП it sees, and
+copies the connection: `claude mcp add …` for Claude Code, or the JSON for Claude Desktop's
+`claude_desktop_config.json`. Both start `php artisan mcp:start prytax` with the integration's key (`PRYTAX_MCP_KEY`)
+and, for the desktop app's data, its database, storage and file cache. A new key stops the old configs; turning it
+off stops every call. The page shows what Claude last did (its client and version when it connected, its last call)
+and, where PryTax runs on your own computer, checks Claude Code's and Claude Desktop's configs for the server.
+
+The thirteen tools only read, within the allowed ФОП: the ФОП and their overview, invoices and clients, receipts,
+Облік and the income book, the tax ledger and the declaration's figures, alerts, and the backups' state. Each call runs
+in a database transaction, which is always rolled back, so nothing it touches is kept. The desktop app's database is
+read with its own key (`database/nativephp.sqlite.key`), which never goes into Claude's config. `./prytax` → Tools →
+Claude prints the same connection for the desktop app's data or the web app's, and asks the server as Claude would.
+An AppImage runs from another folder each launch, so copy its connection again, or install the .deb.
 
 ### AI agents
 

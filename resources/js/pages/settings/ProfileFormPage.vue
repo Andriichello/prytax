@@ -221,6 +221,17 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
             </Dimmable>
 
             <template v-if="isNew">
+                <RouterLink
+                    v-if="can('import', 'backups')"
+                    :to="{ name: 'backup-import' }"
+                    class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"
+                >
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-15 font-semibold">{{ t('settings.backups.import.title') }}</span>
+                        <span class="text-13 text-ink-3">{{ t('settings.profile.restoreHint') }}</span>
+                    </span>
+                    <Icon name="chevronRight" :size="18" />
+                </RouterLink>
                 <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
                     <h2 class="m-0 text-16 font-semibold">{{ t('settings.profile.taxpayer') }}</h2>
                     <ProfilePersonFields v-model="form" :errors="errors" />

@@ -301,6 +301,11 @@ router.beforeEach(async (to, from) => {
         if (!profile) {
             const start = can('create', 'profiles') ? 'profile-new' : 'no-profile';
 
+            // Its ФОП may come from a backup's archive too
+            if (to.name === 'backup-import' && can('import', 'backups')) {
+                return true;
+            }
+
             return to.name === start ? true : { name: start };
         }
 

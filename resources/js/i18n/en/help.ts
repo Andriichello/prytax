@@ -304,7 +304,7 @@ export default {
         },
         restore: {
             title: 'Restore a ФОП from an archive',
-            text: 'An owner restores a ФОП from a downloaded archive as a new ФОП of the organization, never over an existing one. «Check» first tells whose archive it is and what it holds.',
+            text: 'An owner restores the ФОП of a downloaded archive as new ФОП of the organization, never over existing ones: the archive of one ФОП, or of every ФОП of a backup — then all of them, or none. «Check» first tells whose ФОП the archive holds and what. A new organization can start this way: «New ФОП» has «Restore from an archive».',
         },
         recoveryKit: {
             title: 'Recovery kit',

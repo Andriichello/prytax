@@ -11,6 +11,7 @@ use Core\Models\AuditLog;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PryTax\DataLifecycle\Backup\ArchiveImports;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\DownloadBackupRequest;
@@ -18,7 +19,7 @@ use PryTax\DataLifecycle\Backup\Http\Requests\ImportBackupRequest;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupCollection;
 use PryTax\DataLifecycle\Backup\Http\Resources\BackupResource;
 use PryTax\DataLifecycle\Backup\ImportException;
-use PryTax\DataLifecycle\Backup\Internal\ArchiveImporter;
+use PryTax\DataLifecycle\Backup\ImportResult;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveRepacker;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveStore;
 use PryTax\DataLifecycle\Backup\Models\Backup;
@@ -75,13 +76,14 @@ class BackupController extends CrudController
      * @param BackupRepository $repository
      * @param ArchiveStore $store
      * @param ArchiveRepacker $repacker
+     * @param ArchiveImports $imports
      */
     public function __construct(
         BackupPolicy $policy,
         BackupRepository $repository,
         protected ArchiveStore $store,
         protected ArchiveRepacker $repacker,
-        protected ArchiveImporter $importer
+        protected ArchiveImports $imports
     ) {
         parent::__construct($policy, $repository);
     }
@@ -176,10 +178,10 @@ class BackupController extends CrudController
     }
 
     /**
-     * Handle the `import` operation: restore a profile from its archive, uploaded, as a new profile of the
-     * organization, never in place (backups.md §5.1); a dry run imports, verifies and rolls back, telling what the
-     * archive holds. A refused archive (another app's, a period's export, a profile the organization has, a wrong
-     * password) is a 422 of `archive`.
+     * Handle the `import` operation: restore the profiles of an archive, uploaded, as new profiles of the organization,
+     * never in place (backups.md §5.1): a profile's archive, or a run's bundle of every profile, all of them or none;
+     * a dry run imports, verifies and rolls back each, telling what the archive holds. A refused archive (another
+     * app's, a period's export, a profile the organization has, a wrong password) is a 422 of `archive`.
      *
      * @param ImportBackupRequest $request
      *
@@ -192,7 +194,7 @@ class BackupController extends CrudController
         set_time_limit(300);
 
         try {
-            $result = $this->importer->import(
+            $results = $this->imports->importAll(
                 (string) $request->file('archive')->getRealPath(),
                 $request->orgId(),
                 $dryRun,
@@ -203,19 +205,23 @@ class BackupController extends CrudController
         }
 
         if (!$dryRun) {
-            AuditLog::record('backup_imported', null, [
-                'name' => (new Backup)->getMorphClass() . '.imported',
-                'metadata' => ['tenant_id' => $result->tenantId, 'file_name' => $request->file('archive')->getClientOriginalName()],
-            ]);
+            foreach ($results as $result) {
+                AuditLog::record('backup_imported', null, [
+                    'name' => (new Backup)->getMorphClass() . '.imported',
+                    'metadata' => ['tenant_id' => $result->tenantId, 'file_name' => $request->file('archive')->getClientOriginalName()],
+                ]);
+            }
         }
 
         return ApiResponse::ok(['data' => [
-            'dry_run' => $result->dryRun,
-            'tenant_id' => $result->tenantId,
-            'tenant' => $result->tenant,
-            'rows' => array_sum($result->rows),
-            'documents' => $result->documents,
-            'skipped_files' => $result->skippedFiles,
+            'dry_run' => $dryRun,
+            'tenants' => array_map(fn (ImportResult $result) => [
+                'tenant_id' => $result->tenantId,
+                'tenant' => $result->tenant,
+                'rows' => array_sum($result->rows),
+                'documents' => $result->documents,
+                'skipped_files' => $result->skippedFiles,
+            ], $results),
         ]]);
     }
 }

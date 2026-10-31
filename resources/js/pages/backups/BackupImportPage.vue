@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { ApiResponse, BackupImportResult } from '@/api/types';
+import type { ApiResponse, BackupImportedProfile, BackupImportResult } from '@/api/types';
 import TextField from '@/components/form/TextField.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -14,12 +14,16 @@ import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
- * Відновити з архіву (Резервні копії): a ФОП from the archive of its backup, as downloaded (with its password, when it
- * has one), restored as a new ФОП of the organization, never over an existing one (backups.md §5.1). «Перевірити»
- * imports, verifies and rolls back, telling whose archive it is and what it holds; «Відновити» does it. Owners only.
+ * Відновити з архіву (Резервні копії, or Новий ФОП while the organization has none): the ФОП of a backup's archive,
+ * as downloaded (with its password, when it has one), or every ФОП of a backup's archive of all of them, restored as
+ * new ФОП of the organization, never over an existing one (backups.md §5.1). «Перевірити» imports, verifies and rolls
+ * back, telling whose ФОП it holds and what; «Відновити» does it, all of them or none. Owners only.
  */
 const router = useRouter();
-const { loadProfiles, select } = useCurrentProfile();
+const { profile, loadProfiles, select } = useCurrentProfile();
+
+/** Back to Резервні копії, or to Новий ФОП, which the organization without a ФОП starts from. */
+const back = computed(() => (profile.value ? { name: 'backups' } : { name: 'profile-new' }));
 
 const file = ref<File | null>(null);
 const password = ref('');
@@ -72,30 +76,39 @@ async function restore(): Promise<void> {
     busy.value = null;
 }
 
-/** Switch to the restored ФОП, and open it. */
+/** Switch to the (first) restored ФОП, and open it. */
 async function open(): Promise<void> {
-    if (!restored.value?.tenant_id) {
+    const id = restored.value?.tenants[0]?.tenant_id;
+
+    if (!id) {
         return;
     }
 
     busy.value = 'open';
     await loadProfiles();
-    await select(restored.value.tenant_id);
+    await select(id);
     await router.replace({ name: 'home' });
 }
 
-const name = (result: BackupImportResult) => result.tenant.full_name ?? '—';
+const name = (tenant: BackupImportedProfile) => tenant.tenant.full_name ?? '—';
 </script>
 
 <template>
-    <SubScreen :title="t('settings.backups.import.title')" :back="{ name: 'backups' }">
+    <SubScreen :title="t('settings.backups.import.title')" :back="back">
         <template #aside>
             <SideNote :text="t('settings.backups.import.sideNote')" />
         </template>
 
         <section v-if="restored" class="flex flex-col gap-3 rounded-card bg-positive-soft p-4" role="status">
-            <span class="text-16 font-semibold">{{ t('settings.backups.import.restored', { name: name(restored) }) }}</span>
-            <span class="text-14 text-ink-2">{{ t('settings.backups.import.holds', { rows: restored.rows, documents: restored.documents }) }}</span>
+            <span class="text-16 font-semibold">
+                {{ restored.tenants.length === 1
+                    ? t('settings.backups.import.restored', { name: name(restored.tenants[0]) })
+                    : t('settings.backups.import.restoredMany', { count: restored.tenants.length }) }}
+            </span>
+            <span v-for="(tenant, index) in restored.tenants" :key="index" class="flex flex-col">
+                <span v-if="restored.tenants.length > 1" class="text-15 font-medium">{{ name(tenant) }}</span>
+                <span class="text-14 text-ink-2">{{ t('settings.backups.import.holds', { rows: tenant.rows, documents: tenant.documents }) }}</span>
+            </span>
             <PrimaryButton :busy="busy === 'open'" @click="open">{{ t('settings.backups.import.open') }}</PrimaryButton>
         </section>
 
@@ -125,15 +138,19 @@ const name = (result: BackupImportResult) => result.tenant.full_name ?? '—';
                 {{ errorMessage(error) }}
             </p>
 
-            <section v-if="checked" class="flex flex-col gap-1 rounded-card border border-line bg-surface p-4" :aria-label="t('settings.backups.import.checkedTitle')">
+            <section v-if="checked" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4" :aria-label="t('settings.backups.import.checkedTitle')">
                 <span class="text-13 text-ink-3">{{ t('settings.backups.import.checkedTitle') }}</span>
-                <span class="text-16 font-semibold">
-                    {{ name(checked) }}<template v-if="checked.tenant.tax_id_last4"> · <span class="num">•••• {{ checked.tenant.tax_id_last4 }}</span></template>
+                <span v-for="(tenant, index) in checked.tenants" :key="index" class="flex flex-col gap-1">
+                    <span class="text-16 font-semibold">
+                        {{ name(tenant) }}<template v-if="tenant.tenant.tax_id_last4"> · <span class="num whitespace-nowrap">•••• {{ tenant.tenant.tax_id_last4 }}</span></template>
+                    </span>
+                    <span class="text-14 text-ink-2">{{ t('settings.backups.import.holds', { rows: tenant.rows, documents: tenant.documents }) }}</span>
                 </span>
-                <span class="text-14 text-ink-2">{{ t('settings.backups.import.holds', { rows: checked.rows, documents: checked.documents }) }}</span>
             </section>
 
-            <PrimaryButton v-if="checked" :busy="busy === 'restore'" @click="restore">{{ t('settings.backups.import.restore') }}</PrimaryButton>
+            <PrimaryButton v-if="checked" :busy="busy === 'restore'" @click="restore">
+                {{ checked.tenants.length === 1 ? t('settings.backups.import.restore') : t('settings.backups.import.restoreMany', { count: checked.tenants.length }) }}
+            </PrimaryButton>
             <SecondaryButton v-else :disabled="!file" :busy="busy === 'check'" @click="check">{{ t('settings.backups.import.check') }}</SecondaryButton>
         </template>
     </SubScreen>

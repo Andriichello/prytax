@@ -245,15 +245,20 @@ export interface TokenLogin extends TokenPair {
     user: Me;
 }
 
-/** A profile restored from its archive (`POST organization/backups/import`), or only checked (`dry_run`). */
-export interface BackupImportResult {
-    dry_run: boolean;
+/** A profile of an archive, restored (`POST organization/backups/import`) or only checked (`dry_run`). */
+export interface BackupImportedProfile {
     /** The new profile's id, or null after a dry run. */
     tenant_id: number | null;
     tenant: { id?: number; full_name?: string | null; tax_id_last4?: string };
     rows: number;
     documents: number;
     skipped_files: number;
+}
+
+/** The profiles of an archive (a ФОП's, or every one of a backup's bundle), restored, or only checked. */
+export interface BackupImportResult {
+    dry_run: boolean;
+    tenants: BackupImportedProfile[];
 }
 
 /** Whether a new organization may be registered here (`GET registration`), and whether it'd be the first one. */

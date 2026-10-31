@@ -8,6 +8,7 @@ export default {
     profile: {
         defaultFormat: '{format} — default',
         newFop: 'New ФОП',
+        restoreHint: 'Have a backup? Restore the ФОП — or every ФОП of a backup — from its archive instead of typing it in.',
         fopProfile: 'ФОП profile',
         taxpayer: 'Taxpayer',
         fullName: 'Full name',
@@ -205,11 +206,11 @@ export default {
         recoveryKit: 'Recovery kit',
         import: {
             title: 'Restore from an archive',
-            linkHint: 'A ФОП from the downloaded archive of its backup, as a new ФОП',
+            linkHint: 'ФОП from the downloaded archive of a backup, as new ФОП',
             explained:
-                'Choose the archive of a ФОП’s backup (the ZIP, as downloaded). “Check” tells whose archive it is and what it holds without changing anything; “Restore” adds it as a new ФОП of the organization.',
+                'Choose the archive of a backup (the ZIP, as downloaded): of one ФОП, or of every ФОП of a backup. “Check” tells whose ФОП it holds and what, without changing anything; “Restore” adds them as new ФОП of the organization.',
             sideNote:
-                'Restoring never overwrites an existing ФОП: one the organization has can’t be restored here. The archive of every ФОП of a backup won’t do — download the backup of the one ФОП.',
+                'Restoring never overwrites an existing ФОП: an archive with a ФОП the organization has can’t be restored here. An archive of every ФОП restores all of them, or none.',
             chooseArchive: 'Choose the archive (.zip)',
             password: 'The archive’s password',
             passwordHint: 'Only if it was downloaded with a password',
@@ -217,7 +218,9 @@ export default {
             checkedTitle: 'In the archive',
             holds: '{rows} records · documents: {documents}',
             restore: 'Restore as a new ФОП',
+            restoreMany: 'Restore {count} ФОП as new',
             restored: 'Restored: {name}',
+            restoredMany: 'ФОП restored: {count}',
             open: 'Go to the ФОП',
         },
         recoveryKitHint: 'This installation’s key, to open a copy of the database on another computer',

@@ -44,6 +44,30 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The starter: Docker on SQLite, one person's installation always (2026-10-31, night; branch `feat/docker-sqlite-default` from `dev`)
+
+The user: the Docker web setup on SQLite by default when started with `./prytax`; a single organization for every
+configuration the starter runs; Docker the first option of Web.
+- **Docker on SQLite:** `.env.docker.example` has SQLite's lines active and MySQL's commented (variants: 1 SQLite,
+  2 MySQL in a container, 3 external). `DockerSettings::make()` turns the example into `.env.docker` for the chosen
+  database (`sqlite` default, `mysql`: uncommented + random password, `external`: host.docker.internal + a note to
+  fill in, then the starter stops). `./prytax docker` asks «Which database?» only when it makes the file; existing
+  settings keep theirs (SQLite: no profile, no question). compose.yaml's `MYSQL_PASSWORD: ${DB_PASSWORD:-}` (it was
+  `:?`, which broke every compose command without a password).
+- **One person's installation:** `Action::SINGLE_ORGANIZATION` (`PRYTAX_SINGLE_ORGANIZATION=true`) in the web
+  processes, the phone server, the desktop window, the db tool's create-owner, and every compose command
+  (`DockerAction::run()` override); compose.yaml's `x-prytax-environment` anchor maps
+  `${PRYTAX_SINGLE_ORGANIZATION:-false}` into all three services (app merges it with RUN_MIGRATIONS). Tests and
+  builds don't get it (phpunit would break).
+- **Web menu:** «In Docker» first (preselected), the platform line «in Docker or here».
+- **Checked live:** `COMPOSE_PROJECT_NAME=prytax-sqlite-check ./prytax docker --no-interaction` with a scratch
+  env file: image built (it retags `prytax:latest`), three containers up, `storage/database/prytax.sqlite` + WAL,
+  `/api/registration` → `single_organization: true` (registration off: first owner from the menu). Torn down with
+  `down -v`; the user's `prytax_mysql`/`prytax_storage` untouched.
+- **The user's own `.env.docker`** (29.10) is still MySQL in a container (`prytax_mysql` volume): told them; not
+  changed. Tests: `DockerSettingsTest` (2), `StartTest` (Docker on SQLite by default, with `--mysql`; the setting in
+  web, phone, desktop, compose runs).
+
 ## api-core from GitHub (2026-10-31, night; branch `chore/api-core-from-github`, fast-forwarded into `dev` at the user's request; `origin/dev` was pushed by the user up to d20c0f5 before it, `main` not updated)
 
 The user: "update composer to use api-core's GitHub to get its code". `composer.json`'s path repository `../api-core`

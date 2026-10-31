@@ -83,9 +83,11 @@ tables.
 
 `./prytax` opens a menu that starts PryTax and does the chores around it; `./prytax <action>` does one thing
 (`./prytax --help` lists the options). It runs with PHP 8.5 (`PRYTAX_PHP`, `php8.5` or `php`), puts it first on its
-processes' PATH as `php`, and takes a recent Node from nvm when the PATH's is older.
+processes' PATH as `php`, and takes a recent Node from nvm when the PATH's is older. Whatever it starts is one
+person's installation (`PRYTAX_SINGLE_ORGANIZATION=true`, whatever the settings say): one organization, signed in with
+a password alone.
 
-The menu first tells what of PryTax runs already, then asks for the platform: **Web** (here, or in Docker) or
+The menu first tells what of PryTax runs already, then asks for the platform: **Web** (in Docker, or here) or
 **Desktop** (the development window, with DevTools or without). Below the box, **Tools** leads to the status, the
 doctor, the tests, the builds and the databases, and **Quit** ends it; the menus after the first offer **Back**
 there too. Esc quits from any question. While the web app or the desktop window runs, **n** opens an ngrok tunnel for
@@ -96,7 +98,7 @@ to restart or stop (the web app), to close or to tunnel to (the desktop app), or
 | Action | What it does |
 |---|---|
 | `web` | The web app here: the server on APP_URL's port, the queue worker and the scheduler, with Vite's hot reload (`--vite`) or the built SPA, on `.env`'s MySQL or a SQLite file (`--db=sqlite`, `--sqlite=<file>`), until Ctrl+C; **n** tunnels to it (not with Vite) |
-| `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing), MySQL in a container with `--mysql`, then its menu |
+| `docker` | The web app in Docker: `docker compose up` with `.env.docker` (made from the example when missing, on SQLite unless another database is chosen, `--db=mysql` or `--mysql`), then its menu |
 | `desktop` | The desktop app's development window (`native:run`), without DevTools unless `--devtools`; **n** serves its data to a phone over a tunnel |
 | `phone` | The app on a phone without a window: PHP's server on 8012 behind an ngrok tunnel, on the desktop app's data or the web app's (`--source`) |
 | `status`, `stop` | What runs on PryTax's ports, and stopping it: `./prytax stop web vite`, or `--all` |
@@ -121,10 +123,11 @@ image, so neither PHP nor Node is needed on the host.
 export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}"
 ```
 
-1. Create `.env` from `.env.docker.example` and pick the database: MySQL in a container (`DB_HOST=mysql`, the
-   `mysql` profile), or an external MySQL 8.0.13+ (its host and credentials; the host machine's is
-   `host.docker.internal`, if it listens on Docker's bridge rather than only on 127.0.0.1). Generate the application
-   key and put it in `APP_KEY`; keep it safe, as it encrypts the tax IDs and IBANs:
+1. Create `.env` from `.env.docker.example` and pick the database: SQLite (the default, a file in the storage volume,
+   for one host), MySQL in a container (its lines uncommented, `DB_HOST=mysql`, the `mysql` profile), or an external
+   MySQL 8.0.13+ (its host and credentials; the host machine's is `host.docker.internal`, if it listens on Docker's
+   bridge rather than only on 127.0.0.1). Generate the application key and put it in `APP_KEY`; keep it safe, as it
+   encrypts the tax IDs and IBANs:
 
    ```bash
    cp .env.docker.example .env
@@ -134,8 +137,8 @@ export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}"
 2. Start it; the `app` service migrates the database and seeds the roles on every start:
 
    ```bash
+   docker compose up -d --build                   # SQLite, or an external MySQL
    docker compose --profile mysql up -d --build   # MySQL in a container
-   docker compose up -d --build                   # an external MySQL
    ```
 
 3. Create the organization and its owner, then sign in at `APP_URL`:

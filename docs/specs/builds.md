@@ -149,18 +149,25 @@ and `host.docker.internal` mapped to the host:
 | `mysql` | — | `profiles: [mysql]`, `mysql:8.4`, the `mysql` volume, a healthcheck; MySQL 8.0.13+ is required, MariaDB isn't supported |
 
 The database is one of three:
-- **MySQL in a container:** `DB_HOST=mysql` and `docker compose --profile mysql up`; the user is created on its first
-  start (`DB_PASSWORD` is required).
+- **SQLite** (§3; the default since 2026-10-31, the owner's request): `DB_CONNECTION=sqlite`,
+  `DB_DATABASE=/app/storage/database/prytax.sqlite`, no profile. The file is made on the first start, and the
+  worker's and scheduler's containers share it in WAL mode. For one host.
+- **MySQL in a container:** its lines in the settings (`DB_HOST=mysql`) and `docker compose --profile mysql up`; the
+  user is created on its first start (`DB_PASSWORD` is required by MySQL's image, not by compose, which loads
+  without it on SQLite).
 - **An external MySQL** (cloud or local): no profile; `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`,
   `DB_PASSWORD` and optionally `MYSQL_ATTR_SSL_CA`. The host machine's is `host.docker.internal`, when it listens on
   Docker's bridge rather than only on 127.0.0.1.
-- **SQLite** (§3): `DB_CONNECTION=sqlite`, `DB_DATABASE=/app/storage/database/prytax.sqlite`, no profile. The file is
-  made on the first start, and the worker's container shares it in WAL mode.
+
+Every service's `PRYTAX_SINGLE_ORGANIZATION` (§1.4) is `${PRYTAX_SINGLE_ORGANIZATION:-false}`, from the file compose
+reads its variables from (`.env`, or `--env-file`'s, which is the same file as `env_file`), and `true` whenever the
+starter runs compose (§6).
 
 ### 2.3 Settings
 
-`.env.docker.example` holds the three database variants, `APP_KEY`, `APP_URL`, `APP_PORT`, `SANCTUM_STATEFUL_DOMAINS`
-(the public host and port), `SESSION_SECURE_COOKIE` (behind TLS) and `PRYTAX_REGISTRATION=false`.
+`.env.docker.example` holds the three database variants (SQLite's lines active, MySQL's commented), `APP_KEY`,
+`APP_URL`, `APP_PORT`, `SANCTUM_STATEFUL_DOMAINS` (the public host and port), `SESSION_SECURE_COOKIE` (behind TLS) and
+`PRYTAX_REGISTRATION=false`.
 - **The key:** `docker compose run --rm --no-deps app php artisan key:generate --show` prints one for `APP_KEY`; it
   must never change or be lost (§1.1).
 - **`PRYTAX_ENV_FILE`** picks the compose file's `env_file`. A server uses `.env`; a development checkout, whose
@@ -472,9 +479,14 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
 - **`./prytax`** (a bash script in the root) finds PHP 8.5 (`PRYTAX_PHP`, `php8.5`, or `php` if it's 8.5) and runs
   `php artisan prytax:start` (`PryTax\Console\Commands\Start`), a Laravel Prompts menu, or the action named:
   `./prytax web`.
+- **One person's installation, always** (2026-10-31, the owner's request): every app the starter runs gets
+  `PRYTAX_SINGLE_ORGANIZATION=true` (`Action::SINGLE_ORGANIZATION`, §1.4), whatever its settings say: the web app's
+  processes, the phone server, the desktop window, `prytax:create-owner` from the database tools, and compose, which
+  hands it to Docker's containers (§2.2). Tests and builds don't get it.
 - **The menu** (reshaped on 2026-10-31 at the owner's request: too many options at once) first lists the apps (web,
   Docker, desktop) as running or not, and Vite, the phone server and ngrok when they run. Then the platform: Web
-  (here or in Docker) or Desktop (the development window, with DevTools or without); the labels say what runs.
+  (in Docker, the first option since 2026-10-31, or here) or Desktop (the development window, with DevTools or
+  without); the labels say what runs.
   `Menu` (a `SelectPrompt` with its own `MenuRenderer`) draws the lines that lead out below the box, aligned with
   its options and reached by the same arrows: Tools (status, doctor, tests, builds, databases) on the first menu,
   Back on the others, Quit last with Esc beside it. Esc chooses Quit in a menu; in any other question it cancels as
@@ -509,13 +521,16 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   tunnel, which **n** opens (not with Vite, whose SPA a phone couldn't load). Another port than APP_URL's gets its
   own APP_URL. When its port is in use, it offers to restart or stop what's there (stopped by its port), and refuses
   without interaction.
-- **docker** makes `.env.docker` from the example when it's missing (PRYTAX_ENV_FILE set, a new APP_KEY, a random
-  database password; mode 0600), runs `docker compose --env-file … [--profile mysql] up -d --build` unless it runs
-  already, then a menu: a tunnel, the first owner, the logs, stopping it (`down` with the MySQL profile). The tunnel
+- **docker** makes `.env.docker` from the example when it's missing (`DockerSettings`: PRYTAX_ENV_FILE set, a new
+  APP_KEY, and the database asked, SQLite by default: MySQL in a container gets its lines and a random password, an
+  external MySQL `host.docker.internal` and a note to fill it in; `--mysql` or `--db` answer it; mode 0600). Existing
+  settings keep their database: SQLite runs without the MySQL profile, MySQL asks whether it's the container's. It
+  runs `docker compose --env-file … [--profile mysql] up -d --build` unless it runs already, then a menu: a tunnel, the first owner, the logs, stopping it (`down` with the MySQL profile). The tunnel
   makes the `app` container again (`up -d app` with `storage/framework/prytax-tunnel.compose.yaml`, which adds the
   current-host placeholder to its stateful domains and `TRUSTED_PROXIES=PRIVATE_SUBNETS`, as Docker's network is
-  between), opens ngrok until Ctrl+C, then makes it again without the file, which it removes. Not run live (it
-  would build the image).
+  between), opens ngrok until Ctrl+C, then makes it again without the file, which it removes. Checked live on SQLite
+  (2026-10-31, a scratch compose project): the image built, the three containers up, the file and its WAL in the
+  storage volume, `single_organization: true`. The first owner comes from the menu (registration stays off).
 - **desktop** checks Node, Electron (offering `native:install`) and its sandbox (§4.10; the fix needs sudo, so it's
   shown, not run), then runs `native:run --no-dependencies --no-interaction -v` in a group (without interaction its
   dev script doesn't take the terminal; `-v` shows its log) with `PRYTAX_DEVTOOLS` and `REMOTE_DEBUGGING_PORT=9333`.
@@ -531,8 +546,9 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   for its name to be typed, and keeps a copy of a SQLite file first.
 - **Tests:** `StartTest` (processes faked): the menu from the platforms to the tools and back, then Quit, with what
   runs told first; the web app on a new SQLite file, ready for a tunnel; a port in use refused without interaction,
-  or the web app there stopped when chosen; the desktop window's PHP and DevTools; Docker's settings made, and its
-  tunnel's container made again and back; the phone's server and its tunnel's address from ngrok's log; starting
+  or the web app there stopped when chosen; the desktop window's PHP and DevTools; Docker's settings made on SQLite by
+  default and with `--mysql`, each compose run as one person's installation, and its tunnel's container made again
+  and back (`DockerSettingsTest`: the example's text made into each database's settings); the phone's server and its tunnel's address from ngrok's log; starting
   over only once the name is typed and after a copy; the parsing of `ss` and `lsof`. `MenuTest`: Esc chooses Quit,
   the arrows reach the lines below the box, which are drawn under it with Esc at its edge.
 - **Laravel PAO** (`laravel/pao`, a dev dependency) strips decoration from artisan's output when an AI agent runs it

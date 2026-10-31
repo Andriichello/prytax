@@ -167,9 +167,9 @@ class StartTest extends TestCase
         $this->built();
 
         $this->artisan('prytax:start')
-            ->expectsOutputToContain("Last: Web · Here · SQLite ($file)")
+            ->expectsOutputToContain("Last: Web · Here · SQLite ($file), 01.10.2026 09:00 by ./prytax")
             ->expectsOutputToContain('Практика Коваленко (1 user)')
-            ->expectsOutputToContain('Set up 01.10.2026 · database created 30.09.2026 · last run 01.10.2026 09:00 by ./prytax')
+            ->expectsOutputToContain('Set up 01.10.2026 · database created 30.09.2026')
             ->expectsQuestion('Which platform?', 'again')
             ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
             ->expectsQuestion('Which platform?', 'quit')
@@ -223,6 +223,24 @@ class StartTest extends TestCase
             ->assertFailed();
 
         Process::assertNothingRan();
+    }
+
+    /**
+     * Test that the starter's container refuses a SQLite file outside the checkout, which it can't see.
+     *
+     * @return void
+     */
+    public function testRefusesASqliteFileOutsideTheCheckoutInTheContainer(): void
+    {
+        Process::fake();
+        $this->partialMock(Toolchain::class, fn (MockInterface $mock) => $mock->shouldReceive('inContainer')->andReturn(true));
+
+        $this->artisan('prytax:start', ['action' => 'web', '--db' => 'sqlite', '--sqlite' => '/srv/elsewhere.sqlite'])
+            ->expectsOutputToContain('/srv/elsewhere.sqlite is outside the checkout')
+            ->assertFailed();
+
+        $this->assertFileDoesNotExist('/srv/elsewhere.sqlite');
+        Process::assertDidntRun(fn (PendingProcess $process) => in_array('migrate', $process->command, true));
     }
 
     /**

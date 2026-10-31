@@ -61,6 +61,19 @@ class McpSession
     }
 
     /**
+     * Get the integration, which serves now, on, or null (without telling why, as `open()` does).
+     *
+     * @return Integration|null
+     */
+    public function integration(): ?Integration
+    {
+        $key = $this->key();
+        $integration = $key === null ? $this->ofSignedInUser() : Integration::ofKey($key);
+
+        return $integration?->isEnabled() ? $integration : null;
+    }
+
+    /**
      * Record Claude connecting, on the integration, which the key names, whether it's on or not.
      *
      * @param array{name?: mixed, version?: mixed} $client

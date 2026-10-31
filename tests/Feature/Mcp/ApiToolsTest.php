@@ -221,7 +221,8 @@ class ApiToolsTest extends TestCase
     }
 
     /**
-     * Test that a CSV's rows come keyed by its headers, whatever its delimiter, without its byte order mark.
+     * Test that a CSV's rows come keyed by its headers, whatever its delimiter, without its byte order mark, an empty
+     * cell null, as an XLSX's.
      *
      * @return void
      */
@@ -229,15 +230,51 @@ class ApiToolsTest extends TestCase
     {
         $owner = $this->claudeOf(Organization::factory()->create());
         $csv = $this->files[] = sys_get_temp_dir() . '/prytax-claude-' . Str::random(8) . '.csv';
-        file_put_contents($csv, "\xEF\xBB\xBFDate;Client;Amount\n2026-10-05;Nordwave GmbH;1200.50\n2026-10-12;Brightline Labs;3892.50\n");
+        file_put_contents($csv, "\xEF\xBB\xBFDate;Client;Amount\n2026-10-05;Nordwave GmbH;1200.50\n2026-10-12;;3892.50\n");
 
         $response = PryTaxServer::actingAs($owner)->tool(ReadSpreadsheet::class, ['path' => $csv]);
 
         $response->assertOk()->assertStructuredContent(fn ($json) => $json
             ->where('headers', ['Date', 'Client', 'Amount'])
             ->where('total_rows', 2)
-            ->where('rows.1', ['Date' => '2026-10-12', 'Client' => 'Brightline Labs', 'Amount' => '3892.50'])
+            ->where('rows.1', ['Date' => '2026-10-12', 'Client' => null, 'Amount' => '3892.50'])
             ->etc());
+    }
+
+    /**
+     * Test that a TSV is read by its tabs, though its first line has more commas.
+     *
+     * @return void
+     */
+    public function testReadsATsvByItsTabs(): void
+    {
+        $owner = $this->claudeOf(Organization::factory()->create());
+        $tsv = $this->files[] = sys_get_temp_dir() . '/prytax-claude-' . Str::random(8) . '.tsv';
+        file_put_contents($tsv, "Client, name, country\tAmount\nNordwave GmbH, Berlin, DE\t1200.50\n");
+
+        $response = PryTaxServer::actingAs($owner)->tool(ReadSpreadsheet::class, ['path' => $tsv]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('headers', ['Client, name, country', 'Amount'])
+            ->where('rows.0.Amount', '1200.50')
+            ->etc());
+    }
+
+    /**
+     * Test that only a spreadsheet is read, by its extension: another file, such as the installation's settings, stays
+     * unread.
+     *
+     * @return void
+     */
+    public function testReadsOnlySpreadsheets(): void
+    {
+        $owner = $this->claudeOf(Organization::factory()->create());
+        $settings = $this->files[] = sys_get_temp_dir() . '/prytax-claude-' . Str::random(8) . '.env';
+        file_put_contents($settings, "APP_KEY=base64:secret\nDB_PASSWORD=secret\n");
+
+        PryTaxServer::actingAs($owner)->tool(ReadSpreadsheet::class, ['path' => $settings])
+            ->assertHasErrors(['Only a spreadsheet is read'])
+            ->assertDontSee('secret');
     }
 
     /**

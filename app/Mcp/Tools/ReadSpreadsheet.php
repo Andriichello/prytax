@@ -17,13 +17,13 @@ use ZipArchive;
  * Class ReadSpreadsheet.
  *
  * A spreadsheet on this computer, which the person gives Claude to record in PryTax (builds.md §7): a CSV (comma,
- * semicolon or tab) or an XLSX (read from its zip and XML, its sheets by name), as rows keyed by the first row's
- * headers, a page at a time.
+ * semicolon or tab), a TSV or an XLSX (read from its zip and XML, its sheets by name), as rows keyed by the first
+ * row's headers, empty cells null, a page at a time. Only those, by their extension: any other file stays unread.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Tools
  */
-#[Description('Read a spreadsheet file on this computer (CSV or XLSX) by its path: its sheets, the first row as headers, and the rows after it as objects, a page at a time (offset, limit). XLSX dates come as Excel serial numbers (days since 1899-12-30) unless the cell holds text. Use it to record a spreadsheet\'s entries in PryTax with api-write.')]
+#[Description('Read a spreadsheet file on this computer (.csv, .tsv or .xlsx) by its path: its sheets, the first row as headers, and the rows after it as objects, a page at a time (offset, limit). XLSX dates come as Excel serial numbers (days since 1899-12-30) unless the cell holds text. Use it to record a spreadsheet\'s entries in PryTax with api-write.')]
 class ReadSpreadsheet extends SessionTool
 {
     /**
@@ -32,6 +32,13 @@ class ReadSpreadsheet extends SessionTool
      * @var int
      */
     public const int MAX_FILE = 20 * 1024 * 1024;
+
+    /**
+     * The extensions it reads: a spreadsheet's, never another file's (`.env`, a key), which a CSV reader would give.
+     *
+     * @var list<string>
+     */
+    public const array EXTENSIONS = ['csv', 'tsv', 'xlsx'];
 
     /**
      * Handle the call.
@@ -52,14 +59,19 @@ class ReadSpreadsheet extends SessionTool
             'limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
         ]);
         $path = (string) $arguments['path'];
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        if (!in_array($extension, self::EXTENSIONS, true)) {
+            throw ValidationException::withMessages(['path' => 'Only a spreadsheet is read: a .csv, .tsv or .xlsx file. Save another one as CSV or XLSX first.']);
+        }
 
         if (!is_file($path) || !is_readable($path) || filesize($path) > self::MAX_FILE) {
             throw ValidationException::withMessages(['path' => "There's no spreadsheet of up to 20 MB to read at $path."]);
         }
 
-        [$sheets, $sheet, $rows] = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'xlsx'
+        [$sheets, $sheet, $rows] = $extension === 'xlsx'
             ? $this->xlsx($path, $arguments['sheet'] ?? null)
-            : [[], null, $this->csv($path)];
+            : [[], null, $this->csv($path, $extension === 'tsv' ? "\t" : null)];
         $headers = array_map(fn ($header, int $index) => trim((string) $header) !== '' ? trim((string) $header) : 'column_' . ($index + 1), $rows[0] ?? [], array_keys($rows[0] ?? []));
         $data = array_slice($rows, 1);
         $offset = (int) ($arguments['offset'] ?? 0);
@@ -77,19 +89,24 @@ class ReadSpreadsheet extends SessionTool
     }
 
     /**
-     * Read a CSV's rows, with the delimiter its first line uses most.
+     * Read a CSV's rows, with the delimiter given (a TSV's tab), or the one its first line uses most; an empty cell is
+     * null, as an XLSX's.
      *
      * @param string $path
+     * @param string|null $delimiter
      *
      * @return list<list<string|null>>
      */
-    protected function csv(string $path): array
+    protected function csv(string $path, ?string $delimiter = null): array
     {
         $handle = fopen($path, 'r');
-        $first = (string) fgets($handle);
-        $counts = array_map(fn (string $delimiter) => substr_count($first, $delimiter), [',' => ',', ';' => ';', "\t" => "\t"]);
-        $delimiter = (string) array_search(max($counts), $counts, true);
-        rewind($handle);
+
+        if ($delimiter === null) {
+            $first = (string) fgets($handle);
+            $counts = array_map(fn (string $candidate) => substr_count($first, $candidate), [',' => ',', ';' => ';', "\t" => "\t"]);
+            $delimiter = (string) array_search(max($counts), $counts, true);
+            rewind($handle);
+        }
 
         // Without a UTF-8 byte order mark
         if (fread($handle, 3) !== "\xEF\xBB\xBF") {
@@ -100,7 +117,7 @@ class ReadSpreadsheet extends SessionTool
 
         while (($row = fgetcsv($handle, null, $delimiter, '"', '')) !== false) {
             if ($row !== [null]) {
-                $rows[] = $row;
+                $rows[] = array_map(fn (?string $cell) => $cell === '' ? null : $cell, $row);
             }
         }
 

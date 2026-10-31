@@ -15,8 +15,8 @@ import { errorMessage, fieldError } from '@/utils/errors';
  * Restoring ФОП from a backup's archive (backups.md §5.1): the ФОП of a backup's archive, as downloaded (with its
  * password, when it has one), or every ФОП of a backup's archive of all of them, restored as new ФОП of the
  * organization, never over an existing one. «Перевірити» imports, verifies and rolls back, telling whose ФОП it holds
- * and what; «Відновити» does it, all of them or none; then it opens the first. Owners only. Резервні копії shows it in
- * its Відновлення tab, Новий ФОП as a page of its own.
+ * and what; «Відновити» does it, all of them or none; then it opens the first. Owners only. Резервні копії opens it in
+ * place on its ФОП tab, Новий ФОП as a page of its own.
  */
 const router = useRouter();
 const { loadProfiles, select } = useCurrentProfile();

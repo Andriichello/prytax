@@ -8,7 +8,7 @@ import { t } from '@/i18n';
 /**
  * Набір відновлення: the desktop installation's key (builds.md §4.5), which the owner keeps away from the computer
  * before working, as the router's guard asks after registering; then the setup continues where it was going. Резервні
- * копії shows the same kit in its own tab.
+ * копії shows the same kit on its Застосунок tab.
  */
 const route = useRoute();
 const router = useRouter();

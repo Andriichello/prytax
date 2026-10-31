@@ -8,11 +8,11 @@ import { t } from '@/i18n';
 
 /**
  * Відновити з архіву as a page of its own: Новий ФОП leads to it while the organization has no ФОП (Резервні копії
- * shows the same in its Відновлення tab). Back to Новий ФОП then, else to Резервні копії.
+ * opens the same in place, on its ФОП tab). Back to Новий ФОП then, else to Резервні копії.
  */
 const { profile } = useCurrentProfile();
 
-const back = computed(() => (profile.value ? { name: 'backups', query: { tab: 'restore' } } : { name: 'profile-new' }));
+const back = computed(() => (profile.value ? { name: 'backups' } : { name: 'profile-new' }));
 </script>
 
 <template>

@@ -1,6 +1,8 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31: branch **`feat/starter`** (from `dev`; not merged, not pushed) holds the starter `./prytax`
+Status as of 2026-10-31 (later): branch **`feat/organization-from-backups`** (stacked on `feat/starter`; neither merged
+nor pushed) restores a new organization's ФОПs from backup archives (see "A new organization's ФОПs from backups").
+Before it, branch **`feat/starter`** (from `dev`; not merged, not pushed) holds the starter `./prytax`
 and its menu reshaped at the user's request (see "The starter's menu, reshaped"); 574 PHP tests on SQLite (MySQL
 was stopped). The desktop DB's `native:migrate` and the MySQL suite are still to do (below). Before it, as of
 2026-10-30 (late): **everything is merged into `dev`** (the user: "merge everything into dev"; a
@@ -36,6 +38,34 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## A new organization's ФОПs from backups (2026-10-31; branch `feat/organization-from-backups` from `feat/starter`)
+
+The user asked for "a way to create a new organization directly from the backups (one or multiple FOPs) export(s)",
+chose «Registration + command», then, mid-way, said where it hurts: after registering, the app lands on Налаштування →
+Новий ФОП, with no way to start from an archive or to restore all ФОПs of one archive. So the UI went there, and the
+registration-page variant (half-built: a staged upload, `POST registration/archives`) was removed before committing;
+the command stayed. backups.md v1.9 has it all.
+- **Новий ФОП** has a card «Відновити з архіву» (owners: `import` on backups); the router lets `/backups/import`
+  through while the organization has no ФОП, and its back arrow returns to Новий ФОП then.
+- **Bundles:** `POST organization/backups/import` (and `prytax:backup:import`) restores every ФОП of a run's bundle in
+  one transaction, or none; the answer is `{dry_run, tenants: [...]}`. Engine: `import(..., $folder)`, `inspect()`,
+  `discard()` (an import's stored documents, in `ImportResult::$uploaded`), the public `ArchiveImports` (`inspect`,
+  `importAll`, `discard`), `ImportException::PASSWORD_REQUIRED`.
+- **NBU rates:** contract `ReferenceResolver`; `NbuReferenceResolver` fetches an `exchange_rates` row the database
+  lacks (a new installation has none of an archive's days), so the desktop's first launch can restore ФОПs with
+  foreign income; offline it's refused with a Ukrainian message. This also fixes «Відновити з архіву» generally.
+- **`prytax:create-owner --from=<zip>`** (repeatable): the first organization of a fresh server starts with the
+  archives' ФОПs (`ProfileArchives`, through `OrganizationRegistrar::register(..., $archives)`), prompts an AES
+  archive's password, refuses the same ФОП twice; all or nothing (`ArchiveRefusedException` names the archive).
+- **Desktop uploads 200 MB** (`NativeAppServiceProvider::phpIni`), as the import's request allows.
+- **Checked live** (scratch SQLite files + scratch `LARAVEL_STORAGE_PATH`, `php -S` on 8013, headless Chrome on 9223,
+  `act.mjs` with `BASE=http://localhost:8013`): registered → Новий ФОП card → the demo practice's bundle (4 ФОПs, 39
+  documents) checked and restored (25 NBU rates fetched for real) → Головна of Коваленко. Gotcha: a scratch backup
+  fails («The document … is missing from its disk») when the DB was seeded with another storage path than the run's.
+- **Tests:** `BackupImportTest` (+2), `ArchiveImporterTest` (+1), `CreateOwnerTest` (+2); 579 PHP tests on SQLite; SPA 755, typecheck, build.
+- **Not done:** a registration-page way (removed, see above; easy to add on `ProfileArchives` if wanted); picking one
+  of the organization's stored archives instead of uploading; several archives in one go on the page (one at a time).
 
 ## The starter's menu, reshaped (2026-10-31; same branch `feat/starter`, not merged)
 

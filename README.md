@@ -26,15 +26,16 @@ tables.
 - MySQL 8.0.13 or newer, for both the application and its tests (the schema uses generated columns, `CHECK`s and
   indexes over expressions). MariaDB isn't supported. SQLite 3.38 or newer works too, with `pdo_sqlite` (see
   "Running on SQLite").
-- api-core checked out next to this repository, in `../api-core`: Composer symlinks it from there (see below).
+- Access to api-core's private repository (`Andriichello/api-core`): Composer takes it from GitHub (see below).
 - Node 20.19 or newer, for the frontend's Vite 8.
 
 ### Setting up
 
-1. Clone api-core next to PryTax, so the path `../api-core` exists:
+1. Give Composer a GitHub token, which may read api-core's private repository (once per machine; `gh auth token`
+   gives the GitHub CLI's):
 
    ```bash
-   git clone https://github.com/Andriichello/api-core.git ../api-core
+   composer config -g github-oauth.github.com "$(gh auth token)"
    ```
 
 2. Install the dependencies, and create the `.env` file with an application key:
@@ -111,9 +112,14 @@ copy of a SQLite file), a new SQLite file with the demo data. Starting a databas
 ### Running with Docker
 
 `compose.yaml` runs one image (`Dockerfile`) as three services: `app` (FrankenPHP serving the SPA and the API on port
-8080, in classic mode), `worker` (the queue: backups, bundles and period exports) and `scheduler`. The image builds
-api-core from `../api-core`, which has to be checked out next to PryTax, as above. The SPA is built inside the image,
-so neither PHP nor Node is needed on the host.
+8080, in classic mode), `worker` (the queue: backups, bundles and period exports) and `scheduler`. The image's
+Composer takes api-core from its private GitHub repository, so building needs `COMPOSER_AUTH` in the shell, with a
+token that may read it; it's passed as a build secret, which stays out of the image. The SPA is built inside the
+image, so neither PHP nor Node is needed on the host.
+
+```bash
+export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}"
+```
 
 1. Create `.env` from `.env.docker.example` and pick the database: MySQL in a container (`DB_HOST=mysql`, the
    `mysql` profile), or an external MySQL 8.0.13+ (its host and credentials; the host machine's is
@@ -241,9 +247,12 @@ their first launch; `docs/specs/builds.md` §4.9 lists NativePHP's signing varia
 
 ### api-core
 
-`composer.json` requires `andriichello/api-core:dev-dev` from a path repository, which symlinks
-`vendor/andriichello/api-core` to `../api-core`, so changes to api-core take effect here at once. Switch to its VCS
-repository (`https://github.com/Andriichello/api-core`) before deploying, as a server has no `../api-core`.
+`composer.json` requires `andriichello/api-core:dev-dev` from its VCS repository
+(`https://github.com/Andriichello/api-core`, private), and `composer.lock` pins the commit. Changes to api-core reach
+PryTax once they're pushed to its `dev` branch and taken with `composer update andriichello/api-core`. To try
+unpushed api-core changes, point Composer at a local checkout for a while, without committing it:
+`composer config repositories.api-core '{"type": "path", "url": "../api-core", "options": {"symlink": true}}'`, then
+`composer update andriichello/api-core`; undo both before committing.
 
 After updating api-core:
 

@@ -1749,10 +1749,9 @@ When a second app (e.g. the restaurant menu app) needs backups:
 - **Committed `composer.json`:** api-core as a **git (VCS) repository with tagged versions**
   (`"andriichello/api-core": "^1.4"`), so CI and production builds are reproducible.
 - **Never commit a path repository** pointing at `../api-core`: it breaks every build where that sibling folder
-  doesn't exist. **Today's `composer.json` does exactly that** (a `path` repository `../api-core`, symlinked, with
-  `"andriichello/api-core": "dev-dev"`): fix it before the first CI or production build, independently of backups.
-  Still so as built (v1.8): the builds work around it by taking api-core from a checkout beside PryTax and copying it
-  over the link (`builds.md` §1.2); the tagged dependency isn't done.
+  doesn't exist. **Fixed on 2026-10-31:** `composer.json` takes `andriichello/api-core:dev-dev` from its private
+  GitHub repository, `composer.lock` pins the commit, and Docker and the CI authenticate with a token (`builds.md`
+  §1.2). The tagged dependency isn't done: `dev-dev` follows the branch whenever `composer update` runs.
 - **Local linking:** a git-ignored override, either `COMPOSER=composer.local.json composer update` with a local file
   that adds `{"type": "path", "url": "../api-core", "options": {"symlink": true}}`, or `wikimedia/composer-merge-plugin`
   merging a git-ignored `composer.local.json`.

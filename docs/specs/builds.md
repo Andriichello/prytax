@@ -27,7 +27,8 @@ only (`resources/js/api/client.ts`) and signs in with Sanctum's session cookie. 
 What the audits before the build found, and where each is handled:
 - **MySQL-only SQL** in 7 migrations, 4 runtime queries and the backup engine (§3). api-core needed nothing: its own
   tests already ran on SQLite.
-- **api-core's path repository**, whose symlink breaks any build made outside the development machine (§1.2).
+- **api-core's path repository**, whose symlink broke any build made outside the development machine (§1.2; replaced by
+  its GitHub repository on 2026-10-31).
 - **A queue worker and a scheduler are required.** Backups, bundles and period exports run only on a worker; rates,
   tax periods, alerts, backups and retention are scheduled (§2.2, §4.1).
 - **No sign-up.** A fresh installation had no way to create its first user (§1.3).
@@ -38,15 +39,20 @@ What the audits before the build found, and where each is handled:
 
 ### 1.2 api-core in builds
 
-`composer.json` keeps the path repository `../api-core` (`symlink: true`) for development, and every build takes
-api-core from a checkout beside PryTax: Docker from a second build context (`additional_contexts: { api-core:
-../api-core }`), the CI from a second checkout (§4.9).
+Since 2026-10-31 `composer.json` takes `andriichello/api-core:dev-dev` from its VCS repository,
+`https://github.com/Andriichello/api-core.git`, which is private, and `composer.lock` pins the commit (a zip of
+GitHub's API). Every Composer needs a token, which may read it:
+- **Development:** Composer's own (`composer config -g github-oauth.github.com "$(gh auth token)"`). Unpushed api-core
+  changes are tried through a temporary path repository, never committed (README, "api-core").
+- **Docker:** `COMPOSER_AUTH` in the shell, passed as the build secret `composer_auth`
+  (`RUN --mount=type=secret,id=composer_auth,env=COMPOSER_AUTH composer install`), so it stays out of the image's
+  layers and history; compose.yaml declares it, and loads without it, so only a build needs it (§2.1).
+- **CI:** the `API_CORE_TOKEN` secret as the job's `COMPOSER_AUTH` (§4.9).
 
-`COMPOSER_MIRROR_PATH_REPOS=1` doesn't help: `composer.lock` pins the repository's `transport-options` (`"symlink":
-true`), which beats the variable. So after `composer install` the Dockerfile replaces the link
-`vendor/andriichello/api-core` with a copy (`rm` the link, then `cp -R`), and NativePHP's build copies the app with
-its links followed (§4.9). The package's `config/` ships with it (`CoreServiceProvider` loads it); its `vendor/`,
-`.git`, `node_modules`, `tests` and `storage` don't.
+Until then it was the path repository `../api-core` (`symlink: true`), which every build had to work around: Docker
+took api-core from a second build context and replaced the link with a copy, the CI checked it out beside PryTax
+(`COMPOSER_MIRROR_PATH_REPOS=1` couldn't help, as `composer.lock` pinned the link). The package's `config/` ships with
+it (`CoreServiceProvider` loads it); GitHub's zip leaves out what api-core's `.gitattributes` exports out.
 
 ### 1.3 The first owner and registration
 
@@ -105,7 +111,8 @@ re-encrypts it into the restoring installation's key.
 `Dockerfile`, in three stages:
 1. **Assets:** `node:24-alpine` runs `npm ci` and `npm run build`.
 2. **Vendor:** `composer install --no-dev` (Composer copied from `composer:2` into the PHP 8.5 stage, so the platform
-   check passes), then api-core copied over its link (§1.2), then `composer dump-autoload --optimize`.
+   check passes), with the GitHub token of the build secret `composer_auth` for api-core (§1.2), then `composer
+   dump-autoload --optimize`.
 3. **App:** `dunglas/frankenphp` on PHP 8.5, with `pdo_mysql pdo_sqlite zip gd pcntl bcmath opcache`
    (`install-php-extensions`) and `docker/php.ini` over `php.ini-production` (uploads of 32 MB, which a backup's
    import doesn't hit, as it goes up in pieces: `backups.md` v1.10). zip is for backups and exports, gd for
@@ -363,17 +370,17 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 
 - **Local:** `php artisan native:build linux x64`, with Node 22+ (24 is used) and PHP 8.5 as `php` on the PATH for the
   build's own `composer install --no-dev`. It makes `nativephp/electron/dist/PryTax-0.1.0.AppImage` (161 MB) and
-  `prytax_0.1.0_amd64.deb` (123 MB). The build copies the app with links followed, so api-core arrives as a folder
-  (§1.2), and runs `npm run build` first.
+  `prytax_0.1.0_amd64.deb` (123 MB). The build copies the app (api-core is a folder in vendor/, §1.2), and runs
+  `npm run build` first.
 - **The bundle, checked:** its `.env` has no `APP_KEY`, `DB_*`, `MAIL_*` or `SANCTUM_*`; no database, key, kit record
   or `storage/app` is shipped, only the storage skeleton and the PDF fonts. Its first launch (the bundle's PHP with
   Electron's production variables) ran 61 migrations, synced the roles and made a fresh key (0600).
 - **The AppImage on Ubuntu 24.04+** needs `--no-sandbox` (its `chrome-sandbox` can't be setuid inside the image); the
   `.deb` installs it properly.
 - **CI:** `.github/workflows/desktop.yml` builds Linux (AppImage, deb), Windows (NSIS) and macOS (dmg, arm64), unsigned,
-  by hand (Actions → Desktop builds) or on a pushed `desktop-v*` tag, and uploads them as artifacts. It checks api-core
-  out beside PryTax with the `API_CORE_TOKEN` secret (a fine-grained token that may read `Andriichello/api-core`,
-  which is private). `workflow_dispatch` only shows once the workflow is on `main`, the default branch; a tag runs it
+  by hand (Actions → Desktop builds) or on a pushed `desktop-v*` tag, and uploads them as artifacts. Its Composer takes
+  api-core from GitHub with the `API_CORE_TOKEN` secret (a fine-grained token that may read `Andriichello/api-core`,
+  which is private) as the job's `COMPOSER_AUTH` (§1.2). `workflow_dispatch` only shows once the workflow is on `main`, the default branch; a tag runs it
   from any commit.
 - **Signing is left out** (the owner, 2026-10-30: no certificates). Unsigned builds make macOS Gatekeeper and Windows
   SmartScreen warn on the first launch. NativePHP's builder signs when its variables are set: Apple's

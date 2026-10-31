@@ -44,6 +44,24 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## api-core from GitHub (2026-10-31, night; branch `chore/api-core-from-github` from `dev`)
+
+The user: "update composer to use api-core's GitHub to get its code". `composer.json`'s path repository `../api-core`
+became `{"type": "vcs", "url": "https://github.com/Andriichello/api-core.git"}` (still `dev-dev`); the lock pins
+bd4c533 (= api-core's `dev` = `origin/dev` = `origin/main`, clean), a zip of GitHub's API; vendor/ holds a copy, its
+`app`, `config`, `database`, `resources`, `docs` identical to the checkout. builds.md §1.2 has it.
+- **Auth:** the repo is private. Composer's global token in `~/.config/composer/auth.json` is invalid (401; likely why
+  openspout's `composer require` failed on 2026-10-28); the update ran with `COMPOSER_AUTH` from `gh auth token` for
+  that command only, and the global config wasn't changed. README says `composer config -g github-oauth.github.com
+  "$(gh auth token)"`. Note: `composer config -g --list` prints the token in clear; don't run it.
+- **Docker:** no second build context; `RUN --mount=type=secret,id=composer_auth,env=COMPOSER_AUTH composer install`,
+  compose.yaml's top-level `secrets: composer_auth: environment: COMPOSER_AUTH` (compose loads without it). The vendor
+  stage was built with it (api-core downloaded) and the image checked free of the token.
+- **CI:** no api-core checkout; `API_CORE_TOKEN` as the job's `COMPOSER_AUTH` (native:build runs its own composer).
+- **Doctor:** checks `vendor/andriichello/api-core/app` and shows `dev-dev @ bd4c533` (`InstalledVersions`).
+- **Ran with `--no-scripts`**, as `post-update-cmd` runs `native:install --force` under the running desktop window; the
+  symlink was removed by hand first, so Composer couldn't touch `/var/www/api-core`.
+
 ## A ФОП from the desktop app to a server (2026-10-31, night; branch `feat/archive-between-installations`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user asked whether users can export a ФОП in the desktop app and import it into a hosted web app on Google Cloud,
@@ -720,8 +738,9 @@ The chat logs #39–#86 were appended to `storage/handoff/CHAT_LOG.md`.
   (added by the user on 2026-10-24; `main` and `dev` track it); push only when the user asks.
 - **api-core's `feat/remember-login`** (`remember` on `auth/login`, the `remember_token` migration, docs, tests; all
   658 api-core tests passed) is fast-forwarded into its `dev` (2026-10-24, the user asked; the branch was deleted),
-  which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. PryTax runs
-  api-core's working tree (path repository, symlinked), so keep api-core on `dev`. api-core's commits run GrumPHP
+  which is checked out in `/var/www/api-core`; its `main` = `dev`, both pushed to `origin`. Since 2026-10-31 PryTax
+  takes api-core from GitHub (`dev-dev`, pinned in composer.lock), not the working tree: push api-core's `dev`, then
+  `composer update andriichello/api-core` (see "api-core from GitHub"). api-core's commits run GrumPHP
   (phpcs line length 120, phpmd: no boolean flag arguments, phpstan).
 - `php8.5 artisan test --compact`: **about 484 tests** on `feat/backups` (2026-10-28): the last full run had 482, one failing
   (the registry's completeness test, on `data_retention_runs`), which was then fixed and its test rerun, but the full

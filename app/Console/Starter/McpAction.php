@@ -3,6 +3,7 @@
 namespace PryTax\Console\Starter;
 
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Str;
 use PryTax\Console\Commands\Start;
 use Throwable;
 
@@ -11,16 +12,18 @@ use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
+use function Laravel\Prompts\text;
 use function Laravel\Prompts\warning;
 
 /**
  * Class McpAction.
  *
- * Tools → Claude (builds.md §7): how Claude Code or Claude Desktop connects to the desktop app's data or the web
- * app's, for each Claude integration, which an owner turned on in Налаштування → Інтеграції (`prytax:claude-connection`
- * with that data's settings): the `claude mcp add …` command and Claude Desktop's JSON; then whether the server
- * answers with it (the handshake, the tools, the ФОП it sees), which the page's status then shows as the starter's
- * connection.
+ * Tools → Claude (builds.md §7): how Claude Code or Claude Desktop connects to PryTax's data, for each Claude
+ * integration, which an owner turned on in Налаштування → Інтеграції (`prytax:claude-connection` with that data's
+ * settings, or in Docker's container): the data of the app started last first (the web app here on its SQLite file),
+ * the desktop app's, `.env`'s, Docker's while it runs, or another SQLite file; the `claude mcp add …` command and Claude
+ * Desktop's JSON; then whether the server answers with it (the handshake, the tools, the ФОП it sees), which the page's
+ * status then shows as the starter's connection.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -34,26 +37,37 @@ class McpAction extends Action
      */
     protected function handle(): int
     {
-        $desktop = select('Whose data should Claude read?', [
-            'desktop' => 'The desktop app\'s — database/nativephp.sqlite',
-            'web' => ucfirst(Database::web()->label),
-        ], default: 'desktop') === 'desktop';
-        $database = $desktop ? Database::desktop($this->toolchain) : Database::web();
+        $sources = $this->sources();
+        $source = select('Whose data should Claude read?', array_map(fn (array $item) => $item['label'], $sources), default: array_key_first($sources));
 
-        if ($database->isNew()) {
-            error(ucfirst($database->label) . ' has no data yet: start it, and turn Claude on in Settings → Integrations.');
+        if ($source === 'docker') {
+            $label = 'the Docker app';
+            $connections = $this->connectionsOf($this->dockerCompose(['exec', '-T', 'app', 'php', 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', '--folder=' . base_path()]), []);
+        } else {
+            $database = $sources[$source]['database'] ?? $this->otherSqlite();
 
-            return Start::FAILURE;
+            if ($database === null) {
+                return Start::FAILURE;
+            }
+
+            if ($database->isNew()) {
+                error(ucfirst($database->label) . ' has no data yet: start it, and turn Claude on in Settings → Integrations.');
+
+                return Start::FAILURE;
+            }
+
+            $label = $database->label;
+            $desktop = $source === 'desktop';
+            $connections = $this->connectionsOf(
+                [$this->toolchain->php(), 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', ...($desktop ? ['--desktop'] : [])],
+                $database->env,
+            );
         }
 
-        $result = Process::path(base_path())
-            ->env($this->toolchain->env($database->env))
-            ->run([$this->toolchain->php(), 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', ...($desktop ? ['--desktop'] : [])]);
-        $connections = $result->successful() ? json_decode(trim($result->output()), true) : null;
-
-        if (!is_array($connections) || $connections === []) {
-            error('Claude isn\'t on in ' . $database->label . '.');
-            note('An owner turns it on in Settings → Integrations (Налаштування → Інтеграції), then comes back here.');
+        if ($connections === []) {
+            error("Claude isn't on in $label.");
+            note('An owner turns it on in Settings → Integrations (Налаштування → Інтеграції), then comes back here.'
+                . ($source === 'docker' ? ' An image older than Claude has no such command: ./start or ./prytax docker rebuilds it.' : ''));
 
             return Start::FAILURE;
         }
@@ -64,6 +78,88 @@ class McpAction extends Action
         }
 
         return Start::SUCCESS;
+    }
+
+    /**
+     * Get the data Claude may read, by key, what's started last first: the web app here on its SQLite file, the desktop
+     * app's, `.env`'s, Docker's (while it runs), or another SQLite file; each says when its app runs.
+     *
+     * @return array<string, array{label: string, database: Database|null}>
+     */
+    protected function sources(): array
+    {
+        $running = $this->listeners->running();
+        $runs = fn (string $app) => isset($running[$app]) ? ' (runs now)' : '';
+        $last = app(StarterState::class)->last();
+        $sources = [];
+
+        if ($last !== null && $last['choice'] === 'web-here-sqlite' && $last['sqlite'] !== null) {
+            $sources['last'] = [
+                'label' => 'The web app\'s here — ' . Str::after($last['sqlite'], base_path() . '/') . $runs('web'),
+                'database' => Database::sqlite($last['sqlite']),
+            ];
+        }
+
+        $sources['desktop'] = ['label' => 'The desktop app\'s — database/nativephp.sqlite' . $runs('desktop'), 'database' => Database::desktop($this->toolchain)];
+        $sources['web'] = ['label' => ucfirst(Database::web()->label), 'database' => Database::web()];
+
+        if (isset($running['docker'])) {
+            $sources['docker'] = ['label' => "The Docker app's — at {$running['docker']['url']} (runs now)", 'database' => null];
+        }
+
+        $sources['sqlite'] = ['label' => 'Another SQLite file', 'database' => null];
+        $first = match ($last['choice'] ?? null) {
+            'web-here-sqlite' => 'last',
+            'web-here-mysql' => 'web',
+            'web-docker-sqlite', 'web-docker-mysql' => 'docker',
+            default => 'desktop',
+        };
+
+        return isset($sources[$first]) ? [$first => $sources[$first], ...$sources] : $sources;
+    }
+
+    /**
+     * Ask for another SQLite file, and get its database, or null when the starter can't reach it.
+     *
+     * @return Database|null
+     */
+    protected function otherSqlite(): ?Database
+    {
+        $path = text('Which SQLite file?', default: database_path('database.sqlite'), required: true);
+        $path = str_starts_with($path, '/') ? $path : base_path($path);
+
+        return $this->reachable($path) ? Database::sqlite($path) : null;
+    }
+
+    /**
+     * Run `prytax:claude-connection` (here with the database's settings, or in Docker's container), and get the
+     * connections it gives, none when Claude isn't on there or it fails.
+     *
+     * @param list<string> $command
+     * @param array<string, string> $env
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function connectionsOf(array $command, array $env): array
+    {
+        $result = Process::path(base_path())->env($this->toolchain->env($env))->run($command);
+        $connections = $result->successful() ? json_decode(trim($result->output()), true) : null;
+
+        return is_array($connections) ? array_values($connections) : [];
+    }
+
+    /**
+     * Get a command of Docker's compose, with the settings the Docker app runs on.
+     *
+     * @param list<string> $arguments
+     *
+     * @return list<string>
+     */
+    protected function dockerCompose(array $arguments): array
+    {
+        $file = is_file(base_path('.env.docker')) ? base_path('.env.docker') : base_path('.env');
+
+        return ['docker', 'compose', '--env-file', $file, ...$arguments];
     }
 
     /**

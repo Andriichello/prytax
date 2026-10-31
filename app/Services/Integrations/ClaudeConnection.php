@@ -61,15 +61,16 @@ final class ClaudeConnection
 
     /**
      * Get the connection of the integration, which is on, in the context (where PryTax runs now, unless given), with
-     * the PHP given, if any.
+     * the PHP given, if any, and Docker's folder on the host, if it's known (the starter's).
      *
      * @param Integration $integration
      * @param string|null $context
      * @param string|null $php
+     * @param string|null $folder PryTax's folder on the host, for Docker.
      *
      * @return array{context: string, name: string, command: string, args: list<string>, env: array<string, string>, claude_code: string, claude_desktop: string, notes: list<string>}
      */
-    public function for(Integration $integration, ?string $context = null, ?string $php = null): array
+    public function for(Integration $integration, ?string $context = null, ?string $php = null, ?string $folder = null): array
     {
         $context ??= $this->context();
         $notes = [];
@@ -78,10 +79,14 @@ final class ClaudeConnection
             $name = 'prytax-docker';
             $command = 'docker';
             // The key passes by its name, from the environment Claude gives the command
-            $args = ['compose', '--project-directory', self::FOLDER, '--env-file', self::FOLDER . '/.env.docker', 'exec', '-T',
+            $root = rtrim($folder ?? self::FOLDER, '/');
+            $args = ['compose', '--project-directory', $root, '--env-file', "$root/.env.docker", 'exec', '-T',
                 '-e', self::KEY_VARIABLE, 'app', 'php', 'artisan', 'mcp:start', self::SERVER];
             $env = [];
-            $notes[] = 'folder';
+
+            if ($folder === null) {
+                $notes[] = 'folder';
+            }
         } else {
             $name = $context === 'desktop' ? 'prytax-desktop' : 'prytax';
             $command = $php ?? $this->php($context);

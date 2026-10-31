@@ -22,7 +22,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
  */
-#[Signature('prytax:claude-connection {--desktop : The desktop app\'s data} {--json : The connections as JSON, on one line}')]
+#[Signature('prytax:claude-connection
+    {--desktop : The desktop app\'s data}
+    {--folder= : In Docker: PryTax\'s folder on the host, which the container can\'t know}
+    {--json : The connections as JSON, on one line}')]
 #[Description('Show how Claude connects to PryTax: each Claude integration\'s, which is on, command and config')]
 class ClaudeConnection extends Command
 {
@@ -45,7 +48,7 @@ class ClaudeConnection extends Command
             ->get()
             ->map(fn (Integration $integration) => [
                 'organization' => (string) Organization::query()->whereKey($integration->organization_id)->value('name'),
-                ...$connection->for($integration, $this->option('desktop') ? 'desktop' : 'local'),
+                ...$connection->for($integration, $this->contextOf($connection), folder: $this->option('folder') ?: null),
             ])
             ->all();
 
@@ -68,5 +71,21 @@ class ClaudeConnection extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Get where the server runs: the desktop app's data, Docker's container, or here.
+     *
+     * @param Connection $connection
+     *
+     * @return string
+     */
+    protected function contextOf(Connection $connection): string
+    {
+        return match (true) {
+            (bool) $this->option('desktop') => 'desktop',
+            $connection->context() === 'docker' => 'docker',
+            default => 'local',
+        };
     }
 }

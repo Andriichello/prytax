@@ -67,6 +67,28 @@ class ClaudeConnectionTest extends TestCase
     }
 
     /**
+     * Test that, in the local app's container, the connection names the settings compose read and its own project.
+     *
+     * @return void
+     */
+    public function testNamesTheLocalAppsSettingsAndProject(): void
+    {
+        $integration = Integration::factory()->enabled($this->userOf(Organization::factory()->create()))->create();
+        putenv('PRYTAX_ENV_FILE=.env.docker.local');
+        putenv('COMPOSE_PROJECT_NAME=prytax-local');
+
+        try {
+            $connection = app(ClaudeConnection::class)->for($integration, 'docker', folder: '/srv/prytax');
+        } finally {
+            putenv('PRYTAX_ENV_FILE');
+            putenv('COMPOSE_PROJECT_NAME');
+        }
+
+        $this->assertSame('prytax-local', $connection['name']);
+        $this->assertSame('/srv/prytax/.env.docker.local', $connection['args'][4]);
+    }
+
+    /**
      * Test that, without an integration on, it says where to turn Claude on.
      *
      * @return void

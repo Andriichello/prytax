@@ -338,6 +338,27 @@ class StartTest extends TestCase
     }
 
     /**
+     * Test that the local app runs `./start` in the foreground, and is stopped with its own settings, which name its
+     * own compose project.
+     *
+     * @return void
+     */
+    public function testRunsTheLocalAppWithStartAndStopsItWithItsSettings(): void
+    {
+        $port = Listeners::localPort();
+        Process::fake([
+            "'ss' *" => Process::result("LISTEN 0 511 0.0.0.0:$port 0.0.0.0:* users:((\"docker-proxy\",pid=4242,fd=4))"),
+            '*' => Process::result(),
+        ]);
+
+        $this->artisan('prytax:start', ['action' => 'local'])->assertSuccessful();
+        $this->artisan('prytax:start', ['action' => 'stop', 'what' => ['local']])->assertSuccessful();
+
+        Process::assertRan(fn (PendingProcess $process) => $process->command === [base_path('start')]);
+        Process::assertRan(fn (PendingProcess $process) => $process->command === ['docker', 'compose', '--env-file', base_path('.env.docker.local'), 'down']);
+    }
+
+    /**
      * Get the actions, which need this machine, with what the refusal says.
      *
      * @return array<string, array{string, string}>
@@ -349,6 +370,7 @@ class StartTest extends TestCase
             'Docker' => ['docker', './start runs PryTax in Docker without PHP'],
             'the phone over ngrok' => ['phone', 'The phone over ngrok needs PHP 8.5 and ngrok on this machine'],
             'Claude' => ['mcp', 'Claude starts PryTax\'s server with PHP 8.5 on this machine'],
+            'the local app' => ['local', 'run ./start, which needs only Docker'],
         ];
     }
 

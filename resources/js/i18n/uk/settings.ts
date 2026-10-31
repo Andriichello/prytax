@@ -243,6 +243,7 @@ export default {
             restored: 'Відновлено: {name}',
             restoredMany: 'Відновлено ФОП: {count}',
             open: 'Перейти до ФОП',
+            uploading: 'Надсилаємо архів… {percent} %',
         },
         policySummary: '{frequency} · до {months} міс.',
         createNow: 'Створити зараз',

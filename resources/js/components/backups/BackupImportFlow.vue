@@ -3,9 +3,11 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, BackupImportedProfile, BackupImportResult } from '@/api/types';
+import { uploadInPieces } from '@/api/uploads';
 import TextField from '@/components/form/TextField.vue';
 import Icon from '@/components/ui/Icon.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
+import ProgressBar from '@/components/ui/ProgressBar.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { t } from '@/i18n';
@@ -16,12 +18,17 @@ import { errorMessage, fieldError } from '@/utils/errors';
  * password, when it has one), or every ФОП of a backup's archive of all of them, restored as new ФОП of the
  * organization, never over an existing one. «Перевірити» imports, verifies and rolls back, telling whose ФОП it holds
  * and what; «Відновити» does it, all of them or none; then it opens the first. Owners only. Резервні копії opens it in
- * place on its ФОП tab, Новий ФОП as a page of its own.
+ * place on its ФОП tab, Новий ФОП as a page of its own. The archive goes up once, in pieces (a server takes small
+ * requests), on «Перевірити», and «Відновити» restores that upload; it goes up again, when the server lost it.
  */
 const router = useRouter();
 const { loadProfiles, select } = useCurrentProfile();
 
 const file = ref<File | null>(null);
+/** The id of the chosen file's upload, once it's sent. */
+const upload = ref<string | null>(null);
+/** The share of the file sent, in percent, while it goes up. */
+const progress = ref<number | null>(null);
 const password = ref('');
 const checked = ref<BackupImportResult | null>(null);
 const restored = ref<BackupImportResult | null>(null);
@@ -30,33 +37,45 @@ const error = ref<unknown>(null);
 
 function choose(event: Event): void {
     file.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+    upload.value = null;
     checked.value = null;
     error.value = null;
 }
 
 async function send(dryRun: boolean): Promise<BackupImportResult | null> {
-    if (!file.value) {
+    const chosen = file.value;
+
+    if (!chosen) {
         return null;
-    }
-
-    const body = new FormData();
-    body.append('archive', file.value);
-    body.append('dry_run', dryRun ? '1' : '0');
-
-    if (password.value) {
-        body.append('password', password.value);
     }
 
     error.value = null;
 
     try {
-        const { data } = await api.post<ApiResponse<BackupImportResult>>('organization/backups/import', body);
+        if (!upload.value) {
+            progress.value = 0;
+            upload.value = await uploadInPieces('organization/backups/uploads', chosen, (share) => (progress.value = Math.round(share * 100)));
+        }
+
+        const { data } = await api.post<ApiResponse<BackupImportResult>>('organization/backups/import', {
+            upload: upload.value,
+            name: chosen.name,
+            dry_run: dryRun,
+            password: password.value || null,
+        });
 
         return data;
     } catch (caught) {
         error.value = caught;
 
+        // Pieces, which the server lost (pruned after a day), go up again on the next try
+        if (fieldError(caught, 'upload')) {
+            upload.value = null;
+        }
+
         return null;
+    } finally {
+        progress.value = null;
     }
 }
 
@@ -114,6 +133,11 @@ const name = (tenant: BackupImportedProfile) => tenant.tenant.full_name ?? '—'
                 <input type="file" accept=".zip,application/zip" class="sr-only" @change="choose">
             </label>
             <span v-if="fieldError(error, 'archive')" class="text-13 text-negative" role="alert">{{ fieldError(error, 'archive') }}</span>
+        </div>
+
+        <div v-if="progress !== null" class="flex flex-col gap-1.5" role="status">
+            <span class="text-13 text-ink-2">{{ t('settings.backups.import.uploading', { percent: progress }) }}</span>
+            <ProgressBar :percent="progress" />
         </div>
 
         <TextField

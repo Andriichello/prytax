@@ -1,5 +1,6 @@
 import { api, fetchCsrfCookie } from '@/api/client';
 import type { ApiResponse, InstallationBackupSaved, InstallationComparison, InstallationStatus } from '@/api/types';
+import { uploadInPieces } from '@/api/uploads';
 
 /**
  * Full backups of the installation (builds.md §4.11): whether they're offered here, saving one (into a file chosen in
@@ -47,17 +48,7 @@ export function useInstallationBackups() {
     async function upload(file: File, progress: (share: number) => void): Promise<string> {
         await fetchCsrfCookie();
 
-        const { data } = await api.post<ApiResponse<{ id: string; piece: number }>>('installation/uploads');
-
-        for (let offset = 0; offset < file.size; offset += data.piece) {
-            const body = new FormData();
-            body.append('piece', file.slice(offset, offset + data.piece), 'piece');
-            body.append('offset', String(offset));
-            await api.post(`installation/uploads/${data.id}`, body);
-            progress(Math.min(1, (offset + data.piece) / file.size));
-        }
-
-        return data.id;
+        return uploadInPieces('installation/uploads', file, progress);
     }
 
     /** Open a full backup with its password and compare it with this installation (`POST installation/restores`). */

@@ -239,6 +239,7 @@ export default {
             restored: 'Restored: {name}',
             restoredMany: 'ФОП restored: {count}',
             open: 'Go to the ФОП',
+            uploading: 'Sending the archive… {percent} %',
         },
         policySummary: '{frequency} · up to {months} mo.',
         createNow: 'Back up now',

@@ -77,7 +77,7 @@ first launch. Otherwise Вхід links to it («Ще не працюєте в Pr
 
 `PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`, 2026-10-31) makes the installation one person's: the
 desktop app always is (§4.2); a web app on this computer or a server kept for one person may be; off by default and in
-both env examples. `PryTax\Services\Setup\SingleOrganization` holds its rules:
+`.env.example`, on in `.env.docker.example` and by default in Docker (§2.2, 2026-10-31). `PryTax\Services\Setup\SingleOrganization` holds its rules:
 - **One organization.** Registration (§1.3) is open only while there's none, deleted ones included; afterwards
   `GET /api/registration` answers `enabled: false` and `POST` is a 404.
 - **A password alone registers it.** Реєстрація asks only the password: a made-up id (`k3x-9qa-w7m`, nine random
@@ -159,15 +159,16 @@ The database is one of three:
   `DB_PASSWORD` and optionally `MYSQL_ATTR_SSL_CA`. The host machine's is `host.docker.internal`, when it listens on
   Docker's bridge rather than only on 127.0.0.1.
 
-Every service's `PRYTAX_SINGLE_ORGANIZATION` (§1.4) is `${PRYTAX_SINGLE_ORGANIZATION:-false}`, from the file compose
-reads its variables from (`.env`, or `--env-file`'s, which is the same file as `env_file`), and `true` whenever the
-starter runs compose (§6).
+Every service's `PRYTAX_SINGLE_ORGANIZATION` (§1.4) is `${PRYTAX_SINGLE_ORGANIZATION:-true}`, from the file compose
+reads its variables from (`.env`, or `--env-file`'s, which is the same file as `env_file`): one person's installation
+unless that file says `false` (a server shared by several organizations), and `true` whenever the starter runs compose
+(§6).
 
 ### 2.3 Settings
 
 `.env.docker.example` holds the three database variants (SQLite's lines active, MySQL's commented), `APP_KEY`,
-`APP_URL`, `APP_PORT`, `SANCTUM_STATEFUL_DOMAINS` (the public host and port), `SESSION_SECURE_COOKIE` (behind TLS) and
-`PRYTAX_REGISTRATION=false`.
+`APP_URL`, `APP_PORT`, `SANCTUM_STATEFUL_DOMAINS` (the public host and port), `SESSION_SECURE_COOKIE` (behind TLS),
+`PRYTAX_REGISTRATION=false` and `PRYTAX_SINGLE_ORGANIZATION=true`.
 - **The key:** `docker compose run --rm --no-deps app php artisan key:generate --show` prints one for `APP_KEY`; it
   must never change or be lost (§1.1).
 - **`PRYTAX_ENV_FILE`** picks the compose file's `env_file`. A server uses `.env`; a development checkout, whose

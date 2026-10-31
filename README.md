@@ -141,7 +141,9 @@ export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}"
    docker compose --profile mysql up -d --build   # MySQL in a container
    ```
 
-3. Create the organization and its owner, then sign in at `APP_URL`:
+3. Create the organization and its owner, then sign in at `APP_URL`. It's one person's installation by default
+   (`PRYTAX_SINGLE_ORGANIZATION=true`), so it asks only the password and prints the e-mail and the recovery code; set
+   it to `false` for a server shared by several organizations:
 
    ```bash
    docker compose exec app php artisan prytax:create-owner
@@ -280,7 +282,7 @@ examples.
 | `API_CORE_INVITATION_URL`         | `http://localhost:5173/accept-invitation`      | SPA page of the invitation link.                                    |
 | `PRYTAX_REGISTRATION`             | `true` (`false` in `.env.docker.example`)      | Whether the sign-in page offers registering a new organization.     |
 | `PRYTAX_FULL_BACKUPS`             | `true` (`false` in `.env.docker.example`)      | Whether owners back up and restore the whole app (SQLite only).     |
-| `PRYTAX_SINGLE_ORGANIZATION`      | `false`                                        | Whether the installation is one person's, signed in by a password.  |
+| `PRYTAX_SINGLE_ORGANIZATION`      | `false` (`true` in `.env.docker.example`)      | Whether the installation is one person's, signed in by a password.  |
 
 With `PRYTAX_REGISTRATION` on, the sign-in page links to a form that registers a new organization with its owner, who
 is signed in at once (`GET`/`POST /api/registration`); an installation without any user opens it at once. It's off by
@@ -294,8 +296,8 @@ every organization.
 With `PRYTAX_SINGLE_ORGANIZATION` on, the installation has one organization, registered with a password alone (its
 name and e-mail are made up), and the sign-in page asks only the password while it has one user. A forgotten password
 is set again on «Забули пароль?» with the recovery code, which the recovery kit keeps, or with the `APP_KEY`, as
-nothing is mailed. The desktop app always is one; turn it on for a web app on your computer or a server kept for one
-person (`docs/specs/builds.md` §1.4).
+nothing is mailed. The desktop app always is one, and so is Docker unless its settings say `false` (turn it off for a
+server shared by several organizations); turn it on for a web app on your computer (`docs/specs/builds.md` §1.4).
 
 Requests from other origins, such as integrations, sign in with tokens. api-core's other options are listed in
 `vendor/andriichello/api-core/docs/getting-started/03-configuration.md`.

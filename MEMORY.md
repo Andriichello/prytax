@@ -57,8 +57,10 @@ configuration the starter runs; Docker the first option of Web.
 - **One person's installation:** `Action::SINGLE_ORGANIZATION` (`PRYTAX_SINGLE_ORGANIZATION=true`) in the web
   processes, the phone server, the desktop window, the db tool's create-owner, and every compose command
   (`DockerAction::run()` override); compose.yaml's `x-prytax-environment` anchor maps
-  `${PRYTAX_SINGLE_ORGANIZATION:-false}` into all three services (app merges it with RUN_MIGRATIONS). Tests and
-  builds don't get it (phpunit would break).
+  `${PRYTAX_SINGLE_ORGANIZATION:-true}` into all three services (app merges it with RUN_MIGRATIONS; the fallback was
+  `false` until the user made `.env.docker.example`'s `true`, 2026-10-31, and asked for it as the default: plain
+  `docker compose` is one person's installation unless the settings say `false`). Tests and builds don't get it
+  (phpunit would break).
 - **Web menu:** «In Docker» first (preselected), the platform line «in Docker or here».
 - **Checked live:** `COMPOSE_PROJECT_NAME=prytax-sqlite-check ./prytax docker --no-interaction` with a scratch
   env file: image built (it retags `prytax:latest`), three containers up, `storage/database/prytax.sqlite` + WAL,
@@ -118,8 +120,9 @@ sign-in asks only the password; a recovery key brings back a forgotten one. They
 `prytax.invalid`; both the recovery code and the `APP_KEY` reset the password; on by default in the desktop app,
 elsewhere by env; usable on a server kept for one person. builds.md §1.4 is the spec as built; README's configuration
 mentions it.
-- **Switch:** `PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`), forced on under NativePHP, `false` in both
-  env examples; the user's `.env` untouched.
+- **Switch:** `PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`), forced on under NativePHP, `false` in
+  `.env.example` and the config, `true` in `.env.docker.example` and compose.yaml's fallback (since 2026-10-31,
+  night); the user's `.env` untouched.
 - **Code:** `Services/Setup/SingleOrganization` (rules: `allowsRegistration` while no organization, deleted included;
   `account()` = exactly one organization and one user; `register`; `codeOf`; `resetPassword` by code or key);
   `Models/RecoveryCode` (`recovery_codes`, encrypted, `kept_at`; `credentials` retention family; in

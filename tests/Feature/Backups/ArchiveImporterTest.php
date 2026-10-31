@@ -8,10 +8,14 @@ use Core\Models\Sequence;
 use Core\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
+use PDOException;
 use PryTax\DataLifecycle\Backup\ImportException;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveImporter;
 use PryTax\DataLifecycle\Backup\Internal\Csv;
@@ -26,7 +30,9 @@ use PryTax\Services\Accounts\AccountBalanceCalculator;
 use PryTax\Services\Invoices\InvoicePdfRenderer;
 use PryTax\Services\Taxes\TaxLiabilityCalculator;
 use PryTax\Services\Taxes\TaxReconciler;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Concerns\ActsInProfiles;
+use Tests\Concerns\MakesInstallationDatabases;
 use Tests\Concerns\ReadsArchives;
 use Tests\TestCase;
 use ZipArchive;
@@ -38,7 +44,7 @@ use ZipArchive;
  * exported and imported, and every tax figure, balance and invoice document of the copy is the original's, with the
  * ids inside values pointing at the copy's own rows. A dry run and a mismatch write nothing; a ФОП, which the
  * organization has already, is refused before anything is written; an NBU rate, which this database lacks, is
- * fetched again.
+ * fetched again. A ФОП moves between SQLite and MySQL, the desktop app's and a server's, both ways.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Backups
@@ -46,8 +52,16 @@ use ZipArchive;
 class ArchiveImporterTest extends TestCase
 {
     use ActsInProfiles;
+    use MakesInstallationDatabases;
     use ReadsArchives;
     use RefreshDatabase;
+
+    /**
+     * The MySQL suite's database (phpunit.xml), which moving a ФОП between the drivers migrates afresh on SQLite.
+     *
+     * @var string
+     */
+    private const string MYSQL_DATABASE = 'prytax_test';
 
     /**
      * A PNG of one pixel.
@@ -225,6 +239,41 @@ class ArchiveImporterTest extends TestCase
     }
 
     /**
+     * Test that a ФОП moves between SQLite and MySQL both ways, as from the desktop app to a server and back, each
+     * installation with its own key: every figure and document of each copy is the original's.
+     *
+     * @return void
+     */
+    public function testMovesAProfileBetweenSqliteAndMysql(): void
+    {
+        $home = (string) config('database.default');
+        $this->prepareOtherDriver($home);
+        $this->profile = $this->demoProfile();
+        $before = $this->figures($this->profile);
+        $archive = $this->writeArchive($this->profile)->path;
+        $homeKey = (string) config('app.key');
+        $rates = DB::table('exchange_rates')->get()->map(fn (object $rate) => (array) $rate)->all();
+
+        $this->useOtherDriver($home);
+        $this->useKey($this->makeKey());
+        DB::table('exchange_rates')->insert($rates);
+        $copy = Profile::query()->withoutGlobalScopes()->findOrFail(app(ArchiveImporter::class)->import($archive, Organization::factory()->create()->id)->tenantId);
+
+        $this->assertNotSame(DB::connection($home)->getDriverName(), DB::connection()->getDriverName());
+        $this->assertSame('3214704821', $copy->tax_id);
+        $this->assertSame(Profile::hashTaxId('3214704821'), $copy->tax_id_hash);
+        $this->assertNotSame($this->profile->tax_id_hash, $copy->tax_id_hash);
+        $this->assertSame($before, $this->figures($copy));
+        $back = $this->writeArchive($copy)->path;
+
+        $this->useHome($home);
+        $this->useKey($homeKey);
+        $returned = app(ArchiveImporter::class)->import($back, Organization::factory()->create()->id)->tenantId;
+
+        $this->assertSame($before, $this->figures(Profile::query()->withoutGlobalScopes()->findOrFail($returned)));
+    }
+
+    /**
      * Seed the demo practice, and give its ФОП Коваленко О. П. a signature, which one invoice's snapshot names, and a
      * deleted draft.
      *
@@ -328,6 +377,79 @@ class ArchiveImporterTest extends TestCase
                     ->mapWithKeys(fn (Invoice $invoice) => [$invoice->number => md5(app(InvoicePdfRenderer::class)->html($invoice))])->all(),
             ]), true));
         });
+    }
+
+    /**
+     * Connect to the other driver, when the tests run on SQLite: the MySQL suite's database, else skip the test (on
+     * MySQL, the other is a SQLite file, which is always there).
+     *
+     * @param string $home The connection of the tests.
+     *
+     * @return void
+     */
+    private function prepareOtherDriver(string $home): void
+    {
+        if (DB::connection($home)->getDriverName() !== 'sqlite') {
+            return;
+        }
+
+        config(['database.connections.other' => [...config('database.connections.mysql'), 'database' => self::MYSQL_DATABASE]]);
+
+        try {
+            DB::connection('other')->getPdo();
+        } catch (PDOException $exception) {
+            $this->markTestSkipped("MySQL can't be reached ({$exception->getMessage()}): run the tests on MySQL, or with its DB_HOST, DB_PORT, DB_USERNAME and DB_PASSWORD.");
+        }
+    }
+
+    /**
+     * Make the other driver's database the default connection, migrated and seeded: on SQLite, the MySQL suite's
+     * database; on MySQL, a SQLite file.
+     *
+     * @param string $home The connection of the tests.
+     *
+     * @return void
+     */
+    private function useOtherDriver(string $home): void
+    {
+        if (DB::connection($home)->getDriverName() !== 'sqlite') {
+            $this->migratedDatabase('other');
+
+            return;
+        }
+
+        $this->useDatabase('other');
+        Artisan::call('migrate:fresh', ['--database' => 'other', '--force' => true]);
+        Artisan::call('db:seed', ['--database' => 'other', '--force' => true]);
+    }
+
+    /**
+     * Make the tests' connection the default one again, keeping its database (an in-memory one is lost when purged)
+     * and its transaction.
+     *
+     * @param string $home
+     *
+     * @return void
+     */
+    private function useHome(string $home): void
+    {
+        config(['database.default' => $home]);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Cache::flush();
+    }
+
+    /**
+     * Encrypt with another key, as another installation does, and hash the tax IDs with it.
+     *
+     * @param string $key
+     *
+     * @return void
+     */
+    private function useKey(string $key): void
+    {
+        config(['app.key' => $key]);
+        app()->forgetInstance('encrypter');
+        Crypt::clearResolvedInstance('encrypter');
     }
 
     /**

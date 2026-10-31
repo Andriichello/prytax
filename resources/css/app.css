@@ -95,11 +95,13 @@
 }
 
 @layer base {
-    /* No zooming on phones and tablets (design.md §16.5): a double tap never zooms, the viewport forbids pinching */
+    /* No zooming on phones and tablets (design.md §16.5): a double tap never zooms, the viewport forbids pinching. The
+       scrollbar's room is always kept, so a page doesn't shift sideways between a short page and a long one */
     html {
         line-height: normal;
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+        scrollbar-gutter: stable;
     }
 
     body {

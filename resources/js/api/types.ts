@@ -2520,6 +2520,10 @@ export interface ClaudeIntegration {
     acting_user: IntegrationUser | null;
     /** The ФОП Claude sees, or null: every one. */
     profile_ids: number[] | null;
+    /** Whether Claude may change data too (api-write), which an owner allows; who and when. */
+    writes_enabled: boolean;
+    writes_enabled_at: DateTimeString | null;
+    writes_enabled_by: IntegrationUser | null;
     /** The key's last 4 characters, or null before it has one. */
     key_hint: string | null;
     key_created_at: DateTimeString | null;

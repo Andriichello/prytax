@@ -428,7 +428,7 @@ export default {
     /** Інтеграції (builds.md §7): Claude, off until an owner turns it on */
     integrations: {
         title: 'Integrations',
-        claudeAbout: 'Claude — Claude Code or Claude Desktop on your computer — reads the organization’s books: ФОП, invoices, receipts, taxes, alerts and backups. It only reads: it changes nothing.',
+        claudeAbout: 'Claude — Claude Code or Claude Desktop on your computer — works with the organization’s books: ФОП, invoices, receipts, taxes, alerts and backups. It only reads by default; it changes data only once an owner allows it.',
         offByDefault: 'Off by default. Claude reads as the chosen user, with their role, and only the chosen ФОП.',
         enable: 'Turn Claude on',
         disable: 'Turn Claude off',
@@ -475,10 +475,16 @@ export default {
         probeNone: 'not set up',
         probeNoConfig: 'not installed or not set up',
         claudeCommandMissing: 'The claude command isn’t found: install Claude Code to run the command above.',
+        writes: 'Allow changes',
+        writesHint: 'Off by default. Claude creates, changes and deletes records as the role of the user it acts as allows.',
+        writesLine: 'Changes allowed {date}, {time} · {name}',
+        writesTitle: 'Allow Claude to change data?',
+        writesText: 'Claude will create, change and delete records as {name}: invoices, receipts, clients, taxes — everything their role allows, and upload files such as invoices’ PDFs. Each change goes through the same checks as in the app, and into the change log.',
+        allowWrites: 'Allow',
     },
 
     sideNotes: {
-        integrations: 'Claude stays off until an owner turns it on. It only reads — as the chosen user, with their role, only the chosen ФОП: each call runs without any change to the data. PryTax records who turned it on and when, and when Claude connected.',
+        integrations: 'Claude stays off until an owner turns it on, and only reads until an owner allows changes. It acts as the chosen user, with their role, only on the chosen ФОП; reading changes nothing, and changes go through the same checks as in the app. PryTax records who turned it on and allowed changes, and when, and when Claude connected.',
         howItWorks: 'How it works',
         oneGroup: 'One group is open at a time; the others are dimmed until you save or cancel.',
         profile: 'The taxpayer, the address and the contacts go into every new invoice. Frozen invoices keep a snapshot of them as of freezing.',

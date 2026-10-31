@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ClaudeIntegration } from '@/api/types';
-import { clientName, connectedLine, probeText, switchedLine } from '@/utils/integrations';
+import { clientName, connectedLine, probeText, switchedLine, writesLine } from '@/utils/integrations';
 
 const integration = (fields: Partial<ClaudeIntegration>): ClaudeIntegration => ({
     kind: 'claude', enabled: false, enabled_at: null, enabled_by: null, disabled_at: null, disabled_by: null,
-    acting_user_id: null, acting_user: null, profile_ids: null, key_hint: null, key_created_at: null,
+    acting_user_id: null, acting_user: null, profile_ids: null, writes_enabled: false, writes_enabled_at: null, writes_enabled_by: null,
+    key_hint: null, key_created_at: null,
     last_connected_at: null, last_client: null, last_used_at: null, last_tool: null, context: 'desktop', probe_available: true,
     ...fields,
 });
@@ -23,6 +24,18 @@ describe('switchedLine', () => {
 
         expect(switchedLine(on)).toBe('Увімкнено 31.10.2026, 22:40 · Олена Коваленко');
         expect(switchedLine(integration({}))).toBeNull();
+    });
+});
+
+describe('writesLine', () => {
+    it('tells who allowed changes and when, or nothing while Claude only reads', () => {
+        const allowed = integration({
+            enabled: true, writes_enabled: true, writes_enabled_at: '2026-10-31T21:55:00Z',
+            writes_enabled_by: { id: 1, name: 'Олена Коваленко', email: 'olena@example.com' },
+        });
+
+        expect(writesLine(allowed)).toBe('Зміни дозволено 31.10.2026, 23:55 · Олена Коваленко');
+        expect(writesLine(integration({ enabled: true }))).toBeNull();
     });
 });
 

@@ -32,6 +32,15 @@ export function switchedLine(integration: ClaudeIntegration): string | null {
     return integration.enabled ? t('settings.integrations.enabledLine', values) : t('settings.integrations.disabledLine', values);
 }
 
+/** Who allowed Claude to change data, and when, or null while it only reads. */
+export function writesLine(integration: ClaudeIntegration): string | null {
+    const at = integration.writes_enabled_at;
+
+    return integration.writes_enabled && at
+        ? t('settings.integrations.writesLine', { date: kyivFullDate(at), time: kyivTime(at), name: integration.writes_enabled_by?.name ?? '—' })
+        : null;
+}
+
 /** What Claude last did: its connection (client, version, when), or that it never connected. */
 export function connectedLine(integration: ClaudeIntegration): string {
     return integration.last_connected_at

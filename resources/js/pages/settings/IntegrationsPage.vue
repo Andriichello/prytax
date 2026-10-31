@@ -20,12 +20,13 @@ import { useLoader } from '@/composables/useLoader';
 import { t } from '@/i18n';
 import { kyivFullDate } from '@/utils/backups';
 import { errorMessage } from '@/utils/errors';
-import { connectedLine, nearMoment, probeText, switchedLine } from '@/utils/integrations';
+import { connectedLine, nearMoment, probeText, switchedLine, writesLine } from '@/utils/integrations';
 import { roleName } from '@/utils/statuses';
 
 /**
  * Інтеграції (builds.md §7): the organization's integrations, now Claude, for its owners. Claude is off until one turns
- * it on, which records who and when. While it's on: Доступ (the user it reads as, the one who turned it on by default;
+ * it on, which records who and when; it only reads until one allows changes too (asked first; who and when shown).
+ * While it's on: Доступ (the user it reads as, the one who turned it on by default;
  * the ФОП it sees, all by default), Підключення (`claude mcp add …` for Claude Code, the JSON for Claude Desktop, to
  * copy, with the key, and a new key, which stops the old one), and Стан (Claude's last connection and call, and, on
  * the person's own computer, a probe of its Claude configs). Turning it off and a new key ask first.
@@ -46,6 +47,26 @@ const { data: users } = useLoader(async (signal) => (await api.get<Paginated<Org
 
 const failureText = computed(() => (failure.value ? errorMessage(failure.value) : null));
 const switched = computed(() => (integration.value ? switchedLine(integration.value) : null));
+const writes = computed(() => (integration.value ? writesLine(integration.value) : null));
+
+/* Changes: allowed after asking, taken back at once */
+const writesOpen = ref(false);
+
+async function writesTo(allowed: boolean): Promise<void> {
+    if (allowed) {
+        writesOpen.value = true;
+
+        return;
+    }
+
+    await configure({ writes: false });
+}
+
+async function writesConfirmed(): Promise<void> {
+    if (await configure({ writes: true })) {
+        writesOpen.value = false;
+    }
+}
 
 /* The switch: on at once, off after asking */
 const disableOpen = ref(false);
@@ -175,6 +196,16 @@ async function rekeyConfirmed(): Promise<void> {
                         @update:model-value="switchTo"
                     />
                     <p v-if="switched" class="m-0 text-13 text-ink-3">{{ switched }}</p>
+                    <template v-if="integration.enabled">
+                        <SwitchCard
+                            :model-value="integration.writes_enabled"
+                            :title="t('settings.integrations.writes')"
+                            :sub="t('settings.integrations.writesHint')"
+                            :disabled="busy !== null"
+                            @update:model-value="writesTo"
+                        />
+                        <p v-if="writes" class="m-0 text-13 text-ink-3">{{ writes }}</p>
+                    </template>
                     <p v-if="failureText && busy === null && !accordion.open.value" class="m-0 text-14 text-negative" role="alert">{{ failureText }}</p>
                 </section>
 
@@ -268,6 +299,16 @@ async function rekeyConfirmed(): Promise<void> {
             @confirm="disableConfirmed"
         >
             <p class="m-0">{{ t('settings.integrations.disableText') }}</p>
+        </ConfirmSheet>
+        <ConfirmSheet
+            v-model:open="writesOpen"
+            :title="t('settings.integrations.writesTitle')"
+            :confirm-label="t('settings.integrations.allowWrites')"
+            :busy="busy === 'writes'"
+            :error="writesOpen ? failureText : null"
+            @confirm="writesConfirmed"
+        >
+            <p class="m-0">{{ t('settings.integrations.writesText', { name: integration?.acting_user?.name ?? '—' }) }}</p>
         </ConfirmSheet>
         <ConfirmSheet
             v-model:open="rekeyOpen"

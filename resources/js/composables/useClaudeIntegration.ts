@@ -6,7 +6,7 @@ import { useLoader } from '@/composables/useLoader';
 const URL = 'organization/integrations/claude';
 
 /** What the Claude integration's page is busy with. */
-export type ClaudeAction = 'switch' | 'access' | 'key' | 'probe' | 'connection';
+export type ClaudeAction = 'switch' | 'writes' | 'access' | 'key' | 'probe' | 'connection';
 
 /**
  * The organization's Claude integration (builds.md §7), for its page: its state, turning it on and off and configuring
@@ -44,9 +44,9 @@ export function useClaudeIntegration() {
         connection.value = (await api.get<ApiResponse<ClaudeConnection>>(`${URL}/connection`)).data;
     });
 
-    /** Turn it on or off, or change its acting user and ФОП; a change makes the connection and the probe stale. */
-    const configure = (fields: { enabled?: boolean; acting_user_id?: number | null; profile_ids?: number[] | null }) =>
-        act(fields.enabled === undefined ? 'access' : 'switch', async () => {
+    /** Turn it on or off, allow changes or not, or change its acting user and ФОП; the connection and probe go stale. */
+    const configure = (fields: { enabled?: boolean; writes?: boolean; acting_user_id?: number | null; profile_ids?: number[] | null }) =>
+        act(fields.enabled !== undefined ? 'switch' : fields.writes !== undefined ? 'writes' : 'access', async () => {
             await api.put(URL, fields);
             connection.value = null;
             probe.value = null;

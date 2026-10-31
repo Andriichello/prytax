@@ -8,9 +8,9 @@ use Illuminate\Validation\Rule;
 /**
  * Class ConfigureIntegrationRequest.
  *
- * Turning the organization's integration on or off and configuring it: the user its other side reads as (one of the
- * organization's, or null for the one who turned it on) and the ФОП it sees (the organization's own, or null for
- * every one).
+ * Turning the organization's integration on or off and configuring it: whether it may change data too, the user its
+ * other side reads (and writes) as (one of the organization's, or null for the one who turned it on) and the ФОП it
+ * sees (the organization's own, or null for every one).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Integrations
@@ -28,6 +28,7 @@ class ConfigureIntegrationRequest extends IntegrationRequest
     {
         return [
             'enabled' => ['sometimes', 'boolean'],
+            'writes' => ['sometimes', 'boolean'],
             'acting_user_id' => [
                 'sometimes',
                 'nullable',

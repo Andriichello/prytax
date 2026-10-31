@@ -19,7 +19,8 @@ use PryTax\Queries\TenantQuery;
  * An organization's integration with an outside tool (builds.md §7), now Claude over MCP: off until its owner turns
  * it on in Налаштування → Інтеграції, which records who did it and when. While on, its connection's key lets the tool
  * read as its acting user (the one who turned it on, unless another is chosen), within the chosen ФОП (all, unless
- * some are). What its other side last did (connected, called) is kept too, outside the audit log.
+ * some are), and, once an owner allows it too (who and when), change data as that user may. What its other side last
+ * did (connected, called) is kept too, outside the audit log.
  *
  * @property int $id
  * @property int $organization_id
@@ -30,6 +31,8 @@ use PryTax\Queries\TenantQuery;
  * @property int|null $disabled_by_user_id
  * @property int|null $acting_user_id
  * @property list<int>|null $profile_ids Null for every ФОП of the organization.
+ * @property Carbon|null $writes_enabled_at When it was allowed to change data, or null: it only reads.
+ * @property int|null $writes_enabled_by_user_id
  * @property string|null $key
  * @property string|null $key_hash
  * @property Carbon|null $key_created_at
@@ -42,6 +45,7 @@ use PryTax\Queries\TenantQuery;
  * @property-read User|null $enabledBy
  * @property-read User|null $disabledBy
  * @property-read User|null $actingUser
+ * @property-read User|null $writesEnabledBy
  *
  * @method static TenantQuery query()
  *
@@ -93,6 +97,7 @@ class Integration extends BaseModel
     protected $casts = [
         'enabled_at' => 'datetime',
         'disabled_at' => 'datetime',
+        'writes_enabled_at' => 'datetime',
         'profile_ids' => 'array',
         'key' => 'encrypted',
         'key_created_at' => 'datetime',
@@ -163,6 +168,16 @@ class Integration extends BaseModel
     }
 
     /**
+     * Determine whether its other side may change data too.
+     *
+     * @return bool
+     */
+    public function allowsWrites(): bool
+    {
+        return $this->writes_enabled_at !== null;
+    }
+
+    /**
      * Get the user, as whom its other side reads: the one chosen, else the one who turned it on.
      *
      * @return User|null
@@ -202,6 +217,16 @@ class Integration extends BaseModel
     public function disabledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'disabled_by_user_id');
+    }
+
+    /**
+     * Get the user, who allowed it to change data.
+     *
+     * @return BelongsTo
+     */
+    public function writesEnabledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'writes_enabled_by_user_id');
     }
 
     /**

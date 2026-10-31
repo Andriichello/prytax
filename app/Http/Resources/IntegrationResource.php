@@ -13,7 +13,8 @@ use PryTax\Services\Integrations\ClaudeProbe;
  * Class IntegrationResource.
  *
  * An organization's integration (builds.md §7), as Налаштування → Інтеграції shows it: whether it's on, who turned it
- * on or off and when, the user its other side reads as (chosen, or the one who turned it on), the ФОП it sees, the
+ * on or off and when, whether it may change data (who allowed it and when), the user its other side acts as (chosen,
+ * or the one who turned it on), the ФОП it sees, the
  * key's last characters (never the key), what its other side last did, where PryTax runs and whether this computer can
  * be probed for Claude.
  *
@@ -46,6 +47,9 @@ class IntegrationResource extends BaseResource
             'acting_user_id' => $integration->acting_user_id,
             'acting_user' => self::user($integration->actor()),
             'profile_ids' => $integration->profile_ids,
+            'writes_enabled' => $integration->allowsWrites(),
+            'writes_enabled_at' => $integration->writes_enabled_at?->toIso8601String(),
+            'writes_enabled_by' => self::user($integration->writesEnabledBy),
             'key_hint' => $key === null ? null : substr($key, -4),
             'key_created_at' => $integration->key_created_at?->toIso8601String(),
             'last_connected_at' => $integration->last_connected_at?->toIso8601String(),

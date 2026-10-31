@@ -75,6 +75,28 @@ final class ClaudeIntegration
     }
 
     /**
+     * Allow the integration to change data too, by the user, or take it back; who and when is recorded while it's
+     * allowed.
+     *
+     * @param Integration $integration
+     * @param User $user
+     * @param bool $allowed
+     *
+     * @return void
+     */
+    public function allowWrites(Integration $integration, User $user, bool $allowed): void
+    {
+        if ($allowed === $integration->allowsWrites()) {
+            return;
+        }
+
+        $integration->forceFill([
+            'writes_enabled_at' => $allowed ? now() : null,
+            'writes_enabled_by_user_id' => $allowed ? $user->getKey() : null,
+        ]);
+    }
+
+    /**
      * Give the integration a new key, which replaces the old one, and get it.
      *
      * @param Integration $integration

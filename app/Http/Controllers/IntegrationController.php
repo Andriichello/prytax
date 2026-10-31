@@ -114,13 +114,17 @@ class IntegrationController extends CrudController
                     : $this->claude->disable($integration, $request->user());
             }
 
+            if ($request->has('writes')) {
+                $this->claude->allowWrites($integration, $request->user(), $request->boolean('writes'));
+            }
+
             $this->claude->configure($integration, $request->safe()->only(['acting_user_id', 'profile_ids']));
             $integration->save();
 
             return $integration;
         });
 
-        return $this->asResourceResponse($integration->fresh(['enabledBy', 'disabledBy', 'actingUser']))->setMessage('Updated');
+        return $this->asResourceResponse($integration->fresh(['enabledBy', 'disabledBy', 'actingUser', 'writesEnabledBy']))->setMessage('Updated');
     }
 
     /**
@@ -141,7 +145,7 @@ class IntegrationController extends CrudController
         $this->claude->rekey($integration);
         $integration->save();
 
-        return $this->asResourceResponse($integration->fresh(['enabledBy', 'disabledBy', 'actingUser']))->setMessage('Updated');
+        return $this->asResourceResponse($integration->fresh(['enabledBy', 'disabledBy', 'actingUser', 'writesEnabledBy']))->setMessage('Updated');
     }
 
     /**
@@ -181,7 +185,7 @@ class IntegrationController extends CrudController
      */
     protected function integrationOf(int $organizationId): Integration
     {
-        return Integration::of($organizationId, Integration::CLAUDE)->loadMissing(['enabledBy', 'disabledBy', 'actingUser']);
+        return Integration::of($organizationId, Integration::CLAUDE)->loadMissing(['enabledBy', 'disabledBy', 'actingUser', 'writesEnabledBy']);
     }
 
     /**

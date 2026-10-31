@@ -13,6 +13,7 @@ use PryTax\Mcp\Tools\GetProfile;
 use PryTax\Mcp\Tools\GetTaxLedger;
 use PryTax\Mcp\Tools\ListInvoices;
 use PryTax\Mcp\Tools\ListProfiles;
+use PryTax\Mcp\Tools\ListReceipts;
 use PryTax\Models\Integration;
 use PryTax\Models\Payment;
 use Tests\Concerns\ActsInProfiles;
@@ -154,6 +155,44 @@ class PryTaxServerTest extends TestCase
         $response = PryTaxServer::actingAs($owner)->tool(GetAccounting::class, ['year' => 2026, 'quarter' => 3]);
 
         $response->assertOk()->assertStructuredContent(fn ($json) => $json->where('summary.quarter_income', $payment->uah_amount)->etc());
+    }
+
+    /**
+     * Test that a receipt's invoice says what it was paid, as its other reads do: worked out in the ФОП, before the
+     * answer leaves it.
+     *
+     * @return void
+     */
+    public function testReceiptsShowWhatTheirInvoicesWerePaid(): void
+    {
+        $this->travelTo('2026-10-20 10:00:00');
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization);
+        $payment = $this->inProfile($profile, fn () => Payment::factory()->create([
+            'profile_id' => $profile->id, 'received_to_account_id' => $this->createAccount($profile)->id, 'received_at' => '2026-10-05',
+        ]));
+
+        $response = PryTaxServer::actingAs($owner)->tool(ListReceipts::class, ['year' => 2026]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('found', 1)
+            ->where('receipts.0.invoice.paid_amount', $payment->amount)
+            ->etc());
+    }
+
+    /**
+     * Test that a month outside the quarter given is refused, not answered with nothing.
+     *
+     * @return void
+     */
+    public function testRefusesAMonthOutsideTheQuarter(): void
+    {
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization);
+
+        PryTaxServer::actingAs($owner)->tool(ListReceipts::class, ['year' => 2026, 'quarter' => 4, 'month' => 3])
+            ->assertHasErrors(["Month 3 isn't in quarter 4"]);
+        PryTaxServer::actingAs($owner)->tool(ListReceipts::class, ['year' => 2026, 'quarter' => 4, 'month' => 11])->assertOk();
     }
 
     /**

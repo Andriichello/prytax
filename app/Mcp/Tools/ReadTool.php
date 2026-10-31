@@ -212,7 +212,8 @@ abstract class ReadTool extends Tool
     }
 
     /**
-     * Run the read in a transaction, which is always rolled back, and get its result.
+     * Run the read in a transaction, which is always rolled back, and get its result as plain data: its resources
+     * resolved there, in the organization and the ФОП, not when the answer is encoded, after them.
      *
      * @param Closure(): array<string, mixed> $read
      *
@@ -224,7 +225,7 @@ abstract class ReadTool extends Tool
         $connection->beginTransaction();
 
         try {
-            return $read();
+            return (array) json_decode((string) json_encode($read(), JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION), true, 512, JSON_THROW_ON_ERROR);
         } finally {
             $connection->rollBack();
         }

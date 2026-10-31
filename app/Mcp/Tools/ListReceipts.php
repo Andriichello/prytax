@@ -5,6 +5,7 @@ namespace PryTax\Mcp\Tools;
 use Carbon\CarbonImmutable;
 use Core\Models\User;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Server\Attributes\Description;
 use PryTax\Http\Resources\PaymentResource;
 use PryTax\Models\Integration;
@@ -71,9 +72,14 @@ class ListReceipts extends ReadTool
      * @param Profile|null $profile
      *
      * @return array<string, mixed>
+     * @throws ValidationException
      */
     protected function read(array $arguments, User $user, Integration $integration, ?Profile $profile): array
     {
+        if (!empty($arguments['quarter']) && !empty($arguments['month']) && (int) ceil($arguments['month'] / 3) !== (int) $arguments['quarter']) {
+            throw ValidationException::withMessages(['month' => "Month {$arguments['month']} isn't in quarter {$arguments['quarter']}: give one of them, or a month of that quarter."]);
+        }
+
         $request = $this->apiRequest($user, [
             'include' => 'invoice',
             'filter' => array_filter([
@@ -82,7 +88,7 @@ class ListReceipts extends ReadTool
                 'period_month' => empty($arguments['month']) ? null : ['eq' => (string) $arguments['month']],
             ]),
         ]);
-        $query = app(PaymentRepository::class)->builder($request)->with('invoice');
+        $query = app(PaymentRepository::class)->builder($request)->with(['invoice' => fn ($invoices) => $invoices->withPaidAmount()]);
 
         return [
             'found' => (clone $query)->count(),

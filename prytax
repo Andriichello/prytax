@@ -1,8 +1,72 @@
 #!/usr/bin/env bash
 # PryTax's starter: `./prytax` opens its menu, `./prytax <action>` does one thing (`./prytax --help` lists them).
 # It runs `php artisan prytax:start` with PHP 8.5, which the system's `php` may not be: PRYTAX_PHP, php8.5 or php.
+# Without PHP 8.5 here (or with PRYTAX_PHP=docker) it runs in a container with PHP 8.5 and Node 24, the Dockerfile's
+# `starter` stage, which offers what runs there: the web app here and the tools (builds.md §6). ./start runs PryTax in
+# Docker with nothing but Docker.
 set -euo pipefail
 cd "$(dirname "$0")"
+
+# The starter in its container: its image built once per Dockerfile, the checkout mounted at its own path, as this
+# user, on this machine's network and processes (its ports, MySQL and Vite are this machine's, and what runs is seen
+# and stopped as here). A fresh checkout gets its packages, .env and key there first.
+in_container() {
+    local image token tty=''
+
+    if ! docker version >/dev/null 2>&1; then
+        echo "PryTax needs PHP 8.5: install it as php8.5, or set PRYTAX_PHP to its binary; or install Docker, to run the starter in a container." >&2
+        exit 1
+    fi
+
+    if [ "${PRYTAX_PHP:-}" != docker ]; then
+        echo "There's no PHP 8.5 here: the starter runs in a container with PHP 8.5 and Node 24 (PRYTAX_PHP picks a PHP of this machine)." >&2
+    fi
+
+    image="prytax-starter:$(cat Dockerfile docker/starter.ini | cksum | cut -d ' ' -f 1)"
+
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        echo "Building the starter's image, $image (once, a few minutes)…" >&2
+        docker build --target starter -t "$image" . >&2
+    fi
+
+    if [ -t 0 ] && [ -t 1 ]; then
+        tty=1
+    fi
+
+    run=(docker run --rm -i ${tty:+-t} --network host --pid host --user "$(id -u):$(id -g)"
+        -e HOME=/tmp -e TERM -e COMPOSER_AUTH -e PRYTAX_STARTER_CONTAINER=1 -v "$PWD:$PWD" -w "$PWD" "$image")
+
+    if [ ! -f vendor/autoload.php ]; then
+        echo "Installing PryTax's packages (composer install)…" >&2
+        (
+            # api-core comes from its private GitHub repository: a token, which may read it, from gh when none is given
+            if [ -z "${COMPOSER_AUTH:-}" ] && command -v gh >/dev/null 2>&1; then
+                token="$(gh auth token 2>/dev/null || true)"
+
+                if [ -n "$token" ]; then
+                    export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$token\"}}"
+                fi
+            fi
+
+            "${run[@]}" composer install --no-interaction
+        )
+    fi
+
+    if [ ! -f .env ]; then
+        cp .env.example .env
+        "${run[@]}" php artisan key:generate --no-interaction
+    fi
+
+    if [ ! -d node_modules ]; then
+        "${run[@]}" npm ci
+    fi
+
+    if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+        exec "${run[@]}" php artisan help prytax:start
+    fi
+
+    exec "${run[@]}" php artisan prytax:start "$@"
+}
 
 php_bin="${PRYTAX_PHP:-}"
 
@@ -15,9 +79,8 @@ if [ -z "$php_bin" ]; then
     done
 fi
 
-if [ -z "$php_bin" ]; then
-    echo "PryTax needs PHP 8.5: install it as php8.5, or set PRYTAX_PHP to its binary." >&2
-    exit 1
+if [ -z "$php_bin" ] || [ "$php_bin" = docker ]; then
+    in_container "$@"
 fi
 
 if [ ! -f vendor/autoload.php ]; then

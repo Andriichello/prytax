@@ -4,6 +4,7 @@ namespace PryTax\Services\Setup;
 
 use Core\Models\User;
 use Illuminate\Support\Facades\DB;
+use PryTax\Exceptions\ArchiveRefusedException;
 use PryTax\Exceptions\InstallationAlreadySetUpException;
 
 /**
@@ -43,18 +44,21 @@ class InstallationSetup
      * @param string $email
      * @param string $password
      * @param string $locale
+     * @param list<array{path: string, password?: string|null, name?: string}> $archives Backup archives of ФОПs, which
+     *                                                                                   it starts with.
      *
      * @return User
      * @throws InstallationAlreadySetUpException
+     * @throws ArchiveRefusedException
      */
-    public function createOwner(string $organization, string $name, string $email, string $password, string $locale = 'uk'): User
+    public function createOwner(string $organization, string $name, string $email, string $password, string $locale = 'uk', array $archives = []): User
     {
-        return DB::transaction(function () use ($organization, $name, $email, $password, $locale) {
+        return DB::transaction(function () use ($organization, $name, $email, $password, $locale, $archives) {
             if (!$this->isNeeded()) {
                 throw new InstallationAlreadySetUpException('The installation already has users; invite more from the app.');
             }
 
-            return $this->registrar->register($organization, $name, $email, $password, $locale);
+            return $this->registrar->register($organization, $name, $email, $password, $locale, $archives);
         });
     }
 }

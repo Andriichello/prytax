@@ -34,6 +34,13 @@ class Summaries
      */
     public function of(string $choice, ?string $sqlite = null): ?array
     {
+        // The local app (./start), whose settings name its own compose project
+        if ($choice === 'local') {
+            return $this->toolchain->inContainer() || !$this->listeners->isListening(Listeners::localPort())
+                ? null
+                : $this->read(['docker', 'compose', '--env-file', base_path(Listeners::LOCAL_SETTINGS), 'exec', '-T', 'app', 'php', 'artisan', 'prytax:summary', '--json'], []);
+        }
+
         if (str_starts_with($choice, 'web-docker')) {
             if ($this->toolchain->inContainer() || !$this->listeners->isListening(Listeners::dockerPort())) {
                 return null;

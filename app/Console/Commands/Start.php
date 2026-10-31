@@ -12,6 +12,7 @@ use PryTax\Console\Starter\DesktopAction;
 use PryTax\Console\Starter\DockerAction;
 use PryTax\Console\Starter\DoctorAction;
 use PryTax\Console\Starter\Listeners;
+use PryTax\Console\Starter\LocalAction;
 use PryTax\Console\Starter\McpAction;
 use PryTax\Console\Starter\Menu;
 use PryTax\Console\Starter\PhoneAction;
@@ -43,7 +44,7 @@ use function Laravel\Prompts\spin;
  * @package PryTax\Console\Commands
  */
 #[Signature('prytax:start
-    {action? : web, docker, desktop, phone, status, stop, doctor, test, build, db or mcp}
+    {action? : web, docker, local, desktop, phone, status, stop, doctor, test, build, db or mcp}
     {what?* : stop: what to stop, such as web vite desktop phone ngrok docker}
     {--db= : web: mysql or sqlite; docker, for new settings: sqlite (the default), mysql or external}
     {--sqlite= : web: the SQLite file, database/database.sqlite by default}
@@ -66,6 +67,7 @@ class Start extends Command
     protected const array ACTIONS = [
         'web' => WebAction::class,
         'docker' => DockerAction::class,
+        'local' => LocalAction::class,
         'desktop' => DesktopAction::class,
         'phone' => PhoneAction::class,
         'status' => StatusAction::class,
@@ -99,6 +101,7 @@ class Start extends Command
     protected const array HOST_ONLY = [
         'desktop' => 'The desktop app\'s window needs PHP 8.5 on this machine: install it as php8.5, or set PRYTAX_PHP.',
         'docker' => 'Docker can\'t be started from the starter\'s container: ./start runs PryTax in Docker without PHP.',
+        'local' => 'The local app runs in Docker, which the starter\'s container hasn\'t: run ./start, which needs only Docker.',
         'phone' => 'The phone over ngrok needs PHP 8.5 and ngrok on this machine: install PHP as php8.5, or set PRYTAX_PHP.',
         'mcp' => 'Claude starts PryTax\'s server with PHP 8.5 on this machine: install it as php8.5, or set PRYTAX_PHP.',
     ];
@@ -170,6 +173,7 @@ class Start extends Command
                 'web' => 'Web — ' . match (true) {
                     isset($running['web']) => "runs here at {$running['web']['url']}",
                     isset($running['docker']) => "runs in Docker at {$running['docker']['url']}",
+                    isset($running['local']) => "the local app runs at {$running['local']['url']}",
                     $inContainer => 'here',
                     default => 'in Docker or here',
                 },
@@ -309,8 +313,11 @@ class Start extends Command
             $choice = $this->menu('Where should the web app run?', [
                 'docker' => isset($running['docker']) ? "In Docker — runs at {$running['docker']['url']}" : 'In Docker — the image, with its worker and scheduler',
                 'web' => isset($running['web']) ? "Here — runs at {$running['web']['url']}" : 'Here — PHP\'s server, the queue worker and the scheduler',
+                'local' => isset($running['local'])
+                    ? "Your local app — runs at {$running['local']['url']}"
+                    : 'Your local app — ./start: in Docker, its own data, apart from development',
             ]);
-            $result = in_array($choice, ['web', 'docker'], true) ? $this->perform($choice) : null;
+            $result = in_array($choice, ['web', 'docker', 'local'], true) ? $this->perform($choice) : null;
         } while ($result === Action::WENT_BACK && !$this->quitting);
     }
 
@@ -373,6 +380,7 @@ class Start extends Command
             'web-here-sqlite' => $this->perform('web', ['db' => 'sqlite', 'sqlite' => $last['sqlite']]),
             'web-docker-sqlite' => $this->perform('docker', ['db' => 'sqlite']),
             'web-docker-mysql' => $this->perform('docker', ['db' => 'mysql']),
+            'local' => $this->perform('local'),
             default => null,
         };
     }
@@ -429,7 +437,7 @@ class Start extends Command
         $this->output->writeln("  <options=bold>Last: {$last['label']}</>$run");
 
         if ($summary === null) {
-            note(str_starts_with($last['choice'], 'web-docker')
+            note(str_starts_with($last['choice'], 'web-docker') || $last['choice'] === 'local'
                 ? 'Its overview shows while it runs.'
                 : 'Its overview can\'t be read now: its database isn\'t there yet, or doesn\'t answer.');
 
@@ -450,7 +458,7 @@ class Start extends Command
     protected function showRunning(Listeners $listeners): void
     {
         $running = $listeners->running();
-        $apps = ['web', 'docker', 'desktop'];
+        $apps = ['web', 'docker', 'local', 'desktop'];
         $services = $listeners->services();
         unset($services['mysql']);
 

@@ -47,9 +47,12 @@ class McpAction extends Action
 
         $source = (string) $answers['source'];
 
-        if ($source === 'docker') {
-            $label = 'the Docker app';
-            $connections = $this->connectionsOf($this->dockerCompose(['exec', '-T', 'app', 'php', 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', '--folder=' . base_path()]), []);
+        if (in_array($source, ['docker', 'local'], true)) {
+            $label = $source === 'local' ? 'your local app' : 'the Docker app';
+            $connections = $this->connectionsOf(
+                $this->dockerCompose($source === 'local', ['exec', '-T', 'app', 'php', 'artisan', 'prytax:claude-connection', '--json', '--no-ansi', '--folder=' . base_path()]),
+                [],
+            );
         } else {
             $database = $sources[$source]['database'] ?? $this->otherSqlite((string) $answers['path']);
 
@@ -74,7 +77,7 @@ class McpAction extends Action
         if ($connections === []) {
             error("Claude isn't on in $label.");
             note('An owner turns it on in Settings → Integrations (Налаштування → Інтеграції), then comes back here.'
-                . ($source === 'docker' ? ' An image older than Claude has no such command: ./start or ./prytax docker rebuilds it.' : ''));
+                . (in_array($source, ['docker', 'local'], true) ? ' An image older than Claude has no such command: ./start or ./prytax docker rebuilds it.' : ''));
 
             return Start::FAILURE;
         }
@@ -110,6 +113,10 @@ class McpAction extends Action
         $sources['desktop'] = ['label' => 'The desktop app\'s — database/nativephp.sqlite' . $runs('desktop'), 'database' => Database::desktop($this->toolchain)];
         $sources['web'] = ['label' => ucfirst(Database::web()->label), 'database' => Database::web()];
 
+        if (isset($running['local'])) {
+            $sources['local'] = ['label' => "Your local app's — ./start, at {$running['local']['url']} (runs now)", 'database' => null];
+        }
+
         if (isset($running['docker'])) {
             $sources['docker'] = ['label' => "The Docker app's — at {$running['docker']['url']} (runs now)", 'database' => null];
         }
@@ -119,6 +126,7 @@ class McpAction extends Action
             'web-here-sqlite' => 'last',
             'web-here-mysql' => 'web',
             'web-docker-sqlite', 'web-docker-mysql' => 'docker',
+            'local' => 'local',
             default => 'desktop',
         };
 
@@ -157,15 +165,21 @@ class McpAction extends Action
     }
 
     /**
-     * Get a command of Docker's compose, with the settings the Docker app runs on.
+     * Get a command of Docker's compose, with the settings the app runs on: the local app's (`./start`'s, which name
+     * its own compose project), or the Docker app's of development.
      *
+     * @param bool $local
      * @param list<string> $arguments
      *
      * @return list<string>
      */
-    protected function dockerCompose(array $arguments): array
+    protected function dockerCompose(bool $local, array $arguments): array
     {
-        $file = is_file(base_path('.env.docker')) ? base_path('.env.docker') : base_path('.env');
+        $file = match (true) {
+            $local => base_path(Listeners::LOCAL_SETTINGS),
+            is_file(base_path('.env.docker')) => base_path('.env.docker'),
+            default => base_path('.env'),
+        };
 
         return ['docker', 'compose', '--env-file', $file, ...$arguments];
     }

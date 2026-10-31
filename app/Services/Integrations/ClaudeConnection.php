@@ -76,11 +76,13 @@ final class ClaudeConnection
         $notes = [];
 
         if ($context === 'docker') {
-            $name = 'prytax-docker';
+            // The container's settings name the file compose read them from, and its project: the local app's own
+            $project = getenv('COMPOSE_PROJECT_NAME') ?: null;
+            $name = $project === null ? 'prytax-docker' : (string) $project;
             $command = 'docker';
             // The key passes by its name, from the environment Claude gives the command
             $root = rtrim($folder ?? self::FOLDER, '/');
-            $args = ['compose', '--project-directory', $root, '--env-file', "$root/.env.docker", 'exec', '-T',
+            $args = ['compose', '--project-directory', $root, '--env-file', $root . '/' . (getenv('PRYTAX_ENV_FILE') ?: '.env.docker'), 'exec', '-T',
                 '-e', self::KEY_VARIABLE, 'app', 'php', 'artisan', 'mcp:start', self::SERVER];
             $env = [];
 

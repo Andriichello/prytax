@@ -61,6 +61,7 @@ class Listeners
             'phone' => ['label' => 'Phone server', 'port' => self::PHONE_PORT, 'url' => null],
             'ngrok' => ['label' => 'ngrok tunnel', 'port' => self::NGROK_PORT, 'url' => null],
             'docker' => ['label' => 'Docker app', 'port' => self::dockerPort(), 'url' => self::dockerSettings()['APP_URL'] ?? 'http://localhost:' . self::dockerPort()],
+            'local' => ['label' => 'Local app (./start)', 'port' => self::localPort(), 'url' => self::localSettings()['APP_URL'] ?? 'http://localhost:' . self::localPort()],
             'mysql' => ['label' => 'MySQL', 'port' => 3306, 'url' => null],
         ];
     }
@@ -105,6 +106,36 @@ class Listeners
     public static function dockerSettings(): array
     {
         $settings = base_path('.env.docker');
+
+        return is_file($settings) ? Dotenv::parse((string) file_get_contents($settings)) : [];
+    }
+
+    /**
+     * The local app's settings (`./start`'s, builds.md §6): its own compose project, file and port, apart from the
+     * Docker app of development.
+     *
+     * @var string
+     */
+    public const string LOCAL_SETTINGS = '.env.docker.local';
+
+    /**
+     * Get the local app's port on the host: `.env.docker.local`'s APP_PORT, or `./start`'s 8090.
+     *
+     * @return int
+     */
+    public static function localPort(): int
+    {
+        return (int) ((self::localSettings()['APP_PORT'] ?? null) ?: 8090);
+    }
+
+    /**
+     * Get the local app's settings: `.env.docker.local`'s, if `./start` made them.
+     *
+     * @return array<string, string|null>
+     */
+    public static function localSettings(): array
+    {
+        $settings = base_path(self::LOCAL_SETTINGS);
 
         return is_file($settings) ? Dotenv::parse((string) file_get_contents($settings)) : [];
     }

@@ -34,8 +34,8 @@ class StatusAction extends Action
             $pids = $listening[$port] ?? null;
             $rows[] = [$label, (string) $port, $pids === null ? '—' : 'running', implode(', ', $pids ?? [])];
 
-            // Docker can't be stopped from the starter's container, which has no Docker
-            if ($pids !== null && $key !== 'mysql' && !($key === 'docker' && $this->toolchain->inContainer())) {
+            // Docker's apps can't be stopped from the starter's container, which has no Docker
+            if ($pids !== null && $key !== 'mysql' && !(in_array($key, ['docker', 'local'], true) && $this->toolchain->inContainer())) {
                 $running[$key] = "$label (port $port)";
             }
         }
@@ -73,9 +73,9 @@ class StatusAction extends Action
         $named = $this->start->argument('what');
 
         if ($named !== []) {
-            if ($this->toolchain->inContainer() && in_array('docker', $named, true)) {
-                warning('Docker can\'t be stopped from the starter\'s container: ./start\'s menu stops it.');
-                $named = array_values(array_diff($named, ['docker']));
+            if ($this->toolchain->inContainer() && array_intersect(['docker', 'local'], $named) !== []) {
+                warning('Docker\'s apps can\'t be stopped from the starter\'s container: ./start\'s menu stops the local one.');
+                $named = array_values(array_diff($named, ['docker', 'local']));
             }
 
             foreach (array_diff($named, array_keys($running)) as $idle) {

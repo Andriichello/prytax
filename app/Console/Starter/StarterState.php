@@ -38,6 +38,7 @@ final class StarterState
         'web-here-sqlite' => 'Web · Here · SQLite',
         'web-docker-sqlite' => 'Web · In Docker · SQLite',
         'web-docker-mysql' => 'Web · In Docker · MySQL',
+        'local' => 'Local · In Docker · SQLite (./start)',
     ];
 
     /**

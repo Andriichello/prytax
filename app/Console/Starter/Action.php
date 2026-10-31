@@ -197,6 +197,11 @@ abstract class Action
             return $this->run(['docker', 'compose', '--env-file', $file, '--profile', 'mysql', 'down']);
         }
 
+        // The local app's settings name its own compose project
+        if ($key === 'local') {
+            return $this->run(['docker', 'compose', '--env-file', base_path(Listeners::LOCAL_SETTINGS), 'down']);
+        }
+
         $pids = $key === 'desktop' ? $this->listeners->desktopProcesses() : [];
         $failed = $this->listeners->stop($pids ?: $this->listeners->listening()[$port] ?? []);
 

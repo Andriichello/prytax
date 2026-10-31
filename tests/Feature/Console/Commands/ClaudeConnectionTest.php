@@ -47,6 +47,26 @@ class ClaudeConnectionTest extends TestCase
     }
 
     /**
+     * Test that Docker's connection runs compose from PryTax's folder on the host, when the starter names it, or from
+     * a placeholder to fill in, which a note tells.
+     *
+     * @return void
+     */
+    public function testRunsDockersServerFromTheHostsFolder(): void
+    {
+        $integration = Integration::factory()->enabled($this->userOf(Organization::factory()->create()))->create();
+        $connection = app(ClaudeConnection::class);
+
+        $named = $connection->for($integration, 'docker', folder: '/srv/prytax');
+        $unknown = $connection->for($integration, 'docker');
+
+        $this->assertSame(['compose', '--project-directory', '/srv/prytax', '--env-file', '/srv/prytax/.env.docker'], array_slice($named['args'], 0, 5));
+        $this->assertSame([], $named['notes']);
+        $this->assertSame(ClaudeConnection::FOLDER, $unknown['args'][2]);
+        $this->assertSame(['folder'], $unknown['notes']);
+    }
+
+    /**
      * Test that, without an integration on, it says where to turn Claude on.
      *
      * @return void

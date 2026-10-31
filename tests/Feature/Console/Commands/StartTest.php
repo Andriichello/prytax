@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PryTax\Console\Starter\Database;
 use PryTax\Console\Starter\Doctor;
 use PryTax\Console\Starter\Listeners;
 use PryTax\Console\Starter\StarterState;
@@ -283,6 +284,33 @@ class StartTest extends TestCase
         Process::assertRan(fn (PendingProcess $process) => in_array('mcp:start', $process->command, true)
             && $process->environment['PRYTAX_MCP_KEY'] === 'prytax_key'
             && str_contains((string) $process->input, '"name":"prytax-starter"'));
+    }
+
+    /**
+     * Test that Tools → Claude offers the data of the app started last first, the web app here on its SQLite file,
+     * and reads Claude's connection from it.
+     *
+     * @return void
+     */
+    public function testOffersTheLastAppsDataToClaudeFirst(): void
+    {
+        $file = $this->temporaryFile();
+        file_put_contents($file, 'migrated');
+        app(StarterState::class)->remember('web-here-sqlite', $file);
+        Process::fake(['*prytax:claude-connection*' => Process::result('[]', exitCode: 1), '*' => Process::result()]);
+
+        $this->artisan('prytax:start', ['action' => 'mcp'])
+            ->expectsChoice('Whose data should Claude read?', 'last', [
+                'last' => "The web app's here — $file",
+                'desktop' => "The desktop app's — database/nativephp.sqlite",
+                'web' => ucfirst(Database::web()->label),
+                'sqlite' => 'Another SQLite file',
+            ])
+            ->expectsOutputToContain("Claude isn't on in the SQLite file $file.")
+            ->assertFailed();
+
+        Process::assertRan(fn (PendingProcess $process) => in_array('prytax:claude-connection', $process->command, true)
+            && $process->environment['DB_DATABASE'] === $file);
     }
 
     /**

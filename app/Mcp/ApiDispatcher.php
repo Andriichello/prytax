@@ -171,7 +171,8 @@ class ApiDispatcher
     }
 
     /**
-     * Get the answer: its JSON, without a server error's trace, cut when it's too long; or its text.
+     * Get the answer: its JSON, without an error's trace (only a server error's message), cut when it's too long; or
+     * its text.
      *
      * @param Response $response
      *
@@ -189,6 +190,9 @@ class ApiDispatcher
         if ($response->getStatusCode() >= 500) {
             return ['message' => $answer['message'] ?? 'Server error'];
         }
+
+        // In debug mode, an error carries where it was thrown: the installation's code and folders, not PryTax's data
+        $answer = array_diff_key($answer, array_flip(['exception', 'file', 'line', 'trace']));
 
         $json = (string) json_encode($answer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

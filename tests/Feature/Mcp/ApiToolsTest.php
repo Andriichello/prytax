@@ -172,6 +172,30 @@ class ApiToolsTest extends TestCase
     }
 
     /**
+     * Test that an error comes without where it was thrown, even in debug mode: its message, not the installation's
+     * code and folders, nor a trace, which would fill Claude's context.
+     *
+     * @return void
+     */
+    public function testAnswersAnErrorWithoutItsTrace(): void
+    {
+        config(['app.debug' => true]);
+        $profile = $this->createProfile();
+        $owner = $this->claudeOf($profile->organization);
+
+        $response = PryTaxServer::actingAs($owner)->tool(ApiRead::class, ['path' => "profiles/$profile->id/invoices/999999"]);
+
+        $response->assertOk()->assertStructuredContent(fn ($json) => $json
+            ->where('status', 404)
+            ->has('body.message')
+            ->missing('body.exception')
+            ->missing('body.file')
+            ->missing('body.line')
+            ->missing('body.trace')
+            ->etc());
+    }
+
+    /**
      * Test that the endpoints are listed with their fields while changes are allowed, and only reads otherwise.
      *
      * @return void
@@ -182,7 +206,7 @@ class ApiToolsTest extends TestCase
         $reader = $this->claudeOf($profile->organization);
         $writer = $this->claudeOf($this->createProfile()->organization, writes: true);
 
-        $reads = PryTaxServer::actingAs($reader)->tool(ApiEndpoints::class, ['search' => 'clients']);
+        $reads = PryTaxServer::actingAs($reader)->tool(ApiEndpoints::class);
         $writes = PryTaxServer::actingAs($writer)->tool(ApiEndpoints::class, ['search' => 'clients']);
 
         $reads->assertOk()->assertStructuredContent(fn ($json) => $json

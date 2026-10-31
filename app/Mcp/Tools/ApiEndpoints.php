@@ -41,7 +41,7 @@ class ApiEndpoints extends SessionTool
     public function handle(Request $request, McpSession $session): Response|ResponseFactory
     {
         [$integration, $user] = $session->open();
-        $search = mb_strtolower(trim((string) $request->validate(['search' => ['nullable', 'string', 'max:100']])['search'] ?? ''));
+        $search = mb_strtolower(trim((string) ($request->validate(['search' => ['nullable', 'string', 'max:100']])['search'] ?? '')));
         $writes = $integration->allowsWrites();
         $endpoints = [];
 

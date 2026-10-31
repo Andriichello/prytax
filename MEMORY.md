@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+Status as of 2026-11-01 (latest): **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
 into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
 `chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
 "Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
@@ -60,6 +60,20 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Claude's writes, fixed after a run with test records (2026-11-01; branch `fix/claude-writes` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
+
+- **The run:** `api-write` on the web app's SQLite data (`database/database.sqlite`; the desktop app's is
+  `database/nativephp.sqlite`), with a test client, contract and draft, a PDF uploaded, each changed and deleted.
+  Creating, changing a client, uploads, 422s, blocked paths and deletes worked. The API can't remove such records:
+  `forceDelete` isn't in any role (api-core's `all` leaves it out), and a client or contract a deleted invoice uses
+  stays (422), so the rows were deleted in SQLite by hand, after a copy.
+- **Fixed:** every invoice PATCH was a 428, since `api-write` couldn't send `If-Unmodified-Since`: it takes
+  `if_unmodified_since` (the `updated_at` read), `ApiDispatcher` passes headers by name, a 428 gets a `hint`. The
+  upload's `primary` wasn't in its rules, so `api-endpoints` didn't list it: `StoreInvoiceFileRequest`. A file came
+  back empty (streamed) or as binary (a preview): `answerOf()` gives its name, type and size.
+- **Open:** Claude Code's connections aren't recorded (`last_connected_at` stays empty), though an `initialize`
+  sent by hand records one; the tests write invoices' PDFs into the real `storage/app/private`.
 
 ## Messages by the answer's language, and paratest (2026-11-01; branches `fix/api-message-language` on `fix/claude-tools`, then `chore/paratest`, fast-forwarded into `dev` at the user's request, not pushed)
 

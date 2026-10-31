@@ -42,9 +42,10 @@ class NativeAppServiceProvider implements ProvidesPhpIni
     }
 
     /**
-     * Get the php.ini directives of the desktop's PHP: PDFs and archives of backups take more than the default. They
-     * apply to every PHP process NativePHP starts, the queue worker's too, so no time limit is set here: a backup may
-     * take half an hour.
+     * Get the php.ini directives of the desktop's PHP: PDFs and archives of backups take more than the default, and an
+     * upload stays on this computer, so it may be as large as an import takes (200 MB: Відновити з архіву, Реєстрація
+     * from archives). They apply to every PHP process NativePHP starts, the queue worker's too, so no time limit is set
+     * here: a backup may take half an hour.
      *
      * @return array<string, string>
      */
@@ -52,8 +53,8 @@ class NativeAppServiceProvider implements ProvidesPhpIni
     {
         return [
             'memory_limit' => '512M',
-            'upload_max_filesize' => '32M',
-            'post_max_size' => '34M',
+            'upload_max_filesize' => '200M',
+            'post_max_size' => '210M',
         ];
     }
 }

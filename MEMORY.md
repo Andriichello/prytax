@@ -1,6 +1,9 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-30 (late): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+Status as of 2026-10-31: branch **`feat/starter`** (from `dev`; not merged, not pushed) holds the starter `./prytax`
+and its menu reshaped at the user's request (see "The starter's menu, reshaped"); 574 PHP tests on SQLite (MySQL
+was stopped). The desktop DB's `native:migrate` and the MySQL suite are still to do (below). Before it, as of
+2026-10-30 (late): **everything is merged into `dev`** (the user: "merge everything into dev"; a
 fast-forward to `fix/backups-throttle-client-address`, then this note; not `main`, not pushed; `dev` is 152 commits
 ahead of `origin/dev`, checked out). It added, in one line: `feat/pdf-details-spacing` → `fix/item-card-wrap` →
 `feat/client-invoice-address` → `feat/help-page` (Довідка) → `docs/builds-spec` (builds.md, every spec brought up to
@@ -34,6 +37,38 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The starter's menu, reshaped (2026-10-31; same branch `feat/starter`, not merged)
+
+The user tried the starter: too many options at once. Asked for: Esc quits; the first select is the platform (web,
+desktop) with Quit shown separately below the box; then how to run it (web: here or Docker); after starting, an
+option for ngrok; on start, whether the app runs already. They chose (AskUserQuestion): the tools as one «Tools»
+line below the box beside Quit, and ngrok as a key while the app runs (Docker, in the background, gets a menu).
+- **Menu:** `Menu` (a `SelectPrompt`) + `MenuRenderer`: lines below the box (Tools on the first menu, Back on the
+  others, Quit last with «Esc» at the box's edge), reached by the arrows. Esc chooses Quit; in other prompts
+  `EscapeTerminal` turns Esc into Ctrl+C (cancel, exit 1). Tests fall back to a choice (`Start::configurePrompts`).
+  After an action the menu comes back until Quit (a tool's to Tools); a failed start too.
+- **Status on start:** web, Docker, desktop as ● runs (with the URL) / ○ not running, plus Vite/phone/ngrok when up;
+  the platform labels say it too.
+- **Tunnels:** `ProcessGroup` is now `start()` + `wait($keys)`; keys read raw (`-icanon -echo`, Ctrl+C still works);
+  processes started while waiting (the tunnel) don't stop the group. `Tunnel` runs `ngrok http 127.0.0.1:<port>
+  --log=stdout --log-format=json` and prints `Open <url> on the phone…` from the `started tunnel` line. The web app
+  always starts with Sanctum's current-host placeholder in its stateful domains and `TRUSTED_PROXIES=127.0.0.1`, so a
+  tunnel opened later signs in (no APP_URL/ASSET_URL changes; the phone server too). Desktop's `n` starts the phone
+  server on 8012 + a tunnel. Docker's tunnel makes `app` again with an override file
+  (`storage/framework/prytax-tunnel.compose.yaml`: placeholder + `TRUSTED_PROXIES=PRIVATE_SUBNETS`), then back.
+- **Running already:** web → restart here / stop (by port); desktop → tunnel to its data (`phone --source=desktop`) /
+  close; Docker → its menu. Without interaction the web app's port in use is still refused.
+- **Checked live** (pty via `script`, the agent variables unset): the menus, Back, Esc in a menu and in a question,
+  a failed start (MySQL down) back to the menu; `web --db=sqlite --port=8013` on a scratch file: the keys' line, `n`
+  (ngrok hidden from PATH, so no public tunnel), Ctrl+C stopping all three; requests with ngrok's headers signed in
+  (assets on `https://<host>/build`, `auth/me` 200; cookies `secure`). The desktop's running menu shown, not chosen
+  (the user's window was open, started 11:32). Not live: a real ngrok tunnel, Docker. Tests: `StartTest` (10),
+  `MenuTest` (3).
+- **Gotcha, corrected:** the «console drops ⚠ →» below was **Laravel PAO** (`laravel/pao`, dev): with an agent's
+  variables (`CLAUDECODE`, `AI_AGENT`…) it strips colours, box drawing, some symbols and runs of spaces from artisan's
+  output (not in unit tests). To see what a person sees: `env -u AI_AGENT -u CLAUDECODE -u CLAUDE_CODE
+  -u CLAUDE_CODE_ENTRYPOINT ./prytax`, or `PAO_DISABLE=1`.
+
 ## The starter `./prytax` (2026-10-30, late; branch `feat/starter` from `dev`, not merged)
 
 The user asked for a CLI starter that starts the app as web or desktop, with other helpful options; they chose all
@@ -53,7 +88,7 @@ describe it.
   answered from it; killing the server stopped the worker and the scheduler), the named stop's refusal, the menu in
   a pseudo-terminal (`script`). Not run live: docker (would build the image), phone (would open a public tunnel to the
   desktop data), test and build (long). `StartTest` covers them with faked processes; 567 tests on SQLite.
-- **Gotchas found:** Laravel's console output drops some characters (⚠, →; ✓ ✗ ↳ ! are fine); PHP reads non-ASCII
+- **Gotchas found:** an agent sees some characters dropped (⚠, →; ✓ ✗ ↳ ! survive): that's Laravel PAO (see above), not Laravel; PHP reads non-ASCII
   bytes after `$var->prop` in a string as part of the name (`"$x->label…"` needs braces); Process fakes match the
   quoted command line (`'ss' *`), not `ss *`.
 

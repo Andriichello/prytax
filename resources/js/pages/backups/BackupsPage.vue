@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { ApiResponse, BackupRecord, BackupRunRecord, BackupStatusSummary, DeletedProfile, InstallationStatus, Paginated } from '@/api/types';
 import BackupDownloadSheet from '@/components/backups/BackupDownloadSheet.vue';
+import BackupImportFlow from '@/components/backups/BackupImportFlow.vue';
 import BackupRunCard from '@/components/backups/BackupRunCard.vue';
 import BackupRunSheet from '@/components/backups/BackupRunSheet.vue';
 import BackupStatusCard from '@/components/backups/BackupStatusCard.vue';
 import InstallationBackupForm from '@/components/installation/InstallationBackupForm.vue';
+import InstallationRestoreFlow from '@/components/installation/InstallationRestoreFlow.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
+import RecoveryKitPanel from '@/components/settings/RecoveryKitPanel.vue';
 import Avatar from '@/components/ui/Avatar.vue';
-import BottomSheet from '@/components/ui/BottomSheet.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
@@ -17,6 +20,7 @@ import NewPill from '@/components/ui/NewPill.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useDesktopApp } from '@/composables/useDesktopApp';
@@ -30,10 +34,12 @@ import { errorMessage } from '@/utils/errors';
 
 /**
  * Резервні копії (M-BK-Backups, D-BK-Backups, M-BK-States; backups.md §4.8), organization-level for owners and
- * accountants: the status card, «Створити зараз» and «Усі ФОП · ZIP»; the bundle's banner while it is prepared and
- * once it is ready; the deleted ФОП in their grace, with their restore and final copy; then the runs, newest first (4,
- * 5 on desktop), each ФОП's archive downloadable, a failed one retried, an owner's manual run deleted, and «Показати
- * старіші». While a run is in progress the page reads it again every 3 seconds.
+ * accountants, in tabs. Резервні: the status card and «Створити зараз»; the bundle's banner while it is prepared and
+ * once it is ready; the runs, newest first (4, 5 on desktop), with «Усі ФОП · ZIP» at the list's top right, each ФОП's
+ * archive downloadable, a failed one retried, an owner's manual run deleted, and «Показати старіші»; while a run is in
+ * progress the page reads it again every 3 seconds. Застосунок: saving a copy of the whole app (builds.md §4.11).
+ * Відновлення: the deleted ФОП in their grace, with their restore and final copy, then a ФОП from an archive or the
+ * whole app from a copy. Ключ: the desktop installation's recovery kit.
  */
 const { can, user } = useSession();
 const { profiles, profile } = useCurrentProfile();
@@ -44,13 +50,42 @@ const desktopApp = ref(false);
 const showsRecoveryKit = ref(false);
 // An owner backs up the whole app, and restores one, where it runs for one person on SQLite (builds.md §4.11)
 const installation = ref<InstallationStatus | null>(null);
-const fullSaveOpen = ref(false);
 
 onMounted(async () => {
     desktopApp.value = await useDesktopApp().isDesktopApp();
     showsRecoveryKit.value = desktopApp.value && (user.value?.roles.includes('owner') ?? false);
     installation.value = await useInstallationBackups().status().catch(() => null);
 });
+
+/*
+ * The tabs: the ФОП's backups, copies of the whole app, restoring (a ФОП from an archive, the whole app from a copy,
+ * a deleted ФОП) and the desktop installation's recovery kit; each where it applies. The tab is kept in the address.
+ */
+type Tab = 'backups' | 'copies' | 'restore' | 'recovery';
+
+const route = useRoute();
+const router = useRouter();
+
+const fullBackups = computed(() => Boolean(installation.value?.enabled && installation.value.allowed));
+const fullRestorable = computed(() => fullBackups.value && Boolean(installation.value?.supported));
+const tabs = computed(() => [
+    { value: 'backups' as Tab, label: t('settings.backups.tabs.backups') },
+    ...(fullBackups.value ? [{ value: 'copies' as Tab, label: t('settings.backups.tabs.copies') }] : []),
+    ...(can('import', 'backups') || fullRestorable.value || (data.value?.deleted.length ?? 0) > 0 ? [{ value: 'restore' as Tab, label: t('settings.backups.tabs.restore') }] : []),
+    ...(showsRecoveryKit.value ? [{ value: 'recovery' as Tab, label: t('settings.backups.tabs.recovery') }] : []),
+]);
+const tab = computed<Tab>({
+    get: () => tabs.value.find((item) => item.value === route.query.tab)?.value ?? 'backups',
+    set: (value) => void router.replace({ query: { ...route.query, tab: value === 'backups' ? undefined : value } }),
+});
+
+/* What the Відновлення tab restores: ФОП from an archive, or the whole app from a copy */
+const restoreKind = ref<'profiles' | 'app'>('profiles');
+const restoreKinds = computed(() => [
+    ...(can('import', 'backups') ? [{ value: 'profiles' as const, label: t('settings.backups.tabs.profilesFromArchive') }] : []),
+    ...(fullRestorable.value ? [{ value: 'app' as const, label: t('settings.backups.tabs.wholeApp') }] : []),
+]);
+const shownRestoreKind = computed(() => restoreKinds.value.find((kind) => kind.value === restoreKind.value)?.value ?? restoreKinds.value[0]?.value ?? null);
 
 const canRun = computed(() => can('create', 'backup-runs'));
 const canDelete = computed(() => can('delete', 'backups'));
@@ -267,11 +302,11 @@ const previousOf = (profileId: number): string | null => {
 
 <template>
     <SubScreen :title="t('settings.backups.title')" :back="{ name: 'more' }">
-        <template v-if="isDesktop && canRun" #action>
-            <SecondaryButton class="h-11! w-auto! px-4! text-15!" :disabled="!bundleRun" @click="prepareBundle(bundleRun)">
-                <Icon name="download" :size="18" /> {{ t('settings.backups.allZip') }}
-            </SecondaryButton>
+        <template v-if="isDesktop && canRun && tab === 'backups'" #action>
             <NewPill :label="t('settings.backups.createCopyNow')" @click="runOpen = true" />
+        </template>
+        <template v-if="tabs.length > 1" #toolbar>
+            <SegmentedControl v-model="tab" :label="t('settings.backups.tabs.label')" :options="tabs" />
         </template>
 
         <template v-if="isDesktop" #aside>
@@ -280,58 +315,13 @@ const previousOf = (profileId: number): string | null => {
             <RouterLink :to="{ name: 'backup-policy' }" class="text-13 font-medium no-underline">{{ t('settings.backups.policy') }} ›</RouterLink>
         </template>
 
-        <LoadState :loading="loading && !data" :error="error" @retry="reload">
+        <LoadState v-if="tab === 'backups'" :loading="loading && !data" :error="error" @retry="reload">
             <template v-if="data">
                 <BackupStatusCard :status="data.status" :profile-name="shortName" :policy-row="true" />
 
-                <div v-if="!isDesktop && canRun" class="grid grid-cols-[1.3fr_1fr] gap-2">
-                    <PrimaryButton @click="runOpen = true"><Icon name="plus" :size="20" /> {{ t('settings.backups.createNow') }}</PrimaryButton>
-                    <SecondaryButton :disabled="!bundleRun" @click="prepareBundle(bundleRun)"><Icon name="download" :size="18" /> {{ t('settings.backups.allZip') }}</SecondaryButton>
-                </div>
+                <PrimaryButton v-if="!isDesktop && canRun" @click="runOpen = true"><Icon name="plus" :size="20" /> {{ t('settings.backups.createNow') }}</PrimaryButton>
 
                 <p v-if="!data.status.policy.enabled" class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.offText') }}</p>
-
-                <RouterLink
-                    v-if="can('import', 'backups')"
-                    :to="{ name: 'backup-import' }"
-                    class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"
-                >
-                    <span class="flex flex-col gap-0.5">
-                        <span class="text-15 font-semibold">{{ t('settings.backups.import.title') }}</span>
-                        <span class="text-13 text-ink-3">{{ t('settings.backups.import.linkHint') }}</span>
-                    </span>
-                    <Icon name="chevronRight" :size="18" />
-                </RouterLink>
-
-                <RouterLink
-                    v-if="showsRecoveryKit"
-                    :to="{ name: 'recovery-kit', query: { redirect: '/backups' } }"
-                    class="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4 text-ink no-underline"
-                >
-                    <span class="flex flex-col gap-0.5">
-                        <span class="text-15 font-semibold">{{ t('settings.backups.recoveryKit') }}</span>
-                        <span class="text-13 text-ink-3">{{ t('settings.backups.recoveryKitHint') }}</span>
-                    </span>
-                    <Icon name="chevronRight" :size="18" />
-                </RouterLink>
-
-                <section v-if="installation?.enabled && installation.allowed" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-                    <span class="flex flex-col gap-0.5">
-                        <span class="text-15 font-semibold">{{ t('settings.backups.full.title') }}</span>
-                        <span class="text-13 text-ink-3">{{ t('settings.backups.full.hint') }}</span>
-                    </span>
-                    <template v-if="installation.supported">
-                        <SecondaryButton @click="fullSaveOpen = true"><Icon name="download" :size="18" /> {{ t('settings.backups.full.save') }}</SecondaryButton>
-                        <RouterLink :to="{ name: 'installation-restore' }" class="flex items-center justify-between gap-3 text-ink no-underline">
-                            <span class="flex flex-col gap-0.5">
-                                <span class="text-15 font-medium">{{ t('settings.backups.full.restore') }}</span>
-                                <span class="text-13 text-ink-3">{{ t('settings.backups.full.restoreHint') }}</span>
-                            </span>
-                            <Icon name="chevronRight" :size="18" />
-                        </RouterLink>
-                    </template>
-                    <p v-else class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.full.needsSqlite') }}</p>
-                </section>
 
                 <section v-for="backup in failedOfLatest" :key="backup.id" class="flex flex-col gap-2 rounded-card border border-negative-soft bg-negative-soft/40 p-4">
                     <h2 class="m-0 text-15 font-semibold text-negative">{{ t('settings.backups.failedTitle', { name: shortName(backup.profile_id) }) }}</h2>
@@ -374,33 +364,20 @@ const previousOf = (profileId: number): string | null => {
 
                 <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(actionError) }}</p>
 
-                <section v-if="data.deleted.length" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('settings.backups.deletedProfiles') }}</SectionTitle>
-                    <article v-for="deleted in data.deleted" :key="deleted.id" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-                        <div class="flex items-center gap-3">
-                            <Avatar :initials="deleted.initials" variant="light" :size="36" />
-                            <span class="flex min-w-0 flex-col">
-                                <span class="truncate text-15 font-semibold">{{ deleted.full_name }}</span>
-                                <span class="text-13 text-negative">
-                                    {{ t('settings.backups.deletedLine', { deleted: formatDayMonth(kyivDate(deleted.deleted_at)), purge: formatDayMonth(kyivDate(deleted.purge_at)) }) }}
-                                </span>
-                            </span>
-                        </div>
-                        <p class="m-0 text-13 leading-[1.45] text-ink-2">{{ t('settings.backups.deletedText', { purge: formatDayMonth(kyivDate(deleted.purge_at)) }) }}</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <SecondaryButton v-if="canRestore" @click="restoring = deleted; restoreOpen = true">{{ t('settings.backups.restoreProfile') }}</SecondaryButton>
-                            <SecondaryButton :disabled="!deleted.final_backup_id" :class="canRestore ? '' : 'col-span-2'" @click="downloadFinal(deleted)">
-                                <Icon name="download" :size="18" /> {{ t('settings.backups.finalCopy') }}
-                            </SecondaryButton>
-                        </div>
-                    </article>
-                </section>
-
                 <section class="flex flex-col gap-2">
-                    <SectionTitle>
-                        {{ t('settings.backups.copies') }}
-                        <template #aside><span class="text-ink-2">{{ isDesktop ? t('settings.backups.newestFirstWide') : t('settings.backups.newestFirst') }}</span></template>
-                    </SectionTitle>
+                    <div class="flex items-center justify-between gap-3">
+                        <SectionTitle>{{ t('settings.backups.copies') }}</SectionTitle>
+                        <button
+                            v-if="canRun"
+                            type="button"
+                            class="-my-2 flex min-h-11 shrink-0 items-center gap-1.5 text-14 font-medium text-accent disabled:text-ink-4"
+                            :disabled="!bundleRun"
+                            @click="prepareBundle(bundleRun)"
+                        >
+                            <Icon name="download" :size="18" /> {{ t('settings.backups.allZip') }}
+                        </button>
+                    </div>
+                    <span class="-mt-1 px-0.5 text-13 text-ink-3">{{ isDesktop ? t('settings.backups.newestFirstWide') : t('settings.backups.newestFirst') }}</span>
                     <div v-if="data.runs.length === 0" class="flex flex-col gap-1 rounded-card border border-dashed border-line-input p-4">
                         <span class="text-15 font-semibold">{{ t('settings.backups.emptyTitle') }}</span>
                         <span class="text-13 text-ink-3">{{ t('settings.backups.emptyText') }}</span>
@@ -424,6 +401,47 @@ const previousOf = (profileId: number): string | null => {
             </template>
         </LoadState>
 
+        <template v-else-if="tab === 'copies' && installation">
+            <p class="m-0 text-15 leading-normal text-ink-2">{{ t('settings.backups.full.hint') }}</p>
+            <section v-if="installation.supported" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+                <h2 class="m-0 text-16 font-semibold">{{ t('settings.backups.full.save') }}</h2>
+                <InstallationBackupForm :label="t('settings.backups.full.save')" />
+            </section>
+            <p v-else class="m-0 text-14 leading-normal text-ink-3">{{ t('settings.backups.full.needsSqlite') }}</p>
+            <p v-if="fullRestorable" class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.full.restoreInTab') }}</p>
+        </template>
+
+        <template v-else-if="tab === 'restore'">
+            <section v-if="data?.deleted.length" class="flex flex-col gap-2">
+                <SectionTitle>{{ t('settings.backups.deletedProfiles') }}</SectionTitle>
+                <article v-for="deleted in data?.deleted" :key="deleted.id" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+                    <div class="flex items-center gap-3">
+                        <Avatar :initials="deleted.initials" variant="light" :size="36" />
+                        <span class="flex min-w-0 flex-col">
+                            <span class="truncate text-15 font-semibold">{{ deleted.full_name }}</span>
+                            <span class="text-13 text-negative">
+                                {{ t('settings.backups.deletedLine', { deleted: formatDayMonth(kyivDate(deleted.deleted_at)), purge: formatDayMonth(kyivDate(deleted.purge_at)) }) }}
+                            </span>
+                        </span>
+                    </div>
+                    <p class="m-0 text-13 leading-[1.45] text-ink-2">{{ t('settings.backups.deletedText', { purge: formatDayMonth(kyivDate(deleted.purge_at)) }) }}</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <SecondaryButton v-if="canRestore" @click="restoring = deleted; restoreOpen = true">{{ t('settings.backups.restoreProfile') }}</SecondaryButton>
+                        <SecondaryButton :disabled="!deleted.final_backup_id" :class="canRestore ? '' : 'col-span-2'" @click="downloadFinal(deleted)">
+                            <Icon name="download" :size="18" /> {{ t('settings.backups.finalCopy') }}
+                        </SecondaryButton>
+                    </div>
+                </article>
+            </section>
+
+            <SegmentedControl v-if="restoreKinds.length > 1" v-model="restoreKind" :label="t('settings.backups.tabs.restoreWhat')" :options="restoreKinds" />
+            <BackupImportFlow v-if="shownRestoreKind === 'profiles'" />
+            <InstallationRestoreFlow v-else-if="shownRestoreKind === 'app'" />
+            <p v-if="actionError" class="m-0 text-14 text-negative" role="alert">{{ errorMessage(actionError) }}</p>
+        </template>
+
+        <RecoveryKitPanel v-else-if="tab === 'recovery'" />
+
         <BackupRunSheet
             v-if="data"
             v-model:open="runOpen"
@@ -435,9 +453,6 @@ const previousOf = (profileId: number): string | null => {
             :error="startError"
             @create="start"
         />
-        <BottomSheet v-model:open="fullSaveOpen" :title="t('settings.backups.full.save')">
-            <InstallationBackupForm :label="t('settings.backups.full.save')" />
-        </BottomSheet>
         <BackupDownloadSheet v-model:open="downloadOpen" :backup="downloading" :initials="downloadName.initials" :name="downloadName.name" />
         <ConfirmSheet
             v-model:open="deleteOpen"

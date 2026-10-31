@@ -12,8 +12,8 @@ import { TAX_TYPES } from '@/utils/statuses';
 
 /**
  * A row of Податки's ledger (design.md §16.5): the tax (a 44 px label), the amount (struck through when it failed)
- * and the status; then what it is for (the receipt's invoice and client, or ЄСВ's month); then, owed, when the money
- * came and the deadline, or, paid, the date and the account. It opens the payment: a payment's own form, or, owed, a
+ * and the status, with its date when sent or paid («сплачено 12.10»); then what it is for (the receipt's invoice and
+ * client, or ЄСВ's month); then, owed, when the money came and the deadline, or, paid, the account. It opens the payment: a payment's own form, or, owed, a
  * new one for the receipt's tax or for ЄСВ's month, for a user who can record it (`canPay`). On desktop (D-Taxes,
  * §17.4) it is a row: tax · the amount with the status under it (as Облік's ЄП and ВЗ) · what it is for · when, or,
  * under 960 px of the month's width (a container query), with «when» under «what it is for».
@@ -43,20 +43,15 @@ const to = computed<RouteLocationRaw | null>(() => {
         : { name: 'tax-payment-new', query: { payment: item.receipt?.id, tax: item.tax_type } };
 });
 
-/** «12 жовтня · ПриватБанк ФОП · UAH», from a currency account «Monobank ФОП · USD → UAH». */
+/** «ПриватБанк ФОП · UAH», from a currency account «Monobank ФОП · USD → UAH»; the date is in the status. */
 const paidLine = computed(() => {
     const account = item.account;
-    const date = item.paid_at ? formatDayMonthWords(item.paid_at) : '—';
 
-    if (!account) {
-        return date;
-    }
-
-    return `${date} · ${account.name} · ${account.currency === 'UAH' ? 'UAH' : `${account.currency} → UAH`}`;
+    return account ? `${account.name} · ${account.currency === 'UAH' ? 'UAH' : `${account.currency} → UAH`}` : '';
 });
 
 const dueLine = computed(() => t('accounting.taxPayment.payBy', { date: formatDate(item.due_at) }));
-/** «When» of a desktop row: paid, the date and the account; owed, when the money came and the deadline. */
+/** «When» of a desktop row: paid, the account; owed, when the money came and the deadline. */
 const whenLine = computed(() => {
     if (item.kind === 'payment') {
         return paidLine.value;
@@ -78,7 +73,7 @@ const { isDesktop } = useBreakpoint();
         <span class="text-13 font-semibold text-ink-2">{{ TAX_TYPES[item.tax_type] }}</span>
         <span class="flex flex-col items-end gap-1">
             <span class="num text-15 font-bold" :class="item.status === 'failed' ? 'text-tick line-through' : ''">{{ formatAmount(item.amount) }}</span>
-            <TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" short />
+            <TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" :paid-at="item.paid_at" short />
         </span>
         <span class="flex min-w-0 flex-col gap-0.5">
             <span class="flex min-w-0 items-center gap-1.5 text-13 text-ink-2">
@@ -101,7 +96,7 @@ const { isDesktop } = useBreakpoint();
         <span class="flex items-center gap-2.5">
             <span class="w-11 shrink-0 text-13 font-semibold whitespace-nowrap text-ink-2">{{ TAX_TYPES[item.tax_type] }}</span>
             <span class="num flex-1 text-16 font-bold" :class="item.status === 'failed' ? 'text-tick line-through' : ''">{{ formatAmount(item.amount) }}</span>
-            <TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" short />
+            <TaxPaymentBadge :status="item.status === 'unpaid' ? null : item.status" :paid-at="item.paid_at" short />
         </span>
         <span class="flex gap-2.5">
             <span class="w-11 shrink-0" />
@@ -117,7 +112,7 @@ const { isDesktop } = useBreakpoint();
                     </span>
                 </span>
                 <span v-else class="text-13 text-ink-2">{{ t('accounting.taxes.forMonth', { month: quarterLabel(item.quarter.quarter) }) }}</span>
-                <span v-if="item.kind === 'payment'" class="truncate text-12 text-ink-3">{{ paidLine }}</span>
+                <span v-if="item.kind === 'payment'" v-show="paidLine" class="truncate text-12 text-ink-3">{{ paidLine }}</span>
                 <span v-else-if="item.receipt" class="text-12 text-ink-3">
                     {{ t('accounting.taxes.receivedOn', { date: formatDayMonthWords(item.receipt.received_at) }) }} · {{ dueLine }}
                 </span>

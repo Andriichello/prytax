@@ -23,8 +23,9 @@ class InstallationSetup
      * InstallationSetup constructor.
      *
      * @param OrganizationRegistrar $registrar
+     * @param SingleOrganization $single
      */
-    public function __construct(protected OrganizationRegistrar $registrar) {}
+    public function __construct(protected OrganizationRegistrar $registrar, protected SingleOrganization $single) {}
 
     /**
      * Determine whether the installation still needs its first owner: no user exists, deleted ones included.
@@ -59,6 +60,28 @@ class InstallationSetup
             }
 
             return $this->registrar->register($organization, $name, $email, $password, $locale, $archives);
+        });
+    }
+
+    /**
+     * Create the organization and its owner of one person's installation with a password alone (builds.md §1.4).
+     *
+     * @param string $password
+     * @param string $locale
+     * @param list<array{path: string, password?: string|null, name?: string}> $archives Backup archives of ФОПs.
+     *
+     * @return User
+     * @throws InstallationAlreadySetUpException
+     * @throws ArchiveRefusedException
+     */
+    public function createSingleOwner(string $password, string $locale = 'uk', array $archives = []): User
+    {
+        return DB::transaction(function () use ($password, $locale, $archives) {
+            if (!$this->isNeeded()) {
+                throw new InstallationAlreadySetUpException('The installation already has users; invite more from the app.');
+            }
+
+            return $this->single->register($password, $locale, $archives);
         });
     }
 }

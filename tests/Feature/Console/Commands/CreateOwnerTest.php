@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveRepacker;
 use PryTax\Models\Profile;
+use PryTax\Models\RecoveryCode;
 use Tests\Concerns\ActsInProfiles;
 use Tests\Concerns\ReadsArchives;
 use Tests\TestCase;
@@ -107,6 +108,28 @@ class CreateOwnerTest extends TestCase
 
         $this->assertSame(0, User::query()->withTrashed()->count());
         $this->assertSame($organizations, Organization::query()->count());
+    }
+
+    /**
+     * Test that one person's installation gets its owner from a password alone, with a made-up e-mail and the
+     * recovery code printed.
+     *
+     * @return void
+     */
+    public function testCreatesOnePersonsOwnerFromAPasswordAlone(): void
+    {
+        config(['prytax.single_organization' => true]);
+
+        $this->artisan('prytax:create-owner')
+            ->expectsQuestion('Password', 'correct-horse-battery')
+            ->expectsQuestion('Repeat the password', 'correct-horse-battery')
+            ->expectsOutputToContain('@prytax.invalid')
+            ->expectsOutputToContain('Recovery code')
+            ->assertSuccessful();
+
+        $user = User::query()->sole();
+        $this->assertTrue(Hash::check('correct-horse-battery', $user->password));
+        $this->assertSame(1, RecoveryCode::query()->where('user_id', $user->id)->count());
     }
 
     /**

@@ -9,7 +9,9 @@ use Core\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use PryTax\DataLifecycle\Backup\ImportException;
 use PryTax\DataLifecycle\Backup\Internal\ArchiveImporter;
 use PryTax\DataLifecycle\Backup\Internal\Csv;
@@ -17,6 +19,7 @@ use PryTax\Enums\TaxType;
 use PryTax\Models\Account;
 use PryTax\Models\Alert;
 use PryTax\Models\Client;
+use PryTax\Models\ExchangeRate;
 use PryTax\Models\Invoice;
 use PryTax\Models\Profile;
 use PryTax\Services\Accounts\AccountBalanceCalculator;
@@ -34,7 +37,8 @@ use ZipArchive;
  * Restoring an archive as a new ФОП of another organization (backups.md §5.1, §5.2): the demo practice's ФОП is
  * exported and imported, and every tax figure, balance and invoice document of the copy is the original's, with the
  * ids inside values pointing at the copy's own rows. A dry run and a mismatch write nothing; a ФОП, which the
- * organization has already, is refused before anything is written.
+ * organization has already, is refused before anything is written; an NBU rate, which this database lacks, is
+ * fetched again.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Backups
@@ -242,6 +246,38 @@ class ArchiveImporterTest extends TestCase
         });
 
         return $profile;
+    }
+
+    /**
+     * Test that an NBU rate, which the archive references and this database lacks (a new installation's), is fetched
+     * again, and that the import is refused while it can't be.
+     *
+     * @return void
+     */
+    public function testFetchesTheNbuRatesWhichThisDatabaseLacks(): void
+    {
+        $archive = $this->writeArchive($this->smallProfile())->path;
+        DB::table('exchange_rates')->delete();
+        $organization = Organization::factory()->create();
+        $online = false;
+        Sleep::fake();
+        Http::preventStrayRequests();
+        Http::fake(['bank.gov.ua/*date=20261005*' => function () use (&$online) {
+            return $online ? Http::response('[{"rate":41.4500,"cc":"USD"}]') : Http::response('', 503);
+        }]);
+
+        try {
+            app(ArchiveImporter::class)->import($archive, $organization->id);
+            $this->fail('The import went on without the rate.');
+        } catch (ImportException $exception) {
+            $this->assertSame('The NBU rate of USD on 05.10.2026, which the archive references, couldn\'t be fetched. Connect to the internet, and try again.', $exception->getMessage());
+        }
+
+        $online = true;
+        $result = app(ArchiveImporter::class)->import($archive, $organization->id);
+
+        $this->assertNotNull($result->tenantId);
+        $this->assertSame('41.4500', ExchangeRate::query()->where('currency', 'USD')->whereDate('rate_date', '2026-10-05')->sole()->rate);
     }
 
     /**

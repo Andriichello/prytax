@@ -7,12 +7,14 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use PryTax\Backups\AccountingArchiveChecks;
 use PryTax\Backups\BackupRunNotifier;
+use PryTax\Backups\NbuReferenceResolver;
 use PryTax\Backups\ProfileAuditTagger;
 use PryTax\Backups\ProfileTenantRoot;
 use PryTax\Backups\PryTaxTableRegistry;
 use PryTax\DataLifecycle\Backup\Events\ArchiveImported;
 use PryTax\DataLifecycle\Backup\Events\BackupRunFinished;
 use PryTax\DataLifecycle\Contracts\ArchiveChecks;
+use PryTax\DataLifecycle\Contracts\ReferenceResolver;
 use PryTax\DataLifecycle\Contracts\RetentionFamilyHandler;
 use PryTax\DataLifecycle\Contracts\TableRegistry;
 use PryTax\DataLifecycle\Contracts\TenantRoot;
@@ -47,6 +49,7 @@ class DataLifecycleBindings extends ServiceProvider
         TableRegistry::class => PryTaxTableRegistry::class,
         TenantRoot::class => ProfileTenantRoot::class,
         ArchiveChecks::class => AccountingArchiveChecks::class,
+        ReferenceResolver::class => NbuReferenceResolver::class,
         ProfileAuditTagger::class => ProfileAuditTagger::class,
     ];
 

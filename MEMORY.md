@@ -65,8 +65,11 @@ mentions it.
 - **SPA:** Вхід password-only while `password_only`; Реєстрація passwords only; «Забули пароль?» the recovery form;
   `saveRecoveryKit` downloads the file in a browser; the router's kit guard and Резервні копії's kit card cover the
   mode (`useDesktopApp.isSingleOrganization`).
-- **The user's desktop DB** has 4 organizations and 6 users: Вхід keeps the e-mail, no recovery code is made, and
-  Реєстрація is now closed there (an organization exists).
+- **The desktop DB was reset** (the user: "clean up the local desktop and web apps, so that we start from scratch (only
+  the sqlite ones)", 2026-10-31 15:57): its database, key, recovery mark, backups, documents, file cache, sessions and
+  the window's cookies and localStorage were moved to the git-ignored `database/nativephp.sqlite.before-reset-20261031/`
+  (the old database opens only with the key beside it). The next `./prytax` → Desktop makes and migrates a new file
+  (answer no to the demo data). The local web app is on MySQL (`.env`) and wasn't touched; no other SQLite had data.
 - **Checked live** (scratch `single.sqlite`, 390 px): registering with a password, the kit with its code and the file
   download, Вхід with the password alone (a wrong one: «Неправильний пароль.»), «Забули пароль?» with the code (lower
   case, spaces) and with the key. Tests: `SingleOrganizationControllerTest` (4), `CreateOwnerTest`, `RetentionFlowsTest`;

@@ -105,8 +105,8 @@ bring back its screen.
     інвойсу» appears in Інвойси's status filter only while such a record exists (facets).
   - The kopeck between a quarter's ВЗ and its sum per receipt is §1's first item.
 - **Found while the specs were brought up to date** (2026-10-30), to fix or to decide:
-  - Restoring in the app allows a 200 MB archive, but PHP takes uploads of 32 MB in Docker and the desktop app; its
-    refusals with values in them stay in English; a deleted ФОП's refusal says to purge it first, which an owner can't
+  - Restoring in the app: its refusals with values in them stay in English (the 32 MB upload limit is gone since
+    `backups.md` v1.10: the archive goes up in pieces); a deleted ФОП's refusal says to purge it first, which an owner can't
     do before its grace ends (`backups.md` §5.1, §5.3).
   - Ще's «Вийти» on a phone signs out at once, while the sidebar's and the rail's ask first.
   - Texts: Облік's export hint names XLSX (above); Рахунки's side note says withdrawals aren't tracked, while an

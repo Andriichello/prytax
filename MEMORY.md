@@ -44,6 +44,29 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## A ФОП from the desktop app to a server (2026-10-31, night; branch `feat/archive-between-installations` from `dev`)
+
+The user asked whether users can export a ФОП in the desktop app and import it into a hosted web app on Google Cloud,
+after registering an organization there; then "do both" of the two gaps found: a SQLite ↔ MySQL test and a chunked
+upload. backups.md v1.10 has it as built.
+- **Test:** `ArchiveImporterTest::testMovesAProfileBetweenSqliteAndMysql`: demo ФОП written on the tests' driver,
+  imported on the other under another `APP_KEY`, written again and imported back; figures and documents equal. On
+  SQLite it needs MySQL (`prytax_test` with DB_HOST/PORT/USERNAME/PASSWORD; the throwaway `prytax-test-mysql` on 3307:
+  `DB_CONNECTION=sqlite DB_DATABASE=:memory: DB_PORT=3307 DB_USERNAME=root DB_PASSWORD=secret`), else skipped in 0.5 s.
+  It passed both ways first time: the engine needed no change.
+- **Upload in pieces:** `ArchiveUploads` (module Internal): pieces as objects of the archives' disk
+  (`tmp/uploads/<org>/<id>/<offset>.part`, so several Cloud Run instances work and other organizations can't reach
+  them); `POST organization/backups/uploads` (`{size}`, >200 MB refused) and `…/uploads/{upload}` (409 with size on a
+  wrong offset); the import takes `upload` + `name`; a dry run keeps the pieces, the restore deletes them, the pruner
+  deletes leftovers after a day. Gone pieces: 422 of `upload`, so the SPA uploads again. SPA: `api/uploads.ts`
+  `uploadInPieces` (also used by the full restore now), `BackupImportFlow` uploads once on «Перевірити» with a progress
+  bar.
+- **Checked live:** 3.2 MB archive, `php -S` with 2 MB uploads: two pieces, check + restore of one upload, pieces gone.
+  Note: `php -S` with Laravel's `server.php` must start inside `public/`.
+- **Still open for Google Cloud** (told the user): documents on a local disk vanish on Cloud Run (no GCS adapter; a
+  Cloud Storage volume mount or an adapter), version skew (format 1 only; a newer desktop's extra columns are dropped),
+  the import's 300 s in the request (raise Cloud Run's timeout), `PRYTAX_REGISTRATION=true` on the server.
+
 ## One person's installation (2026-10-31, night; same branch `feat/full-backups`)
 
 The user: for the desktop app, a local web app or a self-hosted server, a setting allowing only one organization;

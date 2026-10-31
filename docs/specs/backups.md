@@ -1,4 +1,4 @@
-# PryTax — Backups, data safety & retention (design v1.9)
+# PryTax — Backups, data safety & retention (design v1.10)
 
 Companion to `docs/specs/design.md` (v5.2) and `docs/specs/builds.md` (Docker, SQLite and the desktop app). Covers (1)
 protecting the platform's data against loss, (2) per-organization backups / exports that owners configure and download,
@@ -8,6 +8,32 @@ elsewhere (§3).
 
 **A copy of the whole app** (every organization, its documents, its in-app backups and the key, in one file) is a
 different thing, for one person's installation on SQLite: `builds.md` §4.11. This spec's backups stay per ФОП.
+
+### Changes in v1.10 (archives between the drivers, an import uploaded in pieces)
+
+Built on 2026-10-31 (branch `feat/archive-between-installations`), at the owner's request, for users who export a ФОП
+from the desktop app and restore it on a hosted server (Google Cloud), in an organization they register there first.
+What changed since v1.9:
+- **Tested between the drivers:** `ArchiveImporterTest::testMovesAProfileBetweenSqliteAndMysql` writes the demo ФОП's
+  archive on the tests' driver, imports it on the other under another `APP_KEY` (as another installation has), writes
+  it there again and imports it back: every tax figure, balance and invoice document of each copy is the original's,
+  and the tax ID's hash is the new key's. On SQLite it needs the MySQL suite's database (`prytax_test`, with `DB_HOST`,
+  `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`) and is skipped while MySQL can't be reached; on MySQL the other is a SQLite
+  file. It passed both ways at once, so nothing in the engine changed (§2.5, §8).
+- **An import uploaded in pieces:** a server takes small requests (PHP's upload limit, 32 MB in Docker; a proxy's;
+  Cloud Run's 32 MiB), and its instances share no disk. `POST organization/backups/uploads` (`{size}`, owners:
+  `import`) starts an upload, refusing one over 200 MB, and answers `{id, piece}` (as much as PHP here takes, less 64
+  KB, at most 8 MB); `POST organization/backups/uploads/{upload}` (`piece`, `offset`) adds a piece where the upload
+  ends, else a 409 with `{size}`. Each piece is an object of the archives' disk, `tmp/uploads/<organization>/<upload>/
+  <offset>.part` (`ArchiveUploads`), so only the organization, which started it, reaches it; the import takes
+  `upload` (and `name`, for the audit log) instead of `archive` and joins the pieces into a local file. A dry run keeps
+  them for the restore, which deletes them; the pruner and the bucket's lifecycle delete what's left after a day
+  (`tmp/*`). Pieces that are gone are a 422 of `upload`. The SPA's «Відновити з архіву» uploads once, on
+  «Перевірити», with a progress bar, and «Відновити» restores that upload (`uploadInPieces`, shared with the full
+  backup's restore). §5.1.
+- **Checked live:** a 3.2 MB archive into a new organization of a scratch web app with PHP's default 2 MB uploads: two
+  pieces (1.94 MB and the rest), the check and the restore of one upload, the pieces gone after it, the ФОП's records
+  the source's.
 
 ### Changes in v1.9 (a new organization from archives, bundles restored)
 
@@ -469,7 +495,7 @@ stay inside each profile folder, so any folder can be copied out and is self-con
 - **UTF-8 with BOM** (Excel otherwise mangles Cyrillic).
 - Decimals as stored: `1234.99` (dot, no grouping) — never formatted with `display.money_format`. Rates: 4 dp.
   SQLite keeps decimals as numbers, so an archive written there drops trailing zeros (`1234.5`, `1234`); both drivers
-  should import either (not tested yet, §8).
+  import either (tested since v1.10, §8).
 - Dates `YYYY-MM-DD`; timestamps ISO 8601 UTC `2026-10-27T02:37:11Z`.
 - `NULL` = empty unquoted field; empty string = `""`. Readers that don't distinguish lose nothing important
   (`schema.json` marks nullability).
@@ -1195,8 +1221,11 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
 (`BackupController::handleImport`, `ImportBackupRequest`, owners: `import` on backups) runs the same importer on an
 uploaded archive, in the request (`set_time_limit(300)`), always into the request's organization (`orgId()`) as new
 ФОПs (v1.9: every ФОП of a run's bundle, in one transaction, or none):
-- `archive`: the `.zip` as downloaded. The request allows 200 MB, and so does the desktop app (v1.9), but PHP takes
-  uploads up to 32 MB in Docker (`builds.md` §2.1), which an archive with years of documents can exceed.
+- `archive`: the `.zip` as downloaded, up to 200 MB; or `upload`, the id of its upload in pieces (v1.10:
+  `POST organization/backups/uploads` with `{size}`, then each piece at its offset to `…/uploads/{upload}`, kept on
+  the archives' disk under the organization), with `name`, the file's. A server's PHP, proxy or Cloud Run takes
+  requests of 32 MB at most, which an archive with years of documents can exceed, so the SPA always uploads in
+  pieces.
 - `password`: an AES archive's (§4.6), never stored. `prytax:backup:import` takes none.
 - `dry_run`: import, verify and roll back, to tell whose archive it is (the manifest's profile: name, the last four
   digits of the РНОКПП) and what it holds (rows, documents) before restoring it.
@@ -1205,8 +1234,8 @@ uploaded archive, in the request (`set_time_limit(300)`), always into the reques
   couldn't be fetched); those with values in them (a format version, a damaged file, a failed verification) stay in
   English.
 - An NBU rate, which the archive references and this database lacks, is fetched again (`ReferenceResolver`, v1.9).
-- Restoring a ФОП on another installation (the desktop app ↔ a server) is meant to go this way, as archives should move
-  between the drivers (§2.5, §2.6; not tested yet, §8).
+- Restoring a ФОП on another installation (the desktop app ↔ a server) goes this way: archives move between the
+  drivers and the keys (§2.5, §2.6; tested since v1.10, §8).
 
 ### 5.2 Continuous verification
 
@@ -1339,9 +1368,11 @@ assigned a retention family) · the column snapshot fails after a simulated api-
 
 Restore in the app and SQLite (v1.8): an owner restores a ФОП's archive into another organization; only owners may;
 a ФОП the organization has is a 422; an archive downloaded with a password opens only with it; a file that isn't a zip
-is a 422 · the whole suite also runs on SQLite (`composer test:sqlite`, `builds.md` §3.8). Not written yet: an archive
-made on one driver imported on the other, the import refusing a bundle, and v1.7's three (a concurrent write during the
-snapshot, the engine's tests with a fake registry, an upcaster).
+is a 422 · the whole suite also runs on SQLite (`composer test:sqlite`, `builds.md` §3.8) · a bundle with a ФОП the
+organization has restores none (v1.9) · a ФОП moves from SQLite to MySQL and back, each with its own key (v1.10; on
+SQLite it needs MySQL) · an archive uploaded in pieces is checked and restored, an upload is its organization's alone,
+one over 200 MB is refused, pieces left behind are pruned (v1.10). Not written yet: v1.7's three (a concurrent write
+during the snapshot, the engine's tests with a fake registry, an upcaster).
 
 ---
 

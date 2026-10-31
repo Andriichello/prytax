@@ -107,7 +107,8 @@ re-encrypts it into the restoring installation's key.
 2. **Vendor:** `composer install --no-dev` (Composer copied from `composer:2` into the PHP 8.5 stage, so the platform
    check passes), then api-core copied over its link (§1.2), then `composer dump-autoload --optimize`.
 3. **App:** `dunglas/frankenphp` on PHP 8.5, with `pdo_mysql pdo_sqlite zip gd pcntl bcmath opcache`
-   (`install-php-extensions`) and `docker/php.ini` over `php.ini-production`. zip is for backups and exports, gd for
+   (`install-php-extensions`) and `docker/php.ini` over `php.ini-production` (uploads of 32 MB, which a backup's
+   import doesn't hit, as it goes up in pieces: `backups.md` v1.10). zip is for backups and exports, gd for
    dompdf's images, pcntl for the worker's job timeouts; bcmath isn't needed by the app, but brick/math uses it for
    speed and `DemoSeeder` calls `bcdiv()`. It runs as `www-data` on port 8080, with a healthcheck on `/up`.
 

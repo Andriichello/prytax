@@ -273,5 +273,8 @@
     "left": "залишилось",
     "Income book": "Книга доходів",
     "newest first": "нові вгорі",
-    "Cumulative total": "Наростаючим підсумком"
+    "Cumulative total": "Наростаючим підсумком",
+    "The NBU rate of :currency on :date, which the archive references, couldn't be fetched. Connect to the internet, and try again.": "Курс НБУ :currency на :date, на який посилається архів, не вдалося отримати. Підключіться до інтернету й спробуйте ще раз.",
+    "The archives hold the ФОП :name twice: leave one of them.": "Архіви містять ФОП :name двічі: залиште один із них.",
+    "The archive holds no profile.": "В архіві немає жодного ФОП."
 }

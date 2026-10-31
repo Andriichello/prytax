@@ -18,7 +18,7 @@ use PryTax\Services\Reports\ProfileStatus;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Tools
  */
-#[Description('List the ФОП (sole proprietors) Claude may see in PryTax, the active first, each with its status: taxes to pay (UAH), overdue invoices, the next ЄСВ due date. Their ids and names name a ФОП in the other tools.')]
+#[Description('List the ФОП (sole proprietors) Claude may see in PryTax, the active first, each with its status: taxes to pay (taxes_to_pay, UAH: this year\'s unpaid accruals of ЄП, ВЗ and ЄСВ, before opening balances such as an overpayment carried in; get-declaration\'s remaining.<tax>.to_pay is net of them), overdue invoices, the next ЄСВ due date. Their ids and names name a ФОП in the other tools.')]
 class ListProfiles extends ReadTool
 {
     /**

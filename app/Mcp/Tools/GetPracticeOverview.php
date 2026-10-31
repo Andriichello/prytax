@@ -18,7 +18,7 @@ use PryTax\Services\Reports\PracticeOverview;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Tools
  */
-#[Description('Get a quarter of every ФОП Claude may see, side by side: income (UAH) against the income cap, invoiced and received per currency, and each tax (ЄП, ВЗ, ЄСВ) owed, paid, pending and outstanding. This quarter by default.')]
+#[Description('Get a quarter of every ФОП Claude may see, side by side: income (UAH) against the income cap, invoiced and received per currency, and each tax (ЄП, ВЗ, ЄСВ) owed, paid, pending, outstanding (the quarter\'s owed less paid, without opening balances) and balance (running, with the opening balance and earlier quarters; negative when owed). This quarter by default.')]
 class GetPracticeOverview extends ReadTool
 {
     /**

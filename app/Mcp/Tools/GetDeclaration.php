@@ -18,7 +18,7 @@ use PryTax\Services\Reports\DeclarationFigures;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Tools
  */
-#[Description('Get the figures of a ФОП\'s tax declaration for a quarter: income (UAH, the quarter and year to date), ЄП and ВЗ, the quarter\'s ЄСВ, and the income cap. The previous quarter is the one usually declared; this quarter by default.')]
+#[Description('Get the figures of a ФОП\'s tax declaration for a quarter: income (UAH, the quarter and year to date), ЄП and ВЗ (single_tax.to_pay and military_levy.to_pay: the quarter\'s declared amounts, the year to date less what was declared before, before payments), the quarter\'s ЄСВ, the income cap, and what remains of each tax (remaining.<tax>: owed, paid, pending, the running balance with the opening balance, negative when owed, and to_pay, what is left to pay net of payments and overpayments: the figure to quote as owed). The previous quarter is the one usually declared; this quarter by default.')]
 class GetDeclaration extends ReadTool
 {
     /**

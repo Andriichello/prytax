@@ -19,7 +19,7 @@ use PryTax\Services\Taxes\TaxLiabilityCalculator;
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Tools
  */
-#[Description('Get one ФОП: details (tax ID masked), settings, this year\'s income against the 3rd group\'s income cap (UAH, percent used), and its status (taxes to pay, overdue invoices, next ЄСВ due date).')]
+#[Description('Get one ФОП: details (tax ID masked), settings, this year\'s income against the 3rd group\'s income cap (UAH, percent used), and its status: taxes to pay (taxes_to_pay: this year\'s unpaid accruals, before opening balances such as an overpayment carried in; get-declaration\'s remaining.<tax>.to_pay is net of them), overdue invoices, the next ЄСВ due date.')]
 class GetProfile extends ReadTool
 {
     /**

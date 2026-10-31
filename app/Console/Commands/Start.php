@@ -11,6 +11,7 @@ use PryTax\Console\Starter\DesktopAction;
 use PryTax\Console\Starter\DockerAction;
 use PryTax\Console\Starter\DoctorAction;
 use PryTax\Console\Starter\Listeners;
+use PryTax\Console\Starter\McpAction;
 use PryTax\Console\Starter\Menu;
 use PryTax\Console\Starter\PhoneAction;
 use PryTax\Console\Starter\StarterState;
@@ -41,7 +42,7 @@ use function Laravel\Prompts\spin;
  * @package PryTax\Console\Commands
  */
 #[Signature('prytax:start
-    {action? : web, docker, desktop, phone, status, stop, doctor, test, build or db}
+    {action? : web, docker, desktop, phone, status, stop, doctor, test, build, db or mcp}
     {what?* : stop: what to stop, such as web vite desktop phone ngrok docker}
     {--db= : web: mysql or sqlite; docker, for new settings: sqlite (the default), mysql or external}
     {--sqlite= : web: the SQLite file, database/database.sqlite by default}
@@ -72,6 +73,7 @@ class Start extends Command
         'test' => TestAction::class,
         'build' => BuildAction::class,
         'db' => DatabaseAction::class,
+        'mcp' => McpAction::class,
     ];
 
     /**
@@ -85,6 +87,7 @@ class Start extends Command
         'test' => 'Tests — PHP and SPA',
         'build' => 'Build — the SPA, the desktop installers, the thumbnails',
         'db' => 'Database — migrations, demo data, the first owner',
+        'mcp' => 'Claude — connect it to PryTax\'s data (MCP)',
     ];
 
     /**
@@ -96,6 +99,7 @@ class Start extends Command
         'desktop' => 'The desktop app\'s window needs PHP 8.5 on this machine: install it as php8.5, or set PRYTAX_PHP.',
         'docker' => 'Docker can\'t be started from the starter\'s container: ./start runs PryTax in Docker without PHP.',
         'phone' => 'The phone over ngrok needs PHP 8.5 and ngrok on this machine: install PHP as php8.5, or set PRYTAX_PHP.',
+        'mcp' => 'Claude starts PryTax\'s server with PHP 8.5 on this machine: install it as php8.5, or set PRYTAX_PHP.',
     ];
 
     /**
@@ -304,10 +308,13 @@ class Start extends Command
      */
     protected function tools(): void
     {
-        do {
-            $tool = $this->menu('Which tool?', self::TOOLS);
+        // In the starter's container, the tools, which need this machine, aren't offered
+        $tools = app(Toolchain::class)->inContainer() ? array_diff_key(self::TOOLS, self::HOST_ONLY) : self::TOOLS;
 
-            if (array_key_exists($tool, self::TOOLS)) {
+        do {
+            $tool = $this->menu('Which tool?', $tools);
+
+            if (array_key_exists($tool, $tools)) {
                 $this->perform($tool);
             }
         } while (!$this->quitting && $tool !== 'back');

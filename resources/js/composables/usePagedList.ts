@@ -1,6 +1,7 @@
-import { onActivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
+import { onActivated, onDeactivated, onScopeDispose, ref, watch, type Ref, type WatchSource } from 'vue';
 import { dataVersion } from '@/api/client';
 import type { Paginated } from '@/api/types';
+import { useUnderPanel } from '@/composables/usePanel';
 
 export interface PagedList<T> {
     items: Ref<T[]>;
@@ -23,7 +24,8 @@ export interface PagedList<T> {
  * shown (a row added meanwhile shifts the pages). Only the latest request counts: a reload overtaken by another one
  * neither shows its rows nor ends the loading state. A page kept alive (KeepAlive) is shown again as it was left; when
  * the API accepted a write meanwhile (`dataVersion`), it reads its shown pages again, so a record changed meanwhile
- * is up to date while the list keeps its length and scroll.
+ * is up to date while the list keeps its length and scroll. Under the desktop's record panel it does so as soon as a
+ * write happens there, and when the panel closes after one.
  */
 export function usePagedList<T>(
     fetchPage: (page: number, signal: AbortSignal) => Promise<Paginated<T>>,
@@ -151,9 +153,22 @@ export function usePagedList<T>(
 
     // The first activation is the mount, which loads already
     let activations = 0;
+    let active = true;
 
     onActivated(() => {
+        active = true;
+
         if (activations++ > 0 && dataVersion.value !== loadedVersion) {
+            void refresh();
+        }
+    });
+    onDeactivated(() => (active = false));
+
+    // Under the desktop's record panel the list stays shown: a write there reads its pages again, as does closing it
+    const underPanel = useUnderPanel();
+
+    watch([dataVersion, underPanel], ([, now], [, before]) => {
+        if (active && (now || before) && dataVersion.value !== loadedVersion) {
             void refresh();
         }
     });

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Component, createRenderer, defineComponent, h, KeepAlive, nextTick, shallowRef } from 'vue';
+import { type Component, computed, createRenderer, defineComponent, h, KeepAlive, nextTick, provide, ref, shallowRef } from 'vue';
 import { api, dataVersion } from '@/api/client';
 import type { Paginated } from '@/api/types';
 import { useLoader } from '@/composables/useLoader';
 import { usePagedList } from '@/composables/usePagedList';
+import { UNDER_PANEL } from '@/composables/usePanel';
 
 /** A node of the in-memory renderer, which mounts components without a DOM. */
 interface TestNode {
@@ -135,3 +136,43 @@ describe('a screen kept alive', () => {
         expect(fetchPage).toHaveBeenCalledTimes(2);
     });
 });
+
+describe('a page under the record panel', () => {
+    it('loads again as soon as a write happens in the panel, but not for its own writes without a panel', async () => {
+        const fetcher = vi.fn(async () => 'data');
+        const panelOpen = ref(false);
+
+        createApp(defineComponent({
+            setup: () => {
+                provide(UNDER_PANEL, computed(() => panelOpen.value));
+
+                return () => h(defineComponent({
+                    setup: () => {
+                        useLoader(fetcher);
+
+                        return () => h('span');
+                    },
+                }));
+            },
+        })).mount(node());
+        await nextTick();
+        expect(fetcher).toHaveBeenCalledTimes(1);
+
+        dataVersion.value++;
+        await nextTick();
+        expect(fetcher).toHaveBeenCalledTimes(1);
+
+        panelOpen.value = true;
+        await nextTick();
+        expect(fetcher).toHaveBeenCalledTimes(2);
+
+        dataVersion.value++;
+        await nextTick();
+        expect(fetcher).toHaveBeenCalledTimes(3);
+
+        panelOpen.value = false;
+        await nextTick();
+        expect(fetcher).toHaveBeenCalledTimes(3);
+    });
+});
+

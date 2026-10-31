@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { provide, shallowReactive } from 'vue';
+import { computed, provide, shallowReactive } from 'vue';
 import { routeLocationKey, START_LOCATION, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
+import { UNDER_PANEL } from '@/composables/usePanel';
 
 /**
  * The route of the page under the record panel (design.md §17.1) for the page and what it holds: there `useRoute()`
  * (and the links' active state) is the page's own route, `route`, not the panel's, so the page keeps its period and
- * its filters while a record is open over it (Облік's quarter is in its path). Without `route`, the current one.
+ * its filters while a record is open over it (Облік's quarter is in its path). Without `route`, the current one. It
+ * also tells the page that a panel is open over it, so its data loads again when a write happens there.
  */
 const { route = null } = defineProps<{ route?: RouteLocationNormalizedLoaded | null }>();
 
@@ -17,6 +19,7 @@ for (const key of Object.keys(START_LOCATION) as (keyof RouteLocationNormalizedL
 }
 
 provide(routeLocationKey, shallowReactive(shown));
+provide(UNDER_PANEL, computed(() => route !== null));
 </script>
 
 <template>

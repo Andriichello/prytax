@@ -1,4 +1,4 @@
-import { inject } from 'vue';
+import { computed, inject, type ComputedRef, type InjectionKey } from 'vue';
 
 /** The record panel of the desktop layout (design.md §17.3). */
 export interface RecordPanelContext {
@@ -11,4 +11,15 @@ export interface RecordPanelContext {
  */
 export function usePanel(): RecordPanelContext | null {
     return inject<RecordPanelContext | null>('inPanel', null);
+}
+
+/** Whether a record panel is open over the page (`PageRoute` provides it for the page under it). */
+export const UNDER_PANEL: InjectionKey<ComputedRef<boolean>> = Symbol('underPanel');
+
+/**
+ * Whether a record panel is open over the page this is part of: the page stays shown under it, so what it loaded may
+ * change there (a tax paid, an invoice saved). Outside a page under the panel, never.
+ */
+export function useUnderPanel(): ComputedRef<boolean> {
+    return inject(UNDER_PANEL, computed(() => false));
 }

@@ -2,6 +2,7 @@
 
 namespace PryTax\Console\Starter;
 
+use Composer\InstalledVersions;
 use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -133,17 +134,17 @@ class Doctor
     }
 
     /**
-     * Check that api-core is there, through its link in vendor/ (Composer's path repository, `../api-core`).
+     * Check that api-core is installed, from its private GitHub repository, with the commit it's at.
      *
      * @return Check
      */
     public function apiCore(): Check
     {
-        $path = realpath(base_path('vendor/andriichello/api-core'));
+        $package = 'andriichello/api-core';
 
-        return $path !== false
-            ? Check::ok('api-core', $path)
-            : Check::fail('api-core', 'vendor/andriichello/api-core leads nowhere', 'git clone https://github.com/Andriichello/api-core.git ../api-core, then composer install');
+        return is_dir(base_path("vendor/$package/app"))
+            ? Check::ok('api-core', InstalledVersions::getPrettyVersion($package) . ' @ ' . substr((string) InstalledVersions::getReference($package), 0, 7))
+            : Check::fail('api-core', "vendor/$package is missing", 'composer install, with a token, which may read Andriichello/api-core: composer config -g github-oauth.github.com "$(gh auth token)"');
     }
 
     /**

@@ -1,9 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (late night): branch **`feat/start`** (from `dev`, not merged, not pushed) adds `./start`,
-`./prytax`'s PHP container, `prytax:summary` and the starters' «Again» (see "`./start`, `./prytax` without PHP, the
-overview and «Again»"); `dev` = `origin/dev` = 2f8241f (pushed by the user), `main` = `origin/main` = fe94985. Before
-it, as of 2026-10-31 (night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+Status as of 2026-10-31 (late night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+fast-forward to `fix/made-up-email-in-sidebar`, then this note; not `main`, not pushed; `dev` is 20 commits ahead of
+`origin/dev` = 2f8241f, checked out; `main` = `origin/main` = fe94985). It added `feat/start` (`./start`, `./prytax`'s
+PHP container, `prytax:summary` and the starters' «Again»; see "`./start`, `./prytax` without PHP, the overview and
+«Again»") and, on it, `fix/made-up-email-in-sidebar` (see "A made-up e-mail in the menus"). Last runs: 616 PHP tests
+on SQLite (one skipped: the SQLite ↔ MySQL test), SPA 792. Before it, as of 2026-10-31 (night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
 fast-forward to `feat/full-backups`, then this note; not `main`, not pushed; `dev` is 194 commits ahead of
 `origin/dev`, checked out). Before the merge, branch **`feat/full-backups`** (stacked on
 `feat/organization-from-backups`, on `feat/starter`) backs up the whole app and restores it after a comparison (see "A copy of the
@@ -47,7 +49,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## A made-up e-mail in the menus (2026-10-31, late night; branch `fix/made-up-email-in-sidebar` from `feat/start`)
+## A made-up e-mail in the menus (2026-10-31, late night; branch `fix/made-up-email-in-sidebar` from `feat/start`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: the sidebar showed one person's installation's generated e-mail (`4jl-cud-0ca@prytax.invalid · власник`);
 first "just the role" for an `@…invalid` e-mail, then: with one organization and its only user on such an e-mail,
@@ -60,7 +62,7 @@ The sidebar's foot and Ще's last line («PryTax» alone then) use it. Нала
   fails in headless Chrome (no clipboard): `recovery_codes.kept_at` was set in the scratch DB instead.
 - **Tests:** `users.test.ts` (3), `useSignedInAs.test.ts` (2); SPA 792, typecheck, build.
 
-## `./start`, `./prytax` without PHP, the overview and «Again» (2026-10-31, night; branch `feat/start` from `dev`, not merged, not pushed)
+## `./start`, `./prytax` without PHP, the overview and «Again» (2026-10-31, night; branch `feat/start` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: a simplified `./prytax` that only runs Web · In Docker · SQLite (no menus for them, `.env.docker` made when
 missing, no «Create the first owner»); then "users that fetch it need PHP": a PHP container when PHP 8.5 is missing;

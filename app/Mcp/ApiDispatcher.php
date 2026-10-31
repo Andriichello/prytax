@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use PryTax\Models\Integration;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Class ApiDispatcher.
@@ -174,8 +177,8 @@ class ApiDispatcher
     }
 
     /**
-     * Get the answer: its JSON, without an error's trace (only a server error's message), cut when it's too long; or
-     * its text.
+     * Get the answer: its JSON, without an error's trace (only a server error's message), cut when it's too long; a
+     * file's description; or its text.
      *
      * @param Response $response
      *
@@ -183,6 +186,10 @@ class ApiDispatcher
      */
     protected function answerOf(Response $response): mixed
     {
+        if ($this->isFile($response)) {
+            return $this->fileOf($response);
+        }
+
         $content = (string) $response->getContent();
         $answer = json_decode($content, true);
 
@@ -202,5 +209,46 @@ class ApiDispatcher
         return mb_strlen($json) > self::MAX_ANSWER
             ? ['truncated' => true, 'note' => 'The answer was too long: ask for less (filters, page[size]).', 'json' => mb_substr($json, 0, self::MAX_ANSWER)]
             : $answer;
+    }
+
+    /**
+     * Determine whether the answer is a file (a download, an invoice's PDF): streamed, named, or not text, whose bytes
+     * would be empty or garbled as JSON.
+     *
+     * @param Response $response
+     *
+     * @return bool
+     */
+    protected function isFile(Response $response): bool
+    {
+        return $response instanceof StreamedResponse
+            || $response instanceof BinaryFileResponse
+            || $response->headers->has('Content-Disposition')
+            || !mb_check_encoding((string) $response->getContent(), 'UTF-8');
+    }
+
+    /**
+     * Get what a file is, by its headers: its name, type and size, without its bytes.
+     *
+     * @param Response $response
+     *
+     * @return array{file: array{name: string|null, type: string|null, size: int|null}, note: string}
+     */
+    protected function fileOf(Response $response): array
+    {
+        $disposition = HeaderUtils::combine(HeaderUtils::split((string) $response->headers->get('Content-Disposition'), ';='));
+        $encoded = is_string($disposition['filename*'] ?? null) ? preg_replace("#^[\w-]+'[\w-]*'#", '', $disposition['filename*']) : null;
+        $name = $encoded !== null ? rawurldecode($encoded) : (is_string($disposition['filename'] ?? null) ? $disposition['filename'] : null);
+        $size = match (true) {
+            $response->headers->has('Content-Length') => (int) $response->headers->get('Content-Length'),
+            $response instanceof BinaryFileResponse => (int) $response->getFile()->getSize(),
+            $response instanceof StreamedResponse => null,
+            default => strlen((string) $response->getContent()),
+        };
+
+        return [
+            'file' => ['name' => $name, 'type' => $response->headers->get('Content-Type'), 'size' => $size],
+            'note' => 'A file: api-read tells what it is, not its contents; the user opens it in PryTax.',
+        ];
     }
 }

@@ -49,14 +49,19 @@ class SingleOrganization
     }
 
     /**
-     * Determine whether an organization may be registered here: registration is on, and one person's installation
-     * has none yet.
+     * Determine whether an organization may be registered here: one person's installation registers its only one
+     * while it has none yet, whether registration is on or not (its first visit chooses the password); any other
+     * installation when registration is on.
      *
      * @return bool
      */
     public function allowsRegistration(): bool
     {
-        return (bool) config('prytax.registration') && (!$this->isOn() || !Organization::query()->withTrashed()->exists());
+        if ($this->isOn()) {
+            return !Organization::query()->withTrashed()->exists();
+        }
+
+        return (bool) config('prytax.registration');
     }
 
     /**

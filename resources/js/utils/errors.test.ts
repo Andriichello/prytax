@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { ApiError } from '@/api/client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, request } from '@/api/client';
 import { locale } from '@/i18n';
 import { errorMessage, fieldError, translateMessage } from '@/utils/errors';
 
@@ -33,15 +33,44 @@ describe('translateMessage', () => {
             expect(translateMessage('Server Error', 500)).toBe('Something went wrong. Try again.');
             expect(translateMessage('This account is suspended.', 403)).toBe('This account is suspended. Contact the organization’s owner.');
         });
+
+        it('shows the API\'s English messages with Ukrainian terms and names, by the language the answer names', () => {
+            locale.value = 'en';
+
+            expect(translateMessage('РНОКПП is 10 digits.', 422, 'en')).toBe('РНОКПП is 10 digits.');
+            expect(fieldError(new ApiError(422, 'Check', { tax_id: ['Another ФОП of the organization has this tax id.'] }, 'en'), 'tax_id'))
+                .toBe('Another ФОП of the organization has this tax id.');
+            expect(translateMessage('Надходження покривають 3100.00 з 3892.50 USD.', 422, 'uk')).toBe('Check the form.');
+        });
+    });
+
+    it('never shows an answer in another language, though it has Ukrainian terms', () => {
+        expect(translateMessage('Another ФОП of the organization has this tax id.', 422, 'en')).toBe('Перевірте дані форми.');
     });
 });
 
 describe('errors of requests', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('takes a field\'s first message', () => {
         const error = new ApiError(422, 'Перевірте дані форми.', { name: ['Заповніть це поле.', 'Не більше 255 символів.'] });
 
         expect(fieldError(error, 'name')).toBe('Заповніть це поле.');
         expect(fieldError(error, 'currency')).toBeUndefined();
+    });
+
+    it('keeps the language the answer names', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+            JSON.stringify({ message: 'РНОКПП is 10 digits.', errors: { tax_id: ['РНОКПП is 10 digits.'] } }),
+            { status: 422, headers: { 'Content-Language': 'en', 'Content-Type': 'application/json' } },
+        ));
+
+        const caught = await request('profiles/1').catch((error: unknown) => error);
+
+        expect(caught).toBeInstanceOf(ApiError);
+        expect((caught as ApiError).language).toBe('en');
     });
 
     it('tells a failed connection apart from an answer', () => {

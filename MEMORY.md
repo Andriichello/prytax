@@ -1,7 +1,12 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (later): branch **`feat/claude-mcp`** (from `dev`, not merged, not pushed) adds Claude over
-MCP, turned on in Налаштування → Інтеграції (see "Claude over MCP"). Before it, as of 2026-10-31 (late night):
+Status as of 2026-11-01: **everything is merged into `dev`** (the user: "merge everything into dev"; a fast-forward to
+`feat/claude-mcp`, then this note; not `main`, not pushed; `dev` is 32 commits ahead of `origin/dev` = 2f8241f,
+checked out; `main` = `origin/main` = fe94985). It added Claude over MCP, turned on in Налаштування → Інтеграції, its
+changes once allowed, Back in every `./prytax` question and `./start`'s own local app (see "Claude may change data",
+"Back everywhere" and "Claude over MCP"). Last runs: 661 PHP tests on SQLite (one skipped: the SQLite ↔ MySQL test),
+SPA 806. Before it, as of 2026-10-31 (later): branch `feat/claude-mcp` was being built. Before it, as of 2026-10-31
+(late night):
 **everything is merged into `dev`** (the user: "merge everything into dev"; a
 fast-forward to `fix/made-up-email-in-sidebar`, then this note; not `main`, not pushed; `dev` is 20 commits ahead of
 `origin/dev` = 2f8241f, checked out; `main` = `origin/main` = fe94985). It added `feat/start` (`./start`, `./prytax`'s
@@ -51,7 +56,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## Claude may change data, once an owner allows it (2026-11-01, past midnight; same branch `feat/claude-mcp`)
+## Claude may change data, once an owner allows it (2026-11-01, past midnight; same branch `feat/claude-mcp`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: write access "same as current user" (record a spreadsheet's entries, upload invoices' PDFs, everything the
 user may), with a toggle in the Claude integration's configuration. Chosen (AskUserQuestion): the app's own API
@@ -63,7 +68,7 @@ user may), with a toggle in the Claude integration's configuration. Chosen (AskU
 - Checked live on the scratch demo: the switch and its question; stdio: CSV → endpoint rules → client created → read.
 - Tests: `ApiToolsTest` (9), `IntegrationControllerTest` +1, SPA `writesLine`.
 
-## Back everywhere, and ./start's own local app (2026-10-31, late night; same branch `feat/claude-mcp`)
+## Back everywhere, and ./start's own local app (2026-10-31, late night; same branch `feat/claude-mcp`, fast-forwarded into `dev`, not pushed)
 
 The user: every option of `./prytax` with Back; `./start` with a SQLite database of its own (`local`), so dev work with
 `./prytax` doesn't rewrite it. Chosen (AskUserQuestion): fully its own (settings, project, file, port); Back = the
@@ -76,7 +81,7 @@ previous question. builds.md §6 has both as built; README the starter and `./st
   `prytax:latest` restored to the user's (d4b051…), the scratch build removed.
 - Anyone who ran the old `./start` has their data in the `prytax` project's volume, under `.env.docker`.
 
-## Claude over MCP, turned on in Налаштування → Інтеграції (2026-10-31, late night; branch `feat/claude-mcp` from `dev`, not merged, not pushed)
+## Claude over MCP, turned on in Налаштування → Інтеграції (2026-10-31, late night; branch `feat/claude-mcp` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: "can you make an MCP server for Claude that will allow it to work in this app?"; then: local first,
 read-only, `laravel/mcp` added; two entries (desktop data, web data); the starter's Tools item and README. Then the

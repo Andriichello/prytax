@@ -1096,13 +1096,13 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
   under the name. The footnote (the side note «Як це працює» on desktop, which also tells of Layer A's 30 days and
   points to Облік › Експорт; in the desktop app it says instead that the copies stay on this computer and that the
   recovery kit with the database file restores the whole of PryTax on another one).
-- **Tabs** (2026-10-31, the owner found the page too nested): Резервні (the status card, «Створити зараз», the
-  states board, the bundle's banner, and «Копії» with «Усі ФОП · ZIP» at its top right, no longer in the header),
-  Застосунок (saving a copy of the whole app, `builds.md` §4.11; where it's on), Відновлення (the deleted ФОП, then
-  «ФОП з архіву» — the flow below, inline — or «Увесь застосунок», the full restore, inline) and Ключ (the desktop
-  app's recovery kit, inline: `RecoveryKitPanel`, which the setup's page frames too). The tab is kept in the address
-  (`?tab=restore`); `/backups/import` remains a page for Новий ФОП. Before: «Відновити з архіву» and «Набір
-  відновлення» were links under the status card to pages of their own.
+- **Two tabs** (2026-10-31; the owner found the page too nested, then cut four tabs to two): ФОП (the status card,
+  «Створити зараз», the states board, the bundle's banner, the deleted ФОП, «Відновити з архіву» as a card opening in
+  place, and «Копії» with «Усі ФОП · ZIP» at its top right, no longer in the header) and Застосунок, where it applies
+  (cards opening in place: saving a copy of the whole app and restoring one, `builds.md` §4.11, and the desktop app's
+  recovery kit, `RecoveryKitPanel`, which the setup's page frames too). A card's content is made when it first opens
+  (`DisclosureCard`). The tab is kept in the address (`?tab=application`); `/backups/import` remains a page for Новий
+  ФОП. Before: «Відновити з архіву» and «Набір відновлення» were links under the status card to pages of their own.
 - **«Відновити з архіву»** (`/backups/import`, owners: `import` on backups; v1.8): «Обрати архів (.zip)», then «Пароль
   архіву» («Лише якщо архів завантажено з паролем»); [Перевірити] runs a dry run and shows «В архіві»: the ФОП's name
   with «•••• 4821» and «{rows} записів · документів: {documents}»; then [Відновити як новий ФОП], and «Відновлено:

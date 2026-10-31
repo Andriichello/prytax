@@ -119,6 +119,17 @@ class Toolchain
     }
 
     /**
+     * Get whether the starter runs in its container, which `./prytax` starts when this machine has no PHP 8.5
+     * (the Dockerfile's `starter` stage, builds.md §6): there's no window, Docker or ngrok in it.
+     *
+     * @return bool
+     */
+    public function inContainer(): bool
+    {
+        return getenv('PRYTAX_STARTER_CONTAINER') === '1';
+    }
+
+    /**
      * Get whether a program can be found on the PATH.
      *
      * @param string $program

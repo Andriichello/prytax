@@ -40,12 +40,29 @@ class Doctor
     public function __construct(protected Toolchain $toolchain) {}
 
     /**
-     * Get every check.
+     * Get every check; in the starter's container, those of what runs there.
      *
      * @return list<Check>
      */
     public function all(): array
     {
+        if ($this->toolchain->inContainer()) {
+            return [
+                Check::ok('Container', 'prytax-starter: PHP 8.5 and Node 24; the desktop app, Docker and ngrok need them on this machine'),
+                $this->php(),
+                $this->extensions(),
+                $this->apiCore(),
+                $this->env(),
+                $this->configCache(),
+                $this->node(),
+                $this->nodeModules(),
+                $this->build(),
+                $this->mysql(),
+                $this->migrations(Database::web(), 'Web migrations'),
+                $this->program('pdftoppm', 'For drawing the invoice styles\' thumbnails: the image has it'),
+            ];
+        }
+
         return [
             $this->php(),
             $this->extensions(),

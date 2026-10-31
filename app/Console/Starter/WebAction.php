@@ -76,8 +76,8 @@ class WebAction extends Action
             $group->start($name, $command, $env);
         }
 
-        // Vite's hot reload serves the SPA from this machine only, so a phone couldn't load it
-        $keys = $vite ? [] : ['n' => ['open or close an ngrok tunnel for a phone', function () use ($group, $port, $database) {
+        // Vite's hot reload serves the SPA from this machine only, so a phone couldn't load it; no ngrok in the container
+        $keys = $vite || $this->toolchain->inContainer() ? [] : ['n' => ['open or close an ngrok tunnel for a phone', function () use ($group, $port, $database) {
             app(Tunnel::class)->toggle($group, "127.0.0.1:$port", "on the phone, and sign in with an account of $database->label");
         }]];
 

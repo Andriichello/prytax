@@ -29,11 +29,12 @@ class BuildAction extends Action
      */
     protected function handle(): int
     {
-        $targets = multiselect('What should be built?', [
+        // The desktop app's installers need Electron on this machine, not in the starter's container
+        $targets = multiselect('What should be built?', array_filter([
             'spa' => 'The SPA (npm run build)',
-            'desktop' => 'The desktop app for Linux: AppImage and deb (native:build linux x64)',
+            'desktop' => $this->toolchain->inContainer() ? null : 'The desktop app for Linux: AppImage and deb (native:build linux x64)',
             'thumbnails' => 'The invoice styles\' thumbnails (pdftoppm)',
-        ], default: ['spa'], required: true);
+        ]), default: ['spa'], required: true);
 
         $built = true;
 

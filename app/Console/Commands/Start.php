@@ -15,6 +15,7 @@ use PryTax\Console\Starter\Menu;
 use PryTax\Console\Starter\PhoneAction;
 use PryTax\Console\Starter\StatusAction;
 use PryTax\Console\Starter\TestAction;
+use PryTax\Console\Starter\Toolchain;
 use PryTax\Console\Starter\WebAction;
 use Symfony\Component\Console\Input\InputInterface;
 
@@ -28,7 +29,8 @@ use function Laravel\Prompts\intro;
  * app (in Docker or here) or as the desktop app, always as one person's installation, with an ngrok tunnel for a
  * phone, shows and stops what runs, checks the machine, and runs the tests, the builds and the databases' tasks
  * (builds.md §6). The menu asks for the platform first, then how to run it; the tools are below it, beside Quit, and
- * Esc quits.
+ * Esc quits. In its container (`./prytax` on a machine without PHP 8.5) it offers only what runs there: the web app
+ * here and the tools.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Commands
@@ -81,6 +83,17 @@ class Start extends Command
     ];
 
     /**
+     * The actions, which need this machine rather than the starter's container, with why.
+     *
+     * @var array<string, string>
+     */
+    protected const array HOST_ONLY = [
+        'desktop' => 'The desktop app\'s window needs PHP 8.5 on this machine: install it as php8.5, or set PRYTAX_PHP.',
+        'docker' => 'Docker can\'t be started from the starter\'s container: ./start runs PryTax in Docker without PHP.',
+        'phone' => 'The phone over ngrok needs PHP 8.5 and ngrok on this machine: install PHP as php8.5, or set PRYTAX_PHP.',
+    ];
+
+    /**
      * Whether the menu runs, rather than an action named, so that the actions' prompts offer Back too.
      *
      * @var bool
@@ -98,18 +111,26 @@ class Start extends Command
      * Execute the console command.
      *
      * @param Listeners $listeners
+     * @param Toolchain $toolchain
      *
      * @return int
      */
-    public function handle(Listeners $listeners): int
+    public function handle(Listeners $listeners, Toolchain $toolchain): int
     {
         $action = $this->argument('action');
+        $inContainer = $toolchain->inContainer();
 
         if ($action !== null) {
             if (!array_key_exists($action, self::ACTIONS)) {
                 error("There's no action $action: " . implode(', ', array_keys(self::ACTIONS)) . '.');
 
                 return self::INVALID;
+            }
+
+            if ($inContainer && isset(self::HOST_ONLY[$action])) {
+                error(self::HOST_ONLY[$action]);
+
+                return self::FAILURE;
             }
 
             Menu::escapeQuits();
@@ -130,17 +151,18 @@ class Start extends Command
 
         while (!$this->quitting) {
             $running = $listeners->running();
-            $platform = $this->choose('Which platform?', [
+            $platform = $this->choose('Which platform?', array_filter([
                 'web' => 'Web — ' . match (true) {
                     isset($running['web']) => "runs here at {$running['web']['url']}",
                     isset($running['docker']) => "runs in Docker at {$running['docker']['url']}",
+                    $inContainer => 'here',
                     default => 'in Docker or here',
                 },
-                'desktop' => 'Desktop — ' . (isset($running['desktop']) ? 'the development window runs' : 'the development window'),
-            ], ['tools' => 'Tools — status, doctor, tests, builds, database']);
+                'desktop' => $inContainer ? null : 'Desktop — ' . (isset($running['desktop']) ? 'the development window runs' : 'the development window'),
+            ]), ['tools' => 'Tools — status, doctor, tests, builds, database']);
 
             match ($platform) {
-                'web' => $this->web($running),
+                'web' => $inContainer ? $this->perform('web') : $this->web($running),
                 'desktop' => $this->desktop($running),
                 'tools' => $this->tools(),
                 default => null,

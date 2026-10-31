@@ -7,8 +7,11 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\Console\Starter\Doctor;
 use PryTax\Console\Starter\Listeners;
+use PryTax\Console\Starter\StarterState;
+use PryTax\Console\Starter\Toolchain;
 use Tests\TestCase;
 
 /**
@@ -18,7 +21,8 @@ use Tests\TestCase;
  * told on start, the web app on a new SQLite file with the demo data and ready for a tunnel, a port in use refused
  * or the web app there stopped, the desktop window with this PHP and without DevTools, Docker with settings it makes
  * and a tunnel to it, a tunnel's address for a phone, starting a database over only when its name is typed and after
- * a copy, and what runs told by `ss`.
+ * a copy, what runs told by `ss`, the last app started remembered and offered again with its overview and dates,
+ * and, in the starter's container, only what runs there.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package Tests\Feature\Console\Commands
@@ -31,6 +35,18 @@ class StartTest extends TestCase
      * @var list<string>
      */
     private array $files = [];
+
+    /**
+     * Keep the starters' record in a file of the test's own, never the project's.
+     *
+     * @return void
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->app->instance(StarterState::class, new StarterState($this->temporaryFile()));
+    }
 
     /**
      * Remove the test's files.
@@ -99,6 +115,128 @@ class StartTest extends TestCase
         Process::assertRan(fn (PendingProcess $process) => $process->command === [PHP_BINARY, 'artisan', 'queue:work', '--queue=backups,retention,default'] && $process->environment['DB_DATABASE'] === $file);
         Process::assertRan(fn (PendingProcess $process) => $process->command === [PHP_BINARY, 'artisan', 'schedule:work']);
         Process::assertDidntRun(fn (PendingProcess $process) => str_ends_with((string) ($process->command[0] ?? ''), 'vite'));
+    }
+
+    /**
+     * Test that the web app started is remembered: its choice, its SQLite file, when it was set up and when its
+     * database was created, as its overview tells.
+     *
+     * @return void
+     */
+    public function testRemembersTheWebAppStartedWithItsDatabasesDate(): void
+    {
+        $this->travelTo('2026-10-31 18:02:00');
+        $file = $this->temporaryFile();
+        Process::fake([
+            "*'migrate' '--force' '--seed'*" => function () use ($file) {
+                file_put_contents($file, 'migrated');
+
+                return Process::result();
+            },
+            '*prytax:summary*' => Process::result($this->summary('2026-10-31T18:01:00+02:00')),
+            '*' => Process::result(),
+        ]);
+        $this->built();
+
+        $this->artisan('prytax:start', ['action' => 'web', '--db' => 'sqlite', '--sqlite' => $file])
+            ->expectsConfirmation('Add the demo data? (Практика Коваленко: sign in as olena@example.com / password)', 'no')
+            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->assertSuccessful();
+
+        $last = app(StarterState::class)->last();
+        $this->assertSame('web-here-sqlite', $last['choice']);
+        $this->assertSame($file, $last['sqlite']);
+        $this->assertSame('prytax', $last['run_by']);
+        $this->assertSame('2026-10-31T18:02:00+02:00', $last['set_up_at']);
+        $this->assertSame('2026-10-31T18:01:00+02:00', $last['database_created_at']);
+    }
+
+    /**
+     * Test that the menu shows the last app started with its overview and dates, and starts it again the same way.
+     *
+     * @return void
+     */
+    public function testOffersTheLastAppAgainWithItsOverviewAndDates(): void
+    {
+        $this->travelTo('2026-10-01 09:00:00');
+        $file = $this->temporaryFile();
+        file_put_contents($file, 'migrated');
+        app(StarterState::class)->remember('web-here-sqlite', $file, '2026-09-30T12:00:00+03:00');
+        $this->travelTo('2026-10-31 18:02:00');
+        Process::fake(['*prytax:summary*' => Process::result($this->summary('2026-09-30T12:00:00+03:00')), '*' => Process::result()]);
+        $this->built();
+
+        $this->artisan('prytax:start')
+            ->expectsOutputToContain("Last: Web · Here · SQLite ($file)")
+            ->expectsOutputToContain('Практика Коваленко (1 user)')
+            ->expectsOutputToContain('Set up 01.10.2026 · database created 30.09.2026 · last run 01.10.2026 09:00 by ./prytax')
+            ->expectsQuestion('Which platform?', 'again')
+            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsQuestion('Which platform?', 'quit')
+            ->assertSuccessful();
+
+        Process::assertRan(fn (PendingProcess $process) => in_array('serve', $process->command, true) && $process->environment['DB_DATABASE'] === $file);
+    }
+
+    /**
+     * Test that the starter's container offers only the web app, here, and the tools, and the web app here again.
+     *
+     * @return void
+     */
+    public function testOffersOnlyTheWebAppHereInTheContainer(): void
+    {
+        Process::fake();
+        $this->built();
+        $this->partialMock(Toolchain::class, fn (MockInterface $mock) => $mock->shouldReceive('inContainer')->andReturn(true));
+
+        $this->artisan('prytax:start')
+            ->expectsQuestion('Which platform?', 'web')
+            ->expectsQuestion('Which database?', 'mysql')
+            ->expectsConfirmation('Use Vite\'s hot reload? (No: the built SPA)', 'no')
+            ->expectsChoice('Which platform?', 'quit', [
+                'again' => 'Again — Web · Here · MySQL',
+                'web' => 'Web — here',
+                'tools' => 'Tools — status, doctor, tests, builds, database',
+                'quit' => 'Quit',
+            ])
+            ->assertSuccessful();
+
+        Process::assertRan(fn (PendingProcess $process) => in_array('serve', $process->command, true) && $process->environment['DB_CONNECTION'] === 'mysql');
+    }
+
+    /**
+     * Test that an action, which needs this machine, is refused in the starter's container, saying why.
+     *
+     * @param string $action
+     * @param string $why
+     *
+     * @return void
+     */
+    #[DataProvider('hostActions')]
+    public function testRefusesTheHostsActionsInTheContainer(string $action, string $why): void
+    {
+        Process::fake();
+        $this->partialMock(Toolchain::class, fn (MockInterface $mock) => $mock->shouldReceive('inContainer')->andReturn(true));
+
+        $this->artisan('prytax:start', ['action' => $action])
+            ->expectsOutputToContain($why)
+            ->assertFailed();
+
+        Process::assertNothingRan();
+    }
+
+    /**
+     * Get the actions, which need this machine, with what the refusal says.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function hostActions(): array
+    {
+        return [
+            'the desktop window' => ['desktop', 'The desktop app\'s window needs PHP 8.5 on this machine'],
+            'Docker' => ['docker', './start runs PryTax in Docker without PHP'],
+            'the phone over ngrok' => ['phone', 'The phone over ngrok needs PHP 8.5 and ngrok on this machine'],
+        ];
     }
 
     /**
@@ -363,6 +501,28 @@ class StartTest extends TestCase
                 $mock->shouldReceive($method)->andReturn($value);
             }
         });
+    }
+
+    /**
+     * Get an overview (`prytax:summary --json`) of one organization with one ФОП, of the database created then.
+     *
+     * @param string $createdAt
+     *
+     * @return string
+     */
+    private function summary(string $createdAt): string
+    {
+        $usage = ['count' => 0, 'bytes' => 0];
+        $totals = ['documents' => $usage, 'backups' => $usage, 'latest_backup_at' => null];
+
+        return json_encode([
+            'database' => ['driver' => 'sqlite', 'name' => 'prytax.sqlite', 'bytes' => 1024, 'created_at' => $createdAt],
+            'organizations' => [[
+                'id' => 1, 'name' => 'Практика Коваленко', 'users' => 1, ...$totals,
+                'profiles' => [['id' => 1, 'name' => 'Коваленко О. П.', 'closed' => false, ...$totals]],
+            ]],
+            'totals' => ['organizations' => 1, 'profiles' => 1, ...$totals],
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
 
     /**

@@ -22,9 +22,12 @@ RUN npm run build
 
 # PHP with the extensions PryTax needs: zip for backups and exports, gd for dompdf's images, pcntl for the queue
 # worker's job timeouts, pdo_mysql and pdo_sqlite for the databases, bcmath for brick/math's speed (and DemoSeeder)
-FROM ${PHP_IMAGE} AS base
-RUN install-php-extensions pdo_mysql pdo_sqlite zip gd pcntl bcmath opcache \
-    && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+FROM ${PHP_IMAGE} AS php
+RUN install-php-extensions pdo_mysql pdo_sqlite zip gd pcntl bcmath opcache
+
+# Its production settings, for the app's image
+FROM php AS base
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY docker/php.ini "$PHP_INI_DIR/conf.d/zz-prytax.ini"
 
 # The PHP dependencies, without the development ones
@@ -36,6 +39,23 @@ RUN --mount=type=secret,id=composer_auth,env=COMPOSER_AUTH \
     composer install --no-dev --no-scripts --no-autoloader --no-interaction --prefer-dist
 COPY . .
 RUN composer dump-autoload --optimize --no-dev --no-interaction
+
+# ./prytax's starter on a machine without PHP 8.5 (builds.md §6): PHP 8.5 with the development settings and intl
+# (the doctor's and the tests'), Composer with git and unzip, Node 24, ss for what listens and pdftoppm for the
+# thumbnails. The checkout is mounted, not copied: `docker build --target starter -t prytax-starter .`, which ./prytax
+# does itself. It comes before the app, which compose builds as the last stage
+FROM php AS starter
+RUN install-php-extensions intl \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends git unzip iproute2 poppler-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
+COPY docker/starter.ini "$PHP_INI_DIR/conf.d/zz-prytax-starter.ini"
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=node:24-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # The app: FrankenPHP in classic mode, which boots Laravel on every request, as PHP-FPM does. Worker mode (and Octane)
 # is left out on purpose: the code was never checked for state that leaks between requests.

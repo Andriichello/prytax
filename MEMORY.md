@@ -42,6 +42,20 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Податки: dated badges and the ledger after paying (2026-10-31, late; same branch `feat/full-backups`)
+
+The user: Paid and Sent showed no date; put it in the status and drop it from the next column's second line; and
+paying a tax from Податки didn't show on Податки.
+- `TaxLedgerRow` passes `paid_at` to `TaxPaymentBadge` («Надіслано 12.10», «Сплачено 19.10»); the payment's line is
+  the account only. design.md §16 (Податки's row) says so.
+- The refresh: on desktop the payment opens in the record panel and Податки stays mounted under it, so the KeepAlive
+  reload (`onActivated` + `dataVersion`) never ran (a phone, where the form is its own page, was fine). `PageRoute`
+  now provides `UNDER_PANEL`; `useLoader` and `usePagedList` reload (refresh) when a write happens while their page is
+  under a panel, or when the panel closes after one. The panel's own pages don't, so a form there isn't reset. Applies
+  to Інвойси and Перекази under a panel too. Test in `useLoader.test.ts`.
+- Checked live (scratch copy, 1440 px): the badges' dates; paying ЄП in the panel: the row «Сплачено 31.10» and the
+  summary's paid 1 050.38 at once. SPA 777 tests, typecheck, build.
+
 ## Резервні копії in two tabs (2026-10-31, late; same branch `feat/full-backups`)
 
 The user: the page was too hard to navigate; «Усі ФОП · ZIP» out of the header to the top right of the backups list;

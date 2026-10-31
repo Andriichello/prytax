@@ -1099,8 +1099,8 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
 - **Two tabs** (2026-10-31; the owner found the page too nested, then cut four tabs to two): ФОП (the status card,
   «Створити зараз», the states board, the bundle's banner, the deleted ФОП, «Відновити з архіву» as a card opening in
   place, and «Копії» with «Усі ФОП · ZIP» at its top right, no longer in the header) and Застосунок, where it applies
-  (cards opening in place: saving a copy of the whole app and restoring one, `builds.md` §4.11, and the desktop app's
-  recovery kit, `RecoveryKitPanel`, which the setup's page frames too). A card's content is made when it first opens
+  (cards opening in place: the desktop app's recovery kit first, `RecoveryKitPanel`, which the setup's page frames
+  too, then saving a copy of the whole app and restoring one, `builds.md` §4.11). A card's content is made when it first opens
   (`DisclosureCard`). The tab is kept in the address (`?tab=application`); `/backups/import` remains a page for Новий
   ФОП. Before: «Відновити з архіву» and «Набір відновлення» were links under the status card to pages of their own.
 - **«Відновити з архіву»** (`/backups/import`, owners: `import` on backups; v1.8): «Обрати архів (.zip)», then «Пароль

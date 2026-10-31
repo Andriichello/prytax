@@ -39,8 +39,8 @@ import { errorMessage } from '@/utils/errors';
  * once it is ready; the deleted ФОП in their grace, with their restore and final copy; «Відновити з архіву», a card
  * opening in place; then the runs, newest first (4, 5 on desktop), with «Усі ФОП · ZIP» at the list's top right, each
  * ФОП's archive downloadable, a failed one retried, an owner's manual run deleted, and «Показати старіші»; while a run
- * is in progress the page reads it again every 3 seconds. Застосунок (where it applies): cards for saving a copy of the
- * whole app and restoring one (builds.md §4.11), and the desktop installation's recovery kit.
+ * is in progress the page reads it again every 3 seconds. Застосунок (where it applies): cards for the desktop
+ * installation's recovery kit first, then saving a copy of the whole app and restoring one (builds.md §4.11).
  */
 const { can, user } = useSession();
 const { profiles, profile } = useCurrentProfile();
@@ -419,6 +419,9 @@ const previousOf = (profileId: number): string | null => {
         </LoadState>
 
         <template v-else-if="tab === 'application'">
+            <DisclosureCard v-if="showsRecoveryKit" :title="t('shell.recoveryKit.title')" :hint="t('settings.backups.recoveryKitHint')">
+                <RecoveryKitPanel />
+            </DisclosureCard>
             <p v-if="installation?.enabled && !installation.supported" class="m-0 text-14 leading-normal text-ink-3">{{ t('settings.backups.full.needsSqlite') }}</p>
             <template v-if="fullBackups && installation?.supported">
                 <DisclosureCard :title="t('settings.backups.full.save')" :hint="t('settings.backups.full.hint')">
@@ -428,9 +431,6 @@ const previousOf = (profileId: number): string | null => {
                     <InstallationRestoreFlow />
                 </DisclosureCard>
             </template>
-            <DisclosureCard v-if="showsRecoveryKit" :title="t('shell.recoveryKit.title')" :hint="t('settings.backups.recoveryKitHint')">
-                <RecoveryKitPanel />
-            </DisclosureCard>
         </template>
 
         <BackupRunSheet

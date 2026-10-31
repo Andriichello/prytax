@@ -44,7 +44,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## api-core from GitHub (2026-10-31, night; branch `chore/api-core-from-github` from `dev`)
+## api-core from GitHub (2026-10-31, night; branch `chore/api-core-from-github`, fast-forwarded into `dev` at the user's request; `origin/dev` was pushed by the user up to d20c0f5 before it, `main` not updated)
 
 The user: "update composer to use api-core's GitHub to get its code". `composer.json`'s path repository `../api-core`
 became `{"type": "vcs", "url": "https://github.com/Andriichello/api-core.git"}` (still `dev-dev`); the lock pins

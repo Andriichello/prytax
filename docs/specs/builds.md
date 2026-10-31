@@ -668,8 +668,13 @@ the app, no longer only Boost's).
   while Claude is on; a spreadsheet reader. `ApiDispatcher` sends a request to `/api/…` through the HTTP kernel
   (`app()->handle()`) as the acting user, whom `McpSession` signed in (Sanctum's guard takes the default guard's
   user), JSON or, with files, a form with `UploadedFile`s of local paths (50 MB at most), user agent «Claude (PryTax
-  MCP)»; an error's `exception`, `file`, `line` and `trace` are dropped at any status (a
-  debug 404 was ~25 KB), a server error keeps only its message, an answer over 200 000 characters cut. Blocked (`BLOCKED`):
+  MCP)», with the headers `api-write` takes (`idempotency_key`; `if_unmodified_since`, the `updated_at` Claude read,
+  which an invoice's PATCH requires: without it a 428, which gets a `hint`, since the API's message is the SPA's
+  «reload the page»); an error's `exception`, `file`, `line` and `trace` are dropped at any status (a
+  debug 404 was ~25 KB), a server error keeps only its message, an answer over 200 000 characters cut; a file
+  (streamed, named by `Content-Disposition`, or not UTF-8: a download, an invoice's PDF or preview) comes as its
+  name, type and size, not its bytes. An invoice's upload validates and so lists `primary`
+  (`StoreInvoiceFileRequest`). Blocked (`BLOCKED`):
   `organization/integrations` (Claude would allow itself writes or take a key), `auth/`, `installation`, `desktop/`,
   `registration`, `single/`, `environment`; while `profile_ids` limits the ФОП, only `profiles/{allowed}/…`. Tools
   (`SessionTool`): `api-endpoints` (the open routes, only GETs without changes, the fields of a `CrudController`
@@ -683,7 +688,9 @@ the app, no longer only Boost's).
   the page's switch and its question; over stdio a CSV read, the clients' endpoint with its rules, a client created
   (201) and read back. A later session ran every tool on the owner's real data (read-only) and found `api-endpoints`
   failing without `search`, receipts' invoices paid «0.00», the debug traces, the spreadsheet reader's reach and
-  the two «to pay» figures: fixed on `fix/claude-tools` (2026-11-01).
+  the two «to pay» figures: fixed on `fix/claude-tools` (2026-11-01). The writes, run on the web app's SQLite data
+  with test records (removed after), found every invoice PATCH a 428, `primary` unlisted, and files answered empty:
+  fixed on `fix/claude-writes` (2026-11-01).
 - **The page** (`IntegrationsPage`, `/integrations`, a «Керування» row with «Claude увімкнено/вимкнено»): the switch
   (turning it off asks), who and when, «Дозволити зміни» (asks when turned on; who and when); Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
   to copy, the key's hint, a new key, which asks); Стан (the last connection and call; «Перевірити»).

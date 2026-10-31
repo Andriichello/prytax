@@ -111,7 +111,7 @@ class InstallationKey
      *
      * @return string|null
      */
-    protected function stored(): ?string
+    public function stored(): ?string
     {
         $key = is_file($this->path()) ? trim((string) file_get_contents($this->path())) : '';
 

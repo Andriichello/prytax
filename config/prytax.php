@@ -62,4 +62,19 @@ return [
 
     'single_organization' => (bool) env('PRYTAX_SINGLE_ORGANIZATION', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Claude's key
+    |--------------------------------------------------------------------------
+    |
+    | The key of an organization's Claude integration (builds.md §7), which
+    | Claude Code or Claude Desktop gives the local MCP server it starts
+    | (`php artisan mcp:start prytax`): it names the integration, which serves
+    | only while it's on in Налаштування → Інтеграції. Never set in `.env`:
+    | the connection shown there carries it.
+    |
+    */
+
+    'mcp_key' => env('PRYTAX_MCP_KEY'),
+
 ];

@@ -17,9 +17,9 @@ use Spatie\Permission\PermissionRegistrar;
  *
  * What PryTax adds to api-core's removal of a user (backups.md §9.2, §9.5), which runs first: api-core soft-deletes
  * the user, its tokens stop working, and a permanent delete hands its linked accounts over. Then its credentials go
- * (tokens, sessions, password resets), its access (roles and permissions), and its name and e-mail are anonymized,
- * keeping the row, so `created_by_user_id` and the audit log's causers still resolve; the e-mail is freed for a new
- * account, and the password becomes an unusable random hash (`users.password` isn't nullable).
+ * (tokens, sessions, password resets, a recovery code), its access (roles and permissions), and its name and e-mail
+ * are anonymized, keeping the row, so `created_by_user_id` and the audit log's causers still resolve; the e-mail is
+ * freed for a new account, and the password becomes an unusable random hash (`users.password` isn't nullable).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Retention
@@ -62,7 +62,7 @@ class UserRemovalHandler implements RetentionFamilyHandler
     }
 
     /**
-     * Delete the user's tokens, sessions and password resets.
+     * Delete the user's tokens, sessions, password resets and recovery code.
      *
      * @param int $userId
      *
@@ -76,6 +76,7 @@ class UserRemovalHandler implements RetentionFamilyHandler
         $deleted = DB::table('personal_access_tokens')->where('tokenable_type', $alias)->where('tokenable_id', $userId)->delete()
             + DB::table('personal_access_tokens')->where('impersonator_id', $userId)->delete()
             + DB::table('sessions')->where('user_id', $userId)->delete()
+            + DB::table('recovery_codes')->where('user_id', $userId)->delete()
             + ($email === null ? 0 : DB::table('password_reset_tokens')->where('email', $email)->delete());
 
         return new RetentionResult(processed: $deleted, deleted: $deleted);

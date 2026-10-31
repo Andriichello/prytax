@@ -14,6 +14,7 @@ use PryTax\DataLifecycle\Registry\SchemaInspector;
 use PryTax\DataLifecycle\Retention\Enums\RetentionStatus;
 use PryTax\DataLifecycle\Retention\Models\RetentionRun;
 use PryTax\Models\Client;
+use PryTax\Models\RecoveryCode;
 use PryTax\Retention\RetentionFamilies;
 use PryTax\Retention\UserRemovalHandler;
 use Tests\Concerns\ActsInProfiles;
@@ -46,6 +47,7 @@ class RetentionFlowsTest extends TestCase
         $profile = $this->createProfile();
         $user = $this->userOf($profile->organization, 'accountant');
         $user->createToken('phone');
+        RecoveryCode::query()->create(['user_id' => $user->id, 'code' => RecoveryCode::generate()]);
         $client = $this->inProfile($profile, fn () => Client::factory()->create(['profile_id' => $profile->id, 'created_by_user_id' => $user->id]));
         $email = $user->email;
         $this->actAs($profile);
@@ -58,6 +60,7 @@ class RetentionFlowsTest extends TestCase
         $this->assertSame([UserRemovalHandler::ANONYMOUS_NAME, "deleted+$user->id@invalid"], [$row->name, $row->email]);
         $this->assertFalse(Hash::check('password', $row->password));
         $this->assertSame(0, DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->count());
+        $this->assertSame(0, DB::table('recovery_codes')->where('user_id', $user->id)->count());
         $this->assertSame(0, DB::table('model_has_roles')->where('model_id', $user->id)->where('model_type', 'models.users')->count());
         $this->assertSame($user->id, $client->fresh()->created_by_user_id);
 

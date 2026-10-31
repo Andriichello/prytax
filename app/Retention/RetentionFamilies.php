@@ -25,6 +25,7 @@ final class RetentionFamilies
         'personal_access_tokens' => 'credentials',
         'password_reset_tokens' => 'credentials',
         'sessions' => 'credentials',
+        'recovery_codes' => 'credentials',
         'model_has_roles' => 'access',
         'model_has_permissions' => 'access',
         'notifications' => 'communication',

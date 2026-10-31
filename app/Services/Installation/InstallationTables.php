@@ -67,6 +67,7 @@ final class InstallationTables
         'profiles' => ['tax_id'],
         'accounts' => ['iban', 'account_number'],
         'invoices' => ['snapshot'],
+        'recovery_codes' => ['code'],
     ];
 
     /**

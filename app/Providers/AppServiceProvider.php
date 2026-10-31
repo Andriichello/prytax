@@ -38,6 +38,7 @@ use PryTax\Models\InvoiceItem;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\Project;
+use PryTax\Models\RecoveryCode;
 use PryTax\Models\Refund;
 use PryTax\Models\TaxOpeningBalance;
 use PryTax\Models\TaxPayment;
@@ -75,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
         Payment::class,
         Profile::class,
         Project::class,
+        RecoveryCode::class,
         Refund::class,
         TaxOpeningBalance::class,
         TaxPayment::class,

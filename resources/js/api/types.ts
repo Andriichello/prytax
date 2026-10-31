@@ -261,6 +261,69 @@ export interface BackupImportResult {
     tenants: BackupImportedProfile[];
 }
 
+/** Whether full backups of the installation are offered here (`GET installation`), and to this person. */
+export interface InstallationStatus {
+    enabled: boolean;
+    /** PryTax runs on a SQLite file, which a full backup copies. */
+    supported: boolean;
+    allowed: boolean;
+    desktop: boolean;
+    first_launch: boolean;
+}
+
+/** A full backup saved (`POST installation/backups`): the file's name in the desktop app, else a link to download. */
+export interface InstallationBackupSaved {
+    saved: string | null;
+    download_url: string | null;
+}
+
+/** One side of the comparison: when its data changed last, its organizations and its latest migration. */
+export interface InstallationSide {
+    last_change_at: DateTimeString | null;
+    organizations: { id: number; name: string; profiles: number }[];
+    migration: string | null;
+}
+
+/** A row, which the restore adds, changes or removes; `newer_here` when this computer's version would be lost. */
+export interface InstallationRowChange {
+    kind: 'added' | 'changed' | 'removed';
+    id: string | null;
+    label: string | null;
+    backup_at: DateTimeString | null;
+    here_at: DateTimeString | null;
+    newer_here: boolean;
+    columns: { column: string; backup: string | null; here: string | null }[];
+}
+
+/** What the restore does to a table; a table, which isn't `counted` (history, caches), doesn't decide the verdict. */
+export interface InstallationTableChange {
+    table: string;
+    counted: boolean;
+    added: number;
+    changed: number;
+    removed: number;
+    newer_here: number;
+    rows: InstallationRowChange[];
+}
+
+/** A full backup opened and compared with this installation (`POST installation/restores`). */
+export interface InstallationComparison {
+    token: string;
+    made_at: DateTimeString | null;
+    app_version: string | null;
+    documents: { count: number; bytes: number } | null;
+    archives: { count: number; bytes: number } | null;
+    /** This installation has people and data, whose state must be saved before it's replaced. */
+    needs_current_backup: boolean;
+    verdict: 'identical' | 'fast_forward' | 'rewrite';
+    /** The rows of this computer, which the restore would lose. */
+    lost: number;
+    schema: 'same' | 'older' | 'newer';
+    backup: InstallationSide;
+    current: InstallationSide;
+    tables: InstallationTableChange[];
+}
+
 /** Whether a new organization may be registered here (`GET registration`), and whether it'd be the first one. */
 export interface RegistrationStatus {
     enabled: boolean;

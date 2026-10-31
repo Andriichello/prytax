@@ -59,6 +59,9 @@ async function submit(): Promise<void> {
 <template>
     <AuthLayout>
         <form class="flex flex-col gap-4" novalidate @submit.prevent="submit">
+            <p v-if="route.query.restored !== undefined" class="m-0 rounded-card bg-positive-soft p-4 text-14 leading-normal" role="status">
+                {{ t('shell.login.restored') }}
+            </p>
             <TextField
                 v-model="email"
                 :label="t('shell.login.email')"

@@ -6,6 +6,7 @@ import TextField from '@/components/form/TextField.vue';
 import AuthLayout from '@/components/layout/AuthLayout.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import { useDesktopApp } from '@/composables/useDesktopApp';
+import { useInstallationBackups } from '@/composables/useInstallationBackups';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
 import { errorMessage, fieldError } from '@/utils/errors';
@@ -21,6 +22,7 @@ const { registrationStatus, register } = useSession();
 const form = reactive<Registration>({ organization: '', name: '', email: '', password: '', password_confirmation: '' });
 const firstOwner = ref(false);
 const restorable = ref(false);
+const fullRestorable = ref(false);
 const busy = ref(false);
 const error = ref<unknown>(null);
 
@@ -37,6 +39,10 @@ onMounted(async () => {
 
     firstOwner.value = status.first_owner;
     restorable.value = status.first_owner && (await useDesktopApp().isDesktopApp());
+
+    // A new computer may take another's whole app from a full backup (builds.md §4.11)
+    const installation = status.first_owner ? await useInstallationBackups().status().catch(() => null) : null;
+    fullRestorable.value = Boolean(installation?.supported && installation.allowed);
 });
 
 async function submit(): Promise<void> {
@@ -105,6 +111,9 @@ async function submit(): Promise<void> {
             <PrimaryButton type="submit" :busy="busy" class="mt-2">{{ t('shell.register.submit') }}</PrimaryButton>
             <RouterLink v-if="restorable" :to="{ name: 'restore' }" class="flex min-h-11 items-center justify-center text-15 font-medium no-underline">
                 {{ t('shell.restore.link') }}
+            </RouterLink>
+            <RouterLink v-if="fullRestorable" :to="{ name: 'restore-full' }" class="flex min-h-11 items-center justify-center text-15 font-medium no-underline">
+                {{ t('shell.restore.fullLink') }}
             </RouterLink>
             <p v-if="!firstOwner" class="m-0 flex min-h-11 flex-wrap items-center justify-center gap-x-1.5 text-15 text-ink-2">
                 {{ t('shell.register.haveAccount') }}

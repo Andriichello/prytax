@@ -20,6 +20,7 @@ export default {
         accountantNote: 'An accountant sees every ФОП of their practice.',
         newHere: 'New to PryTax?',
         register: 'Register an organization',
+        restored: 'The app was restored from a full copy. Sign in with an account of the copy.',
     },
 
     register: {
@@ -65,6 +66,7 @@ export default {
 
     restore: {
         link: 'Restore from another computer',
+        fullLink: 'Restore from a full copy of the app',
         title: 'Restore',
         explained:
             'Choose the recovery kit and the database file of the old computer (the kit names its path; copy it while PryTax is closed). The kit’s key must open the database, or nothing changes.',

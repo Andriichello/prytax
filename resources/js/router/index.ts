@@ -57,6 +57,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/forgot-password', name: 'forgot-password', component: () => import('@/pages/auth/ForgotPasswordPage.vue'), meta: { guest: true } },
     { path: '/register', name: 'register', component: () => import('@/pages/auth/RegisterPage.vue'), meta: { guest: true } },
     { path: '/restore', name: 'restore', component: () => import('@/pages/auth/RestorePage.vue'), meta: { guest: true } },
+    { path: '/restore/full', name: 'restore-full', component: () => import('@/pages/settings/InstallationRestorePage.vue'), meta: { guest: true } },
     { path: '/reset-password', name: 'reset-password', component: () => import('@/pages/auth/ResetPasswordPage.vue'), meta: { public: true } },
     { path: '/accept-invitation', name: 'accept-invitation', component: () => import('@/pages/auth/AcceptInvitationPage.vue'), meta: { public: true } },
     { path: '/change-password', name: 'change-password', component: () => import('@/pages/auth/ChangePasswordPage.vue'), meta: { bare: true } },
@@ -134,6 +135,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
     { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue') },
     { path: '/backups', name: 'backups', component: () => import('@/pages/backups/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
+    { path: '/installation/restore', name: 'installation-restore', component: () => import('@/pages/settings/InstallationRestorePage.vue') },
     { path: '/backups/import', name: 'backup-import', component: () => import('@/pages/backups/BackupImportPage.vue'), meta: { can: ['import', 'backups'], denied: 'backups' } },
     { path: '/backups/policy', name: 'backup-policy', component: () => import('@/pages/backups/BackupPolicyPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
     { path: '/settings/backups', name: 'settings-backups', redirect: { name: 'backups' } },
@@ -301,8 +303,8 @@ router.beforeEach(async (to, from) => {
         if (!profile) {
             const start = can('create', 'profiles') ? 'profile-new' : 'no-profile';
 
-            // Its ФОП may come from a backup's archive too
-            if (to.name === 'backup-import' && can('import', 'backups')) {
+            // Its ФОП may come from a backup's archive too, and the whole app from a full backup
+            if ((to.name === 'backup-import' && can('import', 'backups')) || to.name === 'installation-restore') {
                 return true;
             }
 

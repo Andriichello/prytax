@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
-import type { ApiResponse, BackupRecord, BackupRunRecord, BackupStatusSummary, DeletedProfile, Paginated } from '@/api/types';
+import type { ApiResponse, BackupRecord, BackupRunRecord, BackupStatusSummary, DeletedProfile, InstallationStatus, Paginated } from '@/api/types';
 import BackupDownloadSheet from '@/components/backups/BackupDownloadSheet.vue';
 import BackupRunCard from '@/components/backups/BackupRunCard.vue';
 import BackupRunSheet from '@/components/backups/BackupRunSheet.vue';
 import BackupStatusCard from '@/components/backups/BackupStatusCard.vue';
+import InstallationBackupForm from '@/components/installation/InstallationBackupForm.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import Avatar from '@/components/ui/Avatar.vue';
+import BottomSheet from '@/components/ui/BottomSheet.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import LoadState from '@/components/ui/LoadState.vue';
@@ -18,6 +20,7 @@ import SectionTitle from '@/components/ui/SectionTitle.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useDesktopApp } from '@/composables/useDesktopApp';
+import { useInstallationBackups } from '@/composables/useInstallationBackups';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
@@ -39,10 +42,14 @@ const { isDesktop } = useBreakpoint();
 // In the desktop app, its owner reaches the installation's recovery kit here, and the note says what this computer keeps
 const desktopApp = ref(false);
 const showsRecoveryKit = ref(false);
+// An owner backs up the whole app, and restores one, where it runs for one person on SQLite (builds.md §4.11)
+const installation = ref<InstallationStatus | null>(null);
+const fullSaveOpen = ref(false);
 
 onMounted(async () => {
     desktopApp.value = await useDesktopApp().isDesktopApp();
     showsRecoveryKit.value = desktopApp.value && (user.value?.roles.includes('owner') ?? false);
+    installation.value = await useInstallationBackups().status().catch(() => null);
 });
 
 const canRun = computed(() => can('create', 'backup-runs'));
@@ -308,6 +315,24 @@ const previousOf = (profileId: number): string | null => {
                     <Icon name="chevronRight" :size="18" />
                 </RouterLink>
 
+                <section v-if="installation?.enabled && installation.allowed" class="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+                    <span class="flex flex-col gap-0.5">
+                        <span class="text-15 font-semibold">{{ t('settings.backups.full.title') }}</span>
+                        <span class="text-13 text-ink-3">{{ t('settings.backups.full.hint') }}</span>
+                    </span>
+                    <template v-if="installation.supported">
+                        <SecondaryButton @click="fullSaveOpen = true"><Icon name="download" :size="18" /> {{ t('settings.backups.full.save') }}</SecondaryButton>
+                        <RouterLink :to="{ name: 'installation-restore' }" class="flex items-center justify-between gap-3 text-ink no-underline">
+                            <span class="flex flex-col gap-0.5">
+                                <span class="text-15 font-medium">{{ t('settings.backups.full.restore') }}</span>
+                                <span class="text-13 text-ink-3">{{ t('settings.backups.full.restoreHint') }}</span>
+                            </span>
+                            <Icon name="chevronRight" :size="18" />
+                        </RouterLink>
+                    </template>
+                    <p v-else class="m-0 text-13 leading-[1.45] text-ink-3">{{ t('settings.backups.full.needsSqlite') }}</p>
+                </section>
+
                 <section v-for="backup in failedOfLatest" :key="backup.id" class="flex flex-col gap-2 rounded-card border border-negative-soft bg-negative-soft/40 p-4">
                     <h2 class="m-0 text-15 font-semibold text-negative">{{ t('settings.backups.failedTitle', { name: shortName(backup.profile_id) }) }}</h2>
                     <p class="m-0 text-13 leading-[1.45] text-ink-2">
@@ -410,6 +435,9 @@ const previousOf = (profileId: number): string | null => {
             :error="startError"
             @create="start"
         />
+        <BottomSheet v-model:open="fullSaveOpen" :title="t('settings.backups.full.save')">
+            <InstallationBackupForm :label="t('settings.backups.full.save')" />
+        </BottomSheet>
         <BackupDownloadSheet v-model:open="downloadOpen" :backup="downloading" :initials="downloadName.initials" :name="downloadName.name" />
         <ConfirmSheet
             v-model:open="deleteOpen"

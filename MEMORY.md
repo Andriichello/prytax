@@ -1,6 +1,11 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-01: **everything is merged into `dev`** (the user: "merge everything into dev"; a fast-forward to
+Status as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
+`chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
+"Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
+paratest (see "Messages by the answer's language, and paratest"). Last runs: `composer test` (MySQL, parallel) 666,
+`composer test:sqlite` 666, SPA 809, typecheck. Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge everything into dev"; a fast-forward to
 `feat/claude-mcp`, then this note; not `main`, not pushed; `dev` is 32 commits ahead of `origin/dev` = 2f8241f,
 checked out; `main` = `origin/main` = fe94985). It added Claude over MCP, turned on in Налаштування → Інтеграції, its
 changes once allowed, Back in every `./prytax` question and `./start`'s own local app (see "Claude may change data",
@@ -56,7 +61,24 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## Claude's tools, fixed after a run on real data (2026-11-01; branch `fix/claude-tools` from `dev`, not merged)
+## Messages by the answer's language, and paratest (2026-11-01; branches `fix/api-message-language` on `fix/claude-tools`, then `chore/paratest`, fast-forwarded into `dev` at the user's request, not pushed)
+
+- **"Check the form." under inputs on English screens:** `utils/errors.ts` hid every API message with Cyrillic
+  letters as "not English", but English messages keep ФОП, РНОКПП, ЄСВ and quote names («Monobank ФОП (USD)»), e.g.
+  the ФОП form's «РНОКПП is 10 digits.». Now `ApiError` keeps the answer's `Content-Language` (api-core's `SetLocale`
+  sends it) and `translateMessage(message, status, language)` trusts it: an answer in another language is never shown;
+  the letters decide only when no language is named. Checked in headless Chrome on a scratch copy of the desktop DB
+  (`artisan serve` on 8013). Gotcha: Vite's watcher missed the last of three quick edits to one file (the page kept
+  the old `fieldError`); `touch` the file and reload.
+- **paratest** (`brianium/paratest` ^7.20, as api-core; added with `--no-scripts`, because `post-update-cmd` runs
+  `native:install --force`): `composer test` and `composer test:sqlite` run `artisan test --parallel --processes=6`
+  with `XDEBUG_MODE=off`; MySQL gets `prytax_test_test_N` per process. 60 s on MySQL and 32 s on SQLite, instead of
+  240 s and 185 s. Arguments pass through: `composer test -- --filter=X`.
+- **Two sessions in one working tree:** another session's commits for `fix/claude-tools` landed on
+  `fix/api-message-language`, created meanwhile (HEAD is shared); `fix/claude-tools` was moved to them (507e1e5).
+  Use a `git worktree` for a second session.
+
+## Claude's tools, fixed after a run on real data (2026-11-01; branch `fix/claude-tools` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 Another Claude session ran all 16 tools read-only on the user's real desktop data and reported 3 bugs and 2 risks.
 Fixed (builds.md §7): `api-endpoints` without `search` (a cast bound before `??`); `list-receipts`' invoices paid

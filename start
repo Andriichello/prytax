@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# PryTax in Docker on SQLite, with nothing but Docker on this machine (builds.md §6): `./start` makes .env.docker on
+# SQLite when it's missing, starts the app, its queue worker and its scheduler as one person's installation, shows
+# what it holds, then offers an ngrok tunnel for a phone, its logs, or stopping it. It remembers its runs where
+# ./prytax does (the desktop app, MySQL, the tools, with PHP 8.5 or its container), which shows the last one too.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+file=.env.docker
+state=storage/framework/prytax-starter.env
+choice=web-docker-sqlite
+key=WEB_DOCKER_SQLITE
+
+usage() {
+    cat <<'TEXT'
+Usage: ./start
+
+Starts PryTax in Docker on SQLite: the web app, its queue worker and its scheduler, as one person's installation
+(its first visit chooses the password). .env.docker is made when it's missing. Then: an ngrok tunnel for a phone,
+the logs, or stopping it. ./prytax does more (the desktop app, MySQL, the tools).
+TEXT
+}
+
+case "${1:-}" in
+    '') ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 1
+        ;;
+esac
+
+# The value of a key in a file of dotenv lines (its last line), without its quotes
+value_of() {
+    local line=''
+
+    if [ -f "$1" ]; then
+        line="$(grep -E "^$2=" "$1" | tail -n 1 || true)"
+    fi
+
+    line="${line#*=}"
+    line="${line%\"}"
+    printf '%s' "${line#\"}"
+}
+
+setting() { value_of "$file" "$1"; }
+
+state_get() { value_of "$state" "$1"; }
+
+# Set keys of the record, which ./prytax reads and writes too: KEY=value arguments, an empty value removes the key
+state_set() {
+    local pair name value tmp="$state.tmp"
+    mkdir -p "$(dirname "$state")"
+
+    if [ -f "$state" ]; then
+        cp "$state" "$tmp"
+    else
+        echo '# What ./prytax and ./start remember (builds.md §6): the last run, which started an app, and when each choice was set up' >"$tmp"
+    fi
+
+    for pair in "$@"; do
+        name="${pair%%=*}"
+        value="${pair#*=}"
+        grep -v -E "^$name=" "$tmp" >"$tmp.next" || true
+        mv "$tmp.next" "$tmp"
+
+        if [ -n "$value" ]; then
+            echo "$name=$value" >>"$tmp"
+        fi
+    done
+
+    mv "$tmp" "$state"
+}
+
+# An ISO 8601 date as its day (31.10.2026), and with its time (31.10.2026 18:02)
+day() { printf '%s.%s.%s' "${1:8:2}" "${1:5:2}" "${1:0:4}"; }
+
+moment() { printf '%s %s' "$(day "$1")" "${1:11:5}"; }
+
+# Run a command until it ends or Ctrl+C stops it, not ./start: a handler of its own, as an ignored signal is inherited
+foreground() {
+    trap ':' INT
+    "$@" || true
+    trap - INT
+}
+
+if ! docker compose version >/dev/null 2>&1; then
+    echo "Docker with its compose plugin isn't installed: https://docs.docker.com/get-docker/" >&2
+    exit 1
+fi
+
+# The settings: made on SQLite with a key of their own, as ./prytax docker makes them; SQLite only
+if [ ! -f "$file" ]; then
+    app_key="base64:$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+    (
+        umask 077
+        sed -e "s|^# PRYTAX_ENV_FILE=.*\$|PRYTAX_ENV_FILE=$file|" -e "s|^APP_KEY=\$|APP_KEY=$app_key|" .env.docker.example >"$file"
+    )
+    # New settings, a new key: it's set up anew
+    state_set "${key}_SET_UP_AT=" "${key}_DATABASE_CREATED_AT="
+    echo "Made $file on SQLite, with a new APP_KEY: keep it, it encrypts the tax IDs. Check APP_URL in it."
+elif [ "$(setting DB_CONNECTION)" != sqlite ]; then
+    connection="$(setting DB_CONNECTION)"
+    echo "./start runs PryTax on SQLite only, but $file says DB_CONNECTION=${connection:-mysql}." >&2
+    echo "Move or delete $file to have one made on SQLite, or start it as it is with ./prytax docker." >&2
+    exit 1
+fi
+
+port="$(setting APP_PORT)"
+port="${port:-8080}"
+url="$(setting APP_URL)"
+url="${url:-http://localhost:$port}"
+
+# The last run, by either starter, with this choice's dates
+last="$(state_get LAST_CHOICE)"
+
+if [ -n "$last" ]; then
+    case "$last" in
+        desktop) label='Desktop' ;;
+        web-here-mysql) label='Web · Here · MySQL' ;;
+        web-here-sqlite) label="Web · Here · SQLite ($(state_get LAST_SQLITE))" ;;
+        web-docker-sqlite) label='Web · In Docker · SQLite' ;;
+        web-docker-mysql) label='Web · In Docker · MySQL' ;;
+        *) label="$last" ;;
+    esac
+
+    line="Last run: $label"
+    run_at="$(state_get LAST_RUN_AT)"
+    run_by="$(state_get LAST_RUN_BY)"
+
+    if [ -n "$run_at" ]; then
+        line="$line, $(moment "$run_at")${run_by:+ by ./$run_by}"
+    fi
+
+    if [ "$last" = "$choice" ]; then
+        set_up="$(state_get "${key}_SET_UP_AT")"
+        created="$(state_get "${key}_DATABASE_CREATED_AT")"
+        line="$line${set_up:+ · set up $(day "$set_up")}${created:+ · database created $(day "$created")}"
+    fi
+
+    echo "$line"
+fi
+
+# Building takes api-core from its private GitHub repository: a token, which may read it, from gh when none is given
+composer_auth="${COMPOSER_AUTH:-}"
+
+if [ -z "$composer_auth" ] && command -v gh >/dev/null 2>&1; then
+    token="$(gh auth token 2>/dev/null || true)"
+
+    if [ -n "$token" ]; then
+        composer_auth="{\"github-oauth\":{\"github.com\":\"$token\"}}"
+    fi
+fi
+
+# Build and start the containers, with the token for the build alone
+up() {
+    if [ -n "$composer_auth" ]; then
+        COMPOSER_AUTH="$composer_auth" "${compose[@]}" up -d --build
+    else
+        "${compose[@]}" up -d --build
+    fi
+}
+
+# One person's installation, whatever the settings say (compose.yaml)
+export PRYTAX_SINGLE_ORGANIZATION=true
+compose=(docker compose --env-file "$file")
+
+services="$("${compose[@]}" ps --status running --services 2>/dev/null || true)"
+
+if grep -qx app <<<"$services"; then
+    echo "PryTax runs in Docker already."
+else
+    echo "Starting PryTax in Docker on SQLite (its first start builds the image, which takes a few minutes)…"
+
+    if ! up; then
+        if [ -z "$composer_auth" ]; then
+            echo "Building needs a GitHub token, which may read Andriichello/api-core: log in with gh (gh auth login), or set COMPOSER_AUTH (README, \"Running with Docker\")." >&2
+        fi
+
+        exit 1
+    fi
+
+    "${compose[@]}" ps
+fi
+
+# What it holds, and the record of this run, with the date its database tells it was created
+echo
+# Without the terminal's input, which exec would read (and swallow what's typed ahead for the menu)
+"${compose[@]}" exec -T app php artisan prytax:summary </dev/null || echo "Its overview can't be read now: see its logs."
+created="$("${compose[@]}" exec -T app php artisan prytax:summary --json </dev/null 2>/dev/null | grep -o '"created_at":"[^"]*"' | head -n 1 | cut -d '"' -f 4 || true)"
+now="$(date +%Y-%m-%dT%H:%M:%S%z)"
+set_up="$(state_get "${key}_SET_UP_AT")"
+state_set "LAST_RUN_AT=$now" "LAST_RUN_BY=start" "LAST_CHOICE=$choice" "LAST_SQLITE=" "${key}_SET_UP_AT=${set_up:-$now}" \
+    ${created:+"${key}_DATABASE_CREATED_AT=$created"}
+
+if [ ! -t 0 ]; then
+    echo "PryTax runs at $url. Stop it with: docker compose --env-file $file down"
+    exit 0
+fi
+
+# An ngrok tunnel for a phone until Ctrl+C: meanwhile the app's container lets the tunnel's address sign in (its host
+# stateful, Docker's private networks proxies to trust), then it's made again as its settings say
+tunnel() {
+    local stateful override=storage/framework/prytax-tunnel.compose.yaml
+
+    if ! command -v ngrok >/dev/null 2>&1; then
+        echo "ngrok isn't installed: snap install ngrok, then ngrok config add-authtoken <token>, from a free account at ngrok.com."
+        return
+    fi
+
+    stateful="$(setting SANCTUM_STATEFUL_DOMAINS)"
+    stateful="${stateful:+$stateful,}__SANCTUM_CURRENT_REQUEST_HOST__"
+    cat >"$override" <<YAML
+# Made by ./start while an ngrok tunnel is open, then removed
+services:
+  app:
+    environment:
+      SANCTUM_STATEFUL_DOMAINS: "$stateful"
+      TRUSTED_PROXIES: PRIVATE_SUBNETS
+YAML
+
+    echo "Making the app's container again, so that the tunnel's address signs in…"
+
+    if "${compose[@]}" -f compose.yaml -f "$override" up -d app; then
+        echo "Opening an ngrok tunnel: open its https address (Forwarding) on the phone, and sign in. Ctrl+C closes it; Docker keeps running."
+        foreground ngrok http "127.0.0.1:$port"
+    fi
+
+    echo "Making the app's container again, as its settings say…"
+    "${compose[@]}" -f compose.yaml up -d app || true
+    rm -f "$override"
+}
+
+while true; do
+    echo
+    echo "PryTax runs in Docker at $url. It keeps running when you quit."
+    echo "  1) Open an ngrok tunnel for a phone"
+    echo "  2) Follow the logs (Ctrl+C stops following, not PryTax)"
+    echo "  3) Stop it"
+    echo "  q) Quit"
+
+    if ! read -r -p "Choose: " answer; then
+        echo
+        break
+    fi
+
+    case "$answer" in
+        1) tunnel ;;
+        2) foreground "${compose[@]}" logs -f ;;
+        3)
+            "${compose[@]}" down
+            break
+            ;;
+        q | Q) break ;;
+        *) echo "Choose 1, 2, 3 or q." ;;
+    esac
+done

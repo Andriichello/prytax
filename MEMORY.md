@@ -44,7 +44,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## The starter: Docker on SQLite, one person's installation always (2026-10-31, night; branch `feat/docker-sqlite-default` from `dev`)
+## The starter: Docker on SQLite, one person's installation always (2026-10-31, night; branch `feat/docker-sqlite-default`, fast-forwarded into `dev` at the user's request; `origin/dev` was at fe94985, pushed by the user)
 
 The user: the Docker web setup on SQLite by default when started with `./prytax`; a single organization for every
 configuration the starter runs; Docker the first option of Web.

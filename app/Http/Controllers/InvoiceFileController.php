@@ -4,12 +4,16 @@ namespace PryTax\Http\Controllers;
 
 use Core\Http\Controllers\FileController;
 use Core\Http\Requests\Crud\DestroyRequest;
+use Core\Http\Requests\Crud\IndexRequest;
+use Core\Http\Requests\Crud\ShowRequest;
 use Core\Http\Requests\Crud\StoreRequest;
+use Core\Http\Requests\Files\UpdateFileRequest;
 use Core\Http\Responses\ApiResponse;
 use Core\Models\File;
 use Core\Repositories\FileRepository;
 use Illuminate\Support\Facades\DB;
 use PryTax\Enums\InvoiceStatus;
+use PryTax\Http\Requests\Invoices\StoreInvoiceFileRequest;
 use PryTax\Models\Invoice;
 use PryTax\Policies\InvoicePolicy;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -48,6 +52,20 @@ class InvoiceFileController extends FileController
      * @var array<int, string>
      */
     protected array $parents = ['profile'];
+
+    /**
+     * Operations, which the controller handles, mapped to the classes of their requests: an upload takes `primary`.
+     *
+     * @var array
+     */
+    protected array $operations = [
+        'index' => IndexRequest::class,
+        'show' => ShowRequest::class,
+        'download' => ShowRequest::class,
+        'store' => StoreInvoiceFileRequest::class,
+        'update' => UpdateFileRequest::class,
+        'destroy' => DestroyRequest::class,
+    ];
 
     /**
      * InvoiceFileController constructor.

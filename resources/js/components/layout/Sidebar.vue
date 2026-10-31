@@ -15,7 +15,7 @@ import { useOverlay } from '@/composables/useOverlay';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { tabPaths } from '@/router';
-import { roleName } from '@/utils/statuses';
+import { signedInAs } from '@/utils/users';
 
 /**
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
@@ -245,7 +245,7 @@ async function leave(): Promise<void> {
                         <span class="num text-12 text-ink-3 uppercase">{{ locale }}</span>
                         <Icon name="chevronDown" :size="16" class="text-ink-3" />
                     </button>
-                    <p v-if="user" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ user.email }} · {{ user.roles.map(roleName).join(', ') }}</p>
+                    <p v-if="user" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ signedInAs(user) }}</p>
                     <button
                         type="button"
                         class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 font-medium text-negative hover:bg-paper"

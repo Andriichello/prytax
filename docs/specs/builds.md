@@ -301,9 +301,9 @@ in a native dialog. `DatabaseRestore` reads the kit's key and checks that it dec
 key or a file that isn't PryTax's is refused before anything is touched. Then the worker is stopped, NativePHP's
 connection closed, the file swapped in (the new installation's WAL removed), the key replaced, and the app relaunched.
 
-Restoring the whole installation from an in-app backup archive waits for `backups.md` §5.3. Its ФОПs can be restored
-instead (2026-10-31): register, then Новий ФОП → «Відновити з архіву» takes a ФОП's archive or a bundle of every ФОП,
-and the NBU rates the new installation lacks are fetched again (`backups.md` v1.9).
+The whole installation, documents and in-app backups too, moves with a full backup instead (§4.11), which this restore
+predates: it carries no documents. Its ФОПs alone can be restored too (2026-10-31): register, then Новий ФОП →
+«Відновити з архіву» takes a ФОП's archive or a bundle of every ФОП (`backups.md` v1.9).
 
 ### 4.7 Catching up on launch
 
@@ -363,12 +363,56 @@ legacy build (Electron 40's Chromium lacks `Map.prototype.getOrInsertComputed`).
 
 ---
 
+### 4.11 A full backup of the whole app, and restoring it
+
+Added on 2026-10-31 at the owner's request: move the whole app from one computer to another, and bring an older
+computer to another's state, seeing first what changes. Only where `prytax.full_backups` (`PRYTAX_FULL_BACKUPS`)
+allows it: always in the desktop app, on in `.env.example` for a web app run on this computer, off in
+`.env.docker.example` (a restore replaces every organization). It needs PryTax on a SQLite file (the owner chose
+SQLite only); elsewhere Резервні копії says so. Owners only, or anyone before the first user registered (a new
+computer's first launch: Реєстрація links to it, `/restore/full`). `InstallationBackupController`, `api/installation`.
+- **The backup** (`InstallationBackup`): one zip, every entry AES-256 with a password (required, 8+, as the key opens
+  everything): `manifest.json` (format `prytax-installation` v1, `made_at`, the data's `last_change_at`, the latest
+  migration, the organizations with their ФОП, the documents' and archives' count and size), `key`, `database.sqlite`
+  (`VACUUM INTO`, consistent with its WAL), `documents/` (the files disk's `files/`) and `archives/` (the backups
+  disk but `tmp/`: the in-app backups go along, as the owner chose). Saved through a native dialog in the desktop app,
+  else through a signed link (30 min), removed after it.
+- **Choosing a backup:** the desktop app's native dialog (a path, so no upload limit); a browser uploads it in 1 MB
+  pieces (`installation/uploads`, each appended at its offset, a wrong one is a 409), as PHP takes 2 MB uploads by
+  default. Work files live in `storage/framework/installation/` (outside the disks a backup carries), removed after a
+  day.
+- **The comparison** (`InstallationComparison`): every table of both databases, row by row (by `id`, else by the whole
+  row), encrypted values decrypted with each side's key, the keyed hash (`tax_id_hash`) skipped, and what signing in
+  writes (`last_login_at`, `remember_token`; a row only touched) taken for no change. Rows only in the backup come;
+  rows only here, or changed here later than the backup's (by `updated_at`), are lost. No loss: **fast-forward**;
+  losses: **rewrite**, with their count; no difference: **identical**. Sessions, caches, the queue and one-time tokens
+  aren't compared; history, derived rows, caches and seeded rows (audit log, alerts, notifications, NBU rates, in-app
+  backups, retention runs, roles and permissions, tax rules, holidays) are shown apart and don't decide it. The
+  schema: the same, older (fewer migrations: migrated after the restore) or newer (refused: update the app first).
+  The screen shows when the backup was made, the last change in it and here, both sides' organizations, and each
+  table's rows (100 at most, those lost first) with their changed values.
+- **The restore** (`InstallationRestore`): only after this computer's state was saved (a full backup for that
+  restore's token, saved or downloaded), unless nobody registered here. The backup's database is prepared on a copy:
+  its encrypted columns (`InstallationTables::ENCRYPTED`, which a test keeps equal to the models' encrypted casts)
+  encrypted again with this installation's key, so its key and recovery kit stay; the tax IDs' hashes computed again;
+  another computer's sessions, caches and queued jobs emptied. Then the queue worker is stopped (desktop), everyone
+  signed out (and file sessions removed), the file swapped in (its WAL removed), the documents and in-app backups
+  replaced (the backups disk's `tmp/` kept), the migrations and the roles' sync run; the desktop app relaunches, a
+  browser opens the sign-in with a notice, and a web app's queue worker is told to restart (`queue:restart`; the
+  starter's group then stops: start it again).
+- **Checked live** (two scratch SQLite installations, `php -S` with PHP's 2 MB uploads, headless Chrome): computer 1's
+  backup (5 MB, 87 files) uploaded in pieces on computer 2, compared (rewrite: computer 2's renamed organization, its
+  owner, four tax periods), this state saved, restored: computer 2 had computer 1's organization, users and ФОПs, and
+  signed in with computer 1's account; restoring the same backup again was identical. The desktop's native dialogs
+  and relaunch weren't run (the owner's window was open). Tests: `InstallationComparisonTest`, `InstallationRestoreTest`,
+  `InstallationTablesTest`, `InstallationBackupControllerTest`.
+
 ## 5. Open
 
 - **Signing and notarization** (§4.9), and **the CI**, untested until it's pushed and `API_CORE_TOKEN` is set; so the
   Windows and macOS builds are unchecked.
-- **Restoring the desktop from an in-app backup archive** (§4.6), after `backups.md` §5.3; its ФОПs can be restored
-  from Новий ФОП meanwhile.
+- **The desktop's full restore** (§4.11) wasn't run in the window (its native dialogs and relaunch); a browser's was.
+  The old restore (§4.6: the recovery kit and the database) still carries no documents.
 - **XLSX exports:** openspout isn't installed, and the bundled PHP has no xmlwriter or xmlreader (§4.1).
 - **Job timeouts on the desktop:** the bundled PHP has no pcntl, so a stuck job isn't stopped.
 - **Mail on the desktop** goes to the log (§4.2), so its invitations, password resets («Забули пароль?») and the

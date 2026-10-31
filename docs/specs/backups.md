@@ -6,6 +6,9 @@ and (3) data retention and deletion (§9). Stack: Laravel 13, PHP 8.5, MySQL 8 o
 queue workers, scheduler with `->onOneServer()`, Google Cloud Storage (private buckets) in production and a local disk
 elsewhere (§3).
 
+**A copy of the whole app** (every organization, its documents, its in-app backups and the key, in one file) is a
+different thing, for one person's installation on SQLite: `builds.md` §4.11. This spec's backups stay per ФОП.
+
 ### Changes in v1.9 (a new organization from archives, bundles restored)
 
 Built on 2026-10-31 (branch `feat/organization-from-backups`), at the owner's request: a new organization lands on

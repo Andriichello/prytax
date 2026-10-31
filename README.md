@@ -181,6 +181,12 @@ opens Реєстрація; after it the owner keeps the recovery kit, a text fi
 database can't be read. On a new computer, Відновлення on the first screen takes the kit and the old computer's
 database.
 
+**A copy of the whole app** (Резервні копії → Копія всього застосунку, owners): one password-protected file with every
+organization, its documents, its in-app backups and the key. Restoring one on another computer (or on Реєстрація's
+first screen, «Відновити з повної копії застосунку») compares it with that computer first — when the copy was made,
+the last change on each side, whether it only moves this computer forward or rewrites it, and every row it adds,
+changes or removes — and asks to save this computer's state before replacing it (`docs/specs/builds.md` §4.11).
+
 #### Running it in development
 
 It needs Node 22 or newer, and PHP 8.5 as `php` on the `PATH`, which NativePHP's commands call.
@@ -261,11 +267,16 @@ examples.
 | `API_CORE_EMAIL_VERIFICATION_URL` | `http://localhost:5173/verify-email`           | SPA page of the email verification link.                            |
 | `API_CORE_INVITATION_URL`         | `http://localhost:5173/accept-invitation`      | SPA page of the invitation link.                                    |
 | `PRYTAX_REGISTRATION`             | `true` (`false` in `.env.docker.example`)      | Whether the sign-in page offers registering a new organization.     |
+| `PRYTAX_FULL_BACKUPS`             | `true` (`false` in `.env.docker.example`)      | Whether owners back up and restore the whole app (SQLite only).     |
 
 With `PRYTAX_REGISTRATION` on, the sign-in page links to a form that registers a new organization with its owner, who
 is signed in at once (`GET`/`POST /api/registration`); an installation without any user opens it at once. It's off by
 default, as anyone reaching a server could create organizations; then owners come from `prytax:create-owner` and
 invitations.
+
+With `PRYTAX_FULL_BACKUPS` on and PryTax on a SQLite file, an owner saves a copy of the whole app and restores one in
+its place, after comparing them (the desktop app always allows it). Keep it off on a shared server: a restore replaces
+every organization.
 
 Requests from other origins, such as integrations, sign in with tokens. api-core's other options are listed in
 `vendor/andriichello/api-core/docs/getting-started/03-configuration.md`.

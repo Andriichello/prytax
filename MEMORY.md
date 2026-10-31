@@ -124,7 +124,7 @@ mentions it.
   `.env.example` and the config, `true` in `.env.docker.example` and compose.yaml's fallback (since 2026-10-31,
   night); the user's `.env` untouched.
 - **Code:** `Services/Setup/SingleOrganization` (rules: `allowsRegistration` while no organization, deleted included,
-  whatever `PRYTAX_REGISTRATION` says: since 2026-10-31 night, branch `fix/single-organization-first-password`, the
+  whatever `PRYTAX_REGISTRATION` says: since 2026-10-31 night, branch `fix/single-organization-first-password` (merged into `dev`), the
   user's correction "it should show an empty application, do not seed it and suggest to select password": Docker's
   empty app opened Вхід with e-mail + password, as registration was off there and no account existed;
   `account()` = exactly one organization and one user; `register`; `codeOf`; `resetPassword` by code or key);

@@ -1,7 +1,8 @@
 # PryTax for the web (builds.md §2): the app, the queue worker and the scheduler run one image.
 #
-#   MySQL in a container:   DB_HOST=mysql in .env, then `docker compose --profile mysql up -d --build`
-#   An external MySQL:      DB_HOST and the credentials in .env, then `docker compose up -d --build`
+#   SQLite (the default):   a file in the storage volume, `docker compose up -d --build`
+#   MySQL in a container:   its lines in .env (DB_HOST=mysql), then `docker compose --profile mysql up -d --build`
+#   An external MySQL:      its DB_HOST and credentials in .env, then `docker compose up -d --build`
 #
 # The settings come from .env (see .env.docker.example). In a development checkout, whose .env is the local one, keep
 # them in .env.docker with PRYTAX_ENV_FILE=.env.docker in it, and add `--env-file .env.docker` to every command.
@@ -67,7 +68,8 @@ services:
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-prytax}
       MYSQL_USER: ${DB_USERNAME:-prytax}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      # Empty on SQLite, which never starts this service; MySQL's image refuses to start without it
+      MYSQL_PASSWORD: ${DB_PASSWORD:-}
       MYSQL_RANDOM_ROOT_PASSWORD: "yes"
     volumes:
       - mysql:/var/lib/mysql

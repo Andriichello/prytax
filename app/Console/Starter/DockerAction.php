@@ -4,7 +4,6 @@ namespace PryTax\Console\Starter;
 
 use Dotenv\Dotenv;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use PryTax\Console\Commands\Start;
 
@@ -12,14 +11,16 @@ use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\note;
+use function Laravel\Prompts\select;
 
 /**
  * Class DockerAction.
  *
  * The web app in Docker (`./prytax docker`, builds.md §2): `docker compose up` with the development checkout's
- * `.env.docker` (made from `.env.docker.example` when it's missing, with its own key and database password), with
- * MySQL in a container or the one its DB_HOST names. Once it runs (or when it ran already), a menu: an ngrok tunnel
- * for a phone, the first owner, the logs, or stopping it.
+ * `.env.docker`, made from `.env.docker.example` when it's missing, with its own key and the database chosen: SQLite
+ * (the default, a file in the storage volume), MySQL in a container, or the one its DB_HOST names. Once it runs (or
+ * when it ran already), a menu: an ngrok tunnel for a phone, the first owner, the logs, or stopping it. The
+ * containers it starts are one person's installation, whatever the settings say (compose.yaml).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Console\Starter
@@ -70,19 +71,29 @@ class DockerAction extends Action
     protected function up(string $path, string $file): bool
     {
         if (!is_file($path)) {
-            if (!confirm("There's no $file. Make it from .env.docker.example, with a new APP_KEY and database password?")) {
+            $database = confirm("There's no $file. Make it from .env.docker.example, with a new APP_KEY?") ? $this->database() : null;
+
+            if ($database === null) {
                 return false;
             }
 
-            $this->makeSettings($path, $file);
-            note("Made $file: check APP_URL and the database in it.");
+            $this->makeSettings($path, $file, $database);
+
+            if ($database === DockerSettings::EXTERNAL) {
+                note("Made $file: fill in the MySQL's DB_HOST and credentials in it, then start again.");
+
+                return false;
+            }
+
+            note("Made $file, on " . ($database === DockerSettings::SQLITE ? 'SQLite' : 'MySQL in a container') . ': check APP_URL in it.');
         }
 
+        // SQLite needs no database server; MySQL's own container, or the one DB_HOST names
         $settings = Dotenv::parse((string) file_get_contents($path));
-        $mysql = $this->start->option('mysql') ?: confirm(
+        $mysql = ($settings['DB_CONNECTION'] ?? 'mysql') !== 'sqlite' && ($this->start->option('mysql') ?: confirm(
             "Run MySQL in a container? (No: the MySQL, which $file's DB_HOST names)",
             default: ($settings['DB_HOST'] ?? null) === 'mysql',
-        );
+        ));
         $compose = ['docker', 'compose', '--env-file', $path, ...($mysql ? ['--profile', 'mysql'] : [])];
 
         if (!$this->run([...$compose, 'up', '-d', '--build'])) {
@@ -179,22 +190,53 @@ class DockerAction extends Action
     }
 
     /**
-     * Make the settings from `.env.docker.example`: compose reads them through PRYTAX_ENV_FILE, with a key of their
-     * own and a database password.
+     * Run a compose command, which hands one person's installation to the containers it starts (compose.yaml), and
+     * get whether it succeeded.
+     *
+     * @param list<string> $command
+     * @param array<string, string> $env
+     * @param string|null $path
+     *
+     * @return bool
+     */
+    protected function run(array $command, array $env = [], ?string $path = null): bool
+    {
+        return parent::run($command, [...self::SINGLE_ORGANIZATION, ...$env], $path);
+    }
+
+    /**
+     * Get the database of new settings, which `--mysql`, `--db` or the user chose (SQLite by default), or null of an
+     * unknown one.
+     *
+     * @return string|null
+     */
+    protected function database(): ?string
+    {
+        $choice = $this->start->option('mysql')
+            ? DockerSettings::MYSQL
+            : $this->start->option('db') ?? select('Which database?', DockerSettings::databases(), default: DockerSettings::SQLITE);
+
+        if (!array_key_exists($choice, DockerSettings::databases())) {
+            error('--db is ' . implode(', ', array_keys(DockerSettings::databases())) . ", not $choice.");
+
+            return null;
+        }
+
+        return $choice;
+    }
+
+    /**
+     * Make the settings from `.env.docker.example` (`DockerSettings`), readable by the owner alone.
      *
      * @param string $path
      * @param string $file As compose finds it, relative to the project.
+     * @param string $database
      *
      * @return void
      */
-    protected function makeSettings(string $path, string $file): void
+    protected function makeSettings(string $path, string $file, string $database): void
     {
-        $settings = (string) file_get_contents(base_path('.env.docker.example'));
-        $settings = preg_replace('/^# PRYTAX_ENV_FILE=.*$/m', "PRYTAX_ENV_FILE=$file", $settings);
-        $settings = preg_replace('/^APP_KEY=$/m', 'APP_KEY=base64:' . base64_encode(random_bytes(32)), (string) $settings);
-        $settings = preg_replace('/^DB_PASSWORD=change-me$/m', 'DB_PASSWORD=' . Str::random(24), (string) $settings);
-
-        file_put_contents($path, (string) $settings);
+        file_put_contents($path, DockerSettings::make((string) file_get_contents(base_path('.env.docker.example')), $file, $database));
         chmod($path, 0600);
     }
 }

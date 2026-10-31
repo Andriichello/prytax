@@ -35,7 +35,7 @@ use function Laravel\Prompts\intro;
 #[Signature('prytax:start
     {action? : web, docker, desktop, phone, status, stop, doctor, test, build or db}
     {what?* : stop: what to stop, such as web vite desktop phone ngrok docker}
-    {--db= : web: mysql or sqlite}
+    {--db= : web: mysql or sqlite; docker, for new settings: sqlite (the default), mysql or external}
     {--sqlite= : web: the SQLite file, database/database.sqlite by default}
     {--port= : web: the port, APP_URL\'s by default}
     {--vite : web: Vite\'s hot reload rather than the built SPA}

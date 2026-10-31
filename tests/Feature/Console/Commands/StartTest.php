@@ -174,26 +174,50 @@ class StartTest extends TestCase
     }
 
     /**
-     * Test that Docker's settings are made when they're missing, with a key and a database password of their own,
-     * and that compose runs with them and its MySQL.
+     * Test that Docker's settings are made when they're missing, on SQLite by default, with a key of their own, and
+     * that compose runs with them, without MySQL, as one person's installation.
      *
      * @return void
      */
-    public function testStartsDockerWithTheSettingsItMakes(): void
+    public function testStartsDockerOnSqliteByDefaultWithTheSettingsItMakes(): void
     {
         Process::fake();
         $file = $this->temporaryFile();
 
-        $this->artisan('prytax:start', ['action' => 'docker', '--env-file' => $file, '--mysql' => true])
-            ->expectsConfirmation("There's no $file. Make it from .env.docker.example, with a new APP_KEY and database password?", 'yes')
+        $this->artisan('prytax:start', ['action' => 'docker', '--env-file' => $file])
+            ->expectsConfirmation("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
+            ->expectsQuestion('Which database?', 'sqlite')
             ->expectsQuestion('PryTax runs in Docker at http://localhost:8080.', 'quit')
             ->assertSuccessful();
 
         $settings = (string) file_get_contents($file);
         $this->assertStringContainsString("PRYTAX_ENV_FILE=$file", $settings);
         $this->assertMatchesRegularExpression('/^APP_KEY=base64:\S{44}$/m', $settings);
+        $this->assertMatchesRegularExpression('/^DB_CONNECTION=sqlite$/m', $settings);
+        Process::assertRan(fn (PendingProcess $process) => $process->command === ['docker', 'compose', '--env-file', $file, 'up', '-d', '--build']
+            && $process->environment['PRYTAX_SINGLE_ORGANIZATION'] === 'true');
+    }
+
+    /**
+     * Test that `--mysql` makes the settings MySQL's, with a password of their own, and runs compose with its MySQL.
+     *
+     * @return void
+     */
+    public function testStartsDockerWithItsMysqlWhenAsked(): void
+    {
+        Process::fake();
+        $file = $this->temporaryFile();
+
+        $this->artisan('prytax:start', ['action' => 'docker', '--env-file' => $file, '--mysql' => true])
+            ->expectsConfirmation("There's no $file. Make it from .env.docker.example, with a new APP_KEY?", 'yes')
+            ->expectsQuestion('PryTax runs in Docker at http://localhost:8080.', 'quit')
+            ->assertSuccessful();
+
+        $settings = (string) file_get_contents($file);
+        $this->assertMatchesRegularExpression('/^DB_CONNECTION=mysql$/m', $settings);
         $this->assertDoesNotMatchRegularExpression('/^DB_PASSWORD=change-me$/m', $settings);
-        Process::assertRan(fn (PendingProcess $process) => $process->command === ['docker', 'compose', '--env-file', $file, '--profile', 'mysql', 'up', '-d', '--build']);
+        Process::assertRan(fn (PendingProcess $process) => $process->command === ['docker', 'compose', '--env-file', $file, '--profile', 'mysql', 'up', '-d', '--build']
+            && $process->environment['PRYTAX_SINGLE_ORGANIZATION'] === 'true');
     }
 
     /**

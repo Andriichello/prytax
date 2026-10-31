@@ -15,6 +15,7 @@ use PryTax\Models\Client;
 use PryTax\Models\Contract;
 use PryTax\Models\EsvObligation;
 use PryTax\Models\ExchangeRate;
+use PryTax\Models\Integration;
 use PryTax\Models\Invoice;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
@@ -91,6 +92,8 @@ return [
                 ...$finance,
                 ...$backups,
                 BackupPolicy::class => ['viewAny', 'configure'],
+                // Integrations (Claude): owners turn them on and configure them; nobody else sees them
+                Integration::class => ['viewAny', 'configure'],
                 // Restoring a profile from its archive, as a new profile of the organization
                 Backup::class => ['viewAny', 'view', 'download', 'delete', 'import'],
             ],

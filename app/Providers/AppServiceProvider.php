@@ -33,6 +33,7 @@ use PryTax\Models\ContractRate;
 use PryTax\Models\EsvObligation;
 use PryTax\Models\ExchangeRate;
 use PryTax\Models\Holiday;
+use PryTax\Models\Integration;
 use PryTax\Models\Invoice;
 use PryTax\Models\InvoiceItem;
 use PryTax\Models\Payment;
@@ -72,6 +73,7 @@ class AppServiceProvider extends ServiceProvider
         EsvObligation::class,
         ExchangeRate::class,
         Holiday::class,
+        Integration::class,
         Invoice::class,
         InvoiceItem::class,
         Payment::class,

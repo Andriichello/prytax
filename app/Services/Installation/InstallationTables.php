@@ -38,11 +38,16 @@ final class InstallationTables
     ];
 
     /**
-     * Columns, which signing in writes: not compared, as using an installation isn't changing its data.
+     * Columns, which using an installation writes (signing in, an integration's other side connecting): not compared,
+     * as using an installation isn't changing its data.
      *
      * @var array<string, list<string>>
      */
-    public const array VOLATILE = ['users' => ['last_login_at', 'remember_token']];
+    public const array VOLATILE = [
+        'users' => ['last_login_at', 'remember_token'],
+        // What an integration's other side last did, which isn't a change of it
+        'integrations' => ['last_connected_at', 'last_client', 'last_used_at', 'last_tool'],
+    ];
 
     /**
      * Tables, whose times don't tell the data's last change: signing in touches a user.
@@ -68,6 +73,7 @@ final class InstallationTables
         'accounts' => ['iban', 'account_number'],
         'invoices' => ['snapshot'],
         'recovery_codes' => ['code'],
+        'integrations' => ['key'],
     ];
 
     /**

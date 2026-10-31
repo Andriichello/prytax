@@ -31,6 +31,7 @@ final class RetentionFamilies
         'notifications' => 'communication',
         'alert_reads' => 'communication',
         'organizations' => 'organization',
+        'integrations' => 'organization',
         'backups' => 'backups',
         'backup_runs' => 'backups',
         'backup_downloads' => 'backups',

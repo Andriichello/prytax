@@ -42,18 +42,23 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## Резервні копії in tabs (2026-10-31, late; same branch `feat/full-backups`)
+## Резервні копії in two tabs (2026-10-31, late; same branch `feat/full-backups`)
 
 The user: the page was too hard to navigate; «Усі ФОП · ZIP» out of the header to the top right of the backups list;
-tabs for backups, copies, restore and recovery, the recovery kit inline rather than a page; and the scrollbar's room
-kept, as pages jumped between short and long ones.
-- Tabs (`SegmentedControl` in `#toolbar`, `?tab=`): Резервні / Застосунок / Відновлення / Ключ (en Backups / Copies /
-  Restore / Recovery), each where it applies (Ключ only in the desktop app, whose window is wide enough for four).
-  Відновлення: deleted ФОП, then «ФОП з архіву» (`BackupImportFlow`) or «Увесь застосунок» (`InstallationRestoreFlow`).
-  `RecoveryKitPanel` is shared with the setup's `RecoveryKitPage`; `BackupImportPage` stays for Новий ФОП.
-- `html { scrollbar-gutter: stable }` in `app.css`.
-- Checked in headless Chrome at 390 px and 1440 px on the scratch installation; the Ключ tab wasn't seen (desktop
-  only; the user's window was left alone). SPA 773 tests, typecheck, build.
+tabs, the recovery kit inline rather than a page; the scrollbar's room kept (pages jumped). First four tabs (backups,
+copies, restore, recovery); after hearing that a full copy doesn't carry `.env`, the user asked for two: ФОП and
+Application (English keeps «ФОП», the owner's rule; uk «ФОП» / «Застосунок»).
+- ФОП: status, «Створити зараз», states, bundle banner, deleted ФОП, «Відновити з архіву» (`BackupImportFlow` in a
+  `DisclosureCard`), «Копії» with the ZIP button. Застосунок (full backups on, or the desktop's kit): cards for saving
+  a copy, restoring one (`InstallationRestoreFlow`), the recovery kit (`RecoveryKitPanel`, shared with the setup's
+  `RecoveryKitPage`). `?tab=application`. `BackupImportPage` stays for Новий ФОП.
+- `html { scrollbar-gutter: stable }` in `app.css`. Stale texts fixed: the phone footnote's «через підтримку» and the
+  desktop side note's kit-and-database move.
+- A full copy doesn't carry `.env` on purpose (the key travels as `key`; the restore re-keys into the target's key;
+  `.env` is per computer); the user was offered a read-only list of its non-secret switches on the comparison, not
+  taken up yet.
+- Checked in headless Chrome at 390 px and 1440 px; the kit's card wasn't seen (desktop only). SPA 776 tests,
+  typecheck, build.
 
 ## A copy of the whole app (2026-10-31, evening; branch `feat/full-backups` from `feat/organization-from-backups`)
 

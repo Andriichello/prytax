@@ -42,6 +42,19 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Резервні копії in tabs (2026-10-31, late; same branch `feat/full-backups`)
+
+The user: the page was too hard to navigate; «Усі ФОП · ZIP» out of the header to the top right of the backups list;
+tabs for backups, copies, restore and recovery, the recovery kit inline rather than a page; and the scrollbar's room
+kept, as pages jumped between short and long ones.
+- Tabs (`SegmentedControl` in `#toolbar`, `?tab=`): Резервні / Застосунок / Відновлення / Ключ (en Backups / Copies /
+  Restore / Recovery), each where it applies (Ключ only in the desktop app, whose window is wide enough for four).
+  Відновлення: deleted ФОП, then «ФОП з архіву» (`BackupImportFlow`) or «Увесь застосунок» (`InstallationRestoreFlow`).
+  `RecoveryKitPanel` is shared with the setup's `RecoveryKitPage`; `BackupImportPage` stays for Новий ФОП.
+- `html { scrollbar-gutter: stable }` in `app.css`.
+- Checked in headless Chrome at 390 px and 1440 px on the scratch installation; the Ключ tab wasn't seen (desktop
+  only; the user's window was left alone). SPA 773 tests, typecheck, build.
+
 ## A copy of the whole app (2026-10-31, evening; branch `feat/full-backups` from `feat/organization-from-backups`)
 
 The user: a full desktop backup to start the app on another computer from it; all organizations; a screen comparing

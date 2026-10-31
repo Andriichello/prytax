@@ -62,7 +62,7 @@ class ApiDispatcher
      * @param array<string, mixed> $query
      * @param array<string, mixed>|null $body
      * @param array<string, string> $files The fields of local files to upload, with their paths.
-     * @param string|null $idempotencyKey
+     * @param array<string, string> $headers Such as `Idempotency-Key` or `If-Unmodified-Since`, by name.
      *
      * @return array{status: int, body: mixed}
      * @throws ValidationException
@@ -75,16 +75,19 @@ class ApiDispatcher
         array $query = [],
         ?array $body = null,
         array $files = [],
-        ?string $idempotencyKey = null,
+        array $headers = [],
     ): array {
         $path = $this->pathOf($integration, $path);
         $method = strtoupper($method);
         $uploads = array_map(fn (string $file) => $this->upload($file), $files);
         $server = [
+            ...array_combine(
+                array_map(fn (string $name) => 'HTTP_' . strtoupper(str_replace('-', '_', $name)), array_keys($headers)),
+                array_values($headers),
+            ),
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_USER_AGENT' => 'Claude (PryTax MCP)',
             'REMOTE_ADDR' => '127.0.0.1',
-            ...($idempotencyKey === null ? [] : ['HTTP_IDEMPOTENCY_KEY' => $idempotencyKey]),
         ];
         $uri = '/api/' . $path . ($method !== 'GET' && $query !== [] ? '?' . http_build_query($query) : '');
 

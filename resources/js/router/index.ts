@@ -134,6 +134,7 @@ const routes: RouteRecordRaw[] = [
     { path: '/settings/invoice-document', name: 'settings-invoice-document', component: () => import('@/pages/settings/InvoiceDocumentSettingsPage.vue') },
     { path: '/settings/taxes', name: 'settings-taxes', component: () => import('@/pages/settings/TaxSettingsPage.vue') },
     { path: '/users', name: 'users', component: () => import('@/pages/settings/UsersPage.vue') },
+    { path: '/integrations', name: 'integrations', component: () => import('@/pages/settings/IntegrationsPage.vue'), meta: { can: ['viewAny', 'integrations'], denied: 'more' } },
     { path: '/backups', name: 'backups', component: () => import('@/pages/backups/BackupsPage.vue'), meta: { can: ['viewAny', 'backup-runs'], denied: 'more' } },
     { path: '/installation/restore', name: 'installation-restore', component: () => import('@/pages/settings/InstallationRestorePage.vue') },
     { path: '/backups/import', name: 'backup-import', component: () => import('@/pages/backups/BackupImportPage.vue'), meta: { can: ['import', 'backups'], denied: 'backups' } },

@@ -2494,3 +2494,68 @@ export interface DeletedProfile {
     final_backup_id: string | null;
     final_backup_bytes: number | null;
 }
+
+// ---- Інтеграції ----
+
+/** A user, as an integration names them (who turned it on or off, its acting user). */
+export interface IntegrationUser {
+    id: number;
+    name: string;
+    email: string;
+}
+
+/** Where PryTax runs, which decides how Claude starts its server. */
+export type IntegrationContext = 'desktop' | 'local' | 'docker' | 'server';
+
+/** The organization's Claude integration (`organization/integrations/claude`), off until an owner turns it on. */
+export interface ClaudeIntegration {
+    kind: 'claude';
+    enabled: boolean;
+    enabled_at: DateTimeString | null;
+    enabled_by: IntegrationUser | null;
+    disabled_at: DateTimeString | null;
+    disabled_by: IntegrationUser | null;
+    /** The user chosen to read as, or null: the one who turned it on. */
+    acting_user_id: number | null;
+    acting_user: IntegrationUser | null;
+    /** The ФОП Claude sees, or null: every one. */
+    profile_ids: number[] | null;
+    /** The key's last 4 characters, or null before it has one. */
+    key_hint: string | null;
+    key_created_at: DateTimeString | null;
+    last_connected_at: DateTimeString | null;
+    /** Claude's client when it last connected: `claude-code`, `claude-ai` (Claude Desktop), and its version. */
+    last_client: { name?: string; version?: string } | null;
+    last_used_at: DateTimeString | null;
+    last_tool: string | null;
+    context: IntegrationContext;
+    /** Whether this computer is the person's own, whose Claude configs can be probed. */
+    probe_available: boolean;
+}
+
+/** How Claude starts the server (`organization/integrations/claude/connection`), with the key, while it's on. */
+export interface ClaudeConnection {
+    context: IntegrationContext;
+    name: string;
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+    /** `claude mcp add …`, for Claude Code. */
+    claude_code: string;
+    /** The `mcpServers` JSON, for Claude Desktop's config. */
+    claude_desktop: string;
+    /** `folder` (fill in PryTax's folder), `server` (run on the computer PryTax runs on), `appimage` (its path changes). */
+    notes: ('folder' | 'server' | 'appimage')[];
+}
+
+/** What a Claude client's config on this computer holds of PryTax's server. */
+export type ClaudeProbeStatus = 'current' | 'other_key' | 'no_key' | 'none' | 'no_config';
+
+/** The probe of this computer's Claude configs (`organization/integrations/claude/probe`). */
+export interface ClaudeProbe {
+    available: boolean;
+    claude_code: { status: ClaudeProbeStatus; servers: string[] };
+    claude_desktop: { status: ClaudeProbeStatus; servers: string[] };
+    /** Whether the `claude` command is found. */
+    claude_command: boolean;
+}

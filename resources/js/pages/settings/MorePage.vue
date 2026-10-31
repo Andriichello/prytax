@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api/client';
-import type { Account, ApiResponse, BackupStatusSummary, Client, Paginated } from '@/api/types';
+import type { Account, ApiResponse, BackupStatusSummary, ClaudeIntegration, Client, Paginated } from '@/api/types';
 import TabScreen from '@/components/layout/TabScreen.vue';
 import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
@@ -47,6 +47,11 @@ const { data: counts } = useLoader(async (signal) => {
 /** «сьогодні 02:37»: when the organization's last copy was made, beside Резервні копії. */
 const { data: backupStatus } = useLoader(async (signal) => (can('viewAny', 'backup-runs')
     ? (await api.get<ApiResponse<BackupStatusSummary>>('organization/backup-status', undefined, signal)).data
+    : null), []);
+
+/** «Claude увімкнено» or «Claude вимкнено», beside Інтеграції, for the owners, who see them. */
+const { data: claude } = useLoader(async (signal) => (can('viewAny', 'integrations')
+    ? (await api.get<ApiResponse<ClaudeIntegration>>('organization/integrations/claude', undefined, signal)).data
     : null), []);
 
 const lastBackup = computed(() => (backupStatus.value?.last_completed_at
@@ -102,6 +107,13 @@ const sections = computed<MoreSection[]>(() => {
             items: [
                 { label: t('shell.more.usersRoles'), icon: 'people', to: '/users', visible: can('viewAny', 'users') },
                 { label: t('settings.backups.title'), icon: 'archive', to: '/backups', value: lastBackup.value ?? undefined, visible: can('viewAny', 'backup-runs') },
+                {
+                    label: t('settings.integrations.title'),
+                    icon: 'plug',
+                    to: '/integrations',
+                    value: claude.value ? (claude.value.enabled ? t('settings.integrations.claudeOn') : t('settings.integrations.claudeOff')) : undefined,
+                    visible: can('viewAny', 'integrations'),
+                },
             ],
         },
     ];

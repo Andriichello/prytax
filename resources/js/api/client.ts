@@ -152,7 +152,7 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
 export const dataVersion = ref(0);
 
 /** The requests, which only compute an answer and write nothing, though they are POSTs. */
-const SAVES_NOTHING = /\/(preview|propose)$/;
+const SAVES_NOTHING = /\/(preview|propose|probe)$/;
 
 /**
  * Send a request and return its JSON body; an error answer throws an ApiError. A stale CSRF token (419) is renewed

@@ -82,7 +82,7 @@ const items = computed<NavItem[]>(() => [
             'more', 'profiles', 'profile-new', 'settings-profile', 'settings-taxes', 'settings-numbering', 'settings-invoice-document',
             'accounts', 'account', 'account-new', 'account-edit', 'transfers', 'transfer', 'transfer-new', 'transfer-edit', 'fees',
             'clients', 'client', 'client-new', 'client-edit', 'contract', 'contract-new',
-            'users', 'backups', 'backup-policy', 'backup-import',
+            'users', 'backups', 'backup-policy', 'backup-import', 'integrations',
         ],
     },
 ]);

@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
-# PryTax in Docker on SQLite, with nothing but Docker on this machine (builds.md §6): `./start` makes .env.docker on
-# SQLite when it's missing, starts the app, its queue worker and its scheduler as one person's installation, shows
-# what it holds, then offers an ngrok tunnel for a phone, its logs, or stopping it. It remembers its runs where
-# ./prytax does (the desktop app, MySQL, the tools, with PHP 8.5 or its container), which shows the last one too.
+# PryTax in Docker on SQLite, with nothing but Docker on this machine (builds.md §6): `./start` runs the local app, your
+# own, apart from what ./prytax runs for development: its own settings (.env.docker.local, made when missing, with a key
+# of its own), its own compose project (prytax-local: its containers and its storage volume), its own file
+# (prytax.local.sqlite) and port (8090). It starts the app, its queue worker and its scheduler as one person's
+# installation, shows what it holds, then offers an ngrok tunnel for a phone, its logs, or stopping it. It remembers its
+# runs where ./prytax does, which offers it again too.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-file=.env.docker
+file=.env.docker.local
+project=prytax-local
+local_port=8090
 state=storage/framework/prytax-starter.env
-choice=web-docker-sqlite
-key=WEB_DOCKER_SQLITE
+choice=local
+key=LOCAL
 
 usage() {
     cat <<'TEXT'
 Usage: ./start
 
-Starts PryTax in Docker on SQLite: the web app, its queue worker and its scheduler, as one person's installation
-(its first visit chooses the password). .env.docker is made when it's missing. Then: an ngrok tunnel for a phone,
-the logs, or stopping it. ./prytax does more (the desktop app, MySQL, the tools).
+Starts your local PryTax in Docker on SQLite, at http://localhost:8090: the web app, its queue worker and its
+scheduler, as one person's installation (its first visit chooses the password). Its settings (.env.docker.local), its
+containers and its data (the prytax-local project's volume) are its own, so ./prytax's development never touches
+them. Then: an ngrok tunnel for a phone, the logs, or stopping it. ./prytax does more (the desktop app, the tools).
 TEXT
 }
 
@@ -92,25 +97,32 @@ if ! docker compose version >/dev/null 2>&1; then
     exit 1
 fi
 
-# The settings: made on SQLite with a key of their own, as ./prytax docker makes them; SQLite only
+# The settings: the example's SQLite ones, with a key, a file, a port and a compose project of their own, which every
+# `docker compose --env-file .env.docker.local` command then names; SQLite only
 if [ ! -f "$file" ]; then
     app_key="base64:$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
     (
         umask 077
-        sed -e "s|^# PRYTAX_ENV_FILE=.*\$|PRYTAX_ENV_FILE=$file|" -e "s|^APP_KEY=\$|APP_KEY=$app_key|" .env.docker.example >"$file"
+        sed -e "s|^# PRYTAX_ENV_FILE=.*\$|PRYTAX_ENV_FILE=$file|" \
+            -e "s|^APP_KEY=\$|APP_KEY=$app_key|" \
+            -e "s|^DB_DATABASE=\(.*\)/prytax\.sqlite\$|DB_DATABASE=\1/prytax.local.sqlite|" \
+            -e "s|localhost:8080|localhost:$local_port|g" \
+            -e "s|^APP_PORT=8080\$|APP_PORT=$local_port|" \
+            .env.docker.example >"$file"
+        printf '\n# The local app (./start): a compose project of its own, its containers and storage volume apart from ./prytax'"'"'s\nCOMPOSE_PROJECT_NAME=%s\n' "$project" >>"$file"
     )
     # New settings, a new key: it's set up anew
     state_set "${key}_SET_UP_AT=" "${key}_DATABASE_CREATED_AT="
-    echo "Made $file on SQLite, with a new APP_KEY: keep it, it encrypts the tax IDs. Check APP_URL in it."
+    echo "Made $file on SQLite (prytax.local.sqlite), with a new APP_KEY: keep it, it encrypts the tax IDs."
 elif [ "$(setting DB_CONNECTION)" != sqlite ]; then
     connection="$(setting DB_CONNECTION)"
     echo "./start runs PryTax on SQLite only, but $file says DB_CONNECTION=${connection:-mysql}." >&2
-    echo "Move or delete $file to have one made on SQLite, or start it as it is with ./prytax docker." >&2
+    echo "Move or delete $file to have one made on SQLite." >&2
     exit 1
 fi
 
 port="$(setting APP_PORT)"
-port="${port:-8080}"
+port="${port:-$local_port}"
 url="$(setting APP_URL)"
 url="${url:-http://localhost:$port}"
 
@@ -123,6 +135,7 @@ if [ -n "$last" ]; then
         web-here-mysql) label='Web · Here · MySQL' ;;
         web-here-sqlite) label="Web · Here · SQLite ($(state_get LAST_SQLITE))" ;;
         web-docker-sqlite) label='Web · In Docker · SQLite' ;;
+        local) label='Local · In Docker · SQLite (./start)' ;;
         web-docker-mysql) label='Web · In Docker · MySQL' ;;
         *) label="$last" ;;
     esac

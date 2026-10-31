@@ -51,8 +51,9 @@ class SingleOrganizationControllerTest extends TestCase
         $this->postJson('/api/registration', ['password' => 'correct-horse-battery', 'password_confirmation' => 'correct-horse-battery'])->assertCreated();
 
         $user = User::query()->sole();
-        $this->assertMatchesRegularExpression('/^prytax\+[a-z]{3}-[a-z]{3}-[a-z]{3}$/', Organization::query()->sole()->name);
-        $this->assertMatchesRegularExpression('/^prytax\+[a-z0-9]{6}@prytax\.invalid$/', $user->email);
+        $name = Organization::query()->sole()->name;
+        $this->assertMatchesRegularExpression('/^[a-z0-9]{3}-[a-z0-9]{3}-[a-z0-9]{3}$/', $name);
+        $this->assertSame("$name@prytax.invalid", $user->email);
         $this->assertTrue($user->hasRole('owner'));
         $this->assertMatchesRegularExpression('/^[2-9A-HJKMNP-Z]{5}(-[2-9A-HJKMNP-Z]{5}){3}$/', RecoveryCode::query()->sole()->code);
         $this->getJson('/api/registration')->assertOk()->assertJsonPath('data.enabled', false)->assertJsonPath('data.password_only', true);

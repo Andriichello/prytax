@@ -14,10 +14,10 @@ use PryTax\Models\RecoveryCode;
  * Class SingleOrganization.
  *
  * One person's installation (`prytax.single_organization`, builds.md §1.4): the desktop app, a web app on this
- * computer, or a server kept for one person. It has one organization, registered with a password alone: its owner's
- * e-mail (`prytax+k3x9qa@prytax.invalid`, a domain, which never delivers) and its name (`prytax+fud-tor-wik`) are made
- * up. While it has one user, the password alone signs in; a forgotten one is set again with the recovery code, which
- * the recovery kit keeps, or with the installation's key, as nothing else could prove it's theirs.
+ * computer, or a server kept for one person. It has one organization, registered with a password alone: a made-up id
+ * (`k3x-9qa-w7m`) is its name and its owner's e-mail (`k3x-9qa-w7m@prytax.invalid`, a domain, which never delivers).
+ * While it has one user, the password alone signs in; a forgotten one is set again with the recovery code, which the
+ * recovery kit keeps, or with the installation's key, as nothing else could prove it's theirs.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Setup
@@ -95,7 +95,8 @@ class SingleOrganization
                 throw ValidationException::withMessages(['password' => [__('PryTax here has its organization already: sign in.')]]);
             }
 
-            $user = $this->registrar->register('prytax+' . $this->words(), 'PryTax', $this->email(), $password, $locale, $archives);
+            $id = $this->uniqueId();
+            $user = $this->registrar->register($id, 'PryTax', $this->emailOf($id), $password, $locale, $archives);
             $this->codeOf($user);
 
             return $user;
@@ -142,48 +143,29 @@ class SingleOrganization
     }
 
     /**
-     * Make up an owner's e-mail, which no account has: `prytax+k3x9qa@prytax.invalid`.
+     * Make up the installation's id, which no account's e-mail has: `k3x-9qa-w7m`, nine random characters in lower
+     * case, as e-mails are kept in lower case and the organization's name must match.
      *
      * @return string
      */
-    protected function email(): string
+    protected function uniqueId(): string
     {
         do {
-            $email = 'prytax+' . $this->characters('abcdefghjkmnpqrstuvwxyz23456789', 6) . '@' . self::DOMAIN;
-        } while (User::query()->withoutGlobalScopes()->where('email', $email)->exists());
+            $id = implode('-', str_split(Str::lower(Str::random(9)), 3));
+        } while (User::query()->withoutGlobalScopes()->where('email', $this->emailOf($id))->exists());
 
-        return $email;
+        return $id;
     }
 
     /**
-     * Make up three syllables of an organization's name: `fud-tor-wik`.
+     * Get the owner's e-mail of an id: `k3x-9qa-w7m@prytax.invalid`.
+     *
+     * @param string $id
      *
      * @return string
      */
-    protected function words(): string
+    protected function emailOf(string $id): string
     {
-        return implode('-', array_map(
-            fn () => $this->characters('bdfghjklmnprstvz', 1) . $this->characters('aeiou', 1) . $this->characters('bdfgklmnprstvz', 1),
-            range(1, 3),
-        ));
-    }
-
-    /**
-     * Pick random characters of an alphabet.
-     *
-     * @param string $alphabet
-     * @param int $length
-     *
-     * @return string
-     */
-    protected function characters(string $alphabet, int $length): string
-    {
-        $picked = '';
-
-        for ($index = 0; $index < $length; $index++) {
-            $picked .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
-
-        return $picked;
+        return $id . '@' . self::DOMAIN;
     }
 }

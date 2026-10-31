@@ -12,8 +12,8 @@ use Core\Models\Organization;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
+use PryTax\DataLifecycle\Backup\BackupState;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
-use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\BundleRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreBackupRunRequest;
@@ -24,7 +24,6 @@ use PryTax\DataLifecycle\Backup\Internal\BundleBuilder;
 use PryTax\DataLifecycle\Backup\Jobs\BuildOrganizationBundle;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
-use PryTax\DataLifecycle\Backup\Models\BackupPolicy;
 use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\DataLifecycle\Backup\Policies\BackupRunPolicy;
 use PryTax\DataLifecycle\Backup\Repositories\BackupRunRepository;
@@ -115,36 +114,12 @@ class BackupRunController extends CrudController
      */
     protected function handleStatus(IndexRequest $request): ApiResponse
     {
-        $organizationId = $request->orgId();
-        $policy = BackupPolicy::of($organizationId);
-        $latest = BackupRun::query()
-            ->where('kind', '!=', BackupKind::Export)
-            ->with('backups')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->first();
-        $newest = Backup::query()
-            ->where('status', BackupStatus::Completed)
-            ->where('tier', '!=', BackupKind::Export)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get(['id', 'profile_id', 'bytes', 'created_at'])
-            ->unique('profile_id');
-        $today = BackupRun::query()->where('kind', BackupKind::Manual)->where('created_at', '>=', now()->startOfDay())->count();
+        $state = app(BackupState::class)->of($request->orgId());
+        $latest = $state['latest_run'];
 
         return ApiResponse::ok(['data' => [
-            'policy' => [
-                'enabled' => $policy->enabled,
-                'frequency' => $policy->frequency,
-                'next_run_at' => $policy->enabled ? ($policy->next_run_at ?? $policy->nextRunAfter(now()))->toIso8601String() : null,
-                'time_of_day' => $policy->nextRunAfter(now())->format('H:i'),
-                'retention_monthly' => $policy->retention_monthly,
-            ],
+            ...$state,
             'latest_run' => $latest ? (new BackupRunResource($latest))->toArray($request) : null,
-            'last_completed_at' => $newest->max('created_at')?->toIso8601String(),
-            'profiles' => $newest->count(),
-            'bytes' => (int) $newest->sum('bytes'),
-            'manual_runs_left' => max(0, (int) config('data-lifecycle.backups.manual_per_day') - $today),
         ]]);
     }
 

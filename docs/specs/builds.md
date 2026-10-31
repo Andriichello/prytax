@@ -68,7 +68,8 @@ it (`CoreServiceProvider` loads it); GitHub's zip leaves out what api-core's `.g
   first_owner }`, and `POST /api/registration` creates the organization and its owner and signs the SPA in, as
   api-core's login does. Both are under api-core's auth rate limit. `PRYTAX_REGISTRATION` (`prytax.registration`)
   turns it on: off by default and in `.env.docker.example` (anyone reaching a server could create organizations), on
-  in `.env.example` for development, and always under NativePHP (§4.2).
+  in `.env.example` for development, and always under NativePHP (§4.2). One person's installation registers its only
+  organization whatever it says (§1.4).
 
 On an installation without any user, Вхід opens Реєстрація at once, with a first-launch hint: that's the desktop app's
 first launch. Otherwise Вхід links to it («Ще не працюєте в PryTax? Зареєструвати організацію»).
@@ -78,8 +79,10 @@ first launch. Otherwise Вхід links to it («Ще не працюєте в Pr
 `PRYTAX_SINGLE_ORGANIZATION` (`prytax.single_organization`, 2026-10-31) makes the installation one person's: the
 desktop app always is (§4.2); a web app on this computer or a server kept for one person may be; off by default and in
 `.env.example`, on in `.env.docker.example` and by default in Docker (§2.2, 2026-10-31). `PryTax\Services\Setup\SingleOrganization` holds its rules:
-- **One organization.** Registration (§1.3) is open only while there's none, deleted ones included; afterwards
-  `GET /api/registration` answers `enabled: false` and `POST` is a 404.
+- **One organization.** Registration (§1.3) is open while there's none, deleted ones included, even with
+  `PRYTAX_REGISTRATION` off (2026-10-31, the owner's request: a new installation opens empty and asks to choose the
+  password, Docker's too, without seeding or `prytax:create-owner`); afterwards `GET /api/registration` answers
+  `enabled: false` and `POST` is a 404. So on a server, whoever opens it first chooses the password.
 - **A password alone registers it.** Реєстрація asks only the password: a made-up id (`k3x-9qa-w7m`, nine random
   characters in lower case, as e-mails are kept so) is the organization's name and the owner's e-mail
   (`k3x-9qa-w7m@prytax.invalid`, a domain reserved never to resolve, so nothing is ever delivered). `prytax:create-owner` asks only the password too, and prints the e-mail
@@ -531,7 +534,8 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   current-host placeholder to its stateful domains and `TRUSTED_PROXIES=PRIVATE_SUBNETS`, as Docker's network is
   between), opens ngrok until Ctrl+C, then makes it again without the file, which it removes. Checked live on SQLite
   (2026-10-31, a scratch compose project): the image built, the three containers up, the file and its WAL in the
-  storage volume, `single_organization: true`. The first owner comes from the menu (registration stays off).
+  storage volume, `single_organization: true`. Its first visit chooses the password (§1.4); the menu's first owner
+  does it from the terminal instead.
 - **desktop** checks Node, Electron (offering `native:install`) and its sandbox (§4.10; the fix needs sudo, so it's
   shown, not run), then runs `native:run --no-dependencies --no-interaction -v` in a group (without interaction its
   dev script doesn't take the terminal; `-v` shows its log) with `PRYTAX_DEVTOOLS` and `REMOTE_DEBUGGING_PORT=9333`.

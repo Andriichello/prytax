@@ -141,9 +141,11 @@ export COMPOSER_AUTH="{\"github-oauth\":{\"github.com\":\"$(gh auth token)\"}}"
    docker compose --profile mysql up -d --build   # MySQL in a container
    ```
 
-3. Create the organization and its owner, then sign in at `APP_URL`. It's one person's installation by default
-   (`PRYTAX_SINGLE_ORGANIZATION=true`), so it asks only the password and prints the e-mail and the recovery code; set
-   it to `false` for a server shared by several organizations:
+3. Open `APP_URL`. It's one person's installation by default (`PRYTAX_SINGLE_ORGANIZATION=true`): the empty app asks
+   to choose a password, which registers the organization and its owner, and then to keep the recovery kit. Whoever
+   opens it first chooses it, so do it before others can reach the address. With `false` (a server shared by several
+   organizations), or from the terminal instead, create the organization and its owner, then sign in (one person's
+   installation asks only the password and prints the e-mail and the recovery code):
 
    ```bash
    docker compose exec app php artisan prytax:create-owner
@@ -287,7 +289,7 @@ examples.
 With `PRYTAX_REGISTRATION` on, the sign-in page links to a form that registers a new organization with its owner, who
 is signed in at once (`GET`/`POST /api/registration`); an installation without any user opens it at once. It's off by
 default, as anyone reaching a server could create organizations; then owners come from `prytax:create-owner` and
-invitations.
+invitations. One person's installation opens it for its only organization either way.
 
 With `PRYTAX_FULL_BACKUPS` on and PryTax on a SQLite file, an owner saves a copy of the whole app and restores one in
 its place, after comparing them (the desktop app always allows it). Keep it off on a shared server: a restore replaces

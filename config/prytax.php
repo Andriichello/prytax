@@ -10,7 +10,8 @@ return [
     | Whether anyone may register a new organization, with its owner, from the
     | sign-in page (`POST /api/registration`). Off by default: on a server
     | anyone reaching its address could create organizations. The desktop app
-    | and local development turn it on.
+    | and local development turn it on. One person's installation registers
+    | its only organization either way (`single_organization`).
     |
     */
 

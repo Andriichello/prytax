@@ -477,12 +477,46 @@ computer's first launch: Реєстрація links to it, `/restore/full`). `In
 
 ---
 
-## 6. The starter (`./prytax`)
+## 6. The starter (`./prytax`), and `./start`
 
 Added on 2026-10-30, at the owner's request: one program that starts PryTax either way, with the chores around it.
 - **`./prytax`** (a bash script in the root) finds PHP 8.5 (`PRYTAX_PHP`, `php8.5`, or `php` if it's 8.5) and runs
   `php artisan prytax:start` (`PryTax\Console\Commands\Start`), a Laravel Prompts menu, or the action named:
   `./prytax web`.
+- **Without PHP 8.5 on the machine** (2026-10-31, the owner's request: who fetches PryTax needn't install PHP), or
+  with `PRYTAX_PHP=docker`, `./prytax` runs the starter in a container: the Dockerfile's `starter` stage (the `php`
+  stage's extensions plus intl, `php.ini-development` and `docker/starter.ini`: no memory limit, no opcache, which
+  would keep serving old code to `artisan serve`; Composer with git and unzip, Node 24, `ss`, `pdftoppm`), tagged
+  `prytax-starter:<cksum of the Dockerfile and starter.ini>` and built when that tag is missing. `docker run --rm -i
+  [-t] --network host --pid host --user <uid>:<gid>` with the checkout mounted at its own path, `HOME=/tmp`, and
+  `PRYTAX_STARTER_CONTAINER=1` (`Toolchain::inContainer()`): its ports, MySQL and Vite are the machine's, and `ss`
+  sees, and SIGTERM stops, the processes of other runs. A fresh checkout gets `composer install` (`COMPOSER_AUTH`, else
+  `gh auth token`), `.env` with its key, and `npm ci` there first. In it the menu offers what runs there: no Desktop,
+  Web goes straight to the web app here, no **n**, Build without the installers, Status doesn't stop Docker, Doctor
+  checks the container's, the db tool has no desktop database, and a SQLite file outside the checkout is refused (the
+  container sees nothing else); `desktop`, `docker` and `phone` are refused with what to use (`./start` for Docker). Docker
+  Desktop (macOS, Windows) needs its host networking turned on.
+- **`./start`** (2026-10-31, the owner's request: a simpler `./prytax`) is bash with nothing but Docker: Web, In
+  Docker and SQLite, never asked. It makes `.env.docker` from the example as `DockerSettings` does for SQLite (0600, a
+  key of its own) when it's missing, and refuses one on another database (`./prytax docker` runs it). It builds with
+  `gh auth token` when `COMPOSER_AUTH` is unset, runs `docker compose --env-file .env.docker up -d --build` as one
+  person's installation unless `app` runs already, prints `prytax:summary` from the app's container, and records the
+  run; without a terminal it ends there. Its menu (numbers, q): the tunnel as `docker`'s (the same override file,
+  ngrok in the foreground), the logs, stopping it; no first owner (the first visit chooses the password). Ctrl+C
+  stops ngrok or the logs, not it (`trap ':' INT`); `exec` gets `/dev/null` as input, or it swallows what's typed
+  ahead for the menu.
+- **The overview and the last run** (2026-10-31, the owner's request): `prytax:summary` (`InstallationSummary`,
+  `SummaryTable`) prints the database (size, when it was created: the `installations` row, which its migration writes
+  with the first organization's or user's date on an older database), each organization with its ФОПs, the documents
+  (`files.size`: invoices' files and signatures) and completed backup archives each keeps, and its latest backup (not
+  an export), without intl, which the image lacks; `--json` on one line. Both starters record a run that started an
+  app in `storage/framework/prytax-starter.env` (git-ignored dotenv lines, `StarterState`; `./start` writes them in
+  bash): `LAST_RUN_AT`, `LAST_RUN_BY`, `LAST_CHOICE` (desktop, web-here-mysql, web-here-sqlite with `LAST_SQLITE`,
+  web-docker-sqlite, web-docker-mysql) and, per choice, `<CHOICE>_SET_UP_AT` (its first run, anew with new Docker
+  settings, a new database or another SQLite file) and `<CHOICE>_DATABASE_CREATED_AT` (as its overview told).
+  `./prytax`'s menu shows the last choice's overview (`Summaries`: artisan with its database's variables, or `docker
+  compose exec` while Docker runs) with its last run, and offers it first as «Again — …», its hint the two dates (short
+  enough for 80 columns); the questions not recorded (Vite, DevTools) are asked as usual. `./start` prints the last run with its dates.
 - **One person's installation, always** (2026-10-31, the owner's request): every app the starter runs gets
   `PRYTAX_SINGLE_ORGANIZATION=true` (`Action::SINGLE_ORGANIZATION`, §1.4), whatever its settings say: the web app's
   processes, the phone server, the desktop window, `prytax:create-owner` from the database tools, and compose, which
@@ -529,7 +563,8 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   APP_KEY, and the database asked, SQLite by default: MySQL in a container gets its lines and a random password, an
   external MySQL `host.docker.internal` and a note to fill it in; `--mysql` or `--db` answer it; mode 0600). Existing
   settings keep their database: SQLite runs without the MySQL profile, MySQL asks whether it's the container's. It
-  runs `docker compose --env-file … [--profile mysql] up -d --build` unless it runs already, then a menu: a tunnel, the first owner, the logs, stopping it (`down` with the MySQL profile). The tunnel
+  runs `docker compose --env-file … [--profile mysql] up -d --build` unless it runs already, then a menu: a tunnel, the first owner, the logs, stopping it (`down` with the MySQL profile). New settings start
+  its record's dates over. The tunnel
   makes the `app` container again (`up -d app` with `storage/framework/prytax-tunnel.compose.yaml`, which adds the
   current-host placeholder to its stateful domains and `TRUSTED_PROXIES=PRIVATE_SUBNETS`, as Docker's network is
   between), opens ngrok until Ctrl+C, then makes it again without the file, which it removes. Checked live on SQLite
@@ -549,13 +584,19 @@ Added on 2026-10-30, at the owner's request: one program that starts PryTax eith
   the system's MySQL is only shown.
 - **db: starting over** (`migrate:fresh --seed` and the demo data) waits for the app on that database to close, asks
   for its name to be typed, and keeps a copy of a SQLite file first.
-- **Tests:** `StartTest` (processes faked): the menu from the platforms to the tools and back, then Quit, with what
-  runs told first; the web app on a new SQLite file, ready for a tunnel; a port in use refused without interaction,
+- **Tests:** `StartTest` (processes faked; the record in a file of its own): the menu from the platforms to the tools
+  and back, then Quit, with what runs told first; the last app's overview, dates and «Again», which starts it the same
+  way; the web app's run recorded with its database's date; the container's menu and its refused actions; the web app on a new SQLite file, ready for a tunnel; a port in use refused without interaction,
   or the web app there stopped when chosen; the desktop window's PHP and DevTools; Docker's settings made on SQLite by
   default and with `--mysql`, each compose run as one person's installation, and its tunnel's container made again
   and back (`DockerSettingsTest`: the example's text made into each database's settings); the phone's server and its tunnel's address from ngrok's log; starting
   over only once the name is typed and after a copy; the parsing of `ss` and `lsof`. `MenuTest`: Esc chooses Quit,
-  the arrows reach the lines below the box, which are drawn under it with Esc at its edge.
+  the arrows reach the lines below the box, which are drawn under it with Esc at its edge. `StarterStateTest`: the
+  set-up date kept across runs until forgotten, another SQLite file set up anew, `./start`'s lines read. `SummaryTest`:
+  each ФОП's documents and archives, its latest backup, the table. The bash scripts were checked live (2026-10-31, a
+  scratch worktree on port 8091): `./start`'s first run (settings, build, overview, record), its second (the last
+  run), the logs and a stub ngrok stopped by Ctrl+C with the app's environment made and restored, a MySQL file
+  refused, stopping; `./prytax` through its container on the fresh checkout.
 - **Laravel PAO** (`laravel/pao`, a dev dependency) strips decoration from artisan's output when an AI agent runs it
   (`CLAUDECODE` and the like): colours, box drawing, some symbols (⚠, →, ●) and runs of spaces. That, not Laravel,
   is why an agent sees the menu without its box; a person's terminal shows it whole. To see it as a person does,

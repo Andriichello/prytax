@@ -79,6 +79,16 @@ tables.
    php artisan schedule:work
    ```
 
+### The quickest start: `./start`
+
+With nothing but Docker (and its compose plugin) on the machine, `./start` runs PryTax in Docker on SQLite: the web
+app, its queue worker and its scheduler, as one person's installation, whose first visit chooses the password. It
+makes `.env.docker` on SQLite when it's missing (a key of its own: keep the file), and refuses one on MySQL (`./prytax
+docker` runs that). Building takes api-core from its private repository: `./start` uses `gh auth token` when
+`COMPOSER_AUTH` isn't set (see "Running with Docker"). Once it runs, it shows what the app holds (its organizations,
+their ФОПs, their documents, backup archives and latest backup), then offers an ngrok tunnel for a phone, the logs, or
+stopping it; quitting leaves it running. It tells the last run of either starter, too.
+
 ### The starter: `./prytax`
 
 `./prytax` opens a menu that starts PryTax and does the chores around it; `./prytax <action>` does one thing
@@ -87,7 +97,16 @@ processes' PATH as `php`, and takes a recent Node from nvm when the PATH's is ol
 person's installation (`PRYTAX_SINGLE_ORGANIZATION=true`, whatever the settings say): one organization, signed in with
 a password alone.
 
-The menu first tells what of PryTax runs already, then asks for the platform: **Web** (in Docker, or here) or
+Without PHP 8.5 (or with `PRYTAX_PHP=docker`), it runs in a container with PHP 8.5 and Node 24, built once from the
+Dockerfile's `starter` stage, with the checkout mounted, on this machine's network and processes; a fresh checkout gets
+its packages (`composer install`, with `gh auth token`), `.env` and key and `node_modules` there first. The menu then
+offers what runs in it: the web app here and the tools (no desktop window, Docker or ngrok: `./start` runs Docker).
+On macOS and Windows, Docker Desktop needs its host networking turned on.
+
+The menu first tells what of PryTax runs already, and the last app started, by either starter, with its overview
+(organizations, ФОПs, storage, latest backups), which it offers first as **Again** (its note: when it was set up here
+and when its database was created). In the container, a SQLite file must be inside the checkout. Then it asks for the
+platform: **Web** (in Docker, or here) or
 **Desktop** (the development window, with DevTools or without). Below the box, **Tools** leads to the status, the
 doctor, the tests, the builds and the databases, and **Quit** ends it; the menus after the first offer **Back**
 there too. Esc quits from any question. While the web app or the desktop window runs, **n** opens an ngrok tunnel for
@@ -106,6 +125,10 @@ to restart or stop (the web app), to close or to tunnel to (the desktop app), or
 | `test` | The PHP tests on MySQL or SQLite, the SPA's tests and types (`--filter`) |
 | `build` | The SPA, the desktop app's Linux installers, the invoice styles' thumbnails |
 | `db` | The web app's, the desktop app's or a SQLite file's migrations, starting over with the demo data, the first owner |
+
+`php artisan prytax:summary` prints the same overview of whichever database it runs on (`--json` for scripts). The
+starters remember their last run in `storage/framework/prytax-starter.env` (git-ignored); a database knows when it was
+created (its `installations` row).
 
 Before it starts something, it offers what it needs: a fresh build of the SPA, a database's pending migrations (after a
 copy of a SQLite file), a new SQLite file with the demo data. Starting a database over asks for its name to be typed.

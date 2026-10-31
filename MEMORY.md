@@ -1,6 +1,9 @@
 # PryTax: progress and handoff
 
-Status as of 2026-10-31 (night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
+Status as of 2026-10-31 (late night): branch **`feat/start`** (from `dev`, not merged, not pushed) adds `./start`,
+`./prytax`'s PHP container, `prytax:summary` and the starters' «Again» (see "`./start`, `./prytax` without PHP, the
+overview and «Again»"); `dev` = `origin/dev` = 2f8241f (pushed by the user), `main` = `origin/main` = fe94985. Before
+it, as of 2026-10-31 (night): **everything is merged into `dev`** (the user: "merge everything into dev"; a
 fast-forward to `feat/full-backups`, then this note; not `main`, not pushed; `dev` is 194 commits ahead of
 `origin/dev`, checked out). Before the merge, branch **`feat/full-backups`** (stacked on
 `feat/organization-from-backups`, on `feat/starter`) backs up the whole app and restores it after a comparison (see "A copy of the
@@ -43,6 +46,35 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## `./start`, `./prytax` without PHP, the overview and «Again» (2026-10-31, night; branch `feat/start` from `dev`, not merged, not pushed)
+
+The user: a simplified `./prytax` that only runs Web · In Docker · SQLite (no menus for them, `.env.docker` made when
+missing, no «Create the first owner»); then "users that fetch it need PHP": a PHP container when PHP 8.5 is missing;
+then both starters to show the app's organizations, their ФОПs, their storage and latest backup, to record the last
+run and its choice (Web/Desktop, In Docker/Here, SQLite/MySQL) and offer it again, with its set-up date and the
+database's creation date. They chose (AskUserQuestion): `./start` in plain bash; one-option menus skipped; the first
+owner gone from `./start` only; a MySQL `.env.docker` refused; the fallback with Node 24, host-only actions hidden;
+the overview of the last choice's app; a "run" = one that started an app; «Again» in `./prytax` only; the database
+records its own creation (a table), the set-up date lives in the starters' file. builds.md §6 and README have it.
+- **`installations`** (one row, `created_at`; its migration back-fills an older database from its first
+  organization/user): `RetentionFamilies` `never`, `InstallationTables::IGNORED`.
+- **`prytax:summary`** (`Services/Installation/InstallationSummary`, `Console/Starter/SummaryTable`, `--json`): sizes
+  from `files.size` and `backups.bytes` (completed), formatted without intl (Docker's image has none).
+- **The record:** `storage/framework/prytax-starter.env` (git-ignored; `StarterState`, written by `./start` in bash too):
+  `LAST_*`, `<CHOICE>_SET_UP_AT`, `<CHOICE>_DATABASE_CREATED_AT`. `Action::remember()` after web/desktop/docker start;
+  `Summaries` reads a choice's overview (artisan with its database's env, or `docker compose exec` while it runs).
+  `Start::perform()` now puts back the options it set (they used to stick to the next menu choice).
+- **Container:** Dockerfile `php` → `base` / `starter` (before `app`, as compose builds the last stage); `./prytax`
+  `docker run --network host --pid host --user uid:gid`, image `prytax-starter:<cksum>`; `PRYTAX_STARTER_CONTAINER=1`.
+- **Checked live** (scratch worktree `prytax-start-check` on 8091, its own compose project): `./start` first run
+  (built with gh's token, 0600 settings, overview, record), second run, logs + stub ngrok stopped by Ctrl+C with the
+  app's env made and restored, MySQL refused, stop. Found: `docker compose exec` read the terminal and swallowed the
+  menu's typed-ahead answer (now `</dev/null`). The build retags `prytax:latest`: the old ID was saved and put back.
+- **Gotchas:** a scratch `DemoSeeder` writes its documents into the checkout's `storage/` unless
+  `LARAVEL_STORAGE_PATH` is set (39 orphans made and removed by their paths); `expectsOutputToContain` consumes a
+  write per expectation, in order; `expectsChoice` checks the last ask of that question; `pkill -f` matches its own
+  shell's command line.
 
 ## The starter: Docker on SQLite, one person's installation always (2026-10-31, night; branch `feat/docker-sqlite-default`, fast-forwarded into `dev` at the user's request; `origin/dev` was at fe94985, pushed by the user)
 

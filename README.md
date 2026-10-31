@@ -372,9 +372,15 @@ and, for the desktop app's data, its database, storage and file cache. A new key
 off stops every call. The page shows what Claude last did (its client and version when it connected, its last call)
 and, where PryTax runs on your own computer, checks Claude Code's and Claude Desktop's configs for the server.
 
-The thirteen tools only read, within the allowed ФОП: the ФОП and their overview, invoices and clients, receipts,
-Облік and the income book, the tax ledger and the declaration's figures, alerts, and the backups' state. Each call runs
-in a database transaction, which is always rolled back, so nothing it touches is kept. The desktop app's database is
+Thirteen tools read, within the allowed ФОП: the ФОП and their overview, invoices and clients, receipts, Облік and
+the income book, the tax ledger and the declaration's figures, alerts, and the backups' state. Each read runs in a
+database transaction, which is always rolled back, so nothing it touches is kept. Beyond them, Claude reaches
+everything its user may through PryTax's own API: `api-endpoints` lists the endpoints with their fields and rules,
+`api-read` sends any GET, and `api-write` (offered only once an owner switches on **«Дозволити зміни»**, which asks
+first and records who and when) sends POST, PUT, PATCH and DELETE, with local files as uploads (an invoice's PDF).
+They go through the app's routes, validation, permissions and change log as that user; Claude's own integration,
+signing in, the installation's copies and the recovery kit are out of its reach, and while some ФОП only are allowed,
+so are the others. `read-spreadsheet` reads a CSV or XLSX on this computer, so Claude can record its rows. The desktop app's database is
 read with its own key (`database/nativephp.sqlite.key`), which never goes into Claude's config. `./prytax` → Tools →
 Claude prints the same connection for the desktop app's data or the web app's, and asks the server as Claude would.
 An AppImage runs from another folder each launch, so copy its connection again, or install the .deb.

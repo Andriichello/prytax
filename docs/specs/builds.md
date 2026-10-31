@@ -657,8 +657,25 @@ the app, no longer only Boost's).
   `get-accounting`, `get-income-book`, `get-tax-ledger`, `get-declaration`, `list-alerts`, `get-backup-status` (the
   backups' state, extracted as `BackupState`), through the API's services, repositories (a synthetic GET request
   carries the filters) and resources. A ФОП's full tax ID isn't returned; NBU isn't fetched.
+- **Changes** (the owner's request, later the same night: Claude records a spreadsheet's entries, uploads invoices'
+  PDFs, "access to everything the user has", with a toggle): `writes_enabled_at`/`writes_enabled_by_user_id`, off by
+  default, `PUT … {writes}`. Chosen (AskUserQuestion): the app's own API rather than tools per operation; any read
+  while Claude is on; a spreadsheet reader. `ApiDispatcher` sends a request to `/api/…` through the HTTP kernel
+  (`app()->handle()`) as the acting user, whom `McpSession` signed in (Sanctum's guard takes the default guard's
+  user), JSON or, with files, a form with `UploadedFile`s of local paths (50 MB at most), user agent «Claude (PryTax
+  MCP)»; a server error's trace is dropped, an answer over 200 000 characters cut. Blocked (`BLOCKED`):
+  `organization/integrations` (Claude would allow itself writes or take a key), `auth/`, `installation`, `desktop/`,
+  `registration`, `single/`, `environment`; while `profile_ids` limits the ФОП, only `profiles/{allowed}/…`. Tools
+  (`SessionTool`): `api-endpoints` (the open routes, only GETs without changes, the fields of a `CrudController`
+  operation's request with their rules, where its `rules()` builds without a route), `api-read` (GET, rolled back),
+  `api-write` (POST/PUT/PATCH/DELETE, offered by `shouldRegister()` only while changes are allowed, refused
+  otherwise, destructive), `read-spreadsheet` (CSV by its delimiter, without a byte order mark; XLSX from
+  `ZipArchive` and SimpleXML: sheets by name, shared and inline strings; rows keyed by the first row, 200 a page). The
+  server lists all its tools at once (`$defaultPaginationLength = 50`; laravel/mcp's 15 left two out). Checked live:
+  the page's switch and its question; over stdio a CSV read, the clients' endpoint with its rules, a client created
+  (201) and read back.
 - **The page** (`IntegrationsPage`, `/integrations`, a «Керування» row with «Claude увімкнено/вимкнено»): the switch
-  (turning it off asks), who and when; Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
+  (turning it off asks), who and when, «Дозволити зміни» (asks when turned on; who and when); Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
   to copy, the key's hint, a new key, which asks); Стан (the last connection and call; «Перевірити»).
 - **`./prytax` → Tools → Claude** (`McpAction`, `prytax:claude-connection [--desktop] [--folder=] [--json]`): the
   connection of each integration on, for the data of the app started last first (the web app here on its SQLite file),

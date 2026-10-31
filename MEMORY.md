@@ -51,6 +51,18 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Claude may change data, once an owner allows it (2026-11-01, past midnight; same branch `feat/claude-mcp`)
+
+The user: write access "same as current user" (record a spreadsheet's entries, upload invoices' PDFs, everything the
+user may), with a toggle in the Claude integration's configuration. Chosen (AskUserQuestion): the app's own API
+(`api-endpoints`, `api-read`, `api-write`), any read while Claude is on, a CSV/XLSX reader. builds.md §7 "Changes".
+- `writes_enabled_at`/`_by_user_id` (migration 2026_10_31_235104); «Дозволити зміни» on the page (asks first).
+- `Mcp/ApiDispatcher` (through `app()->handle()` as the acting user; blocks the integrations, auth, installation,
+  desktop, registration, single, environment, and other ФОП's paths), `Tools/{SessionTool, ApiEndpoints, ApiRead,
+  ApiWrite, ReadSpreadsheet}`; the server lists all 17 tools at once (laravel/mcp pages by 15).
+- Checked live on the scratch demo: the switch and its question; stdio: CSV → endpoint rules → client created → read.
+- Tests: `ApiToolsTest` (9), `IntegrationControllerTest` +1, SPA `writesLine`.
+
 ## Back everywhere, and ./start's own local app (2026-10-31, late night; same branch `feat/claude-mcp`)
 
 The user: every option of `./prytax` with Back; `./start` with a SQLite database of its own (`local`), so dev work with

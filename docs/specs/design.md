@@ -46,7 +46,8 @@ departs from the design of the first sections (§0–§12), an «As built» note
   `builds.md` §7) form a «Керування» group of their own, on Ще too, where the language and Вийти follow in a card
   without a heading.
 - **Інтеграції** (2026-10-31, `/integrations`): a card per integration, now Claude, off by default: the switch (turning
-  it off asks), «Увімкнено 31.10.2026, 22:40 · Олена Коваленко»; Доступ (an accordion: the user it reads as, the ФОП
+  it off asks), «Увімкнено 31.10.2026, 22:40 · Олена Коваленко», «Дозволити зміни» (off; turning it on asks, then «Зміни
+  дозволено … · …»); Доступ (an accordion: the user it reads as, the ФОП
   it sees); Підключення (Claude Code / Claude Desktop, the config to copy, the key's last characters, «Новий ключ»,
   which asks); Стан (Claude's last connection and call, «Перевірити» on the person's own computer).
 - **Numbering** (§5): «Поточні лічильники» lists every active client's counter (or the ФОП's) from 0, so it can be set

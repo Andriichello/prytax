@@ -13,7 +13,7 @@ use Illuminate\Validation\Rules\Password;
  *
  * Registers a new organization with its owner from the sign-in page: the organization's name, the owner's name,
  * e-mail and password (repeated), and their language. An e-mail, which any account has, deleted ones included,
- * is refused: that person signs in, or is invited, instead.
+ * is refused: that person signs in, or is invited, instead. One person's installation asks for the password alone.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Auth
@@ -27,10 +27,15 @@ class RegisterRequest extends BaseRequest
      */
     public function rules(): array
     {
+        // One person's installation makes up its organization and e-mail (builds.md §1.4)
+        $single = (bool) config('prytax.single_organization');
+
         return [
-            'organization' => ['required', 'string', 'max:255'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
+            ...($single ? [] : [
+                'organization' => ['required', 'string', 'max:255'],
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
+            ]),
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
             'locale' => ['sometimes', 'string', Rule::in(config('api-core.locales'))],
             'remember' => ['sometimes', 'boolean'],

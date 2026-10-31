@@ -45,13 +45,13 @@ class RegistrationControllerTest extends TestCase
     public function testTellsWhetherRegistrationIsOpenAndForTheFirstOwner(): void
     {
         config(['prytax.registration' => false]);
-        $this->getJson('/api/registration')->assertOk()->assertExactJson(['data' => ['enabled' => false, 'first_owner' => false], 'message' => 'OK']);
+        $this->getJson('/api/registration')->assertOk()->assertExactJson(['data' => ['enabled' => false, 'first_owner' => false, 'single_organization' => false, 'password_only' => false], 'message' => 'OK']);
 
         config(['prytax.registration' => true]);
-        $this->getJson('/api/registration')->assertOk()->assertJsonPath('data', ['enabled' => true, 'first_owner' => true]);
+        $this->getJson('/api/registration')->assertOk()->assertJsonPath('data', ['enabled' => true, 'first_owner' => true, 'single_organization' => false, 'password_only' => false]);
 
         User::factory()->create();
-        $this->getJson('/api/registration')->assertOk()->assertJsonPath('data', ['enabled' => true, 'first_owner' => false]);
+        $this->getJson('/api/registration')->assertOk()->assertJsonPath('data', ['enabled' => true, 'first_owner' => false, 'single_organization' => false, 'password_only' => false]);
     }
 
     /**

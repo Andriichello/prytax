@@ -286,5 +286,12 @@
     "Save this computer's current state first.": "Спершу збережіть поточний стан цього комп’ютера.",
     "Save the full backup": "Збереження повної копії",
     "Choose the full backup": "Вибір повної копії",
-    "Backup": "Копія"
+    "Backup": "Копія",
+    "Recovery code: :code": "Код відновлення: :code",
+    "The recovery code, or the key above, sets a new password on «Forgot password?» of the sign-in screen: it is the only way back in when the password is forgotten.": "Код відновлення (або ключ вище) задає новий пароль у «Забули пароль?» на екрані входу: це єдиний спосіб повернутися, якщо пароль забуто.",
+    "The recovery code, or this installation's APP_KEY, sets a new password on «Forgot password?» of the sign-in screen: it is the only way back in when the password is forgotten. Keep it away from this computer, such as in a password manager or printed.": "Код відновлення (або APP_KEY цієї установки) задає новий пароль у «Забули пароль?» на екрані входу: це єдиний спосіб повернутися, якщо пароль забуто. Зберігайте його поза цим комп’ютером — у менеджері паролів або роздрукованим.",
+    "PryTax here has its organization already: sign in.": "У цьому PryTax організація вже є: увійдіть.",
+    "The recovery code or key isn't right.": "Код відновлення чи ключ не підходить.",
+    "This account is suspended.": "Цей обліковий запис призупинено.",
+    "The password isn't right.": "Неправильний пароль."
 }

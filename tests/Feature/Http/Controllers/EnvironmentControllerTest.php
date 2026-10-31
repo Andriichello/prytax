@@ -15,16 +15,16 @@ use Tests\TestCase;
 class EnvironmentControllerTest extends TestCase
 {
     /**
-     * Test that the SPA learns whether it runs in the desktop app.
+     * Test that the SPA learns whether it runs in the desktop app, and whether the installation is one person's.
      *
      * @return void
      */
     public function testTellsWhetherTheSpaRunsInTheDesktopApp(): void
     {
-        $this->getJson('/api/environment')->assertOk()->assertJsonPath('data', ['desktop' => false]);
+        $this->getJson('/api/environment')->assertOk()->assertJsonPath('data', ['desktop' => false, 'single_organization' => false]);
 
-        config(['nativephp-internal.running' => true]);
+        config(['nativephp-internal.running' => true, 'prytax.single_organization' => true]);
 
-        $this->getJson('/api/environment')->assertOk()->assertJsonPath('data', ['desktop' => true]);
+        $this->getJson('/api/environment')->assertOk()->assertJsonPath('data', ['desktop' => true, 'single_organization' => true]);
     }
 }

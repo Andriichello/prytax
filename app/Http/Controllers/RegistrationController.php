@@ -15,6 +15,7 @@ use Laravel\Sanctum\TransientToken;
 use PryTax\Http\Requests\Auth\RegisterRequest;
 use PryTax\Services\Setup\InstallationSetup;
 use PryTax\Services\Setup\OrganizationRegistrar;
+use PryTax\Services\Setup\SingleOrganization;
 
 /**
  * Class RegistrationController.
@@ -22,7 +23,8 @@ use PryTax\Services\Setup\OrganizationRegistrar;
  * Registering a new organization from the sign-in page (builds.md §1.3), when `prytax.registration` allows it:
  * `GET registration` tells the SPA whether to offer it, and whether the installation has no user yet (the desktop
  * app's first launch, which opens the form at once); `POST registration` creates the organization and its owner,
- * and signs the SPA in, as api-core's login does.
+ * and signs the SPA in, as api-core's login does. One person's installation (builds.md §1.4) registers its only
+ * organization with a password alone, and tells the sign-in page when the password alone signs in.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Controllers
@@ -34,10 +36,12 @@ class RegistrationController extends Controller
      *
      * @param OrganizationRegistrar $registrar
      * @param InstallationSetup $setup
+     * @param SingleOrganization $single
      */
     public function __construct(
         protected OrganizationRegistrar $registrar,
         protected InstallationSetup $setup,
+        protected SingleOrganization $single,
     ) {}
 
     /**
@@ -60,11 +64,13 @@ class RegistrationController extends Controller
      */
     public function status(): ApiResponse
     {
-        $enabled = (bool) config('prytax.registration');
+        $enabled = $this->single->allowsRegistration();
 
         return ApiResponse::ok(['data' => [
             'enabled' => $enabled,
             'first_owner' => $enabled && $this->setup->isNeeded(),
+            'single_organization' => $this->single->isOn(),
+            'password_only' => $this->single->account() !== null,
         ]]);
     }
 
@@ -77,15 +83,18 @@ class RegistrationController extends Controller
      */
     public function register(RegisterRequest $request): ApiResponse
     {
-        abort_unless(config('prytax.registration'), 404);
+        abort_unless($this->single->allowsRegistration(), 404);
 
-        $user = $this->registrar->register(
-            $request->string('organization')->value(),
-            $request->string('name')->value(),
-            $request->string('email')->value(),
-            $request->string('password')->value(),
-            $request->string('locale', app()->getLocale())->value(),
-        );
+        $locale = $request->string('locale', app()->getLocale())->value();
+        $user = $this->single->isOn()
+            ? $this->single->register($request->string('password')->value(), $locale)
+            : $this->registrar->register(
+                $request->string('organization')->value(),
+                $request->string('name')->value(),
+                $request->string('email')->value(),
+                $request->string('password')->value(),
+                $locale,
+            );
 
         if ($request->hasSession()) {
             $this->loginToSession($request, $user);

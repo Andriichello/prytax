@@ -45,4 +45,20 @@ return [
 
     'full_backups' => (bool) env('PRYTAX_FULL_BACKUPS', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | One organization
+    |--------------------------------------------------------------------------
+    |
+    | Whether the installation is one person's (builds.md §1.4): a single
+    | organization, registered with a password alone (its e-mail and name are
+    | made up), signed in with the password alone while it has one user, and
+    | a recovery code (or the installation's key) setting a new password when
+    | it's forgotten. The desktop app always is; a web app on this computer or
+    | a server kept for one person may be.
+    |
+    */
+
+    'single_organization' => (bool) env('PRYTAX_SINGLE_ORGANIZATION', false),
+
 ];

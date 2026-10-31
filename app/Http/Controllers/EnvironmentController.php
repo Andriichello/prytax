@@ -17,12 +17,15 @@ use PryTax\Helpers\Desktop;
 class EnvironmentController extends Controller
 {
     /**
-     * Tell whether the SPA runs in the desktop app.
+     * Tell whether the SPA runs in the desktop app, and whether the installation is one person's (builds.md §1.4).
      *
      * @return ApiResponse
      */
     public function show(): ApiResponse
     {
-        return ApiResponse::ok(['data' => ['desktop' => Desktop::isRunning()]]);
+        return ApiResponse::ok(['data' => [
+            'desktop' => Desktop::isRunning(),
+            'single_organization' => (bool) config('prytax.single_organization'),
+        ]]);
     }
 }

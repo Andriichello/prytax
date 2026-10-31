@@ -35,6 +35,7 @@ use PryTax\Http\Controllers\ProjectController;
 use PryTax\Http\Controllers\RecoveryKitController;
 use PryTax\Http\Controllers\RefundController;
 use PryTax\Http\Controllers\RegistrationController;
+use PryTax\Http\Controllers\SingleOrganizationController;
 use PryTax\Http\Controllers\TaxOpeningBalanceController;
 use PryTax\Http\Controllers\TaxPaymentController;
 use PryTax\Http\Controllers\TaxPaymentRequisiteController;
@@ -74,6 +75,9 @@ Route::prefix('auth')->group(fn () => AuthController::routes());
 
 // A new organization from the sign-in page, when `prytax.registration` allows it
 RegistrationController::routes();
+
+// One person's installation: signing in with the password alone, and a new password from its recovery code
+SingleOrganizationController::routes();
 
 // Where the SPA runs: the desktop app's window, or a browser
 Route::get('environment', [EnvironmentController::class, 'show'])->name('environment');

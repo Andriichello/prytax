@@ -49,6 +49,7 @@ use PryTax\Models\TransferAllocation;
 use PryTax\Services\Desktop\DatabaseRestore;
 use PryTax\Services\Desktop\InstallationKey;
 use PryTax\Services\Desktop\RecoveryKit;
+use PryTax\Services\Setup\SingleOrganization;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -105,7 +106,7 @@ class AppServiceProvider extends ServiceProvider
 
         // The desktop installation's own key and its recovery kit, beside its database
         $this->app->singleton(InstallationKey::class, fn () => new InstallationKey((string) Desktop::databasePath()));
-        $this->app->singleton(RecoveryKit::class, fn ($app) => new RecoveryKit($app->make(InstallationKey::class), (string) Desktop::databasePath()));
+        $this->app->singleton(RecoveryKit::class, fn ($app) => new RecoveryKit($app->make(InstallationKey::class), (string) Desktop::databasePath(), $app->make(SingleOrganization::class)));
         $this->app->singleton(DatabaseRestore::class, fn ($app) => new DatabaseRestore($app->make(InstallationKey::class), (string) Desktop::databasePath()));
 
         // The desktop app (builds.md §4): NativePHP runs it in a window of its own on 127.0.0.1
@@ -117,6 +118,8 @@ class AppServiceProvider extends ServiceProvider
                 'prytax.registration' => true,
                 // One person's computer, whose whole state may move to another (builds.md §4.11)
                 'prytax.full_backups' => true,
+                // One organization, signed in with a password alone (builds.md §1.4)
+                'prytax.single_organization' => true,
                 // Files, as a database store would be bound to the configured connection before NativePHP replaces it
                 'cache.default' => 'file',
                 'mail.default' => 'log',

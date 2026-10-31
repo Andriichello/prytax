@@ -649,31 +649,41 @@ the app, no longer only Boost's).
   (`DatabaseKey`, `InstallationKey::stored()`); the handshake (`RecordedInitialize`) records the client on the
   key's integration, even while it's off. Each call (`ReadTool`): the session (`McpSession`: the key's integration,
   on, its acting user signed in; else a refusal saying what to do), the arguments validated, the read authorized as
-  the API's (`$user->can($ability, $model)`), the ФОП named by id or part of its name among the allowed ones (the only
-  one may be left out; ambiguous or outside: the candidates), then the read in the organization and the ФОП, **in a
-  transaction always rolled back** (the reads, which ensure tax periods and ЄСВ months as they go, keep nothing), the
-  call recorded, structured content returned. The tools, read-only, idempotent, closed-world: `list-profiles`,
+  the API's (`$user->can($ability, $model)`), the ФОП named by id or part of its name (Ukrainian, short or English) among the allowed
+  ones (the only one may be left out; ambiguous or outside: the candidates), then the read in the organization and
+  the ФОП, **in a transaction always rolled back** (the reads, which ensure tax periods and ЄСВ months as they go,
+  keep nothing), its result turned into plain data there (a nested resource, such as a receipt's invoice with its
+  paid amount, resolved inside the ФОП, not when the answer is encoded), the call recorded, structured content
+  returned. The tools, read-only, idempotent, closed-world: `list-profiles`,
   `get-profile`, `get-practice-overview`, `list-invoices`, `get-invoice`, `list-clients`, `list-receipts`,
   `get-accounting`, `get-income-book`, `get-tax-ledger`, `get-declaration`, `list-alerts`, `get-backup-status` (the
   backups' state, extracted as `BackupState`), through the API's services, repositories (a synthetic GET request
-  carries the filters) and resources. A ФОП's full tax ID isn't returned; NBU isn't fetched.
+  carries the filters) and resources. A ФОП's full tax ID isn't returned; NBU isn't fetched. Two «to pay» figures, told
+  apart in the tools' descriptions and the server's instructions: the profiles' `taxes_to_pay` (this year's unpaid
+  accruals, before opening balances) and `get-declaration`'s `remaining.<tax>.to_pay` (net of payments and opening
+  balances, the one to quote as owed); `list-receipts` refuses a month outside the quarter given.
 - **Changes** (the owner's request, later the same night: Claude records a spreadsheet's entries, uploads invoices'
   PDFs, "access to everything the user has", with a toggle): `writes_enabled_at`/`writes_enabled_by_user_id`, off by
   default, `PUT … {writes}`. Chosen (AskUserQuestion): the app's own API rather than tools per operation; any read
   while Claude is on; a spreadsheet reader. `ApiDispatcher` sends a request to `/api/…` through the HTTP kernel
   (`app()->handle()`) as the acting user, whom `McpSession` signed in (Sanctum's guard takes the default guard's
   user), JSON or, with files, a form with `UploadedFile`s of local paths (50 MB at most), user agent «Claude (PryTax
-  MCP)»; a server error's trace is dropped, an answer over 200 000 characters cut. Blocked (`BLOCKED`):
+  MCP)»; an error's `exception`, `file`, `line` and `trace` are dropped at any status (a
+  debug 404 was ~25 KB), a server error keeps only its message, an answer over 200 000 characters cut. Blocked (`BLOCKED`):
   `organization/integrations` (Claude would allow itself writes or take a key), `auth/`, `installation`, `desktop/`,
   `registration`, `single/`, `environment`; while `profile_ids` limits the ФОП, only `profiles/{allowed}/…`. Tools
   (`SessionTool`): `api-endpoints` (the open routes, only GETs without changes, the fields of a `CrudController`
   operation's request with their rules, where its `rules()` builds without a route), `api-read` (GET, rolled back),
   `api-write` (POST/PUT/PATCH/DELETE, offered by `shouldRegister()` only while changes are allowed, refused
-  otherwise, destructive), `read-spreadsheet` (CSV by its delimiter, without a byte order mark; XLSX from
-  `ZipArchive` and SimpleXML: sheets by name, shared and inline strings; rows keyed by the first row, 200 a page). The
+  otherwise, destructive), `read-spreadsheet` (only `.csv`, `.tsv` and `.xlsx`, by the extension, so no other
+  file the PHP process can read, such as `.env` or a key, reaches the conversation; CSV by its delimiter, a TSV by
+  tabs, without a byte order mark; XLSX from `ZipArchive` and SimpleXML: sheets by name, shared and inline strings;
+  rows keyed by the first row, empty cells null, 200 a page). The
   server lists all its tools at once (`$defaultPaginationLength = 50`; laravel/mcp's 15 left two out). Checked live:
   the page's switch and its question; over stdio a CSV read, the clients' endpoint with its rules, a client created
-  (201) and read back.
+  (201) and read back. A later session ran every tool on the owner's real data (read-only) and found `api-endpoints`
+  failing without `search`, receipts' invoices paid «0.00», the debug traces, the spreadsheet reader's reach and
+  the two «to pay» figures: fixed on `fix/claude-tools` (2026-11-01).
 - **The page** (`IntegrationsPage`, `/integrations`, a «Керування» row with «Claude увімкнено/вимкнено»): the switch
   (turning it off asks), who and when, «Дозволити зміни» (asks when turned on; who and when); Доступ (the acting user, the ФОП); Підключення (Claude Code / Claude Desktop
   to copy, the key's hint, a new key, which asks); Стан (the last connection and call; «Перевірити»).

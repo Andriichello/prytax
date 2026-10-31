@@ -56,6 +56,18 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Claude's tools, fixed after a run on real data (2026-11-01; branch `fix/claude-tools` from `dev`, not merged)
+
+Another Claude session ran all 16 tools read-only on the user's real desktop data and reported 3 bugs and 2 risks.
+Fixed (builds.md §7): `api-endpoints` without `search` (a cast bound before `??`); `list-receipts`' invoices paid
+«0.00» (nested resources resolved after the ФОП scope: `ReadTool::rolledBack()` now JSON round-trips the result
+inside it, and the invoices load `withPaidAmount()`); `ApiDispatcher::answerOf()` drops `exception`/`file`/`line`/
+`trace` at any status; `read-spreadsheet` only `.csv`/`.tsv`/`.xlsx` (was: any file through the CSV reader), TSV by
+tabs, empty CSV cells null; ФОП found by `full_name_en` too; a month outside the quarter refused; the two «to pay»
+figures told apart in the descriptions and the server's instructions (`taxes_to_pay` ignores opening balances;
+`get-declaration`'s `remaining.<tax>.to_pay` is the owed figure). Tests: `PryTaxServerTest` +2, `ApiToolsTest` +3
+(and 3 extended); all 8 fail on the old code. `api-write` still untested on real data (only scratch).
+
 ## Claude may change data, once an owner allows it (2026-11-01, past midnight; same branch `feat/claude-mcp`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: write access "same as current user" (record a spreadsheet's entries, upload invoices' PDFs, everything the

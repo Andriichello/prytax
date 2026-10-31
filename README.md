@@ -380,7 +380,7 @@ everything its user may through PryTax's own API: `api-endpoints` lists the endp
 first and records who and when) sends POST, PUT, PATCH and DELETE, with local files as uploads (an invoice's PDF).
 They go through the app's routes, validation, permissions and change log as that user; Claude's own integration,
 signing in, the installation's copies and the recovery kit are out of its reach, and while some ФОП only are allowed,
-so are the others. `read-spreadsheet` reads a CSV or XLSX on this computer, so Claude can record its rows. The desktop app's database is
+so are the others. `read-spreadsheet` reads a CSV, TSV or XLSX on this computer (no other kind of file), so Claude can record its rows. The desktop app's database is
 read with its own key (`database/nativephp.sqlite.key`), which never goes into Claude's config. `./prytax` → Tools →
 Claude prints the same connection for the desktop app's data or the web app's, and asks the server as Claude would.
 An AppImage runs from another folder each launch, so copy its connection again, or install the .deb.

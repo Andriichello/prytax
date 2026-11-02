@@ -26,12 +26,12 @@ class UpdateRequisiteSetRequest extends UpdateRequest
     }
 
     /**
-     * Normalize the codes and the name.
+     * Normalize the IBAN, the code, the name and the labels.
      *
      * @return array
      */
     protected function overrides(): array
     {
-        return array_intersect_key(RequisiteSetRules::normalized($this->all()), array_flip(['iban', 'swift', 'bic', 'name']));
+        return array_intersect_key(RequisiteSetRules::normalized($this->all()), array_flip(['iban', 'swift', 'name', 'labels']));
     }
 }

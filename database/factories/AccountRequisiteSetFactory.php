@@ -39,7 +39,7 @@ class AccountRequisiteSetFactory extends Factory
     }
 
     /**
-     * A set for SEPA transfers: a receiver, a foreign IBAN and a BIC.
+     * A set for SEPA transfers: a receiver, a foreign IBAN and its code, labelled «BIC».
      *
      * @return static
      */
@@ -50,7 +50,8 @@ class AccountRequisiteSetFactory extends Factory
             'bank_name' => null,
             'account_number' => null,
             'iban' => 'GB' . fake()->numerify('####################'),
-            'bic' => 'CLJUGB21',
+            'swift' => 'CLJUGB21',
+            'labels' => ['swift' => 'BIC'],
         ]);
     }
 

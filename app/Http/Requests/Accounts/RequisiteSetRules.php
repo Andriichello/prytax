@@ -9,9 +9,9 @@ use PryTax\Services\Accounts\InvoiceRequisites;
  * Class RequisiteSetRules.
  *
  * Rules of a set of an account's requisites, which its store and update requests share, and a new account's store
- * request, under `requisites`, for its first set: its name (in an invoice's parentheses), the requisites, SWIFT and
- * BIC apart, its own details, their order in invoices and which of them print (`InvoiceRequisites`), whether it's the
- * default and whether it's offered.
+ * request, under `requisites`, for its first set: its name (in an invoice's parentheses), the requisites (one code
+ * for SWIFT and BIC), the labels its fields print under, its own details, their order in invoices and which of them
+ * print (`InvoiceRequisites`), whether it's the default and whether it's offered.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Http\Requests\Accounts
@@ -37,10 +37,11 @@ final class RequisiteSetRules
             "{$at}iban" => ['sometimes', 'nullable', 'string', 'regex:/^[A-Z]{2}[0-9A-Z]{13,32}$/'],
             "{$at}account_number" => ['sometimes', 'nullable', 'string', 'max:64'],
             "{$at}swift" => $code,
-            "{$at}bic" => $code,
             "{$at}details" => ['sometimes', 'nullable', 'array', 'max:20'],
             "{$at}details.*.label" => ['required', 'string', 'max:64'],
             "{$at}details.*.value" => ['required', 'string', 'max:255'],
+            "{$at}labels" => ['sometimes', 'nullable', 'array:' . implode(',', InvoiceRequisites::FIELDS)],
+            "{$at}labels.*" => ['nullable', 'string', 'max:64'],
             "{$at}invoice_requisites" => ['sometimes', 'nullable', 'list', 'max:30'],
             "{$at}invoice_requisites.*" => ['array:field,label,shown'],
             "{$at}invoice_requisites.*.field" => ['nullable', 'string', Rule::in(InvoiceRequisites::FIELDS), "required_without:{$at}invoice_requisites.*.label", "prohibits:{$at}invoice_requisites.*.label"],
@@ -53,7 +54,7 @@ final class RequisiteSetRules
     }
 
     /**
-     * Get the set's input normalized: the IBAN, the SWIFT and the BIC upper case without spaces, a blank name none.
+     * Get the set's input normalized: the IBAN and the code upper case without spaces, a blank name or label none.
      *
      * @param array $input
      *
@@ -61,7 +62,7 @@ final class RequisiteSetRules
      */
     public static function normalized(array $input): array
     {
-        foreach (['iban', 'swift', 'bic'] as $field) {
+        foreach (['iban', 'swift'] as $field) {
             if (is_string($input[$field] ?? null)) {
                 $input[$field] = strtoupper((string) preg_replace('/\s+/', '', $input[$field]));
             }
@@ -69,6 +70,11 @@ final class RequisiteSetRules
 
         if (is_string($input['name'] ?? null)) {
             $input['name'] = trim($input['name']) === '' ? null : trim($input['name']);
+        }
+
+        if (is_array($input['labels'] ?? null)) {
+            $labels = array_filter(array_map(fn ($label) => is_string($label) ? trim($label) : $label, $input['labels']), fn ($label) => filled($label));
+            $input['labels'] = $labels === [] ? null : $labels;
         }
 
         return $input;

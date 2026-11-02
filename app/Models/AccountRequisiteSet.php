@@ -19,8 +19,9 @@ use PryTax\Queries\TenantQuery;
  *
  * A set of an account's requisites, which an invoice prints as a «Payment details (…)» section (invoice.md §4): one
  * per way of paying into the account, such as SEPA and SWIFT of Monobank's EUR account, each with its own receiver,
- * IBAN and code. Its name is what the invoice prints in the parentheses; `invoice_requisites` the order of its
- * requisites and which of them print (`InvoiceRequisites`). One active set of an account is its default, which a new
+ * IBAN and code (SWIFT and BIC are one). Its name is what the invoice prints in the parentheses; `labels` what its
+ * fields print as («Beneficiary name» for the receiver), else the invoice's language's; `invoice_requisites` the order
+ * of its requisites and which of them print (`InvoiceRequisites`). One active set of an account is its default, which a new
  * invoice prints; a set switched off isn't offered to new invoices. The IBAN and the account number are encrypted.
  *
  * @property int $id
@@ -33,8 +34,8 @@ use PryTax\Queries\TenantQuery;
  * @property string|null $iban
  * @property string|null $account_number
  * @property string|null $swift
- * @property string|null $bic
  * @property array<int, array{label: string, value: string}>|null $details
+ * @property array<string, string>|null $labels
  * @property array<int, array{field?: string|null, label?: string|null, shown: bool}>|null $invoice_requisites
  * @property bool $is_default
  * @property bool $is_active
@@ -72,8 +73,8 @@ class AccountRequisiteSet extends BaseModel
         'iban',
         'account_number',
         'swift',
-        'bic',
         'details',
+        'labels',
         'invoice_requisites',
         'is_default',
         'is_active',
@@ -100,6 +101,7 @@ class AccountRequisiteSet extends BaseModel
         'iban' => 'encrypted',
         'account_number' => 'encrypted',
         'details' => 'array',
+        'labels' => 'array',
         'invoice_requisites' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',
@@ -130,11 +132,11 @@ class AccountRequisiteSet extends BaseModel
      * Get the set's requisites, as `InvoiceRequisites::ordered()` and an invoice's snapshot take them.
      *
      * @return array{holder_name: string|null, bank_name: string|null, iban: string|null, account_number: string|null,
-     *     swift: string|null, bic: string|null, details: array|null, invoice_requisites: array|null}
+     *     swift: string|null, details: array|null, labels: array|null, invoice_requisites: array|null}
      */
     public function requisites(): array
     {
-        return $this->only(['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'bic', 'details', 'invoice_requisites']);
+        return $this->only(['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'details', 'labels', 'invoice_requisites']);
     }
 
     /**

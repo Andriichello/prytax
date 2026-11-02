@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\DataLifecycle\Backup\BackupRuns;
+use PryTax\DataLifecycle\Backup\Enums\BackupKind;
 use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Models\Backup;
 use PryTax\DataLifecycle\Backup\Models\BackupDownload;
@@ -198,6 +199,28 @@ class BackupControllerTest extends TestCase
 
         $this->assertSame(BackupStatus::Pruned, $manual->fresh()->status);
         $this->assertFalse(Storage::disk('backups')->exists($manual->object_path));
+    }
+
+    /**
+     * Test that the list of runs leaves out a run, whose every backup is deleted, while one with an archive left and
+     * one without backups yet are listed.
+     *
+     * @return void
+     */
+    public function testListsNoRunWhoseBackupsAreAllDeleted(): void
+    {
+        $deleted = $this->backup();
+        $kept = $this->backup();
+        $this->actAs($this->profile);
+        $this->deleteJson("/api/organization/backups/$deleted->id")->assertOk();
+        $queued = (new BackupRun(['kind' => BackupKind::Manual, 'status' => 'queued']))
+            ->forceFill(['organization_id' => $this->profile->organization_id, 'scope' => ['type' => 'full'], 'options' => []]);
+        $queued->saveQuietly();
+
+        $response = $this->getJson('/api/organization/backup-runs');
+
+        $response->assertOk();
+        $this->assertEqualsCanonicalizing([$kept->run_id, $queued->id], array_column($response->json('data'), 'id'));
     }
 
     /**

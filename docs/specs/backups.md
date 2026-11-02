@@ -1081,6 +1081,7 @@ As built (ids are ULIDs; v1.7 adds what the UI needs, marked «UI»; v1.8 the re
 GET    /api/organization/backup-policy                     owner, accountant (read)
 PUT    /api/organization/backup-policy                     owner (one group's fields at a time is fine)
 GET    /api/organization/backup-runs?page[number]=         owner, accountant: runs, newest first, ?include=backups
+                                                           (a run whose every backup is deleted isn't listed, 2026-11-02)
 POST   /api/organization/backup-runs                       owner, accountant   {profiles: all|[ids]} → 202 {run_id}
 GET    /api/organization/backup-runs/{run}                 status + per-profile results (?include=backups)
 POST   /api/organization/backup-runs/{run}/bundle          owner, accountant   → 202
@@ -1139,7 +1140,9 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
   · до 12 міс. ›»; desktop shows a policy summary card in the right column.
 - **Actions:** «+ Створити зараз» (primary) and «⤓ Усі ФОП · ZIP» (secondary); in the desktop header «+ Створити копію
   зараз» with the bundle button before it.
-- **«Копії»:** the runs, newest first (4 on mobile, 5 on desktop, then «Показати старіші · N»). A run card: the date
+- **«Копії»:** the runs, newest first (4 on mobile, 5 on desktop, then «Показати старіші · N»), but those whose every
+  backup is deleted (a manual one by its owner, a scheduled one by retention; 2026-11-02: they showed «Помилка» and a
+  «Видалити», which did nothing); a deleted backup of a listed run shows «Видалено». A run card: the date
   and time (the time in mono) and the kind chip (За розкладом, white bordered; Вручну, accent-soft; Автоматично,
   dashed); a line saying how long it is kept («зберігається до 03.11», «зберігається до 22.11 · остання копія тижня»,
   «доки не видалите · Олена Коваленко», «перед видаленням ФОП … · зберігається до 23.11»), with «⤓ Усі ФОП · ZIP»

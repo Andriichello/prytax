@@ -1,5 +1,5 @@
 {
-    "format_version": 1,
+    "format_version": 2,
     "tables": {
         "profiles": {
             "file": "data/profile.csv",
@@ -38,15 +38,32 @@
                 "name": "export",
                 "kind": "export",
                 "currency": "export",
+                "limit_amount": "export",
+                "limit_period": "export",
+                "is_active": "export",
+                "sort_order": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "account_requisite_sets": {
+            "file": "data/account_requisite_sets.csv",
+            "strategy": "profile",
+            "columns": {
+                "id": "export",
+                "profile_id": "export",
+                "account_id": "export",
+                "created_by_user_id": "export",
+                "name": "export",
                 "holder_name": "export",
                 "bank_name": "export",
                 "iban": "decrypt",
-                "swift": "export",
                 "account_number": "decrypt",
+                "swift": "export",
+                "bic": "export",
                 "details": "export",
                 "invoice_requisites": "export",
-                "limit_amount": "export",
-                "limit_period": "export",
+                "is_default": "export",
                 "is_active": "export",
                 "sort_order": "export",
                 "created_at": "export",
@@ -242,6 +259,20 @@
                 "quantity": "export",
                 "unit_price": "export",
                 "amount": "export",
+                "created_at": "export",
+                "updated_at": "export"
+            }
+        },
+        "invoice_payment_sections": {
+            "file": "data/invoice_payment_sections.csv",
+            "strategy": "child",
+            "columns": {
+                "id": "export",
+                "invoice_id": "export",
+                "requisite_set_id": "export",
+                "position": "export",
+                "title": "export",
+                "show_title": "export",
                 "created_at": "export",
                 "updated_at": "export"
             }

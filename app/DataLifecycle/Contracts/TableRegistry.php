@@ -37,4 +37,11 @@ interface TableRegistry
      * @return int
      */
     public function formatVersion(): int;
+
+    /**
+     * Get the upcasters, which read the archives of the older formats, one per version below the current one.
+     *
+     * @return list<ArchiveUpcaster>
+     */
+    public function upcasters(): array;
 }

@@ -12,6 +12,7 @@ use PryTax\DataLifecycle\Backup\ImportException;
 use PryTax\DataLifecycle\Backup\ImportResult;
 use PryTax\DataLifecycle\Backup\RunSpec;
 use PryTax\DataLifecycle\Contracts\ArchiveChecks;
+use PryTax\DataLifecycle\Contracts\ArchiveUpcaster;
 use PryTax\DataLifecycle\Contracts\ReferenceResolver;
 use PryTax\DataLifecycle\Contracts\TableRegistry;
 use PryTax\DataLifecycle\Contracts\TenantRoot;
@@ -130,7 +131,7 @@ final class ArchiveImporter
         try {
             $this->unlock($password);
             $manifest = $this->manifest();
-            $data = $this->data($manifest);
+            $data = $this->upcast($this->data($manifest), (int) $manifest['format_version']);
             $rootRow = $data[$this->root->table()][0] ?? throw new ImportException('The archive has no tenant.');
             $conflict = $this->root->importConflict($rootRow, $organizationId);
 
@@ -339,7 +340,7 @@ final class ArchiveImporter
             throw new ImportException("The archive is of format $version, newer than this app's {$this->registry->formatVersion()}.");
         }
 
-        if ($version < $this->registry->formatVersion()) {
+        if ($version < $this->registry->formatVersion() && count($this->upcastersFrom($version)) !== $this->registry->formatVersion() - $version) {
             throw new ImportException("The archive is of format $version, which no upcaster reads into {$this->registry->formatVersion()}.");
         }
 
@@ -348,6 +349,47 @@ final class ArchiveImporter
         }
 
         return $manifest;
+    }
+
+    /**
+     * Get the upcasters, which read an archive of the format into the current one, in turn.
+     *
+     * @param int $version
+     *
+     * @return list<ArchiveUpcaster>
+     */
+    private function upcastersFrom(int $version): array
+    {
+        $upcasters = [];
+
+        foreach ($this->registry->upcasters() as $upcaster) {
+            $upcasters[$upcaster->from()] = $upcaster;
+        }
+
+        $chain = [];
+
+        for ($from = $version; $from < $this->registry->formatVersion() && isset($upcasters[$from]); $from++) {
+            $chain[] = $upcasters[$from];
+        }
+
+        return $chain;
+    }
+
+    /**
+     * Read the rows of an archive of an older format into the current one's, through the upcasters from its version.
+     *
+     * @param array<string, array<int, array<string, string|null>>> $data
+     * @param int $version
+     *
+     * @return array<string, array<int, array<string, string|null>>>
+     */
+    private function upcast(array $data, int $version): array
+    {
+        foreach ($this->upcastersFrom($version) as $upcaster) {
+            $data = $upcaster->upcast($data);
+        }
+
+        return $data;
     }
 
     /**

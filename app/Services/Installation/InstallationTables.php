@@ -70,7 +70,7 @@ final class InstallationTables
      */
     public const array ENCRYPTED = [
         'profiles' => ['tax_id'],
-        'accounts' => ['iban', 'account_number'],
+        'account_requisite_sets' => ['iban', 'account_number'],
         'invoices' => ['snapshot'],
         'recovery_codes' => ['code'],
         'integrations' => ['key'],

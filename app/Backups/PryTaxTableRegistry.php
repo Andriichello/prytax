@@ -2,6 +2,7 @@
 
 namespace PryTax\Backups;
 
+use PryTax\DataLifecycle\Contracts\ArchiveUpcaster;
 use PryTax\DataLifecycle\Contracts\TableRegistry;
 use PryTax\DataLifecycle\Registry\TableSpec;
 use PryTax\Models\Profile;
@@ -20,11 +21,12 @@ use PryTax\Models\Profile;
 final class PryTaxTableRegistry implements TableRegistry
 {
     /**
-     * Version of the archives' format: bumped for breaking changes of the registry only (D11).
+     * Version of the archives' format: bumped for breaking changes of the registry only (D11). 2: an account's
+     * requisites moved into its sets, which invoices print in sections (`RequisiteSetsUpcaster` reads format 1).
      *
      * @var int
      */
-    public const int FORMAT_VERSION = 1;
+    public const int FORMAT_VERSION = 2;
 
     /**
      * Tables of PryTax, which aren't backed up, with the reason.
@@ -52,7 +54,8 @@ final class PryTaxTableRegistry implements TableRegistry
                 ->omit('tax_id_hash')
                 // An HMAC with the app's key, so it is computed again where the archive is imported
                 ->onImport(fn (array $row) => [...$row, 'tax_id_hash' => Profile::hashTaxId((string) $row['tax_id'])]),
-            TableSpec::profile('accounts')->decrypt(['iban', 'account_number']),
+            TableSpec::profile('accounts'),
+            TableSpec::profile('account_requisite_sets')->decrypt(['iban', 'account_number']),
             TableSpec::profile('account_opening_balances'),
             TableSpec::profile('account_movements'),
             TableSpec::profile('clients'),
@@ -71,6 +74,7 @@ final class PryTaxTableRegistry implements TableRegistry
                 ->deferred('primary_file_id')
                 ->generated('active_number'),
             TableSpec::child('invoice_items', parent: 'invoices', fk: 'invoice_id'),
+            TableSpec::child('invoice_payment_sections', parent: 'invoices', fk: 'invoice_id'),
             // Before payments (source_transfer_id)
             TableSpec::profile('account_transfers')->period('received_at'),
             // A period export takes the receipts, which its transfers' allocations name, too
@@ -115,5 +119,15 @@ final class PryTaxTableRegistry implements TableRegistry
     public function formatVersion(): int
     {
         return self::FORMAT_VERSION;
+    }
+
+    /**
+     * Get the upcasters, which read the archives of the older formats.
+     *
+     * @return list<ArchiveUpcaster>
+     */
+    public function upcasters(): array
+    {
+        return [new RequisiteSetsUpcaster];
     }
 }

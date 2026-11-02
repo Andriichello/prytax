@@ -5,8 +5,9 @@ namespace PryTax\Services\Accounts;
 /**
  * Class InvoiceRequisites.
  *
- * The requisites of an account in an invoice's payment details (invoice.md §4), in the order its owner put them, each
- * printed or not: its fields (beneficiary, bank, IBAN, account number, SWIFT), which have a value, and its own details.
+ * The requisites of a set of an account's (`AccountRequisiteSet`) in an invoice's payment details (invoice.md §4), in
+ * the order its owner put them, each printed or not: its fields (beneficiary, bank, IBAN, account number, SWIFT, BIC),
+ * which have a value, and its own details.
  * `invoice_requisites` names them in order, a field by its column and a detail by its label, each with `shown`; a
  * requisite it doesn't name (added later, or renamed) follows the named ones, in the built-in order, and prints.
  * Without it, every requisite prints in the built-in order: the fields, then the details as they were typed.
@@ -17,19 +18,19 @@ namespace PryTax\Services\Accounts;
 final class InvoiceRequisites
 {
     /**
-     * The account's fields, which are requisites, in the built-in order.
+     * The fields of a set, which are requisites, in the built-in order.
      *
      * @var list<string>
      */
-    public const array FIELDS = ['holder_name', 'bank_name', 'iban', 'account_number', 'swift'];
+    public const array FIELDS = ['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'bic'];
 
     /**
      * Get the account's requisites in order, whether each prints or not.
      *
      * @param array{holder_name?: string|null, bank_name?: string|null, iban?: string|null, account_number?: string|null,
-     *     swift?: string|null, details?: list<array{label?: string, value?: string}>|null,
+     *     swift?: string|null, bic?: string|null, details?: list<array{label?: string, value?: string}>|null,
      *     invoice_requisites?: list<array{field?: string|null, label?: string|null, shown?: bool}>|null} $account
-     *     The account's attributes, or a snapshot's `account`.
+     *     The set's requisites, a section of a snapshot, or a snapshot's `account` before schema 4.
      *
      * @return list<array{field: string|null, label: string|null, value: string, shown: bool}>
      */

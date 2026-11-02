@@ -48,6 +48,8 @@ table.card-cols td.purpose { padding-left:12pt; border-left:0.75pt solid #EEEDE8
 table.card-cols td.details { padding-right:12pt; }
 .purpose-text { color:#17191F; word-wrap:break-word; }
 .card-section { margin-top:9pt; padding-top:9pt; border-top:0.75pt solid #EEEDE8; }
+/* A section of the payment details after the first one, and the currency and the purpose after two or more */
+.pay-next { margin-top:6pt; }
 table.card-cols { table-layout:auto; }
 table.layout.strip td { padding:0 12pt 0 0; vertical-align:top; }
 table.layout.strip td.right { padding-right:0; }

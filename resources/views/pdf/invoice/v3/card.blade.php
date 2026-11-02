@@ -1,24 +1,33 @@
 {{--
-    The payment card: the payment details with the purpose, and the payment note under them; on the right, the act of
-    acceptance and the other note. Without either of those, the details take the card's width. Both notes may print.
+    The payment card: the payment details with the purpose (a titled block per section of requisites, the currency and
+    the purpose in the last one), and the payment note under them; on the right, the act of acceptance and the other
+    note. Without either of those, the details take the card's width. Both notes may print.
 --}}
 <div class="card">
     <table class="card-cols">
         <tr>
             <td class="details{{ $doc->hasCardRight() ? '' : ' full' }}" style="width: {{ $doc->hasCardRight() ? '50%' : '100%' }}">
-                <div class="lbl">{{ $t('payment_details') }}</div>
-                <table class="kv">
-                    @foreach ($doc->paymentDetails as $index => $row)
-                        <tr>
-                            <td class="k"@if ($index === 0) style="width: {{ $doc->kvKeyWidth }}pt"@endif>{{ $row['label'] }}</td>
-                            <td class="v">@if ($row['mono'])<span class="mono">{{ $row['value'] }}</span>@else{{ $row['value'] }}@endif</td>
-                        </tr>
-                    @endforeach
-                    <tr class="purpose-row">
-                        <td class="k">{{ $t('purpose_short') }}</td>
-                        <td class="v">{{ $doc->paymentPurpose }}</td>
-                    </tr>
-                </table>
+                @foreach ($doc->paymentBlocks as $block)
+                    <div @class(['pay-next' => !$loop->first])>
+                        @if ($block['label'] !== null)
+                            <div class="lbl">{{ $block['label'] }}</div>
+                        @endif
+                        <table class="kv">
+                            @foreach ($block['rows'] as $index => $row)
+                                <tr>
+                                    <td class="k"@if ($index === 0) style="width: {{ $doc->kvKeyWidth }}pt"@endif>{{ $row['label'] }}</td>
+                                    <td class="v">@if ($row['mono'])<span class="mono">{{ $row['value'] }}</span>@else{{ $row['value'] }}@endif</td>
+                                </tr>
+                            @endforeach
+                            @if ($block['purpose'])
+                                <tr class="purpose-row">
+                                    <td class="k"@if ($block['rows'] === []) style="width: {{ $doc->kvKeyWidth }}pt"@endif>{{ $t('purpose_short') }}</td>
+                                    <td class="v">{{ $doc->paymentPurpose }}</td>
+                                </tr>
+                            @endif
+                        </table>
+                    </div>
+                @endforeach
                 @if ($doc->paymentNote !== null)
                     <div class="card-section">
                         <div class="lbl">{{ $t('payment_note') }}</div>

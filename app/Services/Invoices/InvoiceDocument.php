@@ -38,7 +38,8 @@ readonly class InvoiceDocument
      * @param array{no: float, qty: float, price: float, amount: float} $itemsColWidths Content widths of the columns in pt; the description takes the rest.
      * @param array<int, array{label: string, value: string}> $subtotals The subtotal and the adjustment, when there is one.
      * @param string $total Such as `5213.00 USD`.
-     * @param array<int, array{label: string, value: string, mono: bool}> $paymentDetails
+     * @param list<array{label: string|null, rows: list<array{label: string, value: string, mono: bool}>, purpose: bool}> $paymentBlocks
+     *                                                                                                                                   The payment details: a titled block per section of requisites, the last one with the currency and the purpose.
      * @param float $kvKeyWidth Content width of the names of the payment details (and of the purpose) in pt.
      * @param string $paymentPurpose
      * @param string|null $actNote
@@ -65,7 +66,7 @@ readonly class InvoiceDocument
         public array $itemsColWidths,
         public array $subtotals,
         public string $total,
-        public array $paymentDetails,
+        public array $paymentBlocks,
         public float $kvKeyWidth,
         public string $paymentPurpose,
         public ?string $actNote,

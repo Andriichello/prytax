@@ -66,7 +66,7 @@ class PreviewInvoiceFactory
         $purpose = $uk ? 'Оплата за ІТ-послуги згідно з інвойсом № BRIT-2026-10-31-2 від :date' : 'Payment for IT services by the invoice No. BRIT-2026-10-31-2 from :date';
 
         return [
-            'schema_version' => 3,
+            'schema_version' => 4,
             'money_format' => 'plain_dot',
             'locale' => $locale->value,
             'frozen_at' => '2026-10-31T12:00:00+02:00',
@@ -110,18 +110,24 @@ class PreviewInvoiceFactory
                 'name' => 'Payoneer USD',
                 'kind' => 'platform',
                 'currency' => 'USD',
+            ],
+            'payment_sections' => [[
+                'title' => null,
+                'account' => ['name' => 'Payoneer USD', 'currency' => 'USD'],
                 'holder_name' => $andrii ? 'Prykhodko Andrii' : 'Myrchuk Mykola',
                 'bank_name' => 'Payoneer',
                 'iban' => null,
-                'swift' => 'CITIUS33',
                 'account_number' => '70450600001112233',
+                'swift' => 'CITIUS33',
+                'bic' => null,
                 'details' => [
                     ['label' => 'Bank name', 'value' => 'Citibank'],
                     ['label' => 'Bank address', 'value' => '111 Wall Street New York, NY 10043 USA'],
                     ['label' => 'Routing (ABA)', 'value' => '022200101'],
                     ['label' => 'Account type', 'value' => 'CHECKING'],
                 ],
-            ],
+                'invoice_requisites' => null,
+            ]],
             'invoice' => [
                 'number' => 'BRIT-2026-10-31-2',
                 'source' => 'generated',

@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-02 (later): **everything is merged into `dev`** (the user: "merge into dev and migrate both databases"; `dev` fast-forwarded to `feat/invoice-requisites-order`, then this note; not `main`, not pushed; 16 ahead of `origin/dev`). It orders an account's requisites in invoices and switches each on or off (see "The requisites' order in invoices"). Both SQLite databases are migrated (copies `*.before-migrate-20261102-110342` beside them); the desktop one also ran the three pending migrations of 2026-10-31 (installations, integrations, their writes) and the roles' sync. Last runs: `composer test:sqlite` 683, SPA 815, typecheck, build. Before it, as of 2026-11-02: **everything is merged into `dev`** (the user: "fix the flaky test too, then merge into dev"; `dev` fast-forwarded to `fix/claude-connections` → `fix/installation-work-per-process`, then this note; not `main`, not pushed). `main` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). It records Claude Code's connections and fixes a flaky test (see "Claude Code's connections, recorded"). Last runs: `composer test:sqlite` 676, three times in a row (MySQL was stopped, so `composer test` didn't run). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+Status as of 2026-11-02 (latest): branch **`feat/requisite-sets`** (from `dev`; not merged, not pushed): an account's requisites in sets (SEPA, SWIFT; SWIFT and BIC apart), an invoice's «Payment details (…)» sections, backups of format 2 (see "Sets of requisites"). Its migration hasn't run on the user's databases (tried on copies of both: correct). Last runs: `composer test:sqlite` 704, SPA 823, typecheck, build. Before it, as of 2026-11-02 (later): **everything is merged into `dev`** (the user: "merge into dev and migrate both databases"; `dev` fast-forwarded to `feat/invoice-requisites-order`, then this note; not `main`, not pushed; 16 ahead of `origin/dev`). It orders an account's requisites in invoices and switches each on or off (see "The requisites' order in invoices"). Both SQLite databases are migrated (copies `*.before-migrate-20261102-110342` beside them); the desktop one also ran the three pending migrations of 2026-10-31 (installations, integrations, their writes) and the roles' sync. Last runs: `composer test:sqlite` 683, SPA 815, typecheck, build. Before it, as of 2026-11-02: **everything is merged into `dev`** (the user: "fix the flaky test too, then merge into dev"; `dev` fast-forwarded to `fix/claude-connections` → `fix/installation-work-per-process`, then this note; not `main`, not pushed). `main` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). It records Claude Code's connections and fixes a flaky test (see "Claude Code's connections, recorded"). Last runs: `composer test:sqlite` 676, three times in a row (MySQL was stopped, so `composer test` didn't run). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
 into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
 `chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
 "Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
@@ -60,6 +60,42 @@ built; `docs/specs/suggestions.md` what is deferred or hidden). The current desi
 specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps 8–9 were built on branch
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
+
+## Sets of requisites, and an invoice's «Payment details (…)» sections (2026-11-02; branch `feat/requisite-sets` from `dev`, not merged, not pushed)
+
+The user: SWIFT and BIC as separate inputs; Monobank's ФОП EUR account has two sets (SEPA: IBAN, BIC CLJUGB21,
+receiver; SWIFT: UA IBAN, SWIFT UNJSUAUKXXX, «PE …» receiver, address), so sets per account (a default, on/off), and
+the invoice choosing one or more, each «Payment details (SEPA)» with the parentheses editable per invoice; think of two
+accounts on one invoice (later). Chosen (AskUserQuestion): **every section labelled** with two or more; **Currency and
+Purpose once**, after the last section; a new invoice takes **the client's last invoice's sets** to the account, else
+the default. invoice.md §2–§4, design.md (Рахунок, Новий інвойс), backups.md v1.11.
+- **Data** (migration 2026_11_02_121933): `account_requisite_sets` (name = the parentheses' text, holder, bank,
+  IBAN/account number encrypted, swift, bic, details, invoice_requisites, is_default, is_active, sort_order) and
+  `invoice_payment_sections` (invoice, set, position, title null = the set's name, show_title; locked by the invoice);
+  each account's requisites moved into its default set (raw ciphertext copied), each non-virtual invoice into a
+  section; the account's columns dropped. Snapshot schema 4: `payment_sections` (title, account, requisites); schema 3
+  still renders as one untitled section with «SWIFT / BIC» (`swift_bic`).
+- **API:** `accounts/{account}/requisite-sets` (CRUD, `models.account-requisite-sets`; `AccountRequisiteSetRepository`:
+  first set default, a new default takes it over, the default not made none, switched off or deleted while there are
+  others); a new account takes `requisites` (its first set, in one transaction: `AccountRepository::create`);
+  `RequisiteSetRules` is a static class (prefixable). Invoices take `payment_sections`
+  (`[{requisite_set_id, title, show_title}]`; `PaymentSections`: defaults, checks, replace, snapshot, ensure for an
+  issued virtual invoice); `invoices/defaults` returns them; `?include=paymentSections`.
+- **PDF:** `InvoicePdfRenderer::paymentBlocks()`: one section → one titled block ending with Currency + Purpose; two or
+  more → a block each, then an untitled one; `.pay-next` 6 pt; labels `payment_details_titled`, `swift`, `bic`.
+- **Backups:** format 2; the engine's `ArchiveUpcaster` + `TableRegistry::upcasters()`; `RequisiteSetsUpcaster` reads
+  format 1; `InstallationTables::ENCRYPTED` names the sets'. The registry snapshot was regenerated on SQLite and only
+  the changed parts merged (SQLite ignores `->after()`, which would reorder other tables).
+- **SPA:** Рахунок's sets as cards (`requisiteSetName`, «Упорядкувати» per set, «Змінити» → `RequisiteSetFormPage`,
+  routes `requisite-set-new`/`-edit`); `RequisiteSetFields` (was `AccountDetailsFields`), `RequisiteSetFormModel`; the
+  account form lost its requisites group, a new one sends `requisites`; the invoice editor's pay group edits the
+  sections (↑ ↓ ✕, «У дужках», the switch locked on for 2+, «+ Додати реквізити»; another account resets them);
+  the tax route matches banks of the accounts' active sets.
+- **Checked:** scratch demo (Wise EUR has SEPA and SWIFT sets) at 390/1440 px: the cards, the set form, a new default,
+  the editor adding SWIFT to draft 42 (which took SEPA from Nordwave's last invoice), the preview PDF with two titled
+  sections and Currency/Purpose once (rendered and looked at). The migration on copies of the user's two databases:
+  web 3 sets + 4 sections (4 virtual skipped), desktop 2 + 1; an encrypted account number decrypts.
+- **Not done (later):** sets of two accounts on one invoice (the snapshot's sections carry their account already).
 
 ## The requisites' order in invoices (2026-11-02; branch `feat/invoice-requisites-order` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 

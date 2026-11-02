@@ -10,7 +10,8 @@ use Tests\TestCase;
 /**
  * Class AccountRequisiteSetControllerTest.
  *
- * Sets of an account's requisites (invoice.md §4): SWIFT and BIC apart, normalized; the first set the default, made
+ * Sets of an account's requisites (invoice.md §4): one code for SWIFT and BIC, normalized, and the labels its fields
+ * print under, blank ones dropped, another key refused (422); the first set the default, made
  * the default another one takes it over, and the default neither switched off nor deleted while there are others; the
  * order of a set's requisites in invoices and which of them print, refused with 422, when an entry names neither a
  * field nor a label, both or an unknown field.
@@ -24,8 +25,8 @@ class AccountRequisiteSetControllerTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test that an account's first set is its default, with SWIFT and BIC each its own, upper case without spaces,
-     * and that another set made the default takes it over.
+     * Test that an account's first set is its default, its IBAN and code upper case without spaces, its labels
+     * trimmed and blank ones dropped, and that another set made the default takes it over.
      *
      * @return void
      */
@@ -36,14 +37,17 @@ class AccountRequisiteSetControllerTest extends TestCase
         $account = $this->createAccount($profile, ['currency' => 'EUR']);
         $path = $this->profilePath($profile, "accounts/{$account->id}/requisite-sets");
 
-        $sepa = $this->postJson($path, ['name' => 'SEPA', 'iban' => 'gb12 3456 7890 1234 5678 90', 'bic' => 'cljugb21']);
+        $sepa = $this->postJson($path, [
+            'name' => 'SEPA', 'iban' => 'gb12 3456 7890 1234 5678 90', 'swift' => 'cljugb21',
+            'labels' => ['holder_name' => ' Beneficiary name ', 'swift' => 'BIC code', 'bank_name' => ' '],
+        ]);
         $swift = $this->postJson($path, ['name' => 'SWIFT', 'swift' => 'unjs ua uk xxx', 'is_default' => true]);
 
         $sepa->assertCreated()
             ->assertJsonPath('data.is_default', true)
             ->assertJsonPath('data.iban', 'GB12345678901234567890')
-            ->assertJsonPath('data.bic', 'CLJUGB21')
-            ->assertJsonPath('data.swift', null);
+            ->assertJsonPath('data.swift', 'CLJUGB21')
+            ->assertJsonPath('data.labels', ['holder_name' => 'Beneficiary name', 'swift' => 'BIC code']);
         $swift->assertCreated()->assertJsonPath('data.is_default', true)->assertJsonPath('data.swift', 'UNJSUAUKXXX');
         $this->getJson("$path?sort=id")->assertOk()
             ->assertJsonPath('data.0.name', 'SEPA')
@@ -106,7 +110,7 @@ class AccountRequisiteSetControllerTest extends TestCase
         $set = $this->createRequisiteSet($account, ['details' => [['label' => 'Routing (ABA)', 'value' => '022200101']]]);
         $order = [
             ['label' => 'Routing (ABA)', 'shown' => true],
-            ['field' => 'bic', 'shown' => false],
+            ['field' => 'swift', 'shown' => false],
             ['field' => 'holder_name', 'shown' => true],
         ];
 
@@ -153,5 +157,23 @@ class AccountRequisiteSetControllerTest extends TestCase
             'an unknown field' => [['field' => 'name', 'shown' => true], 'invoice_requisites.0.field', 'The selected invoice_requisites.0.field is invalid.'],
             'without shown' => [['field' => 'iban'], 'invoice_requisites.0.shown', 'The invoice_requisites.0.shown field is required.'],
         ];
+    }
+
+    /**
+     * Test that a label of a field the sets don't have is refused (422), and nothing is saved.
+     *
+     * @return void
+     */
+    public function testReturns422ForALabelOfAnUnknownField(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        $set = $this->createRequisiteSet($account);
+
+        $response = $this->patchJson($this->profilePath($profile, "accounts/{$account->id}/requisite-sets/{$set->id}"), ['labels' => ['bic' => 'BIC']]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['labels' => 'The labels field must be an array.']);
+        $this->assertNull($set->refresh()->labels);
     }
 }

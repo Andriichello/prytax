@@ -160,7 +160,8 @@ class PaymentSectionsTest extends TestCase
             ->assertJsonPath('data.snapshot.payment_sections.0.swift', 'UNJSUAUKXXX')
             ->assertJsonPath('data.snapshot.payment_sections.0.account.name', 'Monobank ФОП EUR')
             ->assertJsonPath('data.snapshot.payment_sections.1.title', 'Europe')
-            ->assertJsonPath('data.snapshot.payment_sections.1.bic', 'CLJUGB21');
+            ->assertJsonPath('data.snapshot.payment_sections.1.swift', 'CLJUGB21')
+            ->assertJsonPath('data.snapshot.payment_sections.1.labels', ['swift' => 'BIC']);
     }
 
     /**

@@ -147,7 +147,7 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('message', 'Frozen')
             ->assertJsonPath('data.number', 'BL-2026-10-14-1')
             ->assertJsonPath('data.status', 'ready')
-            ->assertJsonPath('data.snapshot.schema_version', 4)
+            ->assertJsonPath('data.snapshot.schema_version', 5)
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
             ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Payment for services by the invoice No. BL-2026-10-14-1 from Oct 14, 2026')
             ->assertJsonPath('data.snapshot.account.name', $account->name)
@@ -585,7 +585,7 @@ class InvoiceControllerTest extends TestCase
 
         $snapshot = $this->getJson($this->profilePath($profile, "invoices/$frozen?append=snapshot"))
             ->assertOk()
-            ->assertJsonPath('data.snapshot.schema_version', 4)
+            ->assertJsonPath('data.snapshot.schema_version', 5)
             ->assertJsonPath('data.snapshot.locale', 'uk')
             ->assertJsonPath('data.snapshot.profile.name', 'Мирчук Микола')
             ->assertJsonPath('data.snapshot.presentation', [

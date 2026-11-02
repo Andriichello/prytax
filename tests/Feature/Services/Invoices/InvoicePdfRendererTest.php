@@ -140,7 +140,7 @@ class InvoicePdfRendererTest extends TestCase
         $metadata = $this->inProfile($profile, fn () => $invoice->fresh()->primaryFile->metadata);
 
         $this->assertSame('v3', $metadata['template_version']);
-        $this->assertSame(4, $metadata['schema_version']);
+        $this->assertSame(5, $metadata['schema_version']);
     }
 
     /**
@@ -416,14 +416,14 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * Test that two sets print a section each, titled with its parentheses, SWIFT and BIC each by its name, and the
-     * currency and the purpose once after them, untitled.
+     * Test that two sets print a section each, titled with its parentheses, and the currency and the purpose once
+     * after them, untitled; a snapshot of schema 4, while SWIFT and BIC were apart, prints them each by its name.
      *
      * @return void
      */
     public function testPrintsASectionPerSetThenTheCurrencyAndThePurposeOnce(): void
     {
-        $html = $this->html(replace: $this->snapshotWithSections([
+        $html = $this->html(replace: $this->snapshotWithSections(schema: 4, sections: [
             ['title' => 'SEPA', 'holder_name' => 'PRYKHODKO ANDRIY', 'iban' => 'GB33CLJU04130780000000', 'bic' => 'CLJUGB21'],
             ['title' => 'SWIFT', 'holder_name' => 'PE PRYKHODKO ANDRIY', 'iban' => 'UA213223130000026007233566001', 'swift' => 'UNJSUAUKXXX',
                 'details' => [['label' => 'Address', 'value' => '88000, Ukraine, Uzhhorod']]],
@@ -434,6 +434,28 @@ class InvoicePdfRendererTest extends TestCase
             ['Payment details (SWIFT)', ['Beneficiary', 'IBAN', 'SWIFT', 'Address']],
             [null, ['Currency', 'Purpose']],
         ], $this->paymentBlocksOf($html));
+    }
+
+    /**
+     * Test that a set's fields print under the labels its owner gave them, else the invoice's language's: the code
+     * «SWIFT / BIC».
+     *
+     * @return void
+     */
+    public function testPrintsTheFieldsUnderTheirLabelsOrTheLanguages(): void
+    {
+        $html = $this->html(replace: $this->snapshotWithSections([
+            ['title' => 'SEPA', 'holder_name' => 'PRYKHODKO ANDRIY', 'iban' => 'GB33CLJU04130780000000', 'swift' => 'CLJUGB21',
+                'labels' => ['holder_name' => 'Beneficiary name', 'swift' => 'BIC code']],
+            ['title' => 'SWIFT', 'holder_name' => 'PE PRYKHODKO ANDRIY', 'swift' => 'UNJSUAUKXXX'],
+        ]));
+
+        $this->assertSame([
+            ['Payment details (SEPA)', ['Beneficiary name', 'IBAN', 'BIC code']],
+            ['Payment details (SWIFT)', ['Beneficiary', 'SWIFT / BIC']],
+            [null, ['Currency', 'Purpose']],
+        ], $this->paymentBlocksOf($html));
+        $this->assertStringContainsString('<span class="mono">CLJUGB21</span>', $html);
     }
 
     /**
@@ -448,9 +470,9 @@ class InvoicePdfRendererTest extends TestCase
     #[DataProvider('titlesOfOneSection')]
     public function testPrintsOneSectionWithTheCurrencyAndThePurpose(?string $title, string $heading): void
     {
-        $html = $this->html(replace: $this->snapshotWithSections([['title' => $title, 'holder_name' => 'Myrchuk Mykola', 'iban' => 'BE71967000004410', 'bic' => 'TRWIBEB1XXX']]));
+        $html = $this->html(replace: $this->snapshotWithSections([['title' => $title, 'holder_name' => 'Myrchuk Mykola', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX']]));
 
-        $this->assertSame([[$heading, ['Beneficiary', 'IBAN', 'BIC', 'Currency', 'Purpose']]], $this->paymentBlocksOf($html));
+        $this->assertSame([[$heading, ['Beneficiary', 'IBAN', 'SWIFT / BIC', 'Currency', 'Purpose']]], $this->paymentBlocksOf($html));
     }
 
     /**
@@ -703,20 +725,22 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
-     * The snapshot of BRIT-2026-10-31-2 in version 4, whose account's requisites print in the sections given.
+     * The snapshot of BRIT-2026-10-31-2 in version 5 (or the given one), whose account's requisites print in the
+     * sections given.
      *
      * @param list<array<string, mixed>> $sections
+     * @param int $schema
      *
      * @return array
      */
-    private function snapshotWithSections(array $sections): array
+    private function snapshotWithSections(array $sections, int $schema = 5): array
     {
         $snapshot = $this->snapshot();
-        $snapshot['schema_version'] = 4;
+        $snapshot['schema_version'] = $schema;
         $snapshot['account'] = ['name' => 'Monobank ФОП EUR', 'kind' => 'fop_bank', 'currency' => 'EUR'];
         $snapshot['payment_sections'] = array_map(fn (array $section) => [
             'account' => ['name' => 'Monobank ФОП EUR', 'currency' => 'EUR'],
-            'bank_name' => null, 'account_number' => null, 'swift' => null, 'bic' => null, 'details' => null, 'invoice_requisites' => null,
+            'bank_name' => null, 'account_number' => null, 'swift' => null, 'details' => null, 'labels' => null, 'invoice_requisites' => null,
             ...$section,
         ], $sections);
 

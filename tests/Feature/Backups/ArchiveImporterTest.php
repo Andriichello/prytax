@@ -170,10 +170,35 @@ class ArchiveImporterTest extends TestCase
         $this->inProfile($copy, function () {
             $set = AccountRequisiteSet::query()->sole();
             $this->assertTrue($set->is_default);
-            $this->assertSame(['UA213223130000026007233566001', 'PBANUA2X', null], [$set->iban, $set->swift, $set->bic]);
+            $this->assertSame(['UA213223130000026007233566001', 'PBANUA2X', null], [$set->iban, $set->swift, $set->labels]);
             $this->assertSame([['label' => 'Routing (ABA)', 'shown' => true]], $set->invoice_requisites);
             $this->assertSame(Account::query()->sole()->id, $set->account_id);
             $this->assertSame([$set->id], InvoicePaymentSection::query()->whereIn('invoice_id', Invoice::query()->pluck('id'))->pluck('requisite_set_id')->all());
+        });
+    }
+
+    /**
+     * Test that an archive of format 2, whose sets kept a BIC apart from the SWIFT, is restored with the BIC as the
+     * set's code, labelled «BIC».
+     *
+     * @return void
+     */
+    public function testRestoresAnArchiveOfFormat2WithTheBicAsTheLabelledCode(): void
+    {
+        $this->cacheRates(['USD' => ['2026-10-05' => '41.4500']]);
+        $this->profile = $this->createProfile();
+        $account = $this->createAccount($this->profile);
+        $this->createRequisiteSet($account, state: 'sepa');
+        $this->recordReceipt($this->profile, $this->createFrozenInvoice($this->profile, $account), $account);
+        $archive = $this->writeArchive($this->profile)->path;
+        $this->asFormat2($archive);
+
+        $result = app(ArchiveImporter::class)->import($archive, Organization::factory()->create()->id);
+
+        $copy = Profile::query()->withoutGlobalScopes()->findOrFail($result->tenantId);
+        $this->inProfile($copy, function () {
+            $set = AccountRequisiteSet::query()->sole();
+            $this->assertSame(['CLJUGB21', ['swift' => 'BIC']], [$set->swift, $set->labels]);
         });
     }
 
@@ -509,6 +534,40 @@ class ArchiveImporterTest extends TestCase
         }
 
         return $result;
+    }
+
+    /**
+     * Turn an archive into one of format 2, as it was on 2026-11-02 before the labels: a code labelled «BIC» back in
+     * the set's `bic`, without the sets' labels.
+     *
+     * @param string $archive
+     *
+     * @return void
+     */
+    private function asFormat2(string $archive): void
+    {
+        $path = 'data/account_requisite_sets.csv';
+        $sets = array_map(function (array $set) {
+            $bic = (json_decode((string) $set['labels'], true)['swift'] ?? null) === 'BIC';
+            unset($set['labels']);
+
+            return [...$set, 'swift' => $bic ? null : $set['swift'], 'bic' => $bic ? $set['swift'] : null];
+        }, $this->archiveRows($archive, $path));
+        $csv = Csv::BOM . Csv::line(array_keys($sets[0])) . implode('', array_map(fn (array $row) => Csv::line(array_values($row)), $sets));
+        $manifest = json_decode((string) $this->archiveFile($archive, 'manifest.json'), true);
+        $manifest['format_version'] = 2;
+
+        foreach ($manifest['files'] as &$file) {
+            if ($file['path'] === $path) {
+                $file['sha256'] = hash('sha256', $csv);
+            }
+        }
+
+        $zip = new ZipArchive;
+        $zip->open($archive);
+        $zip->addFromString($path, $csv);
+        $zip->addFromString('manifest.json', json_encode($manifest));
+        $zip->close();
     }
 
     /**

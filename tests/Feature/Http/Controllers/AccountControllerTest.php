@@ -54,10 +54,10 @@ class AccountControllerTest extends TestCase
         $this->actAs($profile);
 
         $response = $this->postJson($this->profilePath($profile, 'accounts'), [
-            'name' => 'Monobank ФОП EUR', 'kind' => 'fop_bank', 'currency' => 'EUR', 'requisites' => ['bic' => 'CLJU'],
+            'name' => 'Monobank ФОП EUR', 'kind' => 'fop_bank', 'currency' => 'EUR', 'requisites' => ['swift' => 'CLJU'],
         ]);
 
-        $response->assertUnprocessable()->assertJsonValidationErrors(['requisites.bic' => 'The requisites.bic field format is invalid.']);
+        $response->assertUnprocessable()->assertJsonValidationErrors(['requisites.swift' => 'The requisites.swift field format is invalid.']);
         $this->assertDatabaseCount('accounts', 0);
     }
 }

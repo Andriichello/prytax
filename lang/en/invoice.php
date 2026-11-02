@@ -39,10 +39,10 @@ return [
         'bank' => 'Bank',
         'iban' => 'IBAN',
         'account_number' => 'Account number',
-        'swift' => 'SWIFT',
+        'swift' => 'SWIFT / BIC',
+        // Of invoices frozen while SWIFT and BIC were apart (schema 4, 2026-11-02)
+        'swift_alone' => 'SWIFT',
         'bic' => 'BIC',
-        // Of invoices frozen before SWIFT and BIC were apart
-        'swift_bic' => 'SWIFT / BIC',
         'currency' => 'Currency',
         'payment_purpose' => 'Payment purpose',
         'act_of_acceptance' => 'Act of acceptance',

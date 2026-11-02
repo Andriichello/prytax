@@ -521,7 +521,7 @@ class InvoicePdfRenderer
      * Get the blocks of the payment details (invoice.md §4): one «Payment details (…)» section per set of requisites
      * the invoice prints, then the currency and the purpose. One section (or none) ends with them; of two or more,
      * each is titled with its parentheses and the currency and the purpose follow once, untitled. A snapshot before
-     * schema 4 keeps the account's requisites, which print as one section with SWIFT and BIC in one row, as frozen.
+     * schema 4 keeps the account's requisites, which print as one section, as frozen.
      *
      * @param array $snapshot
      * @param string $currency
@@ -532,13 +532,14 @@ class InvoicePdfRenderer
     protected function paymentBlocks(array $snapshot, string $currency, callable $label): array
     {
         $account = $snapshot['account'] ?? [];
+        $schema = (int) ($snapshot['schema_version'] ?? 1);
         $tail = [['label' => $label('currency'), 'value' => (string) (($account['currency'] ?? null) ?: $currency), 'mono' => false]];
         $sections = array_key_exists('payment_sections', $snapshot)
             ? array_map(fn (array $section) => [
                 'title' => filled($section['title'] ?? null) ? (string) $section['title'] : null,
-                'rows' => $this->requisiteRows($section, $label, legacy: false),
+                'rows' => $this->requisiteRows($section, $label, $schema),
             ], $snapshot['payment_sections'])
-            : [['title' => null, 'rows' => $this->requisiteRows($account, $label, legacy: true)]];
+            : [['title' => null, 'rows' => $this->requisiteRows($account, $label, $schema)]];
         $heading = fn (?string $title) => $title === null ? $label('payment_details') : $label('payment_details_titled', ['title' => $title]);
 
         if (count($sections) <= 1) {
@@ -555,24 +556,25 @@ class InvoicePdfRenderer
 
     /**
      * Get the rows of a set of requisites, which print, in the order its owner put them (without an order: its
-     * fields, then its details as they were typed; `InvoiceRequisites`).
+     * fields, then its details as they were typed; `InvoiceRequisites`), each field under its owner's label, else the
+     * invoice's language's: the code «SWIFT / BIC», but «SWIFT» in a snapshot of schema 4, where a BIC was apart.
      *
      * @param array $requisites
      * @param callable(string, array): string $label
-     * @param bool $legacy A snapshot before schema 4, whose `swift` printed as «SWIFT / BIC».
+     * @param int $schema The snapshot's schema.
      *
      * @return list<array{label: string, value: string, mono: bool}>
      */
-    protected function requisiteRows(array $requisites, callable $label, bool $legacy): array
+    protected function requisiteRows(array $requisites, callable $label, int $schema): array
     {
         $fields = ['holder_name' => ['beneficiary', false], 'bank_name' => ['bank', false], 'iban' => ['iban', true],
-            'account_number' => ['account_number', true], 'swift' => [$legacy ? 'swift_bic' : 'swift', true], 'bic' => ['bic', true]];
+            'account_number' => ['account_number', true], 'swift' => [$schema === 4 ? 'swift_alone' : 'swift', true], 'bic' => ['bic', true]];
         $rows = [];
 
         foreach (InvoiceRequisites::ordered($requisites) as $requisite) {
             if ($requisite['shown']) {
                 [$key, $mono] = $requisite['field'] === null ? [null, true] : $fields[$requisite['field']];
-                $rows[] = ['label' => $key === null ? (string) $requisite['label'] : $label($key), 'value' => $requisite['value'], 'mono' => $mono];
+                $rows[] = ['label' => $requisite['label'] ?? $label((string) $key), 'value' => $requisite['value'], 'mono' => $mono];
             }
         }
 

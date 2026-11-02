@@ -129,11 +129,12 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
      * Version of the snapshot's structure, which the PDF template reads: 2 adds the language, the parties' names in
      * it and the resolved document settings (`presentation`, design.md §4.1); 3 adds the style and the payment and
      * the other note to them, and drops the footer note, which the notes replace; 4 moves the account's requisites
-     * into `payment_sections`, a «Payment details (…)» section per set the invoice prints (invoice.md §4).
+     * into `payment_sections`, a «Payment details (…)» section per set the invoice prints (invoice.md §4); 5 gives a
+     * section the labels of its fields, and one code for SWIFT and BIC («SWIFT / BIC» unless labelled).
      *
      * @var int
      */
-    public const int SNAPSHOT_SCHEMA_VERSION = 4;
+    public const int SNAPSHOT_SCHEMA_VERSION = 5;
 
     /**
      * The attributes that are mass-assignable.

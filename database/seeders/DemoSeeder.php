@@ -190,7 +190,7 @@ class DemoSeeder extends Seeder
         CurrentProfile::run($profile, function () use ($profile) {
             $wiseUsd = $this->account($profile, 'Wise USD', AccountKind::Platform, 'USD', ['bank_name' => 'Wise', 'account_number' => '8310004410', 'details' => [['label' => 'ACH routing', 'value' => '026073150012']], 'sort_order' => 1]);
             $wiseEur = $this->account($profile, 'Wise EUR', AccountKind::Platform, 'EUR', ['sort_order' => 2], [
-                ['name' => 'SEPA', 'bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'bic' => 'TRWIBEB1XXX'],
+                ['name' => 'SEPA', 'bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX', 'labels' => ['swift' => 'BIC', 'holder_name' => 'Beneficiary name']],
                 ['name' => 'SWIFT', 'bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX', 'details' => [['label' => 'Address', 'value' => 'Rue du Trône 100, 1050 Brussels, Belgium']]],
             ]);
             $payoneer = $this->account($profile, 'Payoneer USD', AccountKind::Platform, 'USD', [
@@ -578,7 +578,7 @@ class DemoSeeder extends Seeder
      */
     protected function account(Profile $profile, string $name, AccountKind $kind, string $currency, array $attributes = [], array $sets = []): Account
     {
-        $requisites = ['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'bic', 'details'];
+        $requisites = ['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'details', 'labels'];
         $account = new Account(['name' => $name, 'kind' => $kind, 'currency' => $currency, ...Arr::except($attributes, $requisites)]);
         $account->profile_id = $profile->id;
         $account->save();

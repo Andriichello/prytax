@@ -40,6 +40,7 @@ use PryTax\Services\Accounts\AccountStatement;
  * @property string|null $swift
  * @property string|null $account_number
  * @property array|null $details
+ * @property array<int, array{field?: string|null, label?: string|null, shown: bool}>|null $invoice_requisites
  * @property string|null $limit_amount
  * @property LimitPeriod|null $limit_period
  * @property bool $is_active
@@ -82,6 +83,7 @@ class Account extends BaseModel
         'swift',
         'account_number',
         'details',
+        'invoice_requisites',
         'limit_amount',
         'limit_period',
         'is_active',
@@ -108,6 +110,7 @@ class Account extends BaseModel
         'iban' => 'encrypted',
         'account_number' => 'encrypted',
         'details' => 'array',
+        'invoice_requisites' => 'array',
         'limit_amount' => 'decimal:2',
         'limit_period' => LimitPeriod::class,
         'is_active' => 'boolean',

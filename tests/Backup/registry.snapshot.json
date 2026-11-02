@@ -44,6 +44,7 @@
                 "swift": "export",
                 "account_number": "decrypt",
                 "details": "export",
+                "invoice_requisites": "export",
                 "limit_amount": "export",
                 "limit_period": "export",
                 "is_active": "export",

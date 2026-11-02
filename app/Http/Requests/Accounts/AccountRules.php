@@ -6,6 +6,7 @@ use Illuminate\Validation\Rule;
 use PryTax\Enums\AccountKind;
 use PryTax\Enums\LimitPeriod;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
+use PryTax\Services\Accounts\InvoiceRequisites;
 
 /**
  * Trait AccountRules.
@@ -40,6 +41,11 @@ trait AccountRules
             'details' => ['sometimes', 'nullable', 'array', 'max:20'],
             'details.*.label' => ['required', 'string', 'max:64'],
             'details.*.value' => ['required', 'string', 'max:255'],
+            'invoice_requisites' => ['sometimes', 'nullable', 'list', 'max:30'],
+            'invoice_requisites.*' => ['array:field,label,shown'],
+            'invoice_requisites.*.field' => ['nullable', 'string', Rule::in(InvoiceRequisites::FIELDS), 'required_without:invoice_requisites.*.label', 'prohibits:invoice_requisites.*.label'],
+            'invoice_requisites.*.label' => ['nullable', 'string', 'max:64', 'required_without:invoice_requisites.*.field'],
+            'invoice_requisites.*.shown' => ['required', 'boolean'],
             'limit_amount' => ['sometimes', 'nullable', ...$this->moneyRules()],
             'limit_period' => ['sometimes', 'nullable', 'required_with:limit_amount', Rule::enum(LimitPeriod::class)],
             'is_active' => ['sometimes', 'boolean'],

@@ -13,6 +13,7 @@ use PryTax\Helpers\DocumentDate;
 use PryTax\Helpers\MoneyFormatter;
 use PryTax\Models\Invoice;
 use PryTax\Models\Profile;
+use PryTax\Services\Accounts\InvoiceRequisites;
 use PryTax\Services\Pdf\PdfFonts;
 
 /**
@@ -517,8 +518,9 @@ class InvoicePdfRenderer
     }
 
     /**
-     * Get the rows of the payment details, in the order of template v1: the account's own fields, its details as they
-     * were typed, and the currency.
+     * Get the rows of the payment details: the account's requisites, which print, in the order its owner put them (a
+     * snapshot without an order: its fields, then its details as they were typed; `InvoiceRequisites`), and the
+     * currency.
      *
      * @param array $account
      * @param string $currency
@@ -528,17 +530,15 @@ class InvoicePdfRenderer
      */
     protected function paymentDetails(array $account, string $currency, callable $label): array
     {
+        $fields = ['holder_name' => ['beneficiary', false], 'bank_name' => ['bank', false], 'iban' => ['iban', true],
+            'account_number' => ['account_number', true], 'swift' => ['swift', true]];
         $rows = [];
 
-        foreach (['holder_name' => ['beneficiary', false], 'bank_name' => ['bank', false], 'iban' => ['iban', true],
-            'account_number' => ['account_number', true], 'swift' => ['swift', true]] as $field => [$key, $mono]) {
-            if (filled($account[$field] ?? null)) {
-                $rows[] = ['label' => $label($key), 'value' => (string) $account[$field], 'mono' => $mono];
+        foreach (InvoiceRequisites::ordered($account) as $requisite) {
+            if ($requisite['shown']) {
+                [$key, $mono] = $requisite['field'] === null ? [null, true] : $fields[$requisite['field']];
+                $rows[] = ['label' => $key === null ? (string) $requisite['label'] : $label($key), 'value' => $requisite['value'], 'mono' => $mono];
             }
-        }
-
-        foreach ($account['details'] ?? [] as $detail) {
-            $rows[] = ['label' => (string) ($detail['label'] ?? ''), 'value' => (string) ($detail['value'] ?? ''), 'mono' => true];
         }
 
         $rows[] = ['label' => $label('currency'), 'value' => (string) (($account['currency'] ?? null) ?: $currency), 'mono' => false];

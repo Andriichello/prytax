@@ -282,6 +282,7 @@ class InvoiceFreezer
                 'swift' => $account->swift,
                 'account_number' => $account->account_number,
                 'details' => $account->details,
+                'invoice_requisites' => $account->invoice_requisites,
             ],
             'invoice' => [
                 'number' => $invoice->number,

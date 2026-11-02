@@ -61,6 +61,16 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The daily limit of manual backups (2026-11-02; branch `feat/backups-manual-limit` from `dev`, not merged, not pushed)
+
+The user: raise the daily limit of backups of `./start`'s local app to 20. `data-lifecycle.backups.manual_per_day` was a
+constant 5; now `BACKUPS_MANUAL_PER_DAY` (5 by default; `.env.example`, `.env.docker.example` commented, README,
+backups.md §2.2). `.env.docker.local` (the user's, git-ignored) got `BACKUPS_MANUAL_PER_DAY=20`, and the local app was
+rebuilt from this branch as `./start` does (`COMPOSER_AUTH` from `gh auth token`, `PRYTAX_SINGLE_ORGANIZATION=true`,
+`docker compose --env-file .env.docker.local up -d --build`): `config:show` gives 20, no pending migrations. The user
+had just rebuilt it with `./start` at 13:08 (which migrated its database to the requisite sets). `manual_cap` (the
+manual backups kept) stays 20. A rebuild from `dev` before this branch is merged goes back to 5.
+
 ## Sets of requisites, and an invoice's «Payment details (…)» sections (2026-11-02; branch `feat/requisite-sets` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: SWIFT and BIC as separate inputs; Monobank's ФОП EUR account has two sets (SEPA: IBAN, BIC CLJUGB21,

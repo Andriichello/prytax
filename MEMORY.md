@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-02 (later): branch **`feat/invoice-requisites-order`** (from `dev`; not merged, not pushed) orders an account's requisites in invoices and switches each on or off (see "The requisites' order in invoices"); its migration hasn't run on the user's databases. Last runs: `composer test:sqlite` 683, SPA 815, typecheck, build. Before it, as of 2026-11-02: **everything is merged into `dev`** (the user: "fix the flaky test too, then merge into dev"; `dev` fast-forwarded to `fix/claude-connections` → `fix/installation-work-per-process`, then this note; not `main`, not pushed). `main` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). It records Claude Code's connections and fixes a flaky test (see "Claude Code's connections, recorded"). Last runs: `composer test:sqlite` 676, three times in a row (MySQL was stopped, so `composer test` didn't run). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+Status as of 2026-11-02 (later): **everything is merged into `dev`** (the user: "merge into dev and migrate both databases"; `dev` fast-forwarded to `feat/invoice-requisites-order`, then this note; not `main`, not pushed; 16 ahead of `origin/dev`). It orders an account's requisites in invoices and switches each on or off (see "The requisites' order in invoices"). Both SQLite databases are migrated (copies `*.before-migrate-20261102-110342` beside them); the desktop one also ran the three pending migrations of 2026-10-31 (installations, integrations, their writes) and the roles' sync. Last runs: `composer test:sqlite` 683, SPA 815, typecheck, build. Before it, as of 2026-11-02: **everything is merged into `dev`** (the user: "fix the flaky test too, then merge into dev"; `dev` fast-forwarded to `fix/claude-connections` → `fix/installation-work-per-process`, then this note; not `main`, not pushed). `main` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). It records Claude Code's connections and fixes a flaky test (see "Claude Code's connections, recorded"). Last runs: `composer test:sqlite` 676, three times in a row (MySQL was stopped, so `composer test` didn't run). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
 into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
 `chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
 "Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
@@ -61,7 +61,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## The requisites' order in invoices (2026-11-02; branch `feat/invoice-requisites-order` from `dev`, not merged, not pushed)
+## The requisites' order in invoices (2026-11-02; branch `feat/invoice-requisites-order` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: order the requisites of Рахунок's «Реквізити для інвойсів», so invoices print them in that order, with a
 switch per requisite (on by default) that leaves it out of the payment details. invoice.md §4 (Card) and design.md
@@ -77,8 +77,12 @@ switch per requisite (on by default) that leaves it out of the payment details. 
   the invoice editor's account summary follows the order and leaves out those off. The currency and Purpose stay last.
 - **Checked** in headless Chrome on a scratch demo SQLite (`php -S` on 8013): 390 and 1440 px, the sheet saved, the
   page after; a draft's preview PDF printed the new order without Bank, a frozen invoice its old one.
-- **To do after merging:** migrate the user's databases (desktop `native:migrate`, the web `database/database.sqlite`,
-  Docker/`./start` on their next start); ask first.
+- **Migrated** (the user asked, 2026-11-02 11:03), as the starter does (`VACUUM INTO` copy
+  `*.before-migrate-20261102-110342`, `migrate --force`, `db:seed --force`): `database/database.sqlite` (the web app
+  on 8010 was running on it; its queue worker keeps the old code, harmless here) and `database/nativephp.sqlite`
+  (`CACHE_STORE=file`, `LARAVEL_STORAGE_PATH=~/.config/prytax-dev/storage`; it also ran 2026_10_31's installations,
+  integrations and writes migrations, never run since its reset, and got the owner's integrations permissions). Row
+  counts equal the copies'. Docker and `./start` migrate on their next start.
 
 ## Claude Code's connections, recorded (2026-11-02; branches `fix/claude-connections` from `dev`, then `fix/installation-work-per-process`, fast-forwarded into `dev` at the user's request, not pushed)
 

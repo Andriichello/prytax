@@ -14,7 +14,8 @@ use PryTax\Models\AccountRequisiteSet;
  *
  * Repository of the sets of accounts' requisites (invoice.md §4): an account with sets has one default among its
  * active ones. Its first set is the default; making another one the default takes it from the one before; the default
- * isn't switched off or deleted while the account has other sets, until another one is made the default.
+ * isn't switched off or deleted while the account has other sets, until another one is made the default. A set, which
+ * an invoice prints, stays (it's switched off instead); one only deleted drafts printed goes with their sections.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Repositories
@@ -106,7 +107,8 @@ class AccountRequisiteSetRepository extends TenantRepository
     }
 
     /**
-     * Delete the set, unless it's the default of an account with other sets, or invoices print it.
+     * Delete the set, unless it's the default of an account with other sets, or an invoice prints it; the sections of
+     * deleted drafts, which printed it, go with it (a deleted draft is no invoice).
      *
      * @param BaseModel $model
      *
@@ -122,7 +124,17 @@ class AccountRequisiteSetRepository extends TenantRepository
             ]);
         }
 
-        return parent::delete($model);
+        if ($model->paymentSections()->whereHas('invoice')->exists()) {
+            throw ValidationException::withMessages([
+                'id' => [__('Invoices print these requisites, so they can\'t be deleted: switch them off instead.')],
+            ]);
+        }
+
+        return DB::transaction(function () use ($model) {
+            $model->paymentSections()->whereHas('invoice', fn ($invoices) => $invoices->onlyTrashed())->get()->each->delete();
+
+            return parent::delete($model);
+        });
     }
 
     /**

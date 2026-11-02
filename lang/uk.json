@@ -304,5 +304,6 @@
     "Give the payment details a name to print in parentheses.": "Вкажіть назву, щоб надрукувати її в дужках.",
     "An account's sets have a default: make another set the default instead.": "Одні реквізити рахунку — за замовчуванням: зробіть такими інші.",
     "The default set can't be switched off: make another set the default first.": "Реквізити за замовчуванням не вимикаються: спершу зробіть такими інші.",
-    "The default set can't be deleted: make another set the default first.": "Реквізити за замовчуванням не видаляються: спершу зробіть такими інші."
+    "The default set can't be deleted: make another set the default first.": "Реквізити за замовчуванням не видаляються: спершу зробіть такими інші.",
+    "Invoices print these requisites, so they can't be deleted: switch them off instead.": "Ці реквізити друкують інвойси, тож їх не видалити: вимкніть їх."
 }

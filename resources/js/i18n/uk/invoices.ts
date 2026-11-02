@@ -157,7 +157,6 @@ export default {
         gettingPaid: 'Отримання коштів',
         accountPayInto: 'Рахунок для оплати',
         accountHint: 'Лише активні рахунки в {currency}',
-        recipientHolder: 'Отримувач: {holder}',
         paymentDetailsHint: 'Реквізити буде надруковано в інвойсі',
         itemsOptional: "Позиції (необов'язково)",
         addItem: 'Додати позицію',

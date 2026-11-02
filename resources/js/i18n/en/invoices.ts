@@ -153,7 +153,6 @@ export default {
         gettingPaid: 'Getting paid',
         accountPayInto: 'Account to pay into',
         accountHint: 'Only active accounts in {currency}',
-        recipientHolder: 'Recipient: {holder}',
         paymentDetailsHint: 'The payment details will be printed on the invoice',
         itemsOptional: 'Items (optional)',
         addItem: 'Add an item',

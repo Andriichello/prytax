@@ -16,6 +16,7 @@ import type {
     InvoiceDuplicate,
     InvoiceSource,
     Paginated,
+    PaymentSectionDraft,
     Profile,
     Project,
     StoredFile,
@@ -37,6 +38,7 @@ import InvoicePdfPreview from '@/components/invoice/InvoicePdfPreview.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import ConfirmSheet from '@/components/ui/ConfirmSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
+import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import LoadState from '@/components/ui/LoadState.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import SecondaryButton from '@/components/ui/SecondaryButton.vue';
@@ -50,7 +52,7 @@ import { useInvoiceDocument } from '@/composables/useInvoiceDocument';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, t } from '@/i18n';
-import { orderedRequisites } from '@/utils/accounts';
+import { maskNumber, orderedRequisites, requisiteSetName } from '@/utils/accounts';
 import { dateParts, formatDate, formatPeriod, monthName, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { type PurposeSample, purposeValues, purposeWarnings, renderPurpose } from '@/utils/invoiceDocument';
@@ -107,6 +109,8 @@ const form = reactive({
     total: '',
     notes: '',
     items: [] as ItemDraft[],
+    /** The sets of the receiving account's requisites, which the invoice prints, in order. */
+    payment_sections: [] as PaymentSectionDraft[],
     document: {
         locale: null,
         payment_purpose_template: null,
@@ -122,7 +126,10 @@ const form = reactive({
 });
 
 /** Fields the person set; defaults no longer overwrite them. */
-const touched = reactive({ issued_at: false, due_at: false, receiving_account_id: false, currency: false, period: false });
+const touched = reactive({ issued_at: false, due_at: false, receiving_account_id: false, currency: false, period: false, payment_sections: false });
+
+/** The account, whose sets the sections are: another one chosen gives them its own. */
+let sectionsAccount: number | null = null;
 
 let nextKey = 1;
 
@@ -197,8 +204,14 @@ function fill(invoice: Invoice): void {
             quantity: item.quantity,
             unit_price: item.unit_price ?? '',
         })),
+        payment_sections: (invoice.paymentSections ?? []).map((section) => ({
+            requisite_set_id: section.requisite_set_id,
+            title: section.title,
+            show_title: section.show_title,
+        })),
     });
-    Object.assign(touched, { issued_at: true, due_at: true, receiving_account_id: true, currency: true, period: true });
+    sectionsAccount = invoice.receiving_account_id;
+    Object.assign(touched, { issued_at: true, due_at: true, receiving_account_id: true, currency: true, period: true, payment_sections: true });
 }
 
 /** The person changed the form since it was loaded or saved. */
@@ -209,7 +222,7 @@ const dirty = ref(false);
  */
 async function fetchInvoice(id: number, signal?: AbortSignal): Promise<Invoice> {
     const { data } = await api.get<ApiResponse<Invoice>>(path(`invoices/${id}`), {
-        include: ['items', 'client', 'receivingAccount', 'primaryFile'],
+        include: ['items', 'client', 'receivingAccount', 'primaryFile', 'paymentSections'],
         append: ['number_preview'],
     }, signal);
 
@@ -219,7 +232,7 @@ async function fetchInvoice(id: number, signal?: AbortSignal): Promise<Invoice> 
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [clientList, accountList, invoice, latest, owner] = await Promise.all([
         api.all<Client>(path('clients'), {}, signal),
-        api.all<Account>(path('accounts'), {}, signal),
+        api.all<Account>(path('accounts'), { include: ['requisiteSets'] }, signal),
         invoiceId.value === null ? Promise.resolve(null) : fetchInvoice(invoiceId.value, signal),
         invoiceId.value === null
             ? api.get<Paginated<Invoice>>(path('invoices'), { page: { size: 1 } }, signal).then(({ data }) => data[0] ?? null)
@@ -373,6 +386,12 @@ watch(() => [
             && isAccountIn(data.receiving_account_id, form.currency)) {
             form.receiving_account_id = data.receiving_account_id;
             touched.receiving_account_id = false;
+        }
+
+        // The sections of the client's last invoice to the account, unless the person chose them
+        if (!touched.payment_sections && form.receiving_account_id === data.receiving_account_id) {
+            form.payment_sections = data.payment_sections.map((section) => ({ ...section }));
+            sectionsAccount = data.receiving_account_id;
         }
     } catch {
         if (run === defaultsRun) {
@@ -539,17 +558,75 @@ const accountOptions = computed(() => accounts.value
 
 const account = computed(() => accounts.value.find((item) => item.id === form.receiving_account_id) ?? null);
 
-/**
- * The receiving account's numbers, which print on the invoice, in their order (its IBAN, account number and own
- * details), masked to their last four digits.
- */
-const requisites = computed(() => {
-    const mask = (text: string): string => `•••• ${text.replace(/\s/g, '').slice(-4)}`;
+/** The receiving account's sets of requisites. */
+const accountSets = computed(() => account.value?.requisiteSets ?? []);
+const setOf = (id: number) => accountSets.value.find((set) => set.id === id) ?? null;
 
-    return (account.value ? orderedRequisites(account.value) : [])
-        .filter((requisite) => requisite.shown && (requisite.field === null || requisite.field === 'iban' || requisite.field === 'account_number'))
-        .map((requisite) => ({ label: requisite.field === 'account_number' ? 'Account' : requisite.label, value: mask(requisite.value) }));
+/** Sets of the account, which the invoice may print too: active ones it doesn't print yet. */
+const addableSets = computed(() => accountSets.value
+    .filter((set) => set.is_active && !form.payment_sections.some((section) => section.requisite_set_id === set.id))
+    .map((set) => ({ value: set.id, label: requisiteSetName(set) })));
+
+/** The sections it starts with on another account: the defaults', when they're that account's, else its default set. */
+function sectionsOn(accountId: number | null): PaymentSectionDraft[] {
+    if (defaults.value && defaults.value.receiving_account_id === accountId) {
+        return defaults.value.payment_sections.map((section) => ({ ...section }));
+    }
+
+    const set = accounts.value.find((item) => item.id === accountId)?.requisiteSets?.find((item) => item.is_default && item.is_active);
+
+    return set ? [{ requisite_set_id: set.id, title: null, show_title: false }] : [];
+}
+
+/* Another receiving account prints its own sets */
+watch(() => form.receiving_account_id, (accountId) => {
+    if (accountId !== sectionsAccount) {
+        form.payment_sections = sectionsOn(accountId);
+        sectionsAccount = accountId;
+    }
 });
+
+function sectionsChanged(): void {
+    touched.payment_sections = true;
+    dirty.value = true;
+}
+
+function addSection(id: number | string | null): void {
+    if (id !== null && id !== '') {
+        form.payment_sections.push({ requisite_set_id: Number(id), title: null, show_title: false });
+        sectionsChanged();
+    }
+}
+
+function moveSection(index: number, by: -1 | 1): void {
+    const [section] = form.payment_sections.splice(index, 1);
+
+    form.payment_sections.splice(index + by, 0, section!);
+    sectionsChanged();
+}
+
+function removeSection(index: number): void {
+    form.payment_sections.splice(index, 1);
+    sectionsChanged();
+}
+
+/**
+ * Each section's set as the editor names it: its parentheses (shown or not), its receiver and its numbers (IBAN,
+ * account number and own details), which print, masked to their last four digits.
+ */
+const sectionLines = computed(() => form.payment_sections.map((section) => {
+    const set = setOf(section.requisite_set_id);
+    const numbers = (set ? orderedRequisites(set) : [])
+        .filter((requisite) => requisite.shown && (requisite.field === null || requisite.field === 'iban' || requisite.field === 'account_number'))
+        .map((requisite) => `${requisite.field === 'account_number' ? 'Account' : requisite.label} ${maskNumber(requisite.value)}`);
+
+    return {
+        name: set ? requisiteSetName(set) : '',
+        title: section.title?.trim() || set?.name?.trim() || '',
+        holder: set?.holder_name ?? null,
+        numbers: numbers.join(' · '),
+    };
+}));
 
 const contractHint = computed(() => {
     if (!contract.value) {
@@ -828,6 +905,11 @@ function payload(): Record<string, unknown> {
         payment_note: form.document.payment_note?.trim() || null,
         other_note_enabled: form.document.other_note_enabled,
         other_note: form.document.other_note?.trim() || null,
+        payment_sections: form.payment_sections.map((section) => ({
+            requisite_set_id: section.requisite_set_id,
+            title: section.title?.trim() || null,
+            show_title: form.payment_sections.length > 1 || section.show_title,
+        })),
         ...numberPayload(external),
         ...(external ? { total: parseAmount(form.total) ?? form.total } : {}),
         items: form.items.map((item) => ({
@@ -1031,7 +1113,7 @@ async function saveGroup(): Promise<void> {
 const GROUP_FIELDS: Record<string, string[]> = {
     client: ['client_id', 'contract_id', 'currency'],
     dates: ['period_start', 'period_end', 'issued_at', 'due_at'],
-    pay: ['receiving_account_id'],
+    pay: ['receiving_account_id', ...[0, 1, 2, 3, 4].flatMap((index) => [`payment_sections.${index}.requisite_set_id`, `payment_sections.${index}.title`])],
     document: [
         'locale', 'style', 'payment_purpose_template', 'show_contract', 'act_note', 'act_note_enabled', 'payment_note',
         'payment_note_enabled', 'other_note', 'other_note_enabled',
@@ -1262,8 +1344,8 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                     @save="saveGroup"
                 >
                     <ReadRow :label="t('money.account.account')" :value="account?.name" />
-                    <ReadRow v-if="account" :label="t('core.common.recipient')">
-                        {{ account.holder_name ?? '' }}<template v-if="requisites.length"> · <span class="num">{{ requisites[0]!.value }}</span></template>
+                    <ReadRow v-if="account && form.source === 'generated'" :label="t('money.requisiteSets.printed')">
+                        {{ sectionLines.map((line) => line.name).join(' · ') || '—' }}
                     </ReadRow>
                     <template #edit>
                         <SelectField
@@ -1275,18 +1357,75 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                             :error="fieldError(saveError, 'receiving_account_id')"
                             @update:model-value="touched.receiving_account_id = true; dirty = true"
                         />
-                        <div v-if="account" class="flex flex-col gap-1 rounded-control bg-muted px-3.5 py-3 text-13 text-ink-2">
-                            <span v-if="account.holder_name">
-                                <Translated :text="t('invoices.editor.recipientHolder')">
-                                    <template #holder><span class="text-ink">{{ account.holder_name }}</span></template>
-                                </Translated>
-                            </span>
-                            <span v-if="requisites.length">
-                                <template v-for="(requisite, index) in requisites" :key="requisite.label">
-                                    {{ index ? ' · ' : '' }}{{ requisite.label }} <span class="num text-ink">{{ requisite.value }}</span>
-                                </template>
-                            </span>
-                            <span>{{ t('invoices.editor.paymentDetailsHint') }}</span>
+                        <div v-if="account && form.source === 'generated'" class="flex flex-col gap-2">
+                            <span class="text-13 font-medium text-ink-2">{{ t('money.requisiteSets.onInvoice') }}</span>
+                            <p v-if="!accountSets.length" class="m-0 text-13 leading-normal text-ink-3">{{ t('money.requisiteSets.noneOnAccount') }}</p>
+                            <div
+                                v-for="(section, index) in form.payment_sections"
+                                :key="section.requisite_set_id"
+                                class="flex flex-col gap-2.5 rounded-control border border-line bg-surface px-3.5 py-2.5"
+                            >
+                                <div class="flex items-center gap-1">
+                                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                        <span class="truncate text-15 font-medium">{{ sectionLines[index]?.name }}</span>
+                                        <span v-if="sectionLines[index]?.holder || sectionLines[index]?.numbers" class="text-12 leading-snug break-words text-ink-3">
+                                            {{ [sectionLines[index]?.holder, sectionLines[index]?.numbers].filter(Boolean).join(' · ') }}
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="flex size-10 shrink-0 items-center justify-center text-ink-2 disabled:text-ink-4"
+                                        :aria-label="t('money.account.moveUp', { label: sectionLines[index]?.name ?? '' })"
+                                        :disabled="index === 0"
+                                        @click="moveSection(index, -1)"
+                                    >
+                                        <Icon name="chevronUp" :size="18" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="flex size-10 shrink-0 items-center justify-center text-ink-2 disabled:text-ink-4"
+                                        :aria-label="t('money.account.moveDown', { label: sectionLines[index]?.name ?? '' })"
+                                        :disabled="index === form.payment_sections.length - 1"
+                                        @click="moveSection(index, 1)"
+                                    >
+                                        <Icon name="chevronDown" :size="18" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="flex size-10 shrink-0 items-center justify-center text-ink-3"
+                                        :aria-label="t('money.requisiteSets.remove', { label: sectionLines[index]?.name ?? '' })"
+                                        @click="removeSection(index)"
+                                    >
+                                        <Icon name="close" :size="18" />
+                                    </button>
+                                </div>
+                                <TextField
+                                    :model-value="section.title ?? ''"
+                                    :label="t('money.requisiteSets.inParentheses')"
+                                    :placeholder="setOf(section.requisite_set_id)?.name ?? ''"
+                                    :error="fieldError(saveError, `payment_sections.${index}.title`) ?? fieldError(saveError, `payment_sections.${index}.requisite_set_id`)"
+                                    @update:model-value="section.title = $event; sectionsChanged()"
+                                />
+                                <label class="flex items-center justify-between gap-3 text-14">
+                                    <span>{{ t('money.requisiteSets.printInParentheses') }}</span>
+                                    <ToggleSwitch
+                                        :model-value="form.payment_sections.length > 1 || section.show_title"
+                                        :label="t('money.requisiteSets.printInParentheses')"
+                                        :disabled="form.payment_sections.length > 1"
+                                        @update:model-value="section.show_title = $event; sectionsChanged()"
+                                    />
+                                </label>
+                            </div>
+                            <p v-if="form.payment_sections.length > 1" class="m-0 text-12 leading-normal text-ink-3">{{ t('money.requisiteSets.severalHint') }}</p>
+                            <SelectField
+                                v-if="addableSets.length && form.payment_sections.length < 5"
+                                :model-value="null"
+                                :label="t('money.requisiteSets.addSection')"
+                                :placeholder="t('money.requisiteSets.addSection')"
+                                :options="addableSets"
+                                @update:model-value="addSection"
+                            />
+                            <span class="text-12 text-ink-3">{{ t('invoices.editor.paymentDetailsHint') }}</span>
                         </div>
                     </template>
                 </AccordionGroup>

@@ -6,6 +6,7 @@ export const ICONS = {
     back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
     chevronUp: '<path d="m6 15 6-6 6 6"/>',
+    grip: '<path stroke-width="3" d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/>',
     chevronLeft: '<path d="m15 6-6 6 6 6"/>',
     chevronRight: '<path d="m9 6 6 6-6 6"/>',
     close: '<path d="M6 6l12 12M18 6 6 18"/>',

@@ -1,13 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { ownRow, type RequisiteSetForm } from '@/components/account/RequisiteSetFormModel';
 import Icon from '@/components/ui/Icon.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
+import { useDragSort } from '@/composables/useDragSort';
 import { t } from '@/i18n';
 import { REQUISITE_FIELDS } from '@/utils/accounts';
 
 /**
  * The requisites of a set of an account's, in the order invoices print them: each a row of its label and its value,
- * moved up or down, and printed or not. A field (the receiver, the bank, IBAN and the account number, stored
+ * dragged into its place by its handle (or moved by ↑ ↓ on it), and printed or not. A field (the receiver, the bank, IBAN and the account number, stored
  * encrypted, SWIFT / BIC) keeps what it is, so the app knows the receiver, while its label is the owner's to print
  * («Beneficiary name»; empty, the invoice's language's); fields of one's own, such as a routing number or the
  * receiver's address, are added and removed.
@@ -23,41 +25,45 @@ const nameOf = (index: number): string => {
     return row.field ? REQUISITE_FIELDS[row.field].label : row.label.trim() || t('money.requisiteSets.ownField');
 };
 
-function move(index: number, by: -1 | 1): void {
-    const [row] = form.value.rows.splice(index, 1);
-
-    form.value.rows.splice(index + by, 0, row!);
-}
+/* Rows are dragged into their places by their handles */
+const list = ref<HTMLElement | null>(null);
+const drag = useDragSort(() => form.value.rows, list);
 </script>
 
 <template>
     <div class="flex flex-col gap-2">
         <p class="m-0 text-13 leading-normal text-ink-3">{{ t('money.requisiteSets.rowsHint') }}</p>
-        <div class="flex flex-col divide-y divide-divider rounded-control border border-line bg-surface px-3.5">
-            <div v-for="(row, index) in form.rows" :key="row.key" class="flex flex-col gap-2 py-2.5">
+        <div
+            ref="list"
+            class="flex flex-col divide-y divide-divider rounded-control border border-line bg-surface px-3.5"
+            :class="drag.dragging.value !== null ? 'select-none' : ''"
+        >
+            <div
+                v-for="(row, index) in form.rows"
+                :key="row.key"
+                data-sort-row
+                class="relative flex flex-col gap-2 bg-surface py-2.5"
+                :class="drag.dragging.value === index ? 'z-10 rounded-control shadow-[0_6px_20px_rgb(23_25_31/0.18)]' : ''"
+                :style="drag.dragging.value === index ? { transform: `translateY(${drag.offset.value}px)` } : undefined"
+            >
                 <div class="flex items-center gap-1">
+                    <button
+                        type="button"
+                        data-sort-handle
+                        class="-ml-2 flex size-10 shrink-0 touch-none items-center justify-center text-ink-3"
+                        :class="drag.dragging.value === index ? 'cursor-grabbing' : 'cursor-grab'"
+                        :aria-label="t('money.requisiteSets.dragHandle', { label: nameOf(index) })"
+                        @pointerdown="drag.begin(index, $event)"
+                        @pointermove="drag.move"
+                        @pointerup="drag.end"
+                        @pointercancel="drag.end"
+                        @keydown="drag.key(index, $event)"
+                    >
+                        <Icon name="grip" :size="18" />
+                    </button>
                     <span class="min-w-0 flex-1 truncate text-13 font-medium" :class="row.shown ? 'text-ink-2' : 'text-ink-4'">
                         {{ row.field ? REQUISITE_FIELDS[row.field].label : t('money.requisiteSets.ownField') }}
                     </span>
-                    <button
-                        type="button"
-                        class="flex size-10 shrink-0 items-center justify-center text-ink-2 disabled:text-ink-4"
-                        :aria-label="t('money.account.moveUp', { label: nameOf(index) })"
-                        :disabled="index === 0"
-                        @click="move(index, -1)"
-                    >
-                        <Icon name="chevronUp" :size="18" />
-                    </button>
-                    <button
-                        type="button"
-                        class="flex size-10 shrink-0 items-center justify-center text-ink-2 disabled:text-ink-4"
-                        :aria-label="t('money.account.moveDown', { label: nameOf(index) })"
-                        :disabled="index === form.rows.length - 1"
-                        @click="move(index, 1)"
-                    >
-                        <Icon name="chevronDown" :size="18" />
-                    </button>
-                    <ToggleSwitch v-model="row.shown" class="mx-1" :label="t('money.account.printOnInvoices', { label: nameOf(index) })" />
                     <button
                         v-if="!row.field"
                         type="button"
@@ -67,6 +73,7 @@ function move(index: number, by: -1 | 1): void {
                     >
                         <Icon name="close" :size="18" />
                     </button>
+                    <ToggleSwitch v-model="row.shown" class="ml-1" :label="t('money.account.printOnInvoices', { label: nameOf(index) })" />
                 </div>
                 <div class="grid items-center gap-1.5 transition-opacity sm:grid-cols-[2fr_3fr] sm:gap-2" :class="row.shown ? '' : 'opacity-50'">
                     <input

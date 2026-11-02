@@ -280,6 +280,7 @@ export default {
         valueOf: 'Value: {label}',
         labelDefault: 'Label: as the invoice’s language has it',
         rowsHint: 'Invoices print the payment details in this order, each under its label; those switched off aren’t printed.',
+        dragHandle: 'Drag to reorder (or ↑ ↓): {label}',
     },
 
     accountForm: {

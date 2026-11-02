@@ -9,12 +9,14 @@ use Core\Models\Sequence;
 use Core\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use PryTax\Enums\AccountKind;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Enums\LimitPeriod;
 use PryTax\Enums\TaxType;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Models\Account;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\Client;
 use PryTax\Models\Contract;
 use PryTax\Models\ExchangeRate;
@@ -187,7 +189,10 @@ class DemoSeeder extends Seeder
 
         CurrentProfile::run($profile, function () use ($profile) {
             $wiseUsd = $this->account($profile, 'Wise USD', AccountKind::Platform, 'USD', ['bank_name' => 'Wise', 'account_number' => '8310004410', 'details' => [['label' => 'ACH routing', 'value' => '026073150012']], 'sort_order' => 1]);
-            $wiseEur = $this->account($profile, 'Wise EUR', AccountKind::Platform, 'EUR', ['bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX', 'sort_order' => 2]);
+            $wiseEur = $this->account($profile, 'Wise EUR', AccountKind::Platform, 'EUR', ['sort_order' => 2], [
+                ['name' => 'SEPA', 'bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'bic' => 'TRWIBEB1XXX'],
+                ['name' => 'SWIFT', 'bank_name' => 'Wise', 'iban' => 'BE71967000004410', 'swift' => 'TRWIBEB1XXX', 'details' => [['label' => 'Address', 'value' => 'Rue du Trône 100, 1050 Brussels, Belgium']]],
+            ]);
             $payoneer = $this->account($profile, 'Payoneer USD', AccountKind::Platform, 'USD', [
                 'bank_name' => 'Payoneer', 'account_number' => '5000000089',
                 'limit_amount' => '10000.00', 'limit_period' => LimitPeriod::Year, 'sort_order' => 3,
@@ -559,21 +564,31 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * Create an account of the profile.
+     * Create an account of the profile, with its sets of requisites: one of the attributes' requisites, or the given
+     * ones, the first the default; each received by the ФОП's English name, unless it says otherwise.
      *
      * @param Profile $profile
      * @param string $name
      * @param AccountKind $kind
      * @param string $currency
      * @param array $attributes
+     * @param list<array<string, mixed>> $sets
      *
      * @return Account
      */
-    protected function account(Profile $profile, string $name, AccountKind $kind, string $currency, array $attributes = []): Account
+    protected function account(Profile $profile, string $name, AccountKind $kind, string $currency, array $attributes = [], array $sets = []): Account
     {
-        $account = new Account(['name' => $name, 'kind' => $kind, 'currency' => $currency, 'holder_name' => $profile->full_name_en, ...$attributes]);
+        $requisites = ['holder_name', 'bank_name', 'iban', 'account_number', 'swift', 'bic', 'details'];
+        $account = new Account(['name' => $name, 'kind' => $kind, 'currency' => $currency, ...Arr::except($attributes, $requisites)]);
         $account->profile_id = $profile->id;
         $account->save();
+
+        foreach ($sets === [] ? [Arr::only($attributes, $requisites)] : $sets as $index => $set) {
+            $requisiteSet = new AccountRequisiteSet(['holder_name' => $profile->full_name_en, ...$set, 'is_default' => $index === 0, 'sort_order' => $index]);
+            $requisiteSet->profile_id = $profile->id;
+            $requisiteSet->account_id = $account->id;
+            $requisiteSet->save();
+        }
 
         return $account;
     }

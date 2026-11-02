@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\Models\AccountMovement;
 use PryTax\Models\AccountOpeningBalance;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\AccountTransfer;
 use PryTax\Models\Alert;
 use PryTax\Models\ChargeType;
@@ -47,7 +48,7 @@ class ProfileIsolationTest extends TestCase
     {
         return collect([
             'accounts/{account}', 'accounts/{account}/statement', 'accounts/{account}/movements/{movement}',
-            'accounts/{account}/opening-balances/{opening}', 'clients/{client}', 'clients/{client}/stats',
+            'accounts/{account}/opening-balances/{opening}', 'accounts/{account}/requisite-sets/{requisiteSet}', 'clients/{client}', 'clients/{client}/stats',
             'clients/{client}/contracts/{contract}', 'clients/{client}/projects/{project}',
             'clients/{client}/charge-types/{charge}', 'invoices/{invoice}', 'invoices/{invoice}/preview',
             'invoices/{invoice}/files', 'payments/{payment}', 'payments/{payment}/flow',
@@ -76,6 +77,7 @@ class ProfileIsolationTest extends TestCase
                 'account' => $account->id,
                 'movement' => AccountMovement::factory()->create([...$of, 'account_id' => $account->id])->id,
                 'opening' => AccountOpeningBalance::factory()->create([...$of, 'account_id' => $account->id])->id,
+                'requisiteSet' => AccountRequisiteSet::factory()->create([...$of, 'account_id' => $account->id])->id,
                 'client' => $contract->client_id,
                 'contract' => $contract->id,
                 'project' => Project::factory()->create(['client_id' => $contract->client_id])->id,

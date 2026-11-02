@@ -112,10 +112,11 @@ class InvoicePdfRendererTest extends TestCase
         Storage::fake('local');
         $profile = $this->createProfile();
         $this->inProfile($profile, fn () => $profile->updateSettings(['invoice.money_format' => 'comma_dot']));
-        $account = $this->createAccount($profile, ['bank_name' => 'Wise']);
+        $account = $this->createAccount($profile);
+        $set = $this->createRequisiteSet($account, ['bank_name' => 'Wise']);
         $invoice = $this->createFrozenInvoice($profile, $account);
         $this->inProfile($profile, fn () => $profile->updateSettings(['invoice.money_format' => 'plain_dot']));
-        $account->forceFill(['bank_name' => 'Renamed Bank'])->save();
+        $set->forceFill(['bank_name' => 'Renamed Bank'])->save();
 
         $html = $this->inProfile($profile, fn () => app(InvoicePdfRenderer::class)->html($invoice->fresh()));
 
@@ -139,7 +140,7 @@ class InvoicePdfRendererTest extends TestCase
         $metadata = $this->inProfile($profile, fn () => $invoice->fresh()->primaryFile->metadata);
 
         $this->assertSame('v3', $metadata['template_version']);
-        $this->assertSame(3, $metadata['schema_version']);
+        $this->assertSame(4, $metadata['schema_version']);
     }
 
     /**
@@ -415,6 +416,57 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Test that two sets print a section each, titled with its parentheses, SWIFT and BIC each by its name, and the
+     * currency and the purpose once after them, untitled.
+     *
+     * @return void
+     */
+    public function testPrintsASectionPerSetThenTheCurrencyAndThePurposeOnce(): void
+    {
+        $html = $this->html(replace: $this->snapshotWithSections([
+            ['title' => 'SEPA', 'holder_name' => 'PRYKHODKO ANDRIY', 'iban' => 'GB33CLJU04130780000000', 'bic' => 'CLJUGB21'],
+            ['title' => 'SWIFT', 'holder_name' => 'PE PRYKHODKO ANDRIY', 'iban' => 'UA213223130000026007233566001', 'swift' => 'UNJSUAUKXXX',
+                'details' => [['label' => 'Address', 'value' => '88000, Ukraine, Uzhhorod']]],
+        ]));
+
+        $this->assertSame([
+            ['Payment details (SEPA)', ['Beneficiary', 'IBAN', 'BIC']],
+            ['Payment details (SWIFT)', ['Beneficiary', 'IBAN', 'SWIFT', 'Address']],
+            [null, ['Currency', 'Purpose']],
+        ], $this->paymentBlocksOf($html));
+    }
+
+    /**
+     * Test that one set prints a section, which ends with the currency and the purpose, with its parentheses or
+     * without them.
+     *
+     * @param string|null $title
+     * @param string $heading
+     *
+     * @return void
+     */
+    #[DataProvider('titlesOfOneSection')]
+    public function testPrintsOneSectionWithTheCurrencyAndThePurpose(?string $title, string $heading): void
+    {
+        $html = $this->html(replace: $this->snapshotWithSections([['title' => $title, 'holder_name' => 'Myrchuk Mykola', 'iban' => 'BE71967000004410', 'bic' => 'TRWIBEB1XXX']]));
+
+        $this->assertSame([[$heading, ['Beneficiary', 'IBAN', 'BIC', 'Currency', 'Purpose']]], $this->paymentBlocksOf($html));
+    }
+
+    /**
+     * Get the titles of a single section, with the heading each prints.
+     *
+     * @return array<string, array{string|null, string}>
+     */
+    public static function titlesOfOneSection(): array
+    {
+        return [
+            'in parentheses' => ['SEPA', 'Payment details (SEPA)'],
+            'without them' => [null, 'Payment details'],
+        ];
+    }
+
+    /**
      * Test that the contract section is left out, when it is hidden or the invoice has no contract.
      *
      * @param array $changes
@@ -648,6 +700,49 @@ class InvoicePdfRendererTest extends TestCase
             ],
             'totals' => ['subtotal' => '5213.00', 'adjustment_amount' => '0.00', 'adjustment_label' => null, 'total' => '5213.00'],
         ];
+    }
+
+    /**
+     * The snapshot of BRIT-2026-10-31-2 in version 4, whose account's requisites print in the sections given.
+     *
+     * @param list<array<string, mixed>> $sections
+     *
+     * @return array
+     */
+    private function snapshotWithSections(array $sections): array
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['schema_version'] = 4;
+        $snapshot['account'] = ['name' => 'Monobank ФОП EUR', 'kind' => 'fop_bank', 'currency' => 'EUR'];
+        $snapshot['payment_sections'] = array_map(fn (array $section) => [
+            'account' => ['name' => 'Monobank ФОП EUR', 'currency' => 'EUR'],
+            'bank_name' => null, 'account_number' => null, 'swift' => null, 'bic' => null, 'details' => null, 'invoice_requisites' => null,
+            ...$section,
+        ], $sections);
+
+        return $snapshot;
+    }
+
+    /**
+     * Get the blocks of the payment details in the HTML: each one's heading (null without one) and the names of its
+     * rows.
+     *
+     * @param string $html
+     *
+     * @return list<array{string|null, list<string>}>
+     */
+    private function paymentBlocksOf(string $html): array
+    {
+        $details = substr($html, (int) strpos($html, '<td class="details'));
+        $ends = array_filter([strpos($details, '<div class="card-section">'), strpos($details, '<td class="purpose act"')], fn ($end) => $end !== false);
+        $details = substr($details, 0, $ends === [] ? null : min($ends));
+        preg_match_all('#<div(?: class="[^"]*")?>\s*(?:<div class="lbl">([^<]*)</div>)?\s*<table class="kv">(.*?)</table>#s', $details, $blocks, PREG_SET_ORDER);
+
+        return array_map(function (array $block) {
+            preg_match_all('#<td class="k"[^>]*>([^<]*)</td>#', $block[2], $keys);
+
+            return [$block[1] === '' ? null : $block[1], $keys[1]];
+        }, $blocks);
     }
 
     /**

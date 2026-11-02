@@ -88,14 +88,14 @@ class ArchiveWriterTest extends TestCase
     public function testDecryptsTheEncryptedColumnsAndOmitsTheHashOfTheTaxId(): void
     {
         [$profile, $invoice] = $this->profileWithAnInvoice(attributes: ['tax_id' => '3214704821']);
-        $this->inProfile($profile, fn () => $invoice->receivingAccount->update(['iban' => 'UA213223130000026007233566001']));
+        $this->createRequisiteSet($this->inProfile($profile, fn () => $invoice->receivingAccount), ['iban' => 'UA213223130000026007233566001']);
 
         $archive = $this->writeArchive($profile);
 
         $row = $this->archiveRows($archive, 'data/profile.csv')[0];
         $this->assertSame('3214704821', $row['tax_id']);
         $this->assertArrayNotHasKey('tax_id_hash', $row);
-        $this->assertSame('UA213223130000026007233566001', $this->archiveRows($archive, 'data/accounts.csv')[0]['iban']);
+        $this->assertSame('UA213223130000026007233566001', $this->archiveRows($archive, 'data/account_requisite_sets.csv')[0]['iban']);
 
         $snapshot = $this->archiveRows($archive, 'data/invoices.csv')[0]['snapshot'];
         $this->assertSame('3214704821', json_decode($snapshot, true)['profile']['tax_id']);

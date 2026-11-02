@@ -9,6 +9,7 @@ use Laravel\Sanctum\Sanctum;
 use PryTax\Enums\DeclarationStatus;
 use PryTax\Helpers\CurrentProfile;
 use PryTax\Models\Account;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\Client;
 use PryTax\Models\Contract;
 use PryTax\Models\ExchangeRate;
@@ -198,6 +199,25 @@ trait ActsInProfiles
     protected function createAccount(Profile $profile, array $attributes = []): Account
     {
         return $this->inProfile($profile, fn () => Account::factory()->create(['profile_id' => $profile->id, ...$attributes]));
+    }
+
+    /**
+     * Create a set of requisites of the account: its default one, unless the attributes say otherwise.
+     *
+     * @param Account $account
+     * @param array $attributes
+     * @param string|null $state A state of the factory: `sepa`, `swift`, `other` or `inactive`.
+     *
+     * @return AccountRequisiteSet
+     */
+    protected function createRequisiteSet(Account $account, array $attributes = [], ?string $state = null): AccountRequisiteSet
+    {
+        $factory = AccountRequisiteSet::factory();
+
+        return $this->inProfile(
+            Profile::query()->withoutGlobalScopes()->findOrFail($account->profile_id),
+            fn () => ($state === null ? $factory : $factory->{$state}())->create(['account_id' => $account->id, 'profile_id' => $account->profile_id, ...$attributes]),
+        );
     }
 
     /**

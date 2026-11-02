@@ -133,7 +133,8 @@ class InvoiceControllerTest extends TestCase
         $profile = $this->createProfile();
         $this->actAs($profile);
         $order = [['field' => 'bank_name', 'shown' => true], ['field' => 'holder_name', 'shown' => false]];
-        $account = $this->createAccount($profile, ['invoice_requisites' => $order]);
+        $account = $this->createAccount($profile);
+        $this->createRequisiteSet($account, ['name' => 'SWIFT', 'invoice_requisites' => $order]);
         [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
         $id = $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'contract_id' => $contract->id,
@@ -146,11 +147,12 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('message', 'Frozen')
             ->assertJsonPath('data.number', 'BL-2026-10-14-1')
             ->assertJsonPath('data.status', 'ready')
-            ->assertJsonPath('data.snapshot.schema_version', 3)
+            ->assertJsonPath('data.snapshot.schema_version', 4)
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
             ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Payment for services by the invoice No. BL-2026-10-14-1 from Oct 14, 2026')
             ->assertJsonPath('data.snapshot.account.name', $account->name)
-            ->assertJsonPath('data.snapshot.account.invoice_requisites', $order)
+            ->assertJsonPath('data.snapshot.payment_sections.0.title', null)
+            ->assertJsonPath('data.snapshot.payment_sections.0.invoice_requisites', $order)
             ->assertJsonPath('data.snapshot.totals.total', '3892.50');
         $invoice = $this->inProfile($profile, fn () => Invoice::query()->findOrFail($id));
         $this->assertSame('application/pdf', $invoice->primaryFile->mime_type);
@@ -169,7 +171,8 @@ class InvoiceControllerTest extends TestCase
         Storage::fake('local');
         $profile = $this->createProfile(null, ['tax_id' => '3214704821']);
         $this->actAs($profile, 'viewer');
-        $account = $this->createAccount($profile, ['iban' => 'UA213223130000026007233566001']);
+        $account = $this->createAccount($profile);
+        $this->createRequisiteSet($account, ['iban' => 'UA213223130000026007233566001']);
         $invoice = $this->createFrozenInvoice($profile, $account);
 
         $list = $this->getJson($this->profilePath($profile, 'invoices'));
@@ -178,7 +181,7 @@ class InvoiceControllerTest extends TestCase
         $list->assertOk()->assertJsonMissingPath('data.0.snapshot');
         $shown->assertOk()
             ->assertJsonPath('data.snapshot.profile.tax_id', '3214704821')
-            ->assertJsonPath('data.snapshot.account.iban', 'UA213223130000026007233566001');
+            ->assertJsonPath('data.snapshot.payment_sections.0.iban', 'UA213223130000026007233566001');
         $raw = DB::table('invoices')->where('id', $invoice->id)->value('snapshot');
         $this->assertStringNotContainsString('3214704821', $raw);
         $this->assertStringNotContainsString('UA2132231300', $raw);
@@ -582,7 +585,7 @@ class InvoiceControllerTest extends TestCase
 
         $snapshot = $this->getJson($this->profilePath($profile, "invoices/$frozen?append=snapshot"))
             ->assertOk()
-            ->assertJsonPath('data.snapshot.schema_version', 3)
+            ->assertJsonPath('data.snapshot.schema_version', 4)
             ->assertJsonPath('data.snapshot.locale', 'uk')
             ->assertJsonPath('data.snapshot.profile.name', 'Мирчук Микола')
             ->assertJsonPath('data.snapshot.presentation', [

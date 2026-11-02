@@ -21,10 +21,12 @@ use PryTax\DataLifecycle\Backup\Internal\ArchiveImporter;
 use PryTax\DataLifecycle\Backup\Internal\Csv;
 use PryTax\Enums\TaxType;
 use PryTax\Models\Account;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\Alert;
 use PryTax\Models\Client;
 use PryTax\Models\ExchangeRate;
 use PryTax\Models\Invoice;
+use PryTax\Models\InvoicePaymentSection;
 use PryTax\Models\Profile;
 use PryTax\Services\Accounts\AccountBalanceCalculator;
 use PryTax\Services\Invoices\InvoicePdfRenderer;
@@ -137,6 +139,41 @@ class ArchiveImporterTest extends TestCase
             // The derived notifications are rebuilt, the deleted draft kept deleted
             $this->assertSame(Alert::query()->count() > 0, $this->inProfile($this->profile, fn () => Alert::query()->count() > 0));
             $this->assertSame(1, Invoice::onlyTrashed()->count());
+        });
+    }
+
+    /**
+     * Test that an archive of format 1, whose accounts held their requisites, is restored with each account's
+     * requisites as its default set, which the invoices paid into it print, and every figure of the original.
+     *
+     * @return void
+     */
+    public function testRestoresAnArchiveOfFormat1WithTheAccountsRequisitesInSets(): void
+    {
+        $this->cacheRates(['USD' => ['2026-10-05' => '41.4500']]);
+        $this->profile = $this->createProfile();
+        $account = $this->createAccount($this->profile);
+        $this->createRequisiteSet($account, [
+            'iban' => 'UA213223130000026007233566001', 'swift' => 'PBANUA2X',
+            'details' => [['label' => 'Routing (ABA)', 'value' => '022200101']],
+            'invoice_requisites' => [['label' => 'Routing (ABA)', 'shown' => true]],
+        ]);
+        $this->recordReceipt($this->profile, $this->createFrozenInvoice($this->profile, $account), $account);
+        $before = $this->figures($this->profile);
+        $archive = $this->writeArchive($this->profile)->path;
+        $this->asFormat1($archive);
+
+        $result = app(ArchiveImporter::class)->import($archive, Organization::factory()->create()->id);
+
+        $copy = Profile::query()->withoutGlobalScopes()->findOrFail($result->tenantId);
+        $this->assertSame($before, $this->figures($copy));
+        $this->inProfile($copy, function () {
+            $set = AccountRequisiteSet::query()->sole();
+            $this->assertTrue($set->is_default);
+            $this->assertSame(['UA213223130000026007233566001', 'PBANUA2X', null], [$set->iban, $set->swift, $set->bic]);
+            $this->assertSame([['label' => 'Routing (ABA)', 'shown' => true]], $set->invoice_requisites);
+            $this->assertSame(Account::query()->sole()->id, $set->account_id);
+            $this->assertSame([$set->id], InvoicePaymentSection::query()->whereIn('invoice_id', Invoice::query()->pluck('id'))->pluck('requisite_set_id')->all());
         });
     }
 
@@ -472,6 +509,40 @@ class ArchiveImporterTest extends TestCase
         }
 
         return $result;
+    }
+
+    /**
+     * Turn an archive into one of format 1, as it was before 2026-11-02: each account's default set of requisites
+     * back in the account's columns, without the sets and the invoices' sections.
+     *
+     * @param string $archive
+     *
+     * @return void
+     */
+    private function asFormat1(string $archive): void
+    {
+        $columns = ['holder_name', 'bank_name', 'iban', 'swift', 'account_number', 'details', 'invoice_requisites'];
+        $sets = collect($this->archiveRows($archive, 'data/account_requisite_sets.csv'))->where('is_default', '1')->keyBy('account_id');
+        $accounts = array_map(fn (array $account) => [...$account, ...array_combine($columns, array_map(fn (string $column) => $sets[$account['id']][$column] ?? null, $columns))],
+            $this->archiveRows($archive, 'data/accounts.csv'));
+        $csv = Csv::BOM . Csv::line(array_keys($accounts[0])) . implode('', array_map(fn (array $row) => Csv::line(array_values($row)), $accounts));
+        $manifest = json_decode((string) $this->archiveFile($archive, 'manifest.json'), true);
+        $removed = ['data/account_requisite_sets.csv', 'data/invoice_payment_sections.csv'];
+        $manifest['format_version'] = 1;
+        $manifest['files'] = array_values(array_filter($manifest['files'], fn (array $file) => !in_array($file['path'], $removed, true)));
+
+        foreach ($manifest['files'] as &$file) {
+            if ($file['path'] === 'data/accounts.csv') {
+                $file['sha256'] = hash('sha256', $csv);
+            }
+        }
+
+        $zip = new ZipArchive;
+        $zip->open($archive);
+        array_map(fn (string $path) => $zip->deleteName($path), $removed);
+        $zip->addFromString('data/accounts.csv', $csv);
+        $zip->addFromString('manifest.json', json_encode($manifest));
+        $zip->close();
     }
 
     /**

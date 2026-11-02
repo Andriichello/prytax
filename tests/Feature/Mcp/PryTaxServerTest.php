@@ -6,6 +6,8 @@ use Core\Models\Organization;
 use Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Laravel\Mcp\Server\Transport\FakeTransporter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PryTax\Mcp\Servers\PryTaxServer;
 use PryTax\Mcp\Tools\GetAccounting;
 use PryTax\Mcp\Tools\GetBackupStatus;
@@ -215,6 +217,66 @@ class PryTaxServerTest extends TestCase
         $response->assertOk();
         $this->assertSame($before, $counts());
         $this->assertSame('get-tax-ledger', Integration::of($owner->organization_id, Integration::CLAUDE)->last_tool);
+    }
+
+    /**
+     * Test that the connection is recorded once, by the first request, which names its client: Claude Code's
+     * `server/discover` (MCP 2026-07-28 names the client in every request's `_meta`, and has no `initialize`), or an
+     * older client's `initialize`; not by a request naming none before it, nor by the requests after it.
+     *
+     * @param array{method: string, params: array<string, mixed>} $naming
+     *
+     * @return void
+     */
+    #[DataProvider('clientsNamed')]
+    public function testRecordsTheConnectionOnceByTheFirstRequestNamingItsClient(array $naming): void
+    {
+        $integration = Integration::factory()->enabled($this->userOf(Organization::factory()->create()), 'prytax_connects')->create();
+        config(['prytax.mcp_key' => 'prytax_connects']);
+        $server = app(PryTaxServer::class, ['transport' => new FakeTransporter]);
+        $server->start();
+        $send = fn (string $at, int $id, array $request) => [$this->travelTo($at), $server->handle(json_encode(['jsonrpc' => '2.0', 'id' => $id, ...$request]))];
+
+        $send('2026-11-02 10:00:00', 1, ['method' => 'ping', 'params' => []]);
+        $send('2026-11-02 10:09:00', 2, $naming);
+        $send('2026-11-02 10:15:00', 3, ['method' => 'tools/list', 'params' => ['_meta' => self::metaOf('9.9.9')]]);
+
+        $integration->refresh();
+        $this->assertSame(['name' => 'claude-code', 'version' => '2.1.316'], $integration->last_client);
+        $this->assertSame('2026-11-02 10:09:00', $integration->last_connected_at->toDateTimeString());
+    }
+
+    /**
+     * Get the first requests, which name their client: as Claude Code 2.1.316 sends it, and as an older client does.
+     *
+     * @return array<string, array{array{method: string, params: array<string, mixed>}}>
+     */
+    public static function clientsNamed(): array
+    {
+        return [
+            'server/discover, with the client in _meta' => [['method' => 'server/discover', 'params' => ['_meta' => self::metaOf('2.1.316')]]],
+            'initialize, with the client in its params' => [['method' => 'initialize', 'params' => [
+                'protocolVersion' => '2025-06-18',
+                'capabilities' => [],
+                'clientInfo' => ['name' => 'claude-code', 'version' => '2.1.316'],
+            ]]],
+        ];
+    }
+
+    /**
+     * Get the `_meta` of Claude Code's requests of MCP 2026-07-28, with the version.
+     *
+     * @param string $version
+     *
+     * @return array<string, mixed>
+     */
+    private static function metaOf(string $version): array
+    {
+        return [
+            'io.modelcontextprotocol/protocolVersion' => '2026-07-28',
+            'io.modelcontextprotocol/clientInfo' => ['name' => 'claude-code', 'title' => 'Claude Code', 'version' => $version],
+            'io.modelcontextprotocol/clientCapabilities' => ['roots' => ['listChanged' => true]],
+        ];
     }
 
     /**

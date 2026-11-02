@@ -1,4 +1,4 @@
-# PryTax — Backups, data safety & retention (design v1.10)
+# PryTax — Backups, data safety & retention (design v1.11)
 
 Companion to `docs/specs/design.md` (v5.2) and `docs/specs/builds.md` (Docker, SQLite and the desktop app). Covers (1)
 protecting the platform's data against loss, (2) per-organization backups / exports that owners configure and download,
@@ -8,6 +8,22 @@ elsewhere (§3).
 
 **A copy of the whole app** (every organization, its documents, its in-app backups and the key, in one file) is a
 different thing, for one person's installation on SQLite: `builds.md` §4.11. This spec's backups stay per ФОП.
+
+### Changes in v1.11 (format 2: sets of requisites, the first upcaster)
+
+Built on 2026-11-02 (branch `feat/requisite-sets`), when an account's requisites became sets (`invoice.md` §3, §4):
+- **Format 2:** `accounts` lost `holder_name`, `bank_name`, `iban`, `swift`, `account_number`, `details` and
+  `invoice_requisites` (a breaking change, D11), which `account_requisite_sets` holds (a `profile` table after
+  `accounts`, `iban` and `account_number` decrypted, with a `bic` of its own); `invoice_payment_sections` is a `child`
+  of `invoices` (after `invoice_items`), whose `requisite_set_id` the importer maps as any foreign key.
+- **The first upcaster:** the engine's contract `ArchiveUpcaster` (`from()`, `upcast($data)`), which the registry
+  lists (`TableRegistry::upcasters()`); the importer accepts an older archive when upcasters lead from its version to
+  the current one, and runs them on the rows it read, before matching references and writing. PryTax's
+  `RequisiteSetsUpcaster` reads format 1 as the migration moved the data: each account with a requisite gets its
+  default set (the account's id lends it its id), each invoice paid into it, but a record without an invoice, a section
+  of it (the invoice's id); the accounts' rows lose the columns. `ArchiveImporterTest` turns a new archive into one of
+  format 1 and restores it with every figure of the original.
+- **Full copies** (`builds.md` §4.11): `InstallationTables::ENCRYPTED` names the sets' `iban` and `account_number`.
 
 ### Changes in v1.10 (archives between the drivers, an import uploaded in pieces)
 
@@ -113,7 +129,7 @@ deployed yet. What the code does differently from v1.6:
   `signature_file_id` is rewritten after `files` is imported (a late rewrite); `tax_id` keys aren't row ids; the
   module's own tables are excluded (`PryTaxTableRegistry::EXCLUDED`).
 - **Archive:** documents sit at `documents/{owner table}/{owner id}/{file id}-{name}`; timestamps are written in UTC
-  (the database keeps Kyiv time); no upcasters yet, so the importer refuses other format versions.
+  (the database keeps Kyiv time); upcasters read the older format versions (since v1.11, format 1 into 2).
 - **Tables:** `backups` also keeps `file_name`, `manifest` and `snapshot_at`; runs keep their options, profile ids and
   bundle columns.
 - **Downloads:** the audit entry has no subject (`audit_logs.subject_id` is an integer and backup ids are ULIDs): it is
@@ -272,12 +288,12 @@ to a single Laravel deployable:
 | D3 | Format | **CSV, one file per table**, RFC 4180, UTF-8 with BOM, plus `manifest.json`, `schema.json`, `README.txt` and a `documents/` folder with the invoice PDFs and uploads. |
 | D4 | "Zipped and gzipped"? | **Only `.zip` (deflate).** Gzipping a zip saves ~0 % (the content is already compressed) and turns a double-click archive into a two-step one on Windows/macOS. |
 | D5 | Unit of storage | **One archive per profile per run.** The organization archive ("one zip, a folder per profile") is **assembled on demand** from the profile archives of the same run, so nothing is stored twice and all profiles in it share one snapshot instant. |
-| D6 | Encrypted columns (`profiles.tax_id`, `accounts.iban`, `accounts.account_number`, `invoices.snapshot` — the snapshot copies the РНОКПП and IBAN) | **Exported decrypted**, the snapshot as JSON (ciphertext is useless outside the app's `APP_KEY`). The list is derived from the models' `encrypted*` casts by a test, never maintained by hand. The archive is therefore sensitive: private bucket, signed short-lived download URLs, downloads audited, an optional password set at download time. |
+| D6 | Encrypted columns (`profiles.tax_id`, `account_requisite_sets.iban` and `.account_number` (the accounts' until format 2), `invoices.snapshot` — the snapshot copies the РНОКПП and IBAN) | **Exported decrypted**, the snapshot as JSON (ciphertext is useless outside the app's `APP_KEY`). The list is derived from the models' `encrypted*` casts by a test, never maintained by hand. The archive is therefore sensitive: private bucket, signed short-lived download URLs, downloads audited, an optional password set at download time. |
 | D7 | Who configures / downloads | **Owner** configures the policy, downloads, and restores an archive as a new ФОП (`import`, §5.1). **Accountant** can download (they run the books) and trigger a manual backup. **Viewer**: no access (bulk export of personal data). |
 | D8 | Retention | **Grandfather-father-son** per organization (keep N daily / N weekly / N monthly + manual), enforced by an app-side pruner; a bucket lifecycle rule is the hard ceiling. **The latest completed backup of a profile is never pruned.** |
 | D9 | Restore | Always **into a new profile** (never in place): the ops tool `prytax:backup:import` and, since 2026-10-29, the owners' «Відновити з архіву» in the app (§5.1), plus an automated export→import round-trip test. A ФОП the organization still has can't be restored into it (§5.3, open). No in-place overwrite, ever. |
 | D10 | `APP_KEY` | Layer A backups are useless without the key that encrypted the columns. It lives in Secret Manager with every historical version; key rotation uses `APP_PREVIOUS_KEYS`. |
-| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. A new shape of the JSON inside a column isn't a registry change either, while the code reads both shapes (`clients.address`, §4.2). Backups are never produced with an *old* definition; old *archives* are read through importer upcasters (none yet: format 1 is the only one, and the importer refuses any other). |
+| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. A new shape of the JSON inside a column isn't a registry change either, while the code reads both shapes (`clients.address`, §4.2). Backups are never produced with an *old* definition; old *archives* are read through importer upcasters (since v1.11: format 2, and `RequisiteSetsUpcaster` reads format 1). |
 | D13 | Module or scattered code? | **A module in the app**, not a composer package: engine `PryTax\DataLifecycle\` (generic, no knowledge of accounting; built on api-core's base classes), definitions `PryTax\Backups\` + `PryTax\Retention\` (PryTax-specific), four contracts between them, a PHPUnit test for the direction of dependencies (§10). |
 | D14 | Does api-core take part? | **No.** api-core (`Core\`) stays free of backup code, migrations and GCS/zip dependencies. PryTax registers the api-core tables it needs and owns the user-removal handler (§11). Extraction later goes to a sibling package, never into api-core. |
 | D12 | Data retention & deletion | **Families × actions × periods in config**, executed by deletion runs with per-family jobs and a `due_at`. Accounting data is never deleted on a timer while the organization exists; offboarding = lock immediately → final export → grace period → FK-ordered purge (DB rows, documents, backups). Credentials and technical data have short rolling cutoffs (§9). |
@@ -431,7 +447,8 @@ prytax_kovalenko-olena_p42_2026-10-27T0237Z.zip
 ├── README.txt                    (UA + EN: what each file is, CSV conventions, how to open in Excel)
 ├── data/                         (file order = insert order, §4.2)
 │   ├── profile.csv               (1 row; tax_id decrypted; tax_id_hash omitted)
-│   ├── accounts.csv              (iban, account_number decrypted)
+│   ├── accounts.csv
+│   ├── account_requisite_sets.csv (iban, account_number decrypted; since format 2)
 │   ├── account_opening_balances.csv
 │   ├── account_movements.csv
 │   ├── clients.csv
@@ -442,6 +459,7 @@ prytax_kovalenko-olena_p42_2026-10-27T0237Z.zip
 │   ├── invoices.csv              (snapshot decrypted → JSON string; primary_file_id is a deferred column;
 │   │                              soft-deleted rows included, deleted_at set)
 │   ├── invoice_items.csv
+│   ├── invoice_payment_sections.csv (since format 2)
 │   ├── account_transfers.csv
 │   ├── payments.csv              (source_transfer_id → account_transfers)
 │   ├── refunds.csv
@@ -655,7 +673,8 @@ final class PryTaxTableRegistry implements TableRegistry
         return [
             TableSpec::root('profiles', 'id')->file('profile')
                 ->decrypt('tax_id')->omit('tax_id_hash'),
-            TableSpec::profile('accounts')->decrypt('iban', 'account_number'),
+            TableSpec::profile('accounts'),
+            TableSpec::profile('account_requisite_sets')->decrypt('iban', 'account_number'),
             TableSpec::profile('account_opening_balances'),
             TableSpec::profile('account_movements'),
             TableSpec::profile('clients'),
@@ -670,6 +689,7 @@ final class PryTaxTableRegistry implements TableRegistry
                 ->deferred('primary_file_id')                                           // → files (cycle, below)
                 ->generated('active_number'),                                           // IF(deleted_at IS NULL, number, NULL)
             TableSpec::child('invoice_items', parent: 'invoices', fk: 'invoice_id'),
+            TableSpec::child('invoice_payment_sections', parent: 'invoices', fk: 'invoice_id'),
             TableSpec::profile('account_transfers')->period('received_at'),             // before payments
             TableSpec::profile('payments')->period('received_at')                       // source_transfer_id → transfers
                 ->generated('period_year', 'period_quarter', 'period_month'),
@@ -1193,8 +1213,8 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
 ```
 
 1. Validate `manifest.json` (`format`, `format_version` ≤ supported, `restorable = true`), file sha256s, `schema.json`.
-   Older `format_version`s go through upcasters (`BackupUpcaster_v1_to_v2`, …); none exist yet, so the importer
-   refuses any version but its own (1). A run's bundle (`format: prytax-backup-bundle`) and a period export
+   Older `format_version`s go through upcasters (`RequisiteSetsUpcaster` reads 1 into 2, v1.11); a version without
+   a chain of upcasters to the current one (2) is refused. A run's bundle (`format: prytax-backup-bundle`) and a period export
    (`restorable: false`) are refused with their own messages. An archive downloaded with a password (§4.6) is opened
    with it; without it, or with another, it is refused.
 2. **Reference rows are matched first, never inserted** (`matchOn()`): `tax_rules` by `effective_from`,

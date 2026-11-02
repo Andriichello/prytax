@@ -11,7 +11,9 @@ development and was dropped. Since template v3 (2026-10-24): the two notes of de
 note and its kind (2026-10-25, §3, §4); the fonts moved into `PdfFonts`, shared with the books' PDFs (2026-10-28, §6);
 an invoice's PDF is previewed in the app whatever its status, a draft's marked as a draft, both previews zoom, the
 payment details' rows are 3 pt apart, and the client's address is one text (2026-10-30, §3, §4, §8); an account's
-requisites print in the order its owner puts them, each switched on or off (2026-11-02, §3, §4).
+requisites print in the order its owner puts them, each switched on or off (2026-11-02, §3, §4); then the same day
+an account's requisites became sets (SEPA and SWIFT of one EUR account, SWIFT and BIC apart), and an invoice prints
+one «Payment details (…)» section per set it chose (schema 4, §2–§4).
 
 An invoice is printed from its snapshot, in one of 13 styles, in English or Ukrainian. Every style has the same
 content and structure: the styles differ by their CSS, their decoration and their fonts.
@@ -82,8 +84,9 @@ content and structure: the styles differ by their CSS, their decoration and thei
 |---|---|---|
 | `schema_version` 1 (or none) | any | **v1**, as it always did |
 | 2 (development only) | — | **v3** as `outlined`; its `footer_note` prints as the other note |
-| 3 | `v3`, or no file yet | **v3** |
-| 2 or 3 | `v2` (development only) | **v3** |
+| 3 | `v3`, or no file yet | **v3**; the account's requisites as one untitled section, `swift` as «SWIFT / BIC» |
+| 4 | `v3`, or no file yet | **v3**, a section per set of `payment_sections`, SWIFT and BIC each by its name |
+| 2, 3 or 4 | `v2` (development only) | **v3** |
 
 A generated file stores `template_version` and `schema_version` in its metadata (api-core's `files.metadata`; this
 is `invoice_files.template_version` in `design.md` §3). New renders use `TEMPLATE_VERSION = 'v3'`.
@@ -97,15 +100,22 @@ The previews that render a snapshot built in memory (a draft's, a style's; §8) 
 
 ---
 
-## 3. Data: snapshot v3
+## 3. Data: snapshot v4
 
 `InvoiceFreezer` writes the snapshot on freeze (`draft → ready`). It resolves the settings cascade (`design.md`
 §4.1) and takes the parties' names and addresses in the invoice's language, so the template never decides anything
-on its own.
+on its own. Schema 4 (2026-11-02) moved the account's requisites into `payment_sections`: one per section the
+invoice prints (`invoice_payment_sections`: a set of the receiving account's `account_requisite_sets`, its position,
+the text in its parentheses, null for the set's name, and whether it prints them; `PaymentSections`), its `title`
+the text it prints in parentheses or null. Each carries its account, so sections of two accounts need no other
+shape. A new invoice, or a draft moved to another account, takes the sections of the client's last invoice to the
+account, while their sets are active, else the account's default set; a set of another account, one switched off,
+one twice, or parentheses without a name are refused (422); of two sections or more, every one prints its
+parentheses.
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "money_format": "plain_dot",
   "locale": "en",
   "frozen_at": "2026-10-31T12:00:00+02:00",
@@ -125,10 +135,16 @@ on its own.
     "payment_note": "Please quote the invoice number in the transfer reference.",
     "other_note": "Thank you for working with us."
   },
-  "account": { "name": "Payoneer USD", "kind": "platform", "currency": "USD", "holder_name": "Myrchuk Mykola",
-               "bank_name": "…", "iban": null, "swift": "…", "account_number": "…",
-               "details": [{ "label": "Routing (ABA)", "value": "…" }],
-               "invoice_requisites": [{ "label": "Routing (ABA)", "shown": true }, { "field": "bank_name", "shown": false }] },
+  "account": { "name": "Monobank ФОП EUR", "kind": "fop_bank", "currency": "EUR" },
+  "payment_sections": [
+    { "title": "SEPA", "account": { "name": "Monobank ФОП EUR", "currency": "EUR" },
+      "holder_name": "PRYKHODKO ANDRIY", "bank_name": null, "iban": "…", "account_number": null, "swift": null,
+      "bic": "CLJUGB21", "details": null, "invoice_requisites": null },
+    { "title": "SWIFT", "account": { "name": "Monobank ФОП EUR", "currency": "EUR" },
+      "holder_name": "PE PRYKHODKO ANDRIY", "bank_name": null, "iban": "UA…", "account_number": null,
+      "swift": "UNJSUAUKXXX", "bic": null, "details": [{ "label": "Address", "value": "88000, Ukraine, …" }],
+      "invoice_requisites": [{ "field": "holder_name", "shown": true }, { "label": "Address", "shown": true }] }
+  ],
   "invoice": { "number": "BRIT-2026-10-31-2", "source": "generated", "period_start": "2026-10-01",
                "period_end": "2026-10-31", "issued_at": "2026-10-31", "due_at": "2026-11-14", "currency": "USD" },
   "items": [{ "position": 1, "project_code": "CRONE", "charge_type": "Billable", "description": "IT services …",
@@ -233,13 +249,18 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
   above the total. The total bar is one row: the label and `{amount} {currency}`.
 
 **Card** (`v3/card`):
-- Left, PAYMENT DETAILS: a key–value grid of the account's requisites, which print, in their order, then the currency,
-  and finally Purpose (the payment purpose). The requisites are beneficiary, bank, IBAN, account number and SWIFT /
-  BIC (when set) and the account's own details; `account.invoice_requisites` (copied from the account at the freeze,
-  set on the account's page by «Упорядкувати») names them in order, a field by its column and a detail by its label,
-  each `shown` or not (on by default); those it doesn't name (added or renamed since) follow, printed, in the built-in
-  order. Without it (snapshots frozen before 2026-11-02, or an account never ordered), the built-in order: the fields,
-  then the details as they were typed (`InvoiceRequisites::ordered()`). The keys share
+- Left, the payment details: a section per set of the account's requisites, which the invoice prints
+  (`payment_sections`, copied at the freeze from the invoice's sections), each a key–value grid of the set's
+  requisites, which print, in their order. One section is headed PAYMENT DETAILS, or PAYMENT DETAILS (SEPA) when it
+  prints its parentheses, and ends with the currency and Purpose (the payment purpose); of two sections or more each
+  is headed with its parentheses (the owner, 2026-11-02: every section labelled), and the currency and Purpose follow
+  once, untitled, after the last one (`.pay-next`, 6 pt above each block after the first). The requisites are
+  beneficiary, bank, IBAN, account number, SWIFT and BIC (when set; apart since 2026-11-02, each by its own name) and
+  the set's own details; its `invoice_requisites` (set on the account's page by «Упорядкувати») names them in order, a
+  field by its column and a detail by its label, each `shown` or not (on by default); those it doesn't name (added or
+  renamed since) follow, printed, in the built-in order: the fields, then the details as they were typed
+  (`InvoiceRequisites::ordered()`). A snapshot of schema 3 keeps the account's requisites in `account`, which print as
+  one untitled section with `swift` as «SWIFT / BIC», as frozen. The keys share
   one measured width; the rows are 3 pt apart (2026-10-30, the owner: they had none, as `table.card-cols td` zeroed
   `table.kv td`'s 1.5 pt). The payment note, when on, follows as a `.card-section` titled PAYMENT NOTE.
 - Right: ACT OF ACCEPTANCE when the act note is on, then OTHER NOTES when the other note is on (a `.card-section` when
@@ -361,7 +382,8 @@ are in `design.md` §4.1.
 | `subtotal` · `adjustment` · `total` | Subtotal · Adjustment · Total | Проміжний підсумок · Коригування · Разом |
 | `unit.hour` · `unit.fixed` · `unit.item` | h · fixed · pcs | год · фікс. · шт. |
 | `payment_details` · `purpose_short` | Payment details · Purpose | Платіжні реквізити · Призначення |
-| `beneficiary` · `bank` · `iban` · `account_number` · `swift` · `currency` | Beneficiary · Bank · IBAN · Account number · SWIFT / BIC · Currency | Отримувач · Банк · IBAN · Номер рахунку · SWIFT / BIC · Валюта |
+| `beneficiary` · `bank` · `iban` · `account_number` · `swift` · `bic` · `currency` | Beneficiary · Bank · IBAN · Account number · SWIFT · BIC · Currency | Отримувач · Банк · IBAN · Номер рахунку · SWIFT · BIC · Валюта |
+| `payment_details_titled` · `swift_bic` (schema 3) | Payment details (:title) · SWIFT / BIC | Платіжні реквізити (:title) · SWIFT / BIC |
 | `act_of_acceptance` | Act of acceptance | Акт приймання-передачі |
 | `payment_note` · `other_notes` | Payment note · Other notes | Примітка до оплати · Інші примітки |
 | `page_of` | Page :page of :total | Сторінка :page з :total |

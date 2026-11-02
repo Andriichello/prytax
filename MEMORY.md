@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-02 (latest): `main` = `dev` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). Branch **`fix/claude-connections`** (from `dev`; not merged, not pushed) records Claude Code's connections (see "Claude Code's connections, recorded"). Last run: `composer test:sqlite` 674 (MySQL was stopped). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+Status as of 2026-11-02 (latest): **everything is merged into `dev`** (the user: "fix the flaky test too, then merge into dev"; `dev` fast-forwarded to `fix/claude-connections` → `fix/installation-work-per-process`, then this note; not `main`, not pushed). `main` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). It records Claude Code's connections and fixes a flaky test (see "Claude Code's connections, recorded"). Last runs: `composer test:sqlite` 676, three times in a row (MySQL was stopped, so `composer test` didn't run). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
 into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
 `chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
 "Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
@@ -61,7 +61,7 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
-## Claude Code's connections, recorded (2026-11-02; branch `fix/claude-connections` from `dev`, not merged, not pushed)
+## Claude Code's connections, recorded (2026-11-02; branches `fix/claude-connections` from `dev`, then `fix/installation-work-per-process`, fast-forwarded into `dev` at the user's request, not pushed)
 
 - **Cause:** laravel/mcp 1.1.2 serves only MCP 2026-07-28, which has no `initialize`: Claude Code 2.1.316 sends
   `server/discover`, then `tools/list`, each naming the client in `_meta["io.modelcontextprotocol/clientInfo"]`, so
@@ -72,9 +72,13 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
   `PryTaxServerTest` drives `handle()` with raw JSON (laravel/mcp's test harness calls `runMethodHandle()` and skips
   it). Checked live: a real `claude mcp list` on a scratch copy of `database/database.sqlite` recorded
   `claude-code 2.1.316`.
-- **Flaky under paratest (not fixed):** `MakesInstallationDatabases::tearDown()` deletes the shared
-  `storage/framework/installation/`, so another process's `InstallationRestoreTest` can fail with «ZipArchive::close():
-  Renaming temporary file failed» (passes alone and on a rerun).
+- **Flaky under paratest, fixed** (`fix/installation-work-per-process`): `MakesInstallationDatabases::tearDown()`
+  deletes the work directory, which every process shared, so another process's `InstallationRestoreTest` could fail
+  with «ZipArchive::close(): Renaming temporary file failed». `InstallationWork::path()` now adds `_test_<token>` under
+  `ParallelTesting::token()`, as Laravel's `Storage::fake()` does (`storage/framework/.gitignore` ignores them);
+  `InstallationWorkTest`. Serial runs still use (and delete) the checkout's `storage/framework/installation/`.
+- **Reconnect to see it:** a running `prytax` MCP server keeps its old code: `/mcp` → Reconnect, then Налаштування →
+  Інтеграції shows Claude Code connected.
 
 ## Claude's writes, fixed after a run with test records (2026-11-01; branch `fix/claude-writes` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 

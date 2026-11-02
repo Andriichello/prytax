@@ -4,6 +4,8 @@ namespace Tests\Feature\Http\Controllers;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PryTax\Models\Account;
+use PryTax\Models\Profile;
 use Tests\Concerns\ActsInProfiles;
 use Tests\TestCase;
 
@@ -98,6 +100,48 @@ class AccountRequisiteSetControllerTest extends TestCase
     }
 
     /**
+     * Test that a set, which only a deleted draft printed, is deleted with that draft's section, the account's only
+     * set and its default too.
+     *
+     * @return void
+     */
+    public function testDeletesASetWhichOnlyADeletedDraftPrinted(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        $set = $this->createRequisiteSet($account);
+        $draft = $this->draftPaidInto($profile, $account);
+        $this->deleteJson($this->profilePath($profile, "invoices/$draft"))->assertOk();
+
+        $response = $this->deleteJson($this->profilePath($profile, "accounts/{$account->id}/requisite-sets/{$set->id}"));
+
+        $response->assertOk();
+        $this->assertDatabaseMissing('account_requisite_sets', ['id' => $set->id]);
+        $this->assertDatabaseMissing('invoice_payment_sections', ['invoice_id' => $draft]);
+    }
+
+    /**
+     * Test that a set, which an invoice prints, isn't deleted (422), and says to switch it off instead.
+     *
+     * @return void
+     */
+    public function testReturns422ForDeletingASetWhichAnInvoicePrints(): void
+    {
+        $profile = $this->createProfile();
+        $this->actAs($profile);
+        $account = $this->createAccount($profile);
+        $this->createRequisiteSet($account);
+        $swift = $this->createRequisiteSet($account, ['is_default' => false, 'name' => 'SWIFT']);
+        $this->draftPaidInto($profile, $account, ['payment_sections' => [['requisite_set_id' => $swift->id]]]);
+
+        $response = $this->deleteJson($this->profilePath($profile, "accounts/{$account->id}/requisite-sets/{$swift->id}"));
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['id' => 'Invoices print these requisites, so they can\'t be deleted: switch them off instead.']);
+        $this->assertModelExists($swift);
+    }
+
+    /**
      * Test that an accountant saves the order of a set's requisites in invoices, and which of them print.
      *
      * @return void
@@ -142,6 +186,25 @@ class AccountRequisiteSetControllerTest extends TestCase
 
         $response->assertUnprocessable()->assertJsonValidationErrors([$key => $message]);
         $this->assertNull($set->refresh()->invoice_requisites);
+    }
+
+    /**
+     * Create a draft of a new client for October 2026, paid into the account, through the API, and get its id.
+     *
+     * @param Profile $profile
+     * @param Account $account
+     * @param array $data
+     *
+     * @return int
+     */
+    private function draftPaidInto(Profile $profile, Account $account, array $data = []): int
+    {
+        [$client, $contract] = $this->createClientWithContract($profile);
+
+        return $this->postJson($this->profilePath($profile, 'invoices'), [
+            'client_id' => $client->id, 'contract_id' => $contract->id, 'receiving_account_id' => $account->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-31', 'items' => [['quantity' => '10.00']], ...$data,
+        ])->assertCreated()->json('data.id');
     }
 
     /**

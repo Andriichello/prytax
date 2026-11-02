@@ -61,6 +61,15 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## A set only deleted drafts printed (2026-11-02; on `dev` directly)
+
+The user couldn't delete a set «no invoice used»: their local app's Monobank (USD) set was printed by a draft deleted
+at 11:40, whose `invoice_payment_sections` row kept the FK (restrict), so the delete was the generic «Other records
+reference it… Deactivate it instead.», and a default can't be switched off. `AccountRequisiteSetRepository::delete`
+now deletes the sections of soft-deleted invoices with the set, and refuses one a live invoice prints with «Invoices
+print these requisites, so they can't be deleted: switch them off instead.». The local app was rebuilt from `dev`
+(copy `prytax.local.sqlite.before-rebuild-20261102-141401` in its volume).
+
 ## Rows of a set's form dragged into place (2026-11-02; committed on `dev` directly, at the user's request: "Work directly in dev")
 
 The user: the ↑ ↓ buttons were painful; drag and drop instead, and an own field's ✕ before the switch, so every

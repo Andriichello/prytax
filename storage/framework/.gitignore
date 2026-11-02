@@ -9,4 +9,5 @@ routes.scanned.php
 schedule-*
 services.json
 installation/
+installation_test_*/
 prytax-starter.env

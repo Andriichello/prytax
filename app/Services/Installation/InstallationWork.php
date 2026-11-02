@@ -3,12 +3,14 @@
 namespace PryTax\Services\Installation;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\ParallelTesting;
 
 /**
  * Class InstallationWork.
  *
  * Where full backups are made, uploaded and opened (`storage/framework/installation/`): outside the disks, which a full
- * backup carries, and removed after a day, when they weren't taken or restored.
+ * backup carries, and removed after a day, when they weren't taken or restored; each process of a parallel test run
+ * has its own (`installation_test_<token>/`).
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Services\Installation
@@ -31,7 +33,15 @@ final class InstallationWork
      */
     public static function path(string $name): string
     {
-        return storage_path('framework/installation/' . $name);
+        $root = storage_path('framework/installation');
+
+        // A process of a parallel test run works in a directory of its own, as Laravel's fake disks do: a test removes
+        // the directory after it, which would pull it from under another process's test
+        if ($token = ParallelTesting::token()) {
+            $root .= "_test_$token";
+        }
+
+        return "$root/$name";
     }
 
     /**

@@ -25,6 +25,7 @@ class AccountResource extends BaseResource
      */
     protected array $allowedIncludes = [
         'openingBalances' => AccountOpeningBalanceCollection::class,
+        'requisiteSets' => AccountRequisiteSetCollection::class,
     ];
 
     /**

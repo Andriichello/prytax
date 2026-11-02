@@ -12,6 +12,7 @@ use PryTax\Http\Controllers\AccountController;
 use PryTax\Http\Controllers\AccountingController;
 use PryTax\Http\Controllers\AccountMovementController;
 use PryTax\Http\Controllers\AccountOpeningBalanceController;
+use PryTax\Http\Controllers\AccountRequisiteSetController;
 use PryTax\Http\Controllers\AccountTransferController;
 use PryTax\Http\Controllers\AlertController;
 use PryTax\Http\Controllers\BooksController;
@@ -131,6 +132,7 @@ Route::middleware(['auth:sanctum', 'password.updated'])->group(function () use (
                     Route::get('accounts/{id}/statement', [AccountController::class, 'statement'])->name('accounts.statement');
                     $crud('accounts/{account}/opening-balances', AccountOpeningBalanceController::class, $all, 'accounts.opening-balances');
                     $crud('accounts/{account}/movements', AccountMovementController::class, $all, 'accounts.movements');
+                    $crud('accounts/{account}/requisite-sets', AccountRequisiteSetController::class, $all, 'accounts.requisite-sets');
 
                     $crud('clients', ClientController::class, $all, 'clients');
                     Route::get('clients/{id}/stats', [ClientController::class, 'stats'])->name('clients.stats');

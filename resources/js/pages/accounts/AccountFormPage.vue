@@ -3,11 +3,12 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api/client';
 import type { Account, AccountOpeningBalance, ApiResponse } from '@/api/types';
-import AccountDetailsFields from '@/components/account/AccountDetailsFields.vue';
 import type { AccountForm } from '@/components/account/AccountFormModel';
 import AccountLimitFields from '@/components/account/AccountLimitFields.vue';
 import AccountMainFields from '@/components/account/AccountMainFields.vue';
 import OpeningBalanceSheet from '@/components/account/OpeningBalanceSheet.vue';
+import RequisiteSetFields from '@/components/account/RequisiteSetFields.vue';
+import { blankRequisiteSet, isBlankRequisiteSet, requisiteSetBody } from '@/components/account/RequisiteSetFormModel';
 import AccordionGroup from '@/components/form/AccordionGroup.vue';
 import DateField from '@/components/form/DateField.vue';
 import Dimmable from '@/components/form/Dimmable.vue';
@@ -31,12 +32,13 @@ import { errorMessage, fieldError } from '@/utils/errors';
 import { formatMoney, parseAmount } from '@/utils/money';
 
 /**
- * Рахунок — новий або редагування (M-AccountEdit, design.md §16.5). A new account is one form with its own «Зберегти»
- * and its first balance. An existing one is an accordion: Основне (name, kind; the currency is fixed), Реквізити для
- * інвойсу (stored encrypted), Ліміт (client receipts over a calendar month, quarter or year; none for a personal
- * account), each saved on its own, then its balances on dates and an «Активний» switch, which saves at once.
+ * Рахунок — новий або редагування (M-AccountEdit, design.md §16.5). A new account is one form with its own «Зберегти»,
+ * its first set of requisites (saved with it, or neither) and its first balance. An existing one is an accordion:
+ * Основне (name, kind; the currency is fixed), Ліміт (client receipts over a calendar month, quarter or year; none for
+ * a personal account), each saved on its own, then its balances on dates and an «Активний» switch, which saves at
+ * once. Its requisites are sets of their own, on the account's page.
  */
-type Group = 'main' | 'details' | 'limit';
+type Group = 'main' | 'limit';
 
 const route = useRoute();
 const router = useRouter();
@@ -51,12 +53,7 @@ const blank = (): AccountForm => ({
     name: '',
     kind: 'platform',
     currency: 'USD',
-    holder_name: '',
-    bank_name: '',
-    account_number: '',
-    swift: '',
-    iban: '',
-    details: [],
+    requisites: blankRequisiteSet(),
     hasLimit: false,
     limit_amount: '',
     limit_period: 'year',
@@ -74,12 +71,7 @@ function formOf(account: Account): AccountForm {
         name: account.name,
         kind: account.kind,
         currency: account.currency,
-        holder_name: account.holder_name ?? '',
-        bank_name: account.bank_name ?? '',
-        account_number: account.account_number ?? '',
-        swift: account.swift ?? '',
-        iban: account.iban ?? '',
-        details: (account.details ?? []).map((detail) => ({ ...detail })),
+        requisites: blankRequisiteSet(),
         hasLimit: account.limit_amount !== null,
         limit_amount: account.limit_amount ?? '',
         limit_period: account.limit_period ?? 'year',
@@ -115,19 +107,10 @@ async function reloadBalances(): Promise<void> {
 
 /** The fields of each group, as the API takes them. */
 function fields(group: Group | 'all'): Record<string, unknown> {
-    const compact = (value: string): string | null => value.replace(/\s/g, '').toUpperCase() || null;
     const values = form.value;
     const limited = values.hasLimit && values.kind !== 'personal';
     const main = { name: values.name.trim(), kind: values.kind };
-    const details = {
-        holder_name: values.holder_name.trim() || null,
-        bank_name: values.bank_name.trim() || null,
-        account_number: values.account_number.trim() || null,
-        swift: compact(values.swift),
-        iban: compact(values.iban),
-        details: values.details.filter((detail) => detail.label.trim() && detail.value.trim())
-            .map((detail) => ({ label: detail.label.trim(), value: detail.value.trim() })),
-    };
+    const requisites = isBlankRequisiteSet(values.requisites) ? {} : { requisites: requisiteSetBody(values.requisites) };
     const limit = {
         limit_amount: limited ? parseAmount(values.limit_amount) ?? values.limit_amount : null,
         limit_period: limited ? values.limit_period : null,
@@ -136,12 +119,10 @@ function fields(group: Group | 'all'): Record<string, unknown> {
     switch (group) {
         case 'main':
             return main;
-        case 'details':
-            return details;
         case 'limit':
             return limit;
         default:
-            return { ...main, currency: values.currency, ...details, ...limit };
+            return { ...main, currency: values.currency, ...requisites, ...limit };
     }
 }
 
@@ -221,12 +202,13 @@ async function setActive(value: boolean): Promise<void> {
 }
 
 const errors = computed(() => ({
-    account_number: fieldError(saveError.value, 'account_number'),
-    swift: fieldError(saveError.value, 'swift'),
-    iban: fieldError(saveError.value, 'iban'),
+    account_number: fieldError(saveError.value, 'requisites.account_number'),
+    swift: fieldError(saveError.value, 'requisites.swift'),
+    bic: fieldError(saveError.value, 'requisites.bic'),
+    iban: fieldError(saveError.value, 'requisites.iban'),
 }));
 const generalError = computed(() => {
-    const names = ['name', 'kind', 'currency', 'iban', 'swift', 'account_number', 'limit_amount', 'limit_period'];
+    const names = ['name', 'kind', 'currency', 'requisites.iban', 'requisites.swift', 'requisites.bic', 'requisites.account_number', 'limit_amount', 'limit_period'];
 
     return saveError.value && !names.some((name) => fieldError(saveError.value, name)) ? errorMessage(saveError.value) : null;
 });
@@ -237,8 +219,6 @@ const periodName = (period: string | null): string => (period === 'month'
     ? t('core.common.month')
     : period === 'quarter' ? t('core.common.quarter') : t('core.common.year'));
 
-/** The masked tail of a number: `•••• 7731`. */
-const masked = (value: string | null): string | null => (value ? `•••• ${value.replace(/\s/g, '').slice(-4)}` : null);
 </script>
 
 <template>
@@ -256,7 +236,7 @@ const masked = (value: string | null): string | null => (value ? `•••• $
             </section>
             <section class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
                 <h2 class="m-0 text-16 font-semibold">{{ t('money.accountForm.paymentDetailsInvoices') }}</h2>
-                <AccountDetailsFields v-model="form" :errors="errors" />
+                <RequisiteSetFields v-model="form.requisites" :errors="errors" />
             </section>
             <section v-if="form.kind !== 'personal'" class="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-4">
                 <h2 class="m-0 text-16 font-semibold">{{ t('money.accountForm.limit') }}</h2>
@@ -294,28 +274,6 @@ const masked = (value: string | null): string | null => (value ? `•••• $
                     <ReadRow :label="t('core.common.currency')" :value="account.currency" />
                     <template #edit>
                         <AccountMainFields v-model="form" :is-new="false" :name-error="fieldError(saveError, 'name')" />
-                    </template>
-                </AccordionGroup>
-
-                <AccordionGroup
-                    id="details"
-                    :title="t('money.accountForm.paymentDetailsInvoices')"
-                    :editable="canSave"
-                    :saving="saving"
-                    :error="generalError"
-                    @open="open"
-                    @save="saveGroup('details')"
-                >
-                    <ReadRow :label="t('money.accountForm.holder')" :value="account.holder_name" />
-                    <ReadRow :label="t('money.account.bank')" :value="account.bank_name" />
-                    <ReadRow :label="t('money.accountForm.accountNumber')"><span class="num">{{ masked(account.account_number) ?? '—' }}</span></ReadRow>
-                    <ReadRow label="SWIFT"><span class="num">{{ account.swift ?? '—' }}</span></ReadRow>
-                    <ReadRow label="IBAN"><span class="num">{{ masked(account.iban) ?? t('money.accountForm.none') }}</span></ReadRow>
-                    <ReadRow v-for="detail in account.details ?? []" :key="detail.label" :label="detail.label">
-                        <span class="num">{{ detail.value }}</span>
-                    </ReadRow>
-                    <template #edit>
-                        <AccountDetailsFields v-model="form" :errors="errors" />
                     </template>
                 </AccordionGroup>
 

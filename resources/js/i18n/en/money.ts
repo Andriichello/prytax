@@ -259,6 +259,27 @@ export default {
         printOnInvoices: 'Print on invoices: {label}',
     },
 
+    requisiteSets: {
+        add: 'Add',
+        unnamed: 'Unnamed',
+        default: 'Default',
+        off: 'Off',
+        newTitle: 'New payment details',
+        name: 'Name',
+        nameHint: 'Printed in parentheses: «Payment details (SEPA)». Such as SEPA or SWIFT.',
+        defaultHint: 'New invoices print them, unless the client’s last invoice to this account printed others',
+        active: 'Active',
+        activeHint: 'Switched off, they aren’t offered to new invoices',
+        printed: 'Payment details',
+        onInvoice: 'Payment details on the invoice',
+        remove: 'Remove: {label}',
+        inParentheses: 'In parentheses',
+        printInParentheses: 'Print the name in parentheses',
+        severalHint: 'Several payment details each print their name in parentheses.',
+        addSection: '+ Add payment details',
+        noneOnAccount: 'The account has no payment details: add them on its page.',
+    },
+
     accountForm: {
         newAccount: 'New account',
         namePlaceholder: 'E.g., Wise USD',

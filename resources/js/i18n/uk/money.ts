@@ -268,6 +268,28 @@ export default {
         printOnInvoices: 'Друкувати в інвойсах: {label}',
     },
 
+    /** Sets of an account's requisites, and an invoice's sections of them */
+    requisiteSets: {
+        add: 'Додати',
+        unnamed: 'Без назви',
+        default: 'За замовчуванням',
+        off: 'Вимкнено',
+        newTitle: 'Нові реквізити',
+        name: 'Назва',
+        nameHint: 'Друкується в дужках: «Payment details (SEPA)». Напр., SEPA чи SWIFT.',
+        defaultHint: 'Їх друкують нові інвойси, якщо останній інвойс клієнта на цей рахунок не друкував інших',
+        active: 'Активні',
+        activeHint: 'Вимкнені не пропонуються новим інвойсам',
+        printed: 'Реквізити',
+        onInvoice: 'Реквізити в інвойсі',
+        remove: 'Прибрати: {label}',
+        inParentheses: 'У дужках',
+        printInParentheses: 'Друкувати назву в дужках',
+        severalHint: 'Коли реквізитів кілька, кожні друкуються з назвою в дужках.',
+        addSection: '+ Додати реквізити',
+        noneOnAccount: 'У рахунку немає реквізитів: додайте їх на сторінці рахунку.',
+    },
+
     /** A new account, and editing one */
     accountForm: {
         newAccount: 'Новий рахунок',

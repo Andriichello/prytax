@@ -580,10 +580,10 @@ export interface AccountDetail {
     value: string;
 }
 
-/** An account's field, which is a requisite in invoices. */
-export type RequisiteField = 'holder_name' | 'bank_name' | 'iban' | 'account_number' | 'swift';
+/** A field of a set of requisites, which is a requisite in invoices. */
+export type RequisiteField = 'holder_name' | 'bank_name' | 'iban' | 'account_number' | 'swift' | 'bic';
 
-/** An entry of the order of an account's requisites in invoices: a field, or a detail by its label, and whether it prints. */
+/** An entry of the order of a set's requisites in invoices: a field, or a detail by its label, and whether it prints. */
 export type InvoiceRequisiteEntry = ({ field: RequisiteField; label?: never } | { label: string; field?: never }) & { shown: boolean };
 
 /** Progress towards an account's limit: `limit_progress` of an account and `limit` of its statement. */
@@ -608,14 +608,6 @@ export interface Account {
     name: string;
     kind: AccountKind;
     currency: CurrencyCode;
-    holder_name: string | null;
-    bank_name: string | null;
-    iban: string | null;
-    swift: string | null;
-    account_number: string | null;
-    details: AccountDetail[] | null;
-    /** The order of the requisites in invoices, and which of them print; null: all, in the built-in order. */
-    invoice_requisites: InvoiceRequisiteEntry[] | null;
     limit_amount: Amount | null;
     limit_period: LimitPeriod | null;
     is_active: boolean;
@@ -623,12 +615,61 @@ export interface Account {
     created_at: DateTimeString;
     updated_at: DateTimeString;
     openingBalances?: AccountOpeningBalance[];
+    /** Include: its sets of requisites, the default first. */
+    requisiteSets?: AccountRequisiteSet[];
     /** Append: balance of the tracked flows, in the account's currency. */
     balance?: Amount;
     /** Append: progress towards the limit, or null without a limit. */
     limit_progress?: AccountLimitProgress | null;
     /** Append: money of receipts the account holds past the repatriation rule, in its currency ("0.00" if none). */
     late_holdings?: Amount;
+}
+
+/**
+ * A set of an account's requisites, which invoices print as a «Payment details (…)» section, such as SEPA and SWIFT of
+ * one EUR account: `…/accounts/{account}/requisite-sets`. One active set is the account's default.
+ */
+export interface AccountRequisiteSet {
+    id: number;
+    profile_id: number;
+    account_id: number;
+    created_by_user_id: number | null;
+    /** What an invoice prints in the parentheses, «Payment details (SEPA)». */
+    name: string | null;
+    holder_name: string | null;
+    bank_name: string | null;
+    iban: string | null;
+    account_number: string | null;
+    swift: string | null;
+    bic: string | null;
+    details: AccountDetail[] | null;
+    /** The order of the requisites in invoices, and which of them print; null: all, in the built-in order. */
+    invoice_requisites: InvoiceRequisiteEntry[] | null;
+    is_default: boolean;
+    is_active: boolean;
+    sort_order: number;
+    created_at: DateTimeString;
+    updated_at: DateTimeString;
+}
+
+/** A «Payment details (…)» section of an invoice: a set of its account's requisites, in its place. */
+export interface InvoicePaymentSection {
+    id: number;
+    invoice_id: number;
+    requisite_set_id: number;
+    position: number;
+    /** The text in the parentheses; null: the set's name. */
+    title: string | null;
+    /** Whether it prints the parentheses; always, of two sections or more. */
+    show_title: boolean;
+    requisiteSet?: AccountRequisiteSet;
+}
+
+/** A section of an invoice, as a draft saves it (`payment_sections`) and a new invoice starts with it. */
+export interface PaymentSectionDraft {
+    requisite_set_id: number;
+    title: string | null;
+    show_title: boolean;
 }
 
 /** The balance of an account on a date, from which its flows are counted: `…/accounts/{account}/opening-balances`. */
@@ -1104,15 +1145,12 @@ export interface InvoiceSnapshot {
         name: string;
         kind: AccountKind;
         currency: CurrencyCode;
-        holder_name: string | null;
-        bank_name: string | null;
-        iban: string | null;
-        swift: string | null;
-        account_number: string | null;
-        details: AccountDetail[] | null;
-        /** Missing in snapshots frozen before the requisites could be ordered. */
-        invoice_requisites?: InvoiceRequisiteEntry[] | null;
     };
+    /** Since schema 4: a section per set of requisites it prints, its title null without parentheses. */
+    payment_sections?: (Pick<AccountRequisiteSet, RequisiteField | 'details' | 'invoice_requisites'> & {
+        title: string | null;
+        account: { name: string; currency: CurrencyCode };
+    })[];
     invoice: {
         number: string | null;
         source: InvoiceSource;
@@ -1188,6 +1226,8 @@ export interface Invoice {
     contract?: Contract | null;
     receivingAccount?: Account;
     items?: InvoiceItem[];
+    /** Include: the sections of the payment details, in order. */
+    paymentSections?: InvoicePaymentSection[];
     payments?: Payment[];
     primaryFile?: StoredFile | null;
     files?: StoredFile[];
@@ -1238,6 +1278,8 @@ export interface InvoiceDefaults {
     /** The issue date plus the contract's payment terms, or null. */
     due_at: DateString | null;
     receiving_account_id: number | null;
+    /** The sections it starts with: the client's last invoice's to the account, else the account's default set. */
+    payment_sections: PaymentSectionDraft[];
     /** The contract's description template, expanded. */
     description: string | null;
     /** The contract's default hourly rate at the period end, or null. */

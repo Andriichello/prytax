@@ -1,19 +1,15 @@
 import type { AccountKind, LimitPeriod } from '@/api/types';
+import type { RequisiteSetForm } from '@/components/account/RequisiteSetFormModel';
 
 /**
- * The fields of an account's form (M-AccountEdit), which its groups edit: main, requisites printed on invoices, and
- * the limit.
+ * The fields of an account's form (M-AccountEdit), which its groups edit: main and the limit, and a new account's
+ * first set of requisites printed on invoices.
  */
 export interface AccountForm {
     name: string;
     kind: AccountKind;
     currency: string;
-    holder_name: string;
-    bank_name: string;
-    account_number: string;
-    swift: string;
-    iban: string;
-    details: { label: string; value: string }[];
+    requisites: RequisiteSetForm;
     hasLimit: boolean;
     limit_amount: string;
     limit_period: LimitPeriod;

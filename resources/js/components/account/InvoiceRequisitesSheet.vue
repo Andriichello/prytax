@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { api } from '@/api/client';
-import type { Account } from '@/api/types';
+import type { AccountRequisiteSet } from '@/api/types';
 import BottomSheet from '@/components/ui/BottomSheet.vue';
 import Icon from '@/components/ui/Icon.vue';
 import PrimaryButton from '@/components/ui/PrimaryButton.vue';
 import ToggleSwitch from '@/components/ui/ToggleSwitch.vue';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { t } from '@/i18n';
-import { isMaskedRequisite, maskNumber, orderedRequisites, REQUISITE_FIELDS, type Requisite, requisiteOrder } from '@/utils/accounts';
+import { isMaskedRequisite, maskNumber, orderedRequisites, REQUISITE_FIELDS, type Requisite, requisiteOrder, requisiteSetName } from '@/utils/accounts';
 import { errorMessage } from '@/utils/errors';
 
 /**
- * Реквізити в інвойсах: the order, in which an account's requisites print in an invoice's payment details, each moved
- * up or down, and a switch for each, whether it prints (on, until switched off). Invoices frozen already keep theirs.
+ * Реквізити в інвойсах: the order, in which a set of an account's requisites prints in an invoice's «Payment details
+ * (…)», each moved up or down, and a switch for each, whether it prints (on, until switched off). Invoices frozen
+ * already keep theirs.
  */
-const { account } = defineProps<{ account: Account }>();
+const { set } = defineProps<{ set: AccountRequisiteSet }>();
 
 const open = defineModel<boolean>('open', { required: true });
 const emit = defineEmits<{ saved: [] }>();
@@ -28,7 +29,7 @@ const error = ref<unknown>(null);
 
 watch(open, (isOpen) => {
     if (isOpen) {
-        requisites.value = orderedRequisites(account);
+        requisites.value = orderedRequisites(set);
         error.value = null;
     }
 }, { immediate: true });
@@ -49,7 +50,7 @@ async function save(): Promise<void> {
     error.value = null;
 
     try {
-        await api.patch(path(`accounts/${account.id}`), { invoice_requisites: requisiteOrder(requisites.value) });
+        await api.patch(path(`accounts/${set.account_id}/requisite-sets/${set.id}`), { invoice_requisites: requisiteOrder(requisites.value) });
         open.value = false;
         emit('saved');
     } catch (caught) {
@@ -61,7 +62,7 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-    <BottomSheet v-model:open="open" :title="t('money.account.requisitesTitle')">
+    <BottomSheet v-model:open="open" :title="`${t('money.account.requisitesTitle')} · ${requisiteSetName(set)}`">
         <p class="m-0 text-14 leading-normal text-ink-2">{{ t('money.account.requisitesHint') }}</p>
         <ul class="m-0 flex list-none flex-col divide-y divide-divider rounded-card border border-line bg-surface p-0 pr-2 pl-4">
             <li v-for="(requisite, index) in requisites" :key="requisite.key" class="flex items-center gap-1 py-1.5">

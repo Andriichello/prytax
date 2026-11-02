@@ -1,4 +1,4 @@
-import type { Account, AccountKind, InvoiceRequisiteEntry, MovementCategory, MovementDirection, RequisiteField } from '@/api/types';
+import type { AccountKind, AccountRequisiteSet, InvoiceRequisiteEntry, MovementCategory, MovementDirection, RequisiteField } from '@/api/types';
 import { t } from '@/i18n';
 
 /**
@@ -47,19 +47,30 @@ export function accountLabel(name: string | null | undefined, currency: string |
 }
 
 /**
- * The account's fields, which are requisites in invoices, in the built-in order, as the account's page names them
- * (getters, which translate when they are read).
+ * The fields of a set of requisites, which are requisites in invoices, in the built-in order, as the account's page
+ * names them (getters, which translate when they are read).
  */
 export const REQUISITE_FIELDS: Record<RequisiteField, { label: string; figure: boolean; masked: boolean }> = {
     holder_name: { get label() { return t('core.common.recipient'); }, figure: false, masked: false },
     bank_name: { get label() { return t('money.account.bank'); }, figure: false, masked: false },
     iban: { label: 'IBAN', figure: true, masked: true },
     account_number: { label: 'Account number', figure: true, masked: true },
-    swift: { label: 'SWIFT / BIC', figure: true, masked: false },
+    swift: { label: 'SWIFT', figure: true, masked: false },
+    bic: { label: 'BIC', figure: true, masked: false },
 };
 
+/** The requisites of a set, as `orderedRequisites()` reads them. */
+export type RequisiteValues = Pick<AccountRequisiteSet, RequisiteField | 'details' | 'invoice_requisites'>;
+
 /**
- * A requisite of an account in invoices: a field, or one of its own details, with its value and whether it prints.
+ * A set's name, as the screens show it: the one it prints in parentheses, or «Без назви».
+ */
+export function requisiteSetName(set: Pick<AccountRequisiteSet, 'name'>): string {
+    return set.name?.trim() || t('money.requisiteSets.unnamed');
+}
+
+/**
+ * A requisite of a set in invoices: a field, or one of its own details, with its value and whether it prints.
  */
 export interface Requisite {
     /** Unique among the account's requisites, for lists. */
@@ -71,11 +82,11 @@ export interface Requisite {
 }
 
 /**
- * The account's requisites in the order they print in invoices, each printed or not, as the API's
+ * A set's requisites in the order they print in invoices, each printed or not, as the API's
  * `InvoiceRequisites::ordered()` puts them: those `invoice_requisites` names, in its order (a field by its column, a
  * detail by its label), then the others in the built-in order (the fields, then the details as typed), printed.
  */
-export function orderedRequisites(account: Pick<Account, RequisiteField | 'details' | 'invoice_requisites'>): Requisite[] {
+export function orderedRequisites(account: RequisiteValues): Requisite[] {
     const unnamed: Requisite[] = [];
 
     for (const field of Object.keys(REQUISITE_FIELDS) as RequisiteField[]) {

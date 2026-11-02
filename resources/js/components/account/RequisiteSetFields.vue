@@ -1,25 +1,22 @@
 <script setup lang="ts">
-import type { AccountForm } from '@/components/account/AccountFormModel';
+import type { RequisiteSetForm } from '@/components/account/RequisiteSetFormModel';
 import TextField from '@/components/form/TextField.vue';
 import Icon from '@/components/ui/Icon.vue';
 import { t } from '@/i18n';
 
 /**
- * The requisites of an account, which invoices print: the holder, the bank, the numbers (IBAN and the account number
- * are stored encrypted) and fields of its own, such as a routing number.
+ * The requisites of a set of an account's, which invoices print: the receiver, the bank, the numbers (IBAN and the
+ * account number are stored encrypted), SWIFT and BIC each its own, and fields of its own, such as a routing number
+ * or the receiver's address.
  */
-const { errors = {} } = defineProps<{ errors?: { account_number?: string; swift?: string; iban?: string } }>();
+const { errors = {} } = defineProps<{ errors?: { account_number?: string; swift?: string; bic?: string; iban?: string } }>();
 
-const form = defineModel<AccountForm>({ required: true });
+const form = defineModel<RequisiteSetForm>({ required: true });
 </script>
 
 <template>
     <TextField v-model="form.holder_name" :label="t('money.accountForm.holder')" :placeholder="t('money.accountForm.holderHint')" />
     <TextField v-model="form.bank_name" :label="t('money.account.bank')" />
-    <div class="grid grid-cols-2 gap-2.5">
-        <TextField v-model="form.account_number" :label="t('money.accountForm.accountNumber')" class="num" :error="errors.account_number" />
-        <TextField v-model="form.swift" label="SWIFT" class="num" placeholder="—" :error="errors.swift" />
-    </div>
     <TextField
         v-model="form.iban"
         label="IBAN"
@@ -28,6 +25,11 @@ const form = defineModel<AccountForm>({ required: true });
         :hint="t('money.accountForm.encryptedNote')"
         :error="errors.iban"
     />
+    <TextField v-model="form.account_number" :label="t('money.accountForm.accountNumber')" class="num" :error="errors.account_number" />
+    <div class="grid grid-cols-2 gap-2.5">
+        <TextField v-model="form.swift" label="SWIFT" class="num" placeholder="—" :error="errors.swift" />
+        <TextField v-model="form.bic" label="BIC" class="num" placeholder="—" :error="errors.bic" />
+    </div>
     <div class="flex flex-col divide-y divide-divider rounded-control border border-line bg-surface px-3.5">
         <div v-for="(detail, index) in form.details" :key="index" class="flex items-center gap-2 py-2">
             <input v-model="detail.label" :aria-label="t('money.accountForm.fieldName')" placeholder="Routing (ABA)" class="h-11 min-w-0 flex-1 rounded-control bg-paper px-3 text-15">

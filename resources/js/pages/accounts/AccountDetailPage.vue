@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
-import type { Account, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
+import type { Account, AccountRequisiteSet, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
 import InvoiceRequisitesSheet from '@/components/account/InvoiceRequisitesSheet.vue';
 import MovementSheet from '@/components/account/MovementSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
@@ -21,7 +21,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { ACCOUNT_KINDS, isMaskedRequisite, maskNumber, MOVEMENT_CATEGORIES, type MovementDraft, orderedRequisites, REQUISITE_FIELDS } from '@/utils/accounts';
+import { ACCOUNT_KINDS, isMaskedRequisite, maskNumber, MOVEMENT_CATEGORIES, type MovementDraft, orderedRequisites, REQUISITE_FIELDS, requisiteSetName } from '@/utils/accounts';
 import { currentQuarter, formatDate, formatDayMonth, quarterOf, quarterLabel } from '@/utils/dates';
 import { formatAmount, formatMoney } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
@@ -29,8 +29,9 @@ import { TAX_TYPES } from '@/utils/statuses';
 /**
  * Рахунок (S-AccountDetail): the balance from tracked movements (counted from the latest opening balance) with what
  * came in and went out this year, the receipts whose money is still here (late ones marked), the history of
- * movements, where bank fees, interest, expenses and withdrawals are added and changed, and the requisites printed
- * on invoices, each copyable, in the order they print (those, which don't, marked), which «Упорядкувати» changes.
+ * movements, where bank fees, interest, expenses and withdrawals are added and changed, and its sets of requisites,
+ * which invoices print (SEPA and SWIFT of one EUR account), the default first: each copyable, in the order it prints
+ * (those, which don't, marked), which «Упорядкувати» changes, and «Змінити» opens; «Додати» adds another.
  */
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
@@ -43,7 +44,7 @@ const year = ref(now);
 
 const { data, error, loading, reload } = useLoader(async (signal) => {
     const [account, statement] = await Promise.all([
-        api.get<ApiResponse<Account>>(path(`accounts/${id.value}`), { include: ['openingBalances'] }, signal),
+        api.get<ApiResponse<Account>>(path(`accounts/${id.value}`), { include: ['openingBalances', 'requisiteSets'] }, signal),
         api.get<ApiResponse<AccountStatement>>(path(`accounts/${id.value}/statement`), { year: year.value }, signal),
     ]);
 
@@ -56,9 +57,18 @@ const statement = computed(() => data.value?.statement ?? null);
 /** The opening balance the tracked balance starts from: the latest one. */
 const opening = computed(() => [...account.value?.openingBalances ?? []].sort((a, b) => b.as_of.localeCompare(a.as_of))[0] ?? null);
 
-/** The requisites in the order they print on invoices. */
-const requisites = computed(() => (account.value ? orderedRequisites(account.value) : []));
-const requisitesOpen = ref(false);
+/** The sets of requisites, the default first, each with its requisites in the order they print on invoices. */
+const requisiteSets = computed(() => (account.value?.requisiteSets ?? []).map((set) => ({ set, requisites: orderedRequisites(set) })));
+const canChangeSets = computed(() => can('update', 'account-requisite-sets'));
+
+/* «Упорядкувати» of a set */
+const arranging = ref<AccountRequisiteSet | null>(null);
+const arrangeOpen = ref(false);
+
+function arrange(set: AccountRequisiteSet): void {
+    arranging.value = set;
+    arrangeOpen.value = true;
+}
 
 /* Movements, which aren't income or transfers: bank fees, interest, expenses and withdrawals */
 const movementOpen = ref(false);
@@ -243,31 +253,51 @@ function entryLink(entry: StatementEntry) {
                     </div>
                 </section>
 
-                <section v-if="requisites.length" class="flex flex-col gap-2">
+                <section v-if="requisiteSets.length" class="flex flex-col gap-2">
                     <SectionTitle>
                         {{ t('money.account.paymentDetailsInvoices') }}
-                        <template v-if="can('update', 'accounts')" #aside>
-                            <button type="button" class="-my-2 py-2 text-13 font-medium text-accent" @click="requisitesOpen = true">
-                                {{ t('money.account.arrange') }}
-                            </button>
+                        <template v-if="can('create', 'account-requisite-sets')" #aside>
+                            <RouterLink :to="{ name: 'requisite-set-new', params: { id } }" class="-my-2 py-2 text-13 font-medium text-accent no-underline">
+                                + {{ t('money.requisiteSets.add') }}
+                            </RouterLink>
                         </template>
                     </SectionTitle>
-                    <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface pr-1 pl-4">
-                        <CopyRow
-                            v-for="requisite in requisites"
-                            :key="requisite.key"
-                            :label="requisite.label"
-                            :value="requisite.value"
-                            :shown="isMaskedRequisite(requisite) ? maskNumber(requisite.value) : undefined"
-                            :figure="!requisite.field || REQUISITE_FIELDS[requisite.field].figure"
-                            :note="requisite.shown ? undefined : t('money.account.notOnInvoices')"
-                        />
+                    <div
+                        v-for="{ set, requisites } in requisiteSets"
+                        :key="set.id"
+                        class="flex flex-col rounded-card border border-line bg-surface pr-1 pl-4"
+                        :class="set.is_active ? '' : 'opacity-70'"
+                    >
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-divider py-2.5 pr-3">
+                            <span class="min-w-0 truncate text-15 font-semibold">{{ requisiteSetName(set) }}</span>
+                            <StatusBadge v-if="set.is_default" :label="t('money.requisiteSets.default')" />
+                            <StatusBadge v-if="!set.is_active" :label="t('money.requisiteSets.off')" tone="negative" />
+                            <span v-if="canChangeSets" class="ml-auto flex gap-3">
+                                <button v-if="requisites.length" type="button" class="-my-2 py-2 text-13 font-medium text-accent" @click="arrange(set)">
+                                    {{ t('money.account.arrange') }}
+                                </button>
+                                <RouterLink :to="{ name: 'requisite-set-edit', params: { id, setId: set.id } }" class="-my-2 py-2 text-13 font-medium text-accent no-underline">
+                                    {{ t('core.common.edit') }}
+                                </RouterLink>
+                            </span>
+                        </div>
+                        <div class="flex flex-col divide-y divide-divider">
+                            <CopyRow
+                                v-for="requisite in requisites"
+                                :key="requisite.key"
+                                :label="requisite.label"
+                                :value="requisite.value"
+                                :shown="isMaskedRequisite(requisite) ? maskNumber(requisite.value) : undefined"
+                                :figure="!requisite.field || REQUISITE_FIELDS[requisite.field].figure"
+                                :note="requisite.shown ? undefined : t('money.account.notOnInvoices')"
+                            />
+                        </div>
                     </div>
                 </section>
 
                 <RouterLink
-                    v-else-if="can('update', 'accounts')"
-                    :to="{ name: 'account-edit', params: { id } }"
+                    v-else-if="can('create', 'account-requisite-sets')"
+                    :to="{ name: 'requisite-set-new', params: { id } }"
                     class="flex h-12 items-center justify-center gap-2 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent no-underline"
                 >
                     <Icon name="plus" :size="20" />
@@ -276,7 +306,7 @@ function entryLink(entry: StatementEntry) {
             </template>
         </LoadState>
 
-        <InvoiceRequisitesSheet v-if="account && requisites.length" v-model:open="requisitesOpen" :account="account" @saved="reload" />
+        <InvoiceRequisitesSheet v-if="arranging" v-model:open="arrangeOpen" :set="arranging" @saved="reload" />
 
         <MovementSheet
             v-if="account"

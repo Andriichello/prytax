@@ -20,7 +20,8 @@ import { errorMessage, fieldError } from '@/utils/errors';
 
 /**
  * Реквізити рахунку — нові або редагування: a set of the account's requisites, which invoices print as «Payment
- * details (…)» (invoice.md §4): its name in the parentheses, the requisites, SWIFT and BIC apart, whether it's the
+ * details (…)» (invoice.md §4): its name in the parentheses, the requisites in the order invoices print them, each
+ * under its label and printed or not (`RequisiteSetFields`), whether it's the
  * default (another set made the default takes it over; the default can't be made none, switched off or deleted while
  * there are others) and whether new invoices are offered it.
  */
@@ -103,11 +104,10 @@ async function remove(): Promise<void> {
 const errors = computed(() => ({
     account_number: fieldError(saveError.value, 'account_number'),
     swift: fieldError(saveError.value, 'swift'),
-    bic: fieldError(saveError.value, 'bic'),
     iban: fieldError(saveError.value, 'iban'),
 }));
 const generalError = computed(() => {
-    const names = ['name', 'iban', 'swift', 'bic', 'account_number'];
+    const names = ['name', 'iban', 'swift', 'account_number'];
 
     return saveError.value && !names.some((name) => fieldError(saveError.value, name)) ? errorMessage(saveError.value) : null;
 });

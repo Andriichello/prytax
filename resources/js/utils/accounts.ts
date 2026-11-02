@@ -47,20 +47,19 @@ export function accountLabel(name: string | null | undefined, currency: string |
 }
 
 /**
- * The fields of a set of requisites, which are requisites in invoices, in the built-in order, as the account's page
- * names them (getters, which translate when they are read).
+ * The fields of a set of requisites, which are requisites in invoices, in the built-in order, as the screens name them
+ * (getters, which translate when they are read); a set's own labels, which invoices print, take their place.
  */
 export const REQUISITE_FIELDS: Record<RequisiteField, { label: string; figure: boolean; masked: boolean }> = {
     holder_name: { get label() { return t('core.common.recipient'); }, figure: false, masked: false },
     bank_name: { get label() { return t('money.account.bank'); }, figure: false, masked: false },
     iban: { label: 'IBAN', figure: true, masked: true },
     account_number: { label: 'Account number', figure: true, masked: true },
-    swift: { label: 'SWIFT', figure: true, masked: false },
-    bic: { label: 'BIC', figure: true, masked: false },
+    swift: { label: 'SWIFT / BIC', figure: true, masked: false },
 };
 
 /** The requisites of a set, as `orderedRequisites()` reads them. */
-export type RequisiteValues = Pick<AccountRequisiteSet, RequisiteField | 'details' | 'invoice_requisites'>;
+export type RequisiteValues = Pick<AccountRequisiteSet, RequisiteField | 'details' | 'labels' | 'invoice_requisites'>;
 
 /**
  * A set's name, as the screens show it: the one it prints in parentheses, or «Без назви».
@@ -70,40 +69,44 @@ export function requisiteSetName(set: Pick<AccountRequisiteSet, 'name'>): string
 }
 
 /**
- * A requisite of a set in invoices: a field, or one of its own details, with its value and whether it prints.
+ * A requisite of a set in invoices: a field, or one of its own details, with its label, its value and whether it
+ * prints.
  */
 export interface Requisite {
-    /** Unique among the account's requisites, for lists. */
+    /** Unique among the set's requisites, for lists. */
     key: string;
     field: RequisiteField | null;
+    /** A field's own label (its owner's, or the screens' name of it), a detail's label. */
     label: string;
     value: string;
     shown: boolean;
 }
 
 /**
- * A set's requisites in the order they print in invoices, each printed or not, as the API's
- * `InvoiceRequisites::ordered()` puts them: those `invoice_requisites` names, in its order (a field by its column, a
- * detail by its label), then the others in the built-in order (the fields, then the details as typed), printed.
+ * A set's requisites in the order they print in invoices, as the API's `InvoiceRequisites::ordered()` puts them: those
+ * `invoice_requisites` names, in its order (a field by its column, a detail by its label), then the others in the
+ * built-in order (the fields, then the details as typed), printed. With `empty`, the fields without a value too, as the
+ * set's form edits them; a field's label is then its own label alone ('' without one).
  */
-export function orderedRequisites(account: RequisiteValues): Requisite[] {
+export function orderedRequisites(set: RequisiteValues, { empty = false }: { empty?: boolean } = {}): Requisite[] {
     const unnamed: Requisite[] = [];
 
     for (const field of Object.keys(REQUISITE_FIELDS) as RequisiteField[]) {
-        const value = account[field];
+        const value = set[field] ?? '';
+        const own = set.labels?.[field]?.trim() ?? '';
 
-        if (value) {
-            unnamed.push({ key: field, field, label: REQUISITE_FIELDS[field].label, value, shown: true });
+        if (value || empty) {
+            unnamed.push({ key: field, field, label: empty ? own : own || REQUISITE_FIELDS[field].label, value, shown: true });
         }
     }
 
-    (account.details ?? []).forEach((detail, index) => {
+    (set.details ?? []).forEach((detail, index) => {
         unnamed.push({ key: `detail-${index}`, field: null, label: detail.label, value: detail.value, shown: true });
     });
 
     const named: Requisite[] = [];
 
-    for (const entry of account.invoice_requisites ?? []) {
+    for (const entry of set.invoice_requisites ?? []) {
         const index = unnamed.findIndex((requisite) => (entry.field
             ? requisite.field === entry.field
             : requisite.field === null && requisite.label === entry.label));

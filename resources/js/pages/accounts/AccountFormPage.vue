@@ -204,11 +204,10 @@ async function setActive(value: boolean): Promise<void> {
 const errors = computed(() => ({
     account_number: fieldError(saveError.value, 'requisites.account_number'),
     swift: fieldError(saveError.value, 'requisites.swift'),
-    bic: fieldError(saveError.value, 'requisites.bic'),
     iban: fieldError(saveError.value, 'requisites.iban'),
 }));
 const generalError = computed(() => {
-    const names = ['name', 'kind', 'currency', 'requisites.iban', 'requisites.swift', 'requisites.bic', 'requisites.account_number', 'limit_amount', 'limit_period'];
+    const names = ['name', 'kind', 'currency', 'requisites.iban', 'requisites.swift', 'requisites.account_number', 'limit_amount', 'limit_period'];
 
     return saveError.value && !names.some((name) => fieldError(saveError.value, name)) ? errorMessage(saveError.value) : null;
 });

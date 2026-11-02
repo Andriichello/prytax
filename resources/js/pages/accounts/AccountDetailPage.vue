@@ -2,8 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
-import type { Account, AccountRequisiteSet, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
-import InvoiceRequisitesSheet from '@/components/account/InvoiceRequisitesSheet.vue';
+import type { Account, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
 import MovementSheet from '@/components/account/MovementSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import CopyRow from '@/components/ui/CopyRow.vue';
@@ -30,8 +29,8 @@ import { TAX_TYPES } from '@/utils/statuses';
  * Рахунок (S-AccountDetail): the balance from tracked movements (counted from the latest opening balance) with what
  * came in and went out this year, the receipts whose money is still here (late ones marked), the history of
  * movements, where bank fees, interest, expenses and withdrawals are added and changed, and its sets of requisites,
- * which invoices print (SEPA and SWIFT of one EUR account), the default first: each copyable, in the order it prints
- * (those, which don't, marked), which «Упорядкувати» changes, and «Змінити» opens; «Додати» adds another.
+ * which invoices print (SEPA and SWIFT of one EUR account), the default first: each copyable, in the order it prints,
+ * under its labels (those, which don't print, marked); «Змінити» opens one, «Додати» adds another.
  */
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
@@ -60,15 +59,6 @@ const opening = computed(() => [...account.value?.openingBalances ?? []].sort((a
 /** The sets of requisites, the default first, each with its requisites in the order they print on invoices. */
 const requisiteSets = computed(() => (account.value?.requisiteSets ?? []).map((set) => ({ set, requisites: orderedRequisites(set) })));
 const canChangeSets = computed(() => can('update', 'account-requisite-sets'));
-
-/* «Упорядкувати» of a set */
-const arranging = ref<AccountRequisiteSet | null>(null);
-const arrangeOpen = ref(false);
-
-function arrange(set: AccountRequisiteSet): void {
-    arranging.value = set;
-    arrangeOpen.value = true;
-}
 
 /* Movements, which aren't income or transfers: bank fees, interest, expenses and withdrawals */
 const movementOpen = ref(false);
@@ -273,9 +263,6 @@ function entryLink(entry: StatementEntry) {
                             <StatusBadge v-if="set.is_default" :label="t('money.requisiteSets.default')" />
                             <StatusBadge v-if="!set.is_active" :label="t('money.requisiteSets.off')" tone="negative" />
                             <span v-if="canChangeSets" class="ml-auto flex gap-3">
-                                <button v-if="requisites.length" type="button" class="-my-2 py-2 text-13 font-medium text-accent" @click="arrange(set)">
-                                    {{ t('money.account.arrange') }}
-                                </button>
                                 <RouterLink :to="{ name: 'requisite-set-edit', params: { id, setId: set.id } }" class="-my-2 py-2 text-13 font-medium text-accent no-underline">
                                     {{ t('core.common.edit') }}
                                 </RouterLink>
@@ -306,7 +293,6 @@ function entryLink(entry: StatementEntry) {
             </template>
         </LoadState>
 
-        <InvoiceRequisitesSheet v-if="arranging" v-model:open="arrangeOpen" :set="arranging" @saved="reload" />
 
         <MovementSheet
             v-if="account"

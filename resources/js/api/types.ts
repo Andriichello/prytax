@@ -581,7 +581,7 @@ export interface AccountDetail {
 }
 
 /** A field of a set of requisites, which is a requisite in invoices. */
-export type RequisiteField = 'holder_name' | 'bank_name' | 'iban' | 'account_number' | 'swift' | 'bic';
+export type RequisiteField = 'holder_name' | 'bank_name' | 'iban' | 'account_number' | 'swift';
 
 /** An entry of the order of a set's requisites in invoices: a field, or a detail by its label, and whether it prints. */
 export type InvoiceRequisiteEntry = ({ field: RequisiteField; label?: never } | { label: string; field?: never }) & { shown: boolean };
@@ -640,9 +640,11 @@ export interface AccountRequisiteSet {
     bank_name: string | null;
     iban: string | null;
     account_number: string | null;
+    /** The code, SWIFT and BIC alike. */
     swift: string | null;
-    bic: string | null;
     details: AccountDetail[] | null;
+    /** What its fields print as («Beneficiary name» for the receiver); a field without one, the invoice's language's. */
+    labels: Partial<Record<RequisiteField, string>> | null;
     /** The order of the requisites in invoices, and which of them print; null: all, in the built-in order. */
     invoice_requisites: InvoiceRequisiteEntry[] | null;
     is_default: boolean;
@@ -1147,7 +1149,7 @@ export interface InvoiceSnapshot {
         currency: CurrencyCode;
     };
     /** Since schema 4: a section per set of requisites it prints, its title null without parentheses. */
-    payment_sections?: (Pick<AccountRequisiteSet, RequisiteField | 'details' | 'invoice_requisites'> & {
+    payment_sections?: (Pick<AccountRequisiteSet, RequisiteField | 'details' | 'labels' | 'invoice_requisites'> & {
         title: string | null;
         account: { name: string; currency: CurrencyCode };
     })[];

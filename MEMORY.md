@@ -61,6 +61,17 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Rows of a set's form dragged into place (2026-11-02; committed on `dev` directly, at the user's request: "Work directly in dev")
+
+The user: the ↑ ↓ buttons were painful; drag and drop instead, and an own field's ✕ before the switch, so every
+switch stands in one place. No package: `composables/useDragSort` (pointer events with capture on a grip handle with
+`touch-action: none`, so mouse, pen and finger drag; the row follows the pointer and takes a neighbour's place past its
+middle, `utils/dragSort.ts` `dragTarget`/`moveItem` with tests; the scrolled area scrolls within 64 px of its edges;
+↑ ↓ on the focused grip move the row, the focus kept), a `grip` icon. Checked in headless Chrome with real mouse and
+touch input (DevTools `Input.dispatch*`): note that a tab, which had device emulation, stopped receiving input until
+it was replaced (`/json/new`, `/json/close`); a scripted arrow key needs `rawKeyDown`. The invoice editor's sections
+still have ↑ ↓.
+
 ## Deleted backups (2026-11-02; branch `fix/deleted-backups`, fast-forwarded into `dev` at the user's request, not pushed)
 
 The user: deleted manual backups showed «Помилка» with a «Видалити», which did nothing. Deleting a manual backup prunes

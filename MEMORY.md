@@ -1,6 +1,6 @@
 # PryTax: progress and handoff
 
-Status as of 2026-11-01 (latest): **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
+Status as of 2026-11-02 (latest): `main` = `dev` = `origin/main` = `origin/dev` = 12cde7a (the user fast-forwarded `main` and pushed both after the note below). Branch **`fix/claude-connections`** (from `dev`; not merged, not pushed) records Claude Code's connections (see "Claude Code's connections, recorded"). Last run: `composer test:sqlite` 674 (MySQL was stopped). Before it, as of 2026-11-01: **everything is merged into `dev`** (the user: "merge it into dev"; `dev` fast-forwarded to `fix/claude-writes`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It fixed what a run of `api-write` found (see "Claude's writes, fixed after a run with test records"). Last runs: `composer test` 672, `composer test:sqlite` 672. Before it, as of 2026-11-01 (later): **everything is merged into `dev`** (the user: "commit your work and merge it all
 into develop along with fix/claude-tools"; `dev` fast-forwarded to `fix/claude-tools` → `fix/api-message-language` →
 `chore/paratest`, then this note; not `main`, not pushed; `origin/dev` = a8e352f). It added Claude's tools fixed (see
 "Claude's tools, fixed after a run on real data"), English screens showing the API's messages with ФОП or РНОКПП, and
@@ -61,6 +61,21 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## Claude Code's connections, recorded (2026-11-02; branch `fix/claude-connections` from `dev`, not merged, not pushed)
+
+- **Cause:** laravel/mcp 1.1.2 serves only MCP 2026-07-28, which has no `initialize`: Claude Code 2.1.316 sends
+  `server/discover`, then `tools/list`, each naming the client in `_meta["io.modelcontextprotocol/clientInfo"]`, so
+  `RecordedInitialize` never ran (a hand-sent `initialize` still went through laravel/mcp's legacy path). Seen by
+  running `claude mcp list` with a scratch `CLAUDE_CONFIG_DIR` whose server was a wrapper logging stdin.
+- **Fix:** `PryTaxServer::handleMessage()` records the connection once per process, at the first request naming its
+  client (`_meta`, or `initialize`'s `params.clientInfo` for an older client); `RecordedInitialize` is gone.
+  `PryTaxServerTest` drives `handle()` with raw JSON (laravel/mcp's test harness calls `runMethodHandle()` and skips
+  it). Checked live: a real `claude mcp list` on a scratch copy of `database/database.sqlite` recorded
+  `claude-code 2.1.316`.
+- **Flaky under paratest (not fixed):** `MakesInstallationDatabases::tearDown()` deletes the shared
+  `storage/framework/installation/`, so another process's `InstallationRestoreTest` can fail with «ZipArchive::close():
+  Renaming temporary file failed» (passes alone and on a rerun).
+
 ## Claude's writes, fixed after a run with test records (2026-11-01; branch `fix/claude-writes` from `dev`, fast-forwarded into `dev` at the user's request, not pushed)
 
 - **The run:** `api-write` on the web app's SQLite data (`database/database.sqlite`; the desktop app's is
@@ -72,8 +87,8 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
   `if_unmodified_since` (the `updated_at` read), `ApiDispatcher` passes headers by name, a 428 gets a `hint`. The
   upload's `primary` wasn't in its rules, so `api-endpoints` didn't list it: `StoreInvoiceFileRequest`. A file came
   back empty (streamed) or as binary (a preview): `answerOf()` gives its name, type and size.
-- **Open:** Claude Code's connections aren't recorded (`last_connected_at` stays empty), though an `initialize`
-  sent by hand records one; the tests write invoices' PDFs into the real `storage/app/private`.
+- **Open:** the tests write invoices' PDFs into the real `storage/app/private`. (Claude Code's connections not
+  being recorded is fixed, see above.)
 
 ## Messages by the answer's language, and paratest (2026-11-01; branches `fix/api-message-language` on `fix/claude-tools`, then `chore/paratest`, fast-forwarded into `dev` at the user's request, not pushed)
 
@@ -143,7 +158,7 @@ PryTax (MCP)"; design.md the page.
   (`organization/integrations/claude`: show, PUT, key, connection, probe); `Services/Integrations/{ClaudeIntegration,
   ClaudeConnection, ClaudeProbe}`; `BackupState` extracted from `BackupRunController::handleStatus`.
 - **Server:** `routes/ai.php` → `Mcp\Servers\PryTaxServer` (`mcp:start prytax`), `McpSession` (PRYTAX_MCP_KEY →
-  integration, on, acting user), `DatabaseKey` (a SQLite file's `.key`), `RecordedInitialize`, `Tools\ReadTool` (+13
+  integration, on, acting user), `DatabaseKey` (a SQLite file's `.key`), `RecordedInitialize` (since 2026-11-02 `PryTaxServer::handleMessage()`), `Tools\ReadTool` (+13
   tools: each call in a rolled-back transaction, recorded after). `laravel/mcp` ^1.0 (v1.1.2) is now in `require`.
 - **SPA:** `pages/settings/IntegrationsPage.vue`, `composables/useClaudeIntegration`, `utils/integrations`, a `plug`
   icon, Ще's «Керування» row, `probe` among the client's compute-only POSTs.

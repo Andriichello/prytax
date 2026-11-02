@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use PryTax\DataLifecycle\Backup\BackupRuns;
 use PryTax\DataLifecycle\Backup\BackupState;
 use PryTax\DataLifecycle\Backup\Enums\BackupKind;
+use PryTax\DataLifecycle\Backup\Enums\BackupStatus;
 use PryTax\DataLifecycle\Backup\Http\Controllers\Traits\LimitsDownloads;
 use PryTax\DataLifecycle\Backup\Http\Requests\BundleRunRequest;
 use PryTax\DataLifecycle\Backup\Http\Requests\StoreBackupRunRequest;
@@ -101,6 +102,24 @@ class BackupRunController extends CrudController
         Route::get('backup-runs/{id}', [static::class, 'show'])->name('backup-runs.show');
         Route::post('backup-runs/{id}/bundle', [static::class, 'bundle'])->name('backup-runs.bundle');
         Route::get('backup-runs/{id}/bundle', [static::class, 'bundleStatus'])->name('backup-runs.bundle.show');
+    }
+
+    /**
+     * Handle the `index` operation: a page of the runs, but those whose every backup is deleted (a manual one by its
+     * owner, a scheduled one by retention): their records stay for the history, though nothing of them is left to
+     * download or delete. A run without backups yet (queued) is listed.
+     *
+     * @param IndexRequest $request
+     *
+     * @return ApiResponse
+     */
+    protected function handleIndex(IndexRequest $request): ApiResponse
+    {
+        $query = $this->builder($request)->where(fn ($query) => $query
+            ->whereDoesntHave('backups')
+            ->orWhereHas('backups', fn ($backups) => $backups->where('status', '!=', BackupStatus::Pruned->value)));
+
+        return $this->asPaginatedResponse($query, $request);
     }
 
     /**

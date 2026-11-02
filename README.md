@@ -314,6 +314,7 @@ examples.
 | `API_CORE_INVITATION_URL`         | `http://localhost:5173/accept-invitation`      | SPA page of the invitation link.                                    |
 | `PRYTAX_REGISTRATION`             | `true` (`false` in `.env.docker.example`)      | Whether the sign-in page offers registering a new organization.     |
 | `PRYTAX_FULL_BACKUPS`             | `true` (`false` in `.env.docker.example`)      | Whether owners back up and restore the whole app (SQLite only).     |
+| `BACKUPS_MANUAL_PER_DAY`          | `5`                                            | Backups an organization may start by hand a day.                    |
 | `PRYTAX_SINGLE_ORGANIZATION`      | `false` (`true` in `.env.docker.example`)      | Whether the installation is one person's, signed in by a password.  |
 
 With `PRYTAX_REGISTRATION` on, the sign-in page links to a form that registers a new organization with its owner, who

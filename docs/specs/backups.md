@@ -424,7 +424,8 @@ prytax:verify-db` (row counts, FK orphans, `TaxReconciler` balances for a sample
 | `skip_unchanged` | skip a profile whose data did not change since its last completed backup | on |
 | `notify` | `failures` · `always` · `never` (e-mail to owners) | `failures` |
 
-Manual backups ("Створити копію зараз"): owner/accountant, max 5 per organization per day, kept until deleted
+Manual backups ("Створити копію зараз"): owner/accountant, max 5 per organization per day (`BACKUPS_MANUAL_PER_DAY`,
+2026-11-02), kept until deleted
 (cap 20 per organization; the oldest manual one is pruned beyond that).
 
 Automatic safety backups (no user setting), tier `automatic`, kept 30 days:

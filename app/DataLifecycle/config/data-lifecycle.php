@@ -30,8 +30,9 @@ return [
         'url_lifetime' => 10,
         // Download links of a user per hour, of backups, bundles and exports alike (§4.7)
         'downloads_per_hour' => 30,
-        // Manual runs of an organization per day, and the manual backups it keeps (§2.2)
-        'manual_per_day' => 5,
+        // Manual runs of an organization per day (BACKUPS_MANUAL_PER_DAY, 5 by default), and the manual backups it
+        // keeps (§2.2)
+        'manual_per_day' => (int) env('BACKUPS_MANUAL_PER_DAY', 5),
         'manual_cap' => 20,
         // Days, for which automatic (safety) backups are kept
         'automatic_days' => 30,

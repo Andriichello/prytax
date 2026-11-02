@@ -22,11 +22,12 @@ final class PryTaxTableRegistry implements TableRegistry
 {
     /**
      * Version of the archives' format: bumped for breaking changes of the registry only (D11). 2: an account's
-     * requisites moved into its sets, which invoices print in sections (`RequisiteSetsUpcaster` reads format 1).
+     * requisites moved into its sets, which invoices print in sections (`RequisiteSetsUpcaster` reads format 1); 3:
+     * a set's BIC merged into its code, its fields labelled (`RequisiteLabelsUpcaster` reads format 2).
      *
      * @var int
      */
-    public const int FORMAT_VERSION = 2;
+    public const int FORMAT_VERSION = 3;
 
     /**
      * Tables of PryTax, which aren't backed up, with the reason.
@@ -128,6 +129,6 @@ final class PryTaxTableRegistry implements TableRegistry
      */
     public function upcasters(): array
     {
-        return [new RequisiteSetsUpcaster];
+        return [new RequisiteSetsUpcaster, new RequisiteLabelsUpcaster];
     }
 }

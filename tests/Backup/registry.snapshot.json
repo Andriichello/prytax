@@ -1,5 +1,5 @@
 {
-    "format_version": 2,
+    "format_version": 3,
     "tables": {
         "profiles": {
             "file": "data/profile.csv",
@@ -60,8 +60,8 @@
                 "iban": "decrypt",
                 "account_number": "decrypt",
                 "swift": "export",
-                "bic": "export",
                 "details": "export",
+                "labels": "export",
                 "invoice_requisites": "export",
                 "is_default": "export",
                 "is_active": "export",

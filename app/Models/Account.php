@@ -24,8 +24,8 @@ use PryTax\Services\Accounts\AccountStatement;
  * Class Account.
  *
  * A place, where money lands, one per currency (Wise USD and Wise EUR are two accounts): a receipt destination, a
- * transfer endpoint and a tax payment source at once. Its requisites are printed into invoices, with the IBAN and
- * the account number encrypted. It has a balance of the tracked flows and an optional limit. Inactive accounts can't
+ * transfer endpoint and a tax payment source at once. Its requisites come in sets (`AccountRequisiteSet`: SEPA and
+ * SWIFT of one EUR account), which invoices print, one of them the default. It has a balance of the tracked flows and an optional limit. Inactive accounts can't
  * be chosen for new invoices or receipts, but keep their history; they are never deleted once referenced.
  *
  * @property int $id
@@ -34,13 +34,6 @@ use PryTax\Services\Accounts\AccountStatement;
  * @property string $name
  * @property AccountKind $kind
  * @property string $currency
- * @property string|null $holder_name
- * @property string|null $bank_name
- * @property string|null $iban
- * @property string|null $swift
- * @property string|null $account_number
- * @property array|null $details
- * @property array<int, array{field?: string|null, label?: string|null, shown: bool}>|null $invoice_requisites
  * @property string|null $limit_amount
  * @property LimitPeriod|null $limit_period
  * @property bool $is_active
@@ -77,13 +70,6 @@ class Account extends BaseModel
         'name',
         'kind',
         'currency',
-        'holder_name',
-        'bank_name',
-        'iban',
-        'swift',
-        'account_number',
-        'details',
-        'invoice_requisites',
         'limit_amount',
         'limit_period',
         'is_active',
@@ -107,10 +93,6 @@ class Account extends BaseModel
      */
     protected $casts = [
         'kind' => AccountKind::class,
-        'iban' => 'encrypted',
-        'account_number' => 'encrypted',
-        'details' => 'array',
-        'invoice_requisites' => 'array',
         'limit_amount' => 'decimal:2',
         'limit_period' => LimitPeriod::class,
         'is_active' => 'boolean',
@@ -130,6 +112,26 @@ class Account extends BaseModel
     {
         $query->where('is_active', true)
             ->where(fn (Builder $query) => $query->where('currency', 'UAH')->orWhere('kind', AccountKind::FopBank->value));
+    }
+
+    /**
+     * Sets of requisites of the account, which invoices print: the default first, then in their order.
+     *
+     * @return HasMany
+     */
+    public function requisiteSets(): HasMany
+    {
+        return $this->hasMany(AccountRequisiteSet::class)->orderByDesc('is_default')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Get the account's default set of requisites, which a new invoice prints, unless it's switched off.
+     *
+     * @return AccountRequisiteSet|null
+     */
+    public function defaultRequisiteSet(): ?AccountRequisiteSet
+    {
+        return $this->requisiteSets()->where('is_active', true)->where('is_default', true)->first();
     }
 
     /**

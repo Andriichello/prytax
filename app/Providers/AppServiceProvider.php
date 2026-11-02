@@ -24,6 +24,7 @@ use PryTax\Listeners\SyncRolesAfterMigrations;
 use PryTax\Models\Account;
 use PryTax\Models\AccountMovement;
 use PryTax\Models\AccountOpeningBalance;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\AccountTransfer;
 use PryTax\Models\Alert;
 use PryTax\Models\ChargeType;
@@ -36,6 +37,7 @@ use PryTax\Models\Holiday;
 use PryTax\Models\Integration;
 use PryTax\Models\Invoice;
 use PryTax\Models\InvoiceItem;
+use PryTax\Models\InvoicePaymentSection;
 use PryTax\Models\Payment;
 use PryTax\Models\Profile;
 use PryTax\Models\Project;
@@ -64,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
         Account::class,
         AccountMovement::class,
         AccountOpeningBalance::class,
+        AccountRequisiteSet::class,
         AccountTransfer::class,
         Alert::class,
         ChargeType::class,
@@ -76,6 +79,7 @@ class AppServiceProvider extends ServiceProvider
         Integration::class,
         Invoice::class,
         InvoiceItem::class,
+        InvoicePaymentSection::class,
         Payment::class,
         Profile::class,
         Project::class,

@@ -128,11 +128,12 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     /**
      * Version of the snapshot's structure, which the PDF template reads: 2 adds the language, the parties' names in
      * it and the resolved document settings (`presentation`, design.md §4.1); 3 adds the style and the payment and
-     * the other note to them, and drops the footer note, which the notes replace.
+     * the other note to them, and drops the footer note, which the notes replace; 4 moves the account's requisites
+     * into `payment_sections`, a «Payment details (…)» section per set the invoice prints (invoice.md §4).
      *
      * @var int
      */
-    public const int SNAPSHOT_SCHEMA_VERSION = 3;
+    public const int SNAPSHOT_SCHEMA_VERSION = 4;
 
     /**
      * The attributes that are mass-assignable.
@@ -336,6 +337,16 @@ class Invoice extends BaseModel implements HasFilesInterface, LockableInterface,
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class)->orderBy('position');
+    }
+
+    /**
+     * Sections of the payment details, each a set of the receiving account's requisites, by their position.
+     *
+     * @return HasMany
+     */
+    public function paymentSections(): HasMany
+    {
+        return $this->hasMany(InvoicePaymentSection::class)->orderBy('position');
     }
 
     /**

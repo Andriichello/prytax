@@ -10,7 +10,8 @@ use PryTax\Models\Profile;
 /**
  * Class AccountFactory.
  *
- * Accounts of a new profile, unless one is given: platform accounts in USD by default.
+ * Accounts of a new profile, unless one is given: platform accounts in USD by default, without requisites
+ * (`AccountRequisiteSetFactory` makes them).
  *
  * @extends Factory<Account>
  *
@@ -31,9 +32,6 @@ class AccountFactory extends Factory
             'name' => 'Wise USD',
             'kind' => AccountKind::Platform,
             'currency' => 'USD',
-            'holder_name' => fake()->name(),
-            'bank_name' => 'Wise',
-            'account_number' => fake()->numerify('##########'),
             'is_active' => true,
         ];
     }
@@ -51,8 +49,6 @@ class AccountFactory extends Factory
             'name' => "ПриватБанк ФОП $currency",
             'kind' => AccountKind::FopBank,
             'currency' => $currency,
-            'bank_name' => 'ПриватБанк',
-            'iban' => 'UA' . fake()->numerify('###########################'),
         ]);
     }
 

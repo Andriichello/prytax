@@ -8,6 +8,7 @@ use PryTax\DataLifecycle\Backup\Models\BackupRun;
 use PryTax\Models\Account;
 use PryTax\Models\AccountMovement;
 use PryTax\Models\AccountOpeningBalance;
+use PryTax\Models\AccountRequisiteSet;
 use PryTax\Models\AccountTransfer;
 use PryTax\Models\Alert;
 use PryTax\Models\ChargeType;
@@ -34,6 +35,7 @@ $finance = [
     Account::class => ['all'],
     AccountOpeningBalance::class => ['all'],
     AccountMovement::class => ['all'],
+    AccountRequisiteSet::class => ['all'],
     Client::class => ['all'],
     Contract::class => ['all'],
     Project::class => ['all'],

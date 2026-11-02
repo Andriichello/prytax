@@ -1,4 +1,4 @@
-# PryTax — Backups, data safety & retention (design v1.11)
+# PryTax — Backups, data safety & retention (design v1.12)
 
 Companion to `docs/specs/design.md` (v5.2) and `docs/specs/builds.md` (Docker, SQLite and the desktop app). Covers (1)
 protecting the platform's data against loss, (2) per-organization backups / exports that owners configure and download,
@@ -8,6 +8,14 @@ elsewhere (§3).
 
 **A copy of the whole app** (every organization, its documents, its in-app backups and the key, in one file) is a
 different thing, for one person's installation on SQLite: `builds.md` §4.11. This spec's backups stay per ФОП.
+
+### Changes in v1.12 (format 3: labelled fields, one code)
+
+Built on 2026-11-02 (branch `feat/requisite-labels`): `account_requisite_sets` lost `bic` (breaking) and has `labels`
+(the labels its fields print under). `RequisiteLabelsUpcaster` reads format 2 as the migration moved the data: a BIC
+becomes the set's code, labelled «BIC», or beside a SWIFT a field of its own named «BIC», its place in the order kept.
+An archive of format 1 goes through both upcasters. `ArchiveImporterTest` turns a new archive into one of format 2
+and restores it.
 
 ### Changes in v1.11 (format 2: sets of requisites, the first upcaster)
 
@@ -129,7 +137,7 @@ deployed yet. What the code does differently from v1.6:
   `signature_file_id` is rewritten after `files` is imported (a late rewrite); `tax_id` keys aren't row ids; the
   module's own tables are excluded (`PryTaxTableRegistry::EXCLUDED`).
 - **Archive:** documents sit at `documents/{owner table}/{owner id}/{file id}-{name}`; timestamps are written in UTC
-  (the database keeps Kyiv time); upcasters read the older format versions (since v1.11, format 1 into 2).
+  (the database keeps Kyiv time); upcasters read the older format versions (format 1 into 2 since v1.11, 2 into 3 since v1.12).
 - **Tables:** `backups` also keeps `file_name`, `manifest` and `snapshot_at`; runs keep their options, profile ids and
   bundle columns.
 - **Downloads:** the audit entry has no subject (`audit_logs.subject_id` is an integer and backup ids are ULIDs): it is
@@ -293,7 +301,7 @@ to a single Laravel deployable:
 | D8 | Retention | **Grandfather-father-son** per organization (keep N daily / N weekly / N monthly + manual), enforced by an app-side pruner; a bucket lifecycle rule is the hard ceiling. **The latest completed backup of a profile is never pruned.** |
 | D9 | Restore | Always **into a new profile** (never in place): the ops tool `prytax:backup:import` and, since 2026-10-29, the owners' «Відновити з архіву» in the app (§5.1), plus an automated export→import round-trip test. A ФОП the organization still has can't be restored into it (§5.3, open). No in-place overwrite, ever. |
 | D10 | `APP_KEY` | Layer A backups are useless without the key that encrypted the columns. It lives in Secret Manager with every historical version; key rotation uses `APP_PREVIOUS_KEYS`. |
-| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. A new shape of the JSON inside a column isn't a registry change either, while the code reads both shapes (`clients.address`, §4.2). Backups are never produced with an *old* definition; old *archives* are read through importer upcasters (since v1.11: format 2, and `RequisiteSetsUpcaster` reads format 1). |
+| D11 | How is the backup definition versioned? | **In code, with a hash.** The registry is deployed atomically with the migrations, so a database copy of it plus an hourly sync (the reference design) would only add a window where code and registry disagree. Each backup stores `registry_hash` (sha256 of the normalized registry + column lists). **`format_version` is bumped for breaking changes only** (a dropped or renamed column, a changed treatment, a removed table); CI compares the column snapshot with the committed one and fails on a breaking change without a bump. An added column changes `registry_hash` only: the importer fills columns missing from an older archive with their defaults. A new shape of the JSON inside a column isn't a registry change either, while the code reads both shapes (`clients.address`, §4.2). Backups are never produced with an *old* definition; old *archives* are read through importer upcasters (since v1.12: format 3; `RequisiteLabelsUpcaster` reads format 2, `RequisiteSetsUpcaster` format 1). |
 | D13 | Module or scattered code? | **A module in the app**, not a composer package: engine `PryTax\DataLifecycle\` (generic, no knowledge of accounting; built on api-core's base classes), definitions `PryTax\Backups\` + `PryTax\Retention\` (PryTax-specific), four contracts between them, a PHPUnit test for the direction of dependencies (§10). |
 | D14 | Does api-core take part? | **No.** api-core (`Core\`) stays free of backup code, migrations and GCS/zip dependencies. PryTax registers the api-core tables it needs and owns the user-removal handler (§11). Extraction later goes to a sibling package, never into api-core. |
 | D12 | Data retention & deletion | **Families × actions × periods in config**, executed by deletion runs with per-family jobs and a `due_at`. Accounting data is never deleted on a timer while the organization exists; offboarding = lock immediately → final export → grace period → FK-ordered purge (DB rows, documents, backups). Credentials and technical data have short rolling cutoffs (§9). |
@@ -1214,8 +1222,9 @@ php artisan prytax:backup:import {archive} --organization={id} [--dry-run]
 ```
 
 1. Validate `manifest.json` (`format`, `format_version` ≤ supported, `restorable = true`), file sha256s, `schema.json`.
-   Older `format_version`s go through upcasters (`RequisiteSetsUpcaster` reads 1 into 2, v1.11); a version without
-   a chain of upcasters to the current one (2) is refused. A run's bundle (`format: prytax-backup-bundle`) and a period export
+   Older `format_version`s go through upcasters (`RequisiteSetsUpcaster` reads 1 into 2, v1.11;
+   `RequisiteLabelsUpcaster` 2 into 3, v1.12); a version without a chain of upcasters to the current one (3) is
+   refused. A run's bundle (`format: prytax-backup-bundle`) and a period export
    (`restorable: false`) are refused with their own messages. An archive downloaded with a password (§4.6) is opened
    with it; without it, or with another, it is refused.
 2. **Reference rows are matched first, never inserted** (`matchOn()`): `tax_rules` by `effective_from`,

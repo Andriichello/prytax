@@ -10,7 +10,8 @@ That layout became the head and the strip of template v3, whose 13 styles came f
 development and was dropped. Since template v3 (2026-10-24): the two notes of design v4 («Minimal») replaced the single
 note and its kind (2026-10-25, §3, §4); the fonts moved into `PdfFonts`, shared with the books' PDFs (2026-10-28, §6);
 an invoice's PDF is previewed in the app whatever its status, a draft's marked as a draft, both previews zoom, the
-payment details' rows are 3 pt apart, and the client's address is one text (2026-10-30, §3, §4, §8).
+payment details' rows are 3 pt apart, and the client's address is one text (2026-10-30, §3, §4, §8); an account's
+requisites print in the order its owner puts them, each switched on or off (2026-11-02, §3, §4).
 
 An invoice is printed from its snapshot, in one of 13 styles, in English or Ukrainian. Every style has the same
 content and structure: the styles differ by their CSS, their decoration and their fonts.
@@ -126,7 +127,8 @@ on its own.
   },
   "account": { "name": "Payoneer USD", "kind": "platform", "currency": "USD", "holder_name": "Myrchuk Mykola",
                "bank_name": "…", "iban": null, "swift": "…", "account_number": "…",
-               "details": [{ "label": "Routing (ABA)", "value": "…" }] },
+               "details": [{ "label": "Routing (ABA)", "value": "…" }],
+               "invoice_requisites": [{ "label": "Routing (ABA)", "shown": true }, { "field": "bank_name", "shown": false }] },
   "invoice": { "number": "BRIT-2026-10-31-2", "source": "generated", "period_start": "2026-10-01",
                "period_end": "2026-10-31", "issued_at": "2026-10-31", "due_at": "2026-11-14", "currency": "USD" },
   "items": [{ "position": 1, "project_code": "CRONE", "charge_type": "Billable", "description": "IT services …",
@@ -231,8 +233,13 @@ A4 portrait, in points; the body is DejaVu Sans 7.5 pt on 11.5 pt lines, the ink
   above the total. The total bar is one row: the label and `{amount} {currency}`.
 
 **Card** (`v3/card`):
-- Left, PAYMENT DETAILS: a key–value grid of beneficiary, bank, IBAN, account number and SWIFT / BIC (when set), the
-  account's own details as they were typed, the currency, and finally Purpose (the payment purpose). The keys share
+- Left, PAYMENT DETAILS: a key–value grid of the account's requisites, which print, in their order, then the currency,
+  and finally Purpose (the payment purpose). The requisites are beneficiary, bank, IBAN, account number and SWIFT /
+  BIC (when set) and the account's own details; `account.invoice_requisites` (copied from the account at the freeze,
+  set on the account's page by «Упорядкувати») names them in order, a field by its column and a detail by its label,
+  each `shown` or not (on by default); those it doesn't name (added or renamed since) follow, printed, in the built-in
+  order. Without it (snapshots frozen before 2026-11-02, or an account never ordered), the built-in order: the fields,
+  then the details as they were typed (`InvoiceRequisites::ordered()`). The keys share
   one measured width; the rows are 3 pt apart (2026-10-30, the owner: they had none, as `table.card-cols td` zeroed
   `table.kv td`'s 1.5 pt). The payment note, when on, follows as a `.card-section` titled PAYMENT NOTE.
 - Right: ACT OF ACCEPTANCE when the act note is on, then OTHER NOTES when the other note is on (a `.card-section` when

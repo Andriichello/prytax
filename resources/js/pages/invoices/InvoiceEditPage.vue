@@ -50,6 +50,7 @@ import { useInvoiceDocument } from '@/composables/useInvoiceDocument';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { LOCALE_NAMES, t } from '@/i18n';
+import { orderedRequisites } from '@/utils/accounts';
 import { dateParts, formatDate, formatPeriod, monthName, today } from '@/utils/dates';
 import { errorMessage, fieldError } from '@/utils/errors';
 import { type PurposeSample, purposeValues, purposeWarnings, renderPurpose } from '@/utils/invoiceDocument';
@@ -538,21 +539,16 @@ const accountOptions = computed(() => accounts.value
 
 const account = computed(() => accounts.value.find((item) => item.id === form.receiving_account_id) ?? null);
 
-/** Requisites of the receiving account with numbers masked to their last four digits. */
+/**
+ * The receiving account's numbers, which print on the invoice, in their order (its IBAN, account number and own
+ * details), masked to their last four digits.
+ */
 const requisites = computed(() => {
-    const value = account.value;
-
-    if (!value) {
-        return [];
-    }
-
     const mask = (text: string): string => `•••• ${text.replace(/\s/g, '').slice(-4)}`;
 
-    return [
-        ...(value.iban ? [{ label: 'IBAN', value: mask(value.iban) }] : []),
-        ...(value.account_number ? [{ label: 'Account', value: mask(value.account_number) }] : []),
-        ...(value.details ?? []).map((detail) => ({ label: detail.label, value: mask(detail.value) })),
-    ];
+    return (account.value ? orderedRequisites(account.value) : [])
+        .filter((requisite) => requisite.shown && (requisite.field === null || requisite.field === 'iban' || requisite.field === 'account_number'))
+        .map((requisite) => ({ label: requisite.field === 'account_number' ? 'Account' : requisite.label, value: mask(requisite.value) }));
 });
 
 const contractHint = computed(() => {

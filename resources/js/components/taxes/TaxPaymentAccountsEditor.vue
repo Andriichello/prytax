@@ -24,10 +24,17 @@ const listed = computed(() => ids.value
     .filter((account): account is Account => account !== undefined));
 const addable = computed(() => accounts.filter((account) => pays(account) && !ids.value.includes(account.id)));
 
-/** The ФОП's UAH account at the bank of a foreign-currency one, which the bank sells the currency into. */
+/** The banks of the account's active sets of requisites. */
+const banksOf = (account: Account): string[] => (account.requisiteSets ?? [])
+    .filter((set) => set.is_active && set.bank_name?.trim())
+    .map((set) => set.bank_name!.trim());
+
+/** The ФОП's UAH account at the bank of a foreign-currency one (a bank of its sets'), which the bank sells the currency into. */
 function uahAccountOf(account: Account): Account | null {
+    const banks = banksOf(account);
+
     return accounts.find((item) => item.is_active && item.kind === 'fop_bank' && item.currency === 'UAH'
-        && !!account.bank_name && item.bank_name === account.bank_name) ?? null;
+        && banksOf(item).some((bank) => banks.includes(bank))) ?? null;
 }
 
 function routeOf(account: Account): string[] {

@@ -61,7 +61,7 @@ const requisites = ref<TaxPaymentRequisite[]>([]);
 const { error: loadError, loading, reload } = useLoader(async (signal) => {
     const [loaded, accountList, balanceList, requisiteList] = await Promise.all([
         api.get<ApiResponse<ProfileSettings>>(path('settings'), undefined, signal),
-        api.all<Account>(path('accounts'), {}, signal),
+        api.all<Account>(path('accounts'), { include: ['requisiteSets'] }, signal),
         api.all<TaxOpeningBalance>(path('tax-opening-balances'), {}, signal),
         api.all<TaxPaymentRequisite>(path('tax-payment-requisites'), {}, signal),
     ]);

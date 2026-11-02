@@ -14,8 +14,6 @@ use Core\Http\Requests\Crud\StoreRequest;
  */
 class StoreRequisiteSetRequest extends StoreRequest
 {
-    use RequisiteSetRules;
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -23,6 +21,16 @@ class StoreRequisiteSetRequest extends StoreRequest
      */
     public function rules(): array
     {
-        return $this->requisiteSetRules();
+        return RequisiteSetRules::rules();
+    }
+
+    /**
+     * Normalize the codes and the name.
+     *
+     * @return array
+     */
+    protected function overrides(): array
+    {
+        return array_intersect_key(RequisiteSetRules::normalized($this->all()), array_flip(['iban', 'swift', 'bic', 'name']));
     }
 }

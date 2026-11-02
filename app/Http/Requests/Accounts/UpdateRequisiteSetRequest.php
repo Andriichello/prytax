@@ -15,8 +15,6 @@ use Core\Http\Requests\Crud\UpdateRequest;
  */
 class UpdateRequisiteSetRequest extends UpdateRequest
 {
-    use RequisiteSetRules;
-
     /**
      * Get the validation rules that apply to the request.
      *
@@ -24,6 +22,16 @@ class UpdateRequisiteSetRequest extends UpdateRequest
      */
     public function rules(): array
     {
-        return $this->requisiteSetRules();
+        return RequisiteSetRules::rules();
+    }
+
+    /**
+     * Normalize the codes and the name.
+     *
+     * @return array
+     */
+    protected function overrides(): array
+    {
+        return array_intersect_key(RequisiteSetRules::normalized($this->all()), array_flip(['iban', 'swift', 'bic', 'name']));
     }
 }

@@ -646,8 +646,11 @@ the app, no longer only Boost's).
   `other_key`, `no_key`, `none`, `no_config`); keys are never returned. Also whether `claude` is found.
 - **The server** (`routes/ai.php`: `Mcp::local('prytax', PryTaxServer::class)`; `php artisan mcp:start prytax`):
   stdout is the protocol's (`display_errors` to stderr); a SQLite file with its own key beside it is read with it
-  (`DatabaseKey`, `InstallationKey::stored()`); the handshake (`RecordedInitialize`) records the client on the
-  key's integration, even while it's off. Each call (`ReadTool`): the session (`McpSession`: the key's integration,
+  (`DatabaseKey`, `InstallationKey::stored()`); the first request, which names its client, records the connection
+  (`PryTaxServer::handleMessage()`, once per process) on the key's integration, even while it's off: MCP 2026-07-28,
+  the only version laravel/mcp 1.1 serves, has no `initialize` (Claude Code 2.1.316 sends `server/discover`, then
+  `tools/list`) and names the client in every request's `_meta.io.modelcontextprotocol/clientInfo`; an older client
+  names it in `initialize`. Each call (`ReadTool`): the session (`McpSession`: the key's integration,
   on, its acting user signed in; else a refusal saying what to do), the arguments validated, the read authorized as
   the API's (`$user->can($ability, $model)`), the ФОП named by id or part of its name (Ukrainian, short or English) among the allowed
   ones (the only one may be left out; ambiguous or outside: the candidates), then the read in the organization and

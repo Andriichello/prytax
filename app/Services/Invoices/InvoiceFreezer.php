@@ -41,13 +41,15 @@ class InvoiceFreezer
      * @param AlertSync $alerts
      * @param InvoiceSettingsResolver $settings
      * @param PaymentPurposeRenderer $purposes
+     * @param PaymentSections $sections
      */
     public function __construct(
         protected InvoiceNumberGenerator $numbers,
         protected InvoicePdfRenderer $renderer,
         protected AlertSync $alerts,
         protected InvoiceSettingsResolver $settings,
-        protected PaymentPurposeRenderer $purposes
+        protected PaymentPurposeRenderer $purposes,
+        protected PaymentSections $sections
     ) {}
 
     /**
@@ -276,14 +278,8 @@ class InvoiceFreezer
                 'name' => $account->name,
                 'kind' => $account->kind->value,
                 'currency' => $account->currency,
-                'holder_name' => $account->holder_name,
-                'bank_name' => $account->bank_name,
-                'iban' => $account->iban,
-                'swift' => $account->swift,
-                'account_number' => $account->account_number,
-                'details' => $account->details,
-                'invoice_requisites' => $account->invoice_requisites,
             ],
+            'payment_sections' => $this->sections->snapshot($invoice),
             'invoice' => [
                 'number' => $invoice->number,
                 'source' => $invoice->source->value,

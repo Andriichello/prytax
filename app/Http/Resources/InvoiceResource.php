@@ -30,6 +30,7 @@ class InvoiceResource extends BaseResource
         'contract' => ContractResource::class,
         'receivingAccount' => AccountResource::class,
         'items' => InvoiceItemCollection::class,
+        'paymentSections' => InvoicePaymentSectionCollection::class,
         'payments' => PaymentCollection::class,
         'primaryFile' => FileResource::class,
         'files' => FileCollection::class,

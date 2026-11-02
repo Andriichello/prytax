@@ -26,7 +26,8 @@ use PryTax\Services\Alerts\AlertSync;
  *
  * Creates and edits draft invoices with their items (design.md §4, accounting.md). The currency is the contract's,
  * else the client's, else the profile's default one (design.md §4.1); the contract gives the payment terms and the
- * items' description and rate; the receiving account defaults to the one of the client's last invoice; `issued_at`
+ * items' description and rate; the receiving account defaults to the one of the client's last invoice, and the sets of its
+ * requisites, which the invoice prints, to that invoice's (`PaymentSections`); `issued_at`
  * defaults to the end of the period. The invoice's document settings are null to take the client's. A generated invoice's total is the sum of its
  * items, `ROUND_HALF_UP(quantity × unit_price, 2)` each, and its adjustment; an external one's is entered, and its
  * optional items describe it without changing it. The contract's rate prices an hour of an invoice in the contract's
@@ -54,11 +55,14 @@ class InvoiceWriter
      *
      * @param AlertSync $alerts
      * @param InvoiceSettingsResolver $settings
+     * @param InvoiceNumberGenerator $numbers
+     * @param PaymentSections $sections
      */
     public function __construct(
         protected AlertSync $alerts,
         protected InvoiceSettingsResolver $settings,
-        protected InvoiceNumberGenerator $numbers
+        protected InvoiceNumberGenerator $numbers,
+        protected PaymentSections $sections
     ) {}
 
     /**
@@ -118,6 +122,14 @@ class InvoiceWriter
             $data['due_at'] = $this->dueAt($data, $invoice->contract_id);
         }
 
+        // Paid into another account, the draft prints the sets it starts with there, unless it names its own
+        $movedTo = $data['receiving_account_id'] ?? null;
+
+        if ($movedTo !== null && (int) $movedTo !== $invoice->receiving_account_id && !array_key_exists('payment_sections', $data)) {
+            $account = Account::query()->find($movedTo);
+            $data['payment_sections'] = $account === null ? [] : $this->sections->defaultsFor($invoice->client, $account, $invoice);
+        }
+
         return $this->save($profile, $invoice, [...$current, ...$data], array_key_exists('items', $data));
     }
 
@@ -143,6 +155,11 @@ class InvoiceWriter
         }
 
         $data['receiving_account_id'] ??= $this->defaultAccountId($client, $data['currency']);
+        $account = Account::query()->find($data['receiving_account_id']);
+
+        if (!array_key_exists('payment_sections', $data)) {
+            $data['payment_sections'] = $account === null ? [] : $this->sections->defaultsFor($client, $account);
+        }
 
         return $data;
     }
@@ -173,6 +190,7 @@ class InvoiceWriter
             'issued_at' => $defaults['issued_at'],
             'due_at' => $defaults['due_at'],
             'receiving_account_id' => $defaults['receiving_account_id'],
+            'payment_sections' => $defaults['payment_sections'],
             'description' => $contract?->describe(),
             'hourly_rate' => $rated ? $contract->rateFor($periodEnd) : null,
             'charge_type_rates' => $chargeTypes->map(fn (ChargeType $chargeType) => [
@@ -270,6 +288,8 @@ class InvoiceWriter
             ]);
         }
 
+        $sections = array_key_exists('payment_sections', $data) ? $this->sections->checked($account, (array) $data['payment_sections'], $invoice) : null;
+
         if (CarbonImmutable::parse($data['period_end'])->lt(CarbonImmutable::parse($data['period_start']))) {
             throw ValidationException::withMessages(['period_end' => [__('The period can\'t end before it starts.')]]);
         }
@@ -304,12 +324,16 @@ class InvoiceWriter
         }
 
         try {
-            DB::transaction(function () use ($invoice, $items) {
+            DB::transaction(function () use ($invoice, $items, $sections) {
                 $invoice->save();
 
                 if ($items !== null) {
                     $invoice->items()->get()->each->delete();
                     $invoice->items()->createMany($items);
+                }
+
+                if ($sections !== null) {
+                    $this->sections->replace($invoice, $sections);
                 }
             });
         } catch (QueryException $exception) {

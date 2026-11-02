@@ -7,6 +7,7 @@ use PryTax\Enums\InvoiceSource;
 use PryTax\Enums\ItemUnit;
 use PryTax\Http\Requests\Traits\InvoiceSettingRules;
 use PryTax\Http\Requests\Traits\ScopesToProfile;
+use PryTax\Services\Invoices\PaymentSections;
 
 /**
  * Trait InvoiceRules.
@@ -57,6 +58,12 @@ trait InvoiceRules
             'items.*.unit' => ['sometimes', Rule::enum(ItemUnit::class)],
             'items.*.quantity' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:99999999'],
             'items.*.unit_price' => ['nullable', ...$this->moneyRules(false)],
+            // The sets of the receiving account's requisites, which it prints, in order (InvoiceWriter checks them)
+            'payment_sections' => ['sometimes', 'list', 'max:' . PaymentSections::MAX],
+            'payment_sections.*' => ['array:requisite_set_id,title,show_title'],
+            'payment_sections.*.requisite_set_id' => ['required', 'integer', $this->existsInProfile('account_requisite_sets')],
+            'payment_sections.*.title' => ['nullable', 'string', 'max:64'],
+            'payment_sections.*.show_title' => ['sometimes', 'boolean'],
         ];
     }
 

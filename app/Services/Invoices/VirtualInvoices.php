@@ -34,12 +34,14 @@ class VirtualInvoices
      * @param InvoiceFreezer $freezer
      * @param InvoicePdfRenderer $renderer
      * @param AlertSync $alerts
+     * @param PaymentSections $sections
      */
     public function __construct(
         protected InvoiceNumberGenerator $numbers,
         protected InvoiceFreezer $freezer,
         protected InvoicePdfRenderer $renderer,
-        protected AlertSync $alerts
+        protected AlertSync $alerts,
+        protected PaymentSections $sections
     ) {}
 
     /**
@@ -176,6 +178,7 @@ class VirtualInvoices
             ]);
 
             $invoice->source = InvoiceSource::Generated;
+            $this->sections->ensure($invoice);
             $this->freezer->assertPurposeComplete($invoice);
             $this->numbers->assign($profile, $invoice);
 

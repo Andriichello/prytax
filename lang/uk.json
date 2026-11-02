@@ -296,5 +296,13 @@
     "The password isn't right.": "Неправильний пароль.",
     "Archives of up to :size MB can be restored.": "Відновити можна архів до :size МБ.",
     "Upload the archive again.": "Завантажте архів ще раз.",
-    "Turn Claude on in Settings → Integrations first.": "Спершу увімкніть Claude в Налаштування → Інтеграції."
+    "Turn Claude on in Settings → Integrations first.": "Спершу увімкніть Claude в Налаштування → Інтеграції.",
+    "The requisites aren't the receiving account's.": "Ці реквізити не належать рахунку, на який надходить оплата.",
+    "The requisites are switched off.": "Ці реквізити вимкнено.",
+    "The invoice prints these requisites already.": "Ці реквізити вже є в інвойсі.",
+    "Of several payment details, each prints its name in parentheses: give it one.": "Коли реквізитів кілька, кожні друкуються з назвою в дужках: вкажіть її.",
+    "Give the payment details a name to print in parentheses.": "Вкажіть назву, щоб надрукувати її в дужках.",
+    "An account's sets have a default: make another set the default instead.": "Одні реквізити рахунку — за замовчуванням: зробіть такими інші.",
+    "The default set can't be switched off: make another set the default first.": "Реквізити за замовчуванням не вимикаються: спершу зробіть такими інші.",
+    "The default set can't be deleted: make another set the default first.": "Реквізити за замовчуванням не видаляються: спершу зробіть такими інші."
 }

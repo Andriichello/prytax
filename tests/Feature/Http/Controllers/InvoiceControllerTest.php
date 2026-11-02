@@ -122,7 +122,8 @@ class InvoiceControllerTest extends TestCase
     }
 
     /**
-     * Test that freezing a draft gives it its number, locks it with a snapshot, and makes its PDF the primary file.
+     * Test that freezing a draft gives it its number, locks it with a snapshot (the account's requisites in their order
+     * among it), and makes its PDF the primary file.
      *
      * @return void
      */
@@ -131,7 +132,8 @@ class InvoiceControllerTest extends TestCase
         Storage::fake('local');
         $profile = $this->createProfile();
         $this->actAs($profile);
-        $account = $this->createAccount($profile);
+        $order = [['field' => 'bank_name', 'shown' => true], ['field' => 'holder_name', 'shown' => false]];
+        $account = $this->createAccount($profile, ['invoice_requisites' => $order]);
         [$client, $contract] = $this->createClientWithContract($profile, ['abbreviation' => 'BL']);
         $id = $this->postJson($this->profilePath($profile, 'invoices'), [
             'client_id' => $client->id, 'contract_id' => $contract->id,
@@ -148,6 +150,7 @@ class InvoiceControllerTest extends TestCase
             ->assertJsonPath('data.snapshot.money_format', 'plain_dot')
             ->assertJsonPath('data.snapshot.presentation.payment_purpose', 'Payment for services by the invoice No. BL-2026-10-14-1 from Oct 14, 2026')
             ->assertJsonPath('data.snapshot.account.name', $account->name)
+            ->assertJsonPath('data.snapshot.account.invoice_requisites', $order)
             ->assertJsonPath('data.snapshot.totals.total', '3892.50');
         $invoice = $this->inProfile($profile, fn () => Invoice::query()->findOrFail($id));
         $this->assertSame('application/pdf', $invoice->primaryFile->mime_type);

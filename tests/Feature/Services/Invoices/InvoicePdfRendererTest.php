@@ -377,6 +377,44 @@ class InvoicePdfRendererTest extends TestCase
     }
 
     /**
+     * Test that the payment details print the account's requisites in the order its owner put them, leaving out those
+     * switched off and following them with those the order doesn't name; without an order, in the built-in one.
+     *
+     * @param array|null $order
+     * @param list<string> $labels
+     *
+     * @return void
+     */
+    #[DataProvider('requisiteOrders')]
+    public function testPrintsTheRequisitesInTheirOrderWithoutThoseSwitchedOff(?array $order, array $labels): void
+    {
+        $html = $this->html(['account' => ['invoice_requisites' => $order]]);
+
+        $start = (int) strpos($html, '<table class="kv">');
+        preg_match_all('#<td class="k"[^>]*>([^<]*)</td>#', substr($html, $start, (int) strpos($html, '</table>', $start) - $start), $keys);
+        $this->assertSame($labels, $keys[1]);
+    }
+
+    /**
+     * Get the orders of the requisites, with the labels of the payment details each prints.
+     *
+     * @return array<string, array{array|null, list<string>}>
+     */
+    public static function requisiteOrders(): array
+    {
+        return [
+            'no order' => [null, ['Beneficiary', 'Bank', 'Account number', 'SWIFT / BIC', 'Routing (ABA)', 'Currency', 'Purpose']],
+            'an order, the beneficiary off and the bank not named' => [[
+                ['label' => 'Routing (ABA)', 'shown' => true],
+                ['field' => 'account_number', 'shown' => true],
+                ['field' => 'holder_name', 'shown' => false],
+                ['field' => 'swift', 'shown' => true],
+                ['label' => 'Removed since', 'shown' => true],
+            ], ['Routing (ABA)', 'Account number', 'SWIFT / BIC', 'Bank', 'Currency', 'Purpose']],
+        ];
+    }
+
+    /**
      * Test that the contract section is left out, when it is hidden or the invoice has no contract.
      *
      * @param array $changes

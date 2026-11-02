@@ -379,6 +379,7 @@ export default {
         kilobytes: '{size} KB',
         megabytes: '{size} MB',
         allProfilesCount: '{count} ФОП',
+        statusDeleted: 'Deleted',
     },
 
     /** Restoring the app from a full copy */

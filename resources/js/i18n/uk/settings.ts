@@ -383,6 +383,7 @@ export default {
         kilobytes: '{size} КБ',
         megabytes: '{size} МБ',
         allProfilesCount: '{count} ФОП',
+        statusDeleted: 'Видалено',
     },
 
     /** The side notes of the desktop settings pages */

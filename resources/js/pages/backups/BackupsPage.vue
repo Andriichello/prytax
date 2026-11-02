@@ -225,7 +225,7 @@ async function remove(): Promise<void> {
     deleteBusy.value = true;
 
     try {
-        for (const backup of deleting.value?.backups ?? []) {
+        for (const backup of (deleting.value?.backups ?? []).filter((item) => item.status !== 'pruned')) {
             await api.delete(`organization/backups/${backup.id}`);
         }
 

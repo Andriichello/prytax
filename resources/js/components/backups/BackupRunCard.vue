@@ -39,6 +39,8 @@ const { user } = useSession();
 const { isDesktop } = useBreakpoint();
 
 const running = computed(() => run.status === 'queued' || run.status === 'running');
+/** Whether something of the run is left to delete: a backup, which isn't deleted already. */
+const hasArchive = computed(() => (run.backups ?? []).some((backup) => backup.status !== 'pruned'));
 
 /** Every profile of the run, those without a backup yet waiting in the queue. */
 const rows = computed(() => {
@@ -86,6 +88,8 @@ function chipOf(backup: BackupRecord | null): Chip {
             return { label: t('settings.backups.statusDone'), class: 'bg-positive-soft text-positive' };
         case 'skipped_unchanged':
             return { label: t('settings.backups.statusUnchanged'), class: 'bg-neutral-soft text-ink-2' };
+        case 'pruned':
+            return { label: t('settings.backups.statusDeleted'), class: 'bg-neutral-soft text-ink-3' };
         default:
             return { label: t('settings.backups.statusFailed'), class: 'bg-negative-soft text-negative' };
     }
@@ -104,6 +108,10 @@ function metaOf(backup: BackupRecord | null): string {
 
     if (backup.status === 'failed') {
         return t('settings.backups.archiveError');
+    }
+
+    if (backup.status === 'pruned') {
+        return '';
     }
 
     return backup.documents !== null
@@ -133,7 +141,7 @@ const downloadable = (backup: BackupRecord | null): boolean => Boolean(backup &&
             </div>
             <div class="flex items-center justify-between gap-3">
                 <span class="min-w-0 text-12 text-ink-3">{{ second }}</span>
-                <button v-if="run.kind === 'manual' && canDelete && !running" type="button" class="flex shrink-0 items-center gap-1 text-13 font-medium text-ink-2" @click="emit('delete', run)">
+                <button v-if="run.kind === 'manual' && canDelete && !running && hasArchive" type="button" class="flex shrink-0 items-center gap-1 text-13 font-medium text-ink-2" @click="emit('delete', run)">
                     <Icon name="trash" :size="14" /> {{ t('settings.backups.delete') }}
                 </button>
                 <button v-else-if="!isDesktop && bundleable" type="button" class="flex shrink-0 items-center gap-1 text-13 font-medium text-accent" @click="emit('bundle', run)">

@@ -580,6 +580,12 @@ export interface AccountDetail {
     value: string;
 }
 
+/** An account's field, which is a requisite in invoices. */
+export type RequisiteField = 'holder_name' | 'bank_name' | 'iban' | 'account_number' | 'swift';
+
+/** An entry of the order of an account's requisites in invoices: a field, or a detail by its label, and whether it prints. */
+export type InvoiceRequisiteEntry = ({ field: RequisiteField; label?: never } | { label: string; field?: never }) & { shown: boolean };
+
 /** Progress towards an account's limit: `limit_progress` of an account and `limit` of its statement. */
 export interface AccountLimitProgress {
     used: Amount;
@@ -608,6 +614,8 @@ export interface Account {
     swift: string | null;
     account_number: string | null;
     details: AccountDetail[] | null;
+    /** The order of the requisites in invoices, and which of them print; null: all, in the built-in order. */
+    invoice_requisites: InvoiceRequisiteEntry[] | null;
     limit_amount: Amount | null;
     limit_period: LimitPeriod | null;
     is_active: boolean;
@@ -1102,6 +1110,8 @@ export interface InvoiceSnapshot {
         swift: string | null;
         account_number: string | null;
         details: AccountDetail[] | null;
+        /** Missing in snapshots frozen before the requisites could be ordered. */
+        invoice_requisites?: InvoiceRequisiteEntry[] | null;
     };
     invoice: {
         number: string | null;

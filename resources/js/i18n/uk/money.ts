@@ -259,6 +259,13 @@ export default {
         paymentDetailsInvoices: 'Реквізити для інвойсів',
         bank: 'Банк',
         addPaymentDetails: 'Додати реквізити для інвойсів',
+        arrange: 'Упорядкувати',
+        notOnInvoices: 'Не друкується в інвойсах',
+        requisitesTitle: 'Реквізити в інвойсах',
+        requisitesHint: 'У такому порядку реквізити друкуються в інвойсах, а валюта — останньою. Вимкнені не друкуються. Уже зафіксовані інвойси не зміняться.',
+        moveUp: 'Вище: {label}',
+        moveDown: 'Нижче: {label}',
+        printOnInvoices: 'Друкувати в інвойсах: {label}',
     },
 
     /** A new account, and editing one */

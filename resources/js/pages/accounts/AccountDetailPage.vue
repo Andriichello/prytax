@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api/client';
 import type { Account, AccountStatement, ApiResponse, StatementEntry, StatementMovementEntry } from '@/api/types';
+import InvoiceRequisitesSheet from '@/components/account/InvoiceRequisitesSheet.vue';
 import MovementSheet from '@/components/account/MovementSheet.vue';
 import SubScreen from '@/components/layout/SubScreen.vue';
 import CopyRow from '@/components/ui/CopyRow.vue';
@@ -20,7 +21,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { t } from '@/i18n';
-import { ACCOUNT_KINDS, MOVEMENT_CATEGORIES, type MovementDraft } from '@/utils/accounts';
+import { ACCOUNT_KINDS, isMaskedRequisite, maskNumber, MOVEMENT_CATEGORIES, type MovementDraft, orderedRequisites, REQUISITE_FIELDS } from '@/utils/accounts';
 import { currentQuarter, formatDate, formatDayMonth, quarterOf, quarterLabel } from '@/utils/dates';
 import { formatAmount, formatMoney } from '@/utils/money';
 import { TAX_TYPES } from '@/utils/statuses';
@@ -29,7 +30,7 @@ import { TAX_TYPES } from '@/utils/statuses';
  * Рахунок (S-AccountDetail): the balance from tracked movements (counted from the latest opening balance) with what
  * came in and went out this year, the receipts whose money is still here (late ones marked), the history of
  * movements, where bank fees, interest, expenses and withdrawals are added and changed, and the requisites printed
- * on invoices, each copyable.
+ * on invoices, each copyable, in the order they print (those, which don't, marked), which «Упорядкувати» changes.
  */
 const route = useRoute();
 const { profileId, path } = useCurrentProfile();
@@ -55,10 +56,9 @@ const statement = computed(() => data.value?.statement ?? null);
 /** The opening balance the tracked balance starts from: the latest one. */
 const opening = computed(() => [...account.value?.openingBalances ?? []].sort((a, b) => b.as_of.localeCompare(a.as_of))[0] ?? null);
 
-const hasRequisites = computed(() => Boolean(account.value && (
-    account.value.holder_name || account.value.bank_name || account.value.iban || account.value.swift
-    || account.value.account_number || account.value.details?.length
-)));
+/** The requisites in the order they print on invoices. */
+const requisites = computed(() => (account.value ? orderedRequisites(account.value) : []));
+const requisitesOpen = ref(false);
 
 /* Movements, which aren't income or transfers: bank fees, interest, expenses and withdrawals */
 const movementOpen = ref(false);
@@ -77,12 +77,6 @@ function openMovement(entry: StatementMovementEntry | null): void {
 }
 
 const entryTag = (entry: StatementEntry) => (entryLink(entry) ? 'RouterLink' : entry.type === 'movement' ? 'button' : 'div');
-
-const mask = (value: string): string => {
-    const digits = value.replace(/\s/g, '');
-
-    return digits.length > 8 ? `•••• •••• ${digits.slice(-4)}` : `•••• ${digits.slice(-4)}`;
-};
 
 function entryTitle(entry: StatementEntry): string {
     switch (entry.type) {
@@ -249,20 +243,24 @@ function entryLink(entry: StatementEntry) {
                     </div>
                 </section>
 
-                <section v-if="hasRequisites" class="flex flex-col gap-2">
-                    <SectionTitle>{{ t('money.account.paymentDetailsInvoices') }}</SectionTitle>
+                <section v-if="requisites.length" class="flex flex-col gap-2">
+                    <SectionTitle>
+                        {{ t('money.account.paymentDetailsInvoices') }}
+                        <template v-if="can('update', 'accounts')" #aside>
+                            <button type="button" class="-my-2 py-2 text-13 font-medium text-accent" @click="requisitesOpen = true">
+                                {{ t('money.account.arrange') }}
+                            </button>
+                        </template>
+                    </SectionTitle>
                     <div class="flex flex-col divide-y divide-divider rounded-card border border-line bg-surface pr-1 pl-4">
-                        <CopyRow v-if="account.holder_name" :label="t('core.common.recipient')" :value="account.holder_name" :figure="false" />
-                        <CopyRow v-if="account.bank_name" :label="t('money.account.bank')" :value="account.bank_name" :figure="false" />
-                        <CopyRow v-if="account.iban" label="IBAN" :value="account.iban" :shown="mask(account.iban)" />
-                        <CopyRow v-if="account.account_number" label="Account number" :value="account.account_number" :shown="mask(account.account_number)" />
-                        <CopyRow v-if="account.swift" label="SWIFT / BIC" :value="account.swift" />
                         <CopyRow
-                            v-for="detail in account.details ?? []"
-                            :key="detail.label"
-                            :label="detail.label"
-                            :value="detail.value"
-                            :shown="/^\d{6,}$/.test(detail.value.replace(/\s/g, '')) ? mask(detail.value) : undefined"
+                            v-for="requisite in requisites"
+                            :key="requisite.key"
+                            :label="requisite.label"
+                            :value="requisite.value"
+                            :shown="isMaskedRequisite(requisite) ? maskNumber(requisite.value) : undefined"
+                            :figure="!requisite.field || REQUISITE_FIELDS[requisite.field].figure"
+                            :note="requisite.shown ? undefined : t('money.account.notOnInvoices')"
                         />
                     </div>
                 </section>
@@ -277,6 +275,8 @@ function entryLink(entry: StatementEntry) {
                 </RouterLink>
             </template>
         </LoadState>
+
+        <InvoiceRequisitesSheet v-if="account && requisites.length" v-model:open="requisitesOpen" :account="account" @saved="reload" />
 
         <MovementSheet
             v-if="account"

@@ -250,6 +250,13 @@ export default {
         paymentDetailsInvoices: 'Payment details for invoices',
         bank: 'Bank',
         addPaymentDetails: 'Add payment details for invoices',
+        arrange: 'Arrange',
+        notOnInvoices: 'Not printed on invoices',
+        requisitesTitle: 'Payment details on invoices',
+        requisitesHint: 'Invoices print the payment details in this order, with the currency last. Those switched off aren’t printed. Invoices frozen already stay as they are.',
+        moveUp: 'Move up: {label}',
+        moveDown: 'Move down: {label}',
+        printOnInvoices: 'Print on invoices: {label}',
     },
 
     accountForm: {

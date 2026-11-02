@@ -1,4 +1,4 @@
-import type { AccountKind, MovementCategory, MovementDirection } from '@/api/types';
+import type { Account, AccountKind, InvoiceRequisiteEntry, MovementCategory, MovementDirection, RequisiteField } from '@/api/types';
 import { t } from '@/i18n';
 
 /**
@@ -44,4 +44,90 @@ export function accountLabel(name: string | null | undefined, currency: string |
     }
 
     return currency && !name.toUpperCase().includes(currency.toUpperCase()) ? `${name} · ${currency}` : name;
+}
+
+/**
+ * The account's fields, which are requisites in invoices, in the built-in order, as the account's page names them
+ * (getters, which translate when they are read).
+ */
+export const REQUISITE_FIELDS: Record<RequisiteField, { label: string; figure: boolean; masked: boolean }> = {
+    holder_name: { get label() { return t('core.common.recipient'); }, figure: false, masked: false },
+    bank_name: { get label() { return t('money.account.bank'); }, figure: false, masked: false },
+    iban: { label: 'IBAN', figure: true, masked: true },
+    account_number: { label: 'Account number', figure: true, masked: true },
+    swift: { label: 'SWIFT / BIC', figure: true, masked: false },
+};
+
+/**
+ * A requisite of an account in invoices: a field, or one of its own details, with its value and whether it prints.
+ */
+export interface Requisite {
+    /** Unique among the account's requisites, for lists. */
+    key: string;
+    field: RequisiteField | null;
+    label: string;
+    value: string;
+    shown: boolean;
+}
+
+/**
+ * The account's requisites in the order they print in invoices, each printed or not, as the API's
+ * `InvoiceRequisites::ordered()` puts them: those `invoice_requisites` names, in its order (a field by its column, a
+ * detail by its label), then the others in the built-in order (the fields, then the details as typed), printed.
+ */
+export function orderedRequisites(account: Pick<Account, RequisiteField | 'details' | 'invoice_requisites'>): Requisite[] {
+    const unnamed: Requisite[] = [];
+
+    for (const field of Object.keys(REQUISITE_FIELDS) as RequisiteField[]) {
+        const value = account[field];
+
+        if (value) {
+            unnamed.push({ key: field, field, label: REQUISITE_FIELDS[field].label, value, shown: true });
+        }
+    }
+
+    (account.details ?? []).forEach((detail, index) => {
+        unnamed.push({ key: `detail-${index}`, field: null, label: detail.label, value: detail.value, shown: true });
+    });
+
+    const named: Requisite[] = [];
+
+    for (const entry of account.invoice_requisites ?? []) {
+        const index = unnamed.findIndex((requisite) => (entry.field
+            ? requisite.field === entry.field
+            : requisite.field === null && requisite.label === entry.label));
+
+        if (index !== -1) {
+            named.push({ ...unnamed[index]!, shown: entry.shown });
+            unnamed.splice(index, 1);
+        }
+    }
+
+    return [...named, ...unnamed];
+}
+
+/**
+ * The order to save of requisites, as the account's `invoice_requisites` holds it.
+ */
+export function requisiteOrder(requisites: Requisite[]): InvoiceRequisiteEntry[] {
+    return requisites.map((requisite) => (requisite.field
+        ? { field: requisite.field, shown: requisite.shown }
+        : { label: requisite.label, shown: requisite.shown }));
+}
+
+/**
+ * Whether a requisite's value is a number, which the screens show masked to its last four digits: an IBAN, an
+ * account number, or a detail of six digits or more.
+ */
+export function isMaskedRequisite(requisite: Requisite): boolean {
+    return requisite.field ? REQUISITE_FIELDS[requisite.field].masked : /^\d{6,}$/.test(requisite.value.replace(/\s/g, ''));
+}
+
+/**
+ * A number masked to its last four digits: «•••• •••• 6001» for a long one (an IBAN), «•••• 2233» for a short one.
+ */
+export function maskNumber(value: string): string {
+    const digits = value.replace(/\s/g, '');
+
+    return digits.length > 8 ? `•••• •••• ${digits.slice(-4)}` : `•••• ${digits.slice(-4)}`;
 }

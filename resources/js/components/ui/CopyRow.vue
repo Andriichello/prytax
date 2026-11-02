@@ -4,9 +4,10 @@ import Icon from '@/components/ui/Icon.vue';
 import { t } from '@/i18n';
 
 /**
- * A requisite of an account: its label, the value as shown (masked), and a button copying the full value.
+ * A requisite of an account: its label, the value as shown (masked), an optional note under it, and a button copying
+ * the full value.
  */
-const { label, value, shown = undefined, figure = true, wrap = false } = defineProps<{
+const { label, value, shown = undefined, figure = true, wrap = false, note = undefined } = defineProps<{
     label: string;
     value: string;
     /** What is shown instead of the value, such as the masked number. */
@@ -14,6 +15,8 @@ const { label, value, shown = undefined, figure = true, wrap = false } = defineP
     figure?: boolean;
     /** Long values (a payment's purpose) wrap instead of being cut. */
     wrap?: boolean;
+    /** A line under the value, such as that it isn't printed on invoices. */
+    note?: string;
 }>();
 
 const copied = ref(false);
@@ -36,6 +39,7 @@ async function copy(): Promise<void> {
         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="text-12 text-ink-3">{{ label }}</span>
             <span class="text-15" :class="[figure ? 'num' : '', wrap ? 'break-words whitespace-normal!' : 'truncate']">{{ shown ?? value }}</span>
+            <span v-if="note" class="text-12 text-ink-3">{{ note }}</span>
         </span>
         <span v-if="copied" class="text-12 text-positive" role="status">{{ t('shell.ui.copied') }}</span>
         <button type="button" :aria-label="t('shell.ui.copyLabel', { label })" class="flex size-11 shrink-0 items-center justify-center text-ink-2" @click="copy">

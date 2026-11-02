@@ -2,12 +2,16 @@
 
 namespace PryTax\Mcp\Servers;
 
+use Laravel\Mcp\Enums\MetaKey;
+use Laravel\Mcp\Exceptions\JsonRpcException;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
+use Laravel\Mcp\Server\ServerContext;
+use Laravel\Mcp\Transport\JsonRpcRequest;
 use PryTax\Mcp\DatabaseKey;
-use PryTax\Mcp\Methods\RecordedInitialize;
+use PryTax\Mcp\McpSession;
 use PryTax\Mcp\Tools\ApiEndpoints;
 use PryTax\Mcp\Tools\ApiRead;
 use PryTax\Mcp\Tools\ApiWrite;
@@ -34,7 +38,7 @@ use PryTax\Mcp\Tools\ReadSpreadsheet;
  * acting user, only while the integration is on: reads (ФОП and overview, invoices and clients, income and books, taxes
  * and alerts, backups), the API's endpoints and any of its reads, a spreadsheet on this computer, and, once an owner
  * allows changes, any of the API's writes. Stdout is the protocol's, so PHP's errors go to stderr; a database with its own key beside it
- * (the desktop app's) is read with it; the handshake records the client.
+ * (the desktop app's) is read with it; the first request, which names its client, records the connection.
  *
  * @author Andrii Prykhodko <andriichello@gmail.com>
  * @package PryTax\Mcp\Servers
@@ -54,6 +58,13 @@ class PryTaxServer extends Server
      * @var int
      */
     public int $defaultPaginationLength = 50;
+
+    /**
+     * Whether this server's connection is recorded: a client, which starts the server, connects once per process.
+     *
+     * @var bool
+     */
+    protected bool $recordedConnection = false;
 
     /**
      * The tools: reads, the API's endpoints and reads, a spreadsheet, and, once changes are allowed, the API's writes.
@@ -90,6 +101,46 @@ class PryTaxServer extends Server
         // Stdout carries the protocol's messages, nothing else
         ini_set('display_errors', 'stderr');
         DatabaseKey::apply();
-        $this->addMethod('initialize', RecordedInitialize::class);
+    }
+
+    /**
+     * Handle a request, then record the connection, if it's the first request, which names its client.
+     *
+     * @param JsonRpcRequest $request
+     * @param ServerContext $context
+     *
+     * @return void
+     * @throws JsonRpcException
+     */
+    protected function handleMessage(JsonRpcRequest $request, ServerContext $context): void
+    {
+        try {
+            parent::handleMessage($request, $context);
+        } finally {
+            $this->recordConnection($request);
+        }
+    }
+
+    /**
+     * Record Claude connecting, once, with the client (Claude Code, Claude Desktop) and version, which the request
+     * names: every request of MCP 2026-07-28 in its `_meta` (Claude Code sends `server/discover` first, never
+     * `initialize`), an older client in its `initialize`. A failure to record doesn't fail the request.
+     *
+     * @param JsonRpcRequest $request
+     *
+     * @return void
+     */
+    protected function recordConnection(JsonRpcRequest $request): void
+    {
+        $client = $request->method === 'initialize'
+            ? $request->params['clientInfo'] ?? null
+            : $request->meta()[MetaKey::CLIENT_INFO->value] ?? null;
+
+        if ($this->recordedConnection || !is_array($client)) {
+            return;
+        }
+
+        $this->recordedConnection = true;
+        rescue(fn () => app(McpSession::class)->recordConnection($client));
     }
 }

@@ -285,12 +285,9 @@ async function removeRefund(): Promise<void> {
 
                 <section class="grid grid-cols-2 gap-2" :aria-label="t('money.payment.summary')">
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('money.payment.lostFees') }}</span>
-                        <span class="num text-16 font-semibold">{{ flow.fees !== null ? formatMoney(flow.fees, flow.currency) : '—' }}</span>
-                        <span v-if="flow.transfer_fee_share && compareAmounts(flow.transfer_fee_share, '0') !== 0" class="num text-11 text-ink-3">
-                            {{ formatAmount(flow.receipt_fee ?? '0') }} + {{ formatAmount(flow.transfer_fee_share) }}
-                        </span>
-                        <span v-else class="text-11 text-ink-3">{{ t('money.payment.onReceipt') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.stillPlatform') }}</span>
+                        <span class="num text-16 font-semibold">{{ formatMoney(flow.still_on_platform, flow.currency) }}</span>
+                        <span class="text-11 text-ink-3">{{ t('money.payment.balanceNotLoss') }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
                         <span class="text-12 text-ink-3">{{ t('money.payment.reachedFopAccount') }}</span>
@@ -306,9 +303,12 @@ async function removeRefund(): Promise<void> {
                         </template>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
-                        <span class="text-12 text-ink-3">{{ t('money.payment.stillPlatform') }}</span>
-                        <span class="num text-16 font-semibold">{{ formatMoney(flow.still_on_platform, flow.currency) }}</span>
-                        <span class="text-11 text-ink-3">{{ t('money.payment.balanceNotLoss') }}</span>
+                        <span class="text-12 text-ink-3">{{ t('money.payment.lostFees') }}</span>
+                        <span class="num text-16 font-semibold">{{ flow.fees !== null ? formatMoney(flow.fees, flow.currency) : '—' }}</span>
+                        <span v-if="flow.transfer_fee_share && compareAmounts(flow.transfer_fee_share, '0') !== 0" class="num text-11 text-ink-3">
+                            {{ formatAmount(flow.receipt_fee ?? '0') }} + {{ formatAmount(flow.transfer_fee_share) }}
+                        </span>
+                        <span v-else class="text-11 text-ink-3">{{ t('money.payment.onReceipt') }}</span>
                     </div>
                     <div class="flex flex-col gap-1 rounded-button border border-line bg-surface p-3">
                         <span class="text-12 text-ink-3">{{ t('money.payment.netIncome') }}</span>

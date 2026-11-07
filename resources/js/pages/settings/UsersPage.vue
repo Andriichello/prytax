@@ -168,7 +168,7 @@ const isSelf = computed(() => editing.value?.id === me.value?.id);
                     </span>
                     <span
                         v-if="roleOf(user)?.value === 'owner'"
-                        class="shrink-0 rounded-badge bg-ink px-2 py-[3px] text-12 font-semibold text-white"
+                        class="shrink-0 rounded-badge bg-strong px-2 py-[3px] text-12 font-semibold text-white"
                     >
                         {{ t('settings.users.owner') }}
                     </span>

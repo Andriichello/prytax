@@ -131,7 +131,7 @@ async function exportPeriod(): Promise<void> {
                         type="button"
                         :disabled="isFuture(q)"
                         class="h-10 rounded-full border px-3.5 text-14 disabled:text-switch-off"
-                        :class="quarter === q ? 'border-ink bg-ink font-medium text-white' : 'border-line-input bg-surface'"
+                        :class="quarter === q ? 'border-inverse bg-inverse font-medium text-on-inverse' : 'border-line-input bg-surface'"
                         @click="quarter = q"
                     >
                         {{ quarterLabel(q) }}

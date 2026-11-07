@@ -48,7 +48,7 @@ function cancel(): void {
         class="flex flex-col rounded-card bg-surface transition-opacity"
         :class="[
             isOpen
-                ? 'gap-3.5 border-2 border-accent px-[15px] pt-2 pb-[15px] shadow-[0_6px_18px_rgb(43_69_184/0.12)]'
+                ? 'gap-3.5 border-2 border-accent px-[15px] pt-2 pb-[15px] shadow-[0_6px_18px_var(--shade-accent)]'
                 : 'gap-2 border border-line px-4 pt-2 pb-3.5',
             dimmed ? 'pointer-events-none opacity-45' : '',
         ]"

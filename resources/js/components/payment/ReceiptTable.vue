@@ -66,7 +66,7 @@ function tax(receipt: Payment, type: ReceiptTax) {
 
 <template>
     <section class="@container overflow-hidden rounded-card border border-line bg-surface" :aria-label="title">
-        <div v-if="title" class="flex items-center justify-between bg-ink px-5 py-3.5 text-white">
+        <div v-if="title" class="flex items-center justify-between bg-panel px-5 py-3.5 text-white">
             <span class="flex flex-col">
                 <span class="text-17 font-semibold">{{ title }}</span>
                 <span v-if="count" class="text-12 text-on-ink-3">{{ count }}</span>

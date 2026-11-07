@@ -50,7 +50,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
             <span class="text-right">{{ t('accounting.taxes.sent') }}</span>
             <span class="text-right">{{ t('accounting.taxes.paid') }}</span>
         </div>
-        <div v-if="rows.length > 1" class="grid items-center bg-ink px-5 py-3.5 text-white" :class="columns">
+        <div v-if="rows.length > 1" class="grid items-center bg-panel px-5 py-3.5 text-white" :class="columns">
             <span class="flex flex-col">
                 <span class="text-12 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('accounting.taxes.total') }}</span>
                 <span class="text-12">
@@ -76,7 +76,7 @@ const isClosed = (row: TaxLedger['summary']['rows'][number]): boolean => compare
         </div>
     </article>
     <article v-else class="overflow-hidden rounded-card border border-line bg-surface px-4">
-        <div v-if="rows.length > 1" class="relative z-[1] -mx-4 flex flex-col gap-2 bg-ink px-4 pt-4 pb-3.5 text-white">
+        <div v-if="rows.length > 1" class="relative z-[1] -mx-4 flex flex-col gap-2 bg-panel px-4 pt-4 pb-3.5 text-white">
             <div class="flex items-baseline justify-between">
                 <span class="text-13 font-semibold tracking-[0.04em] text-on-ink-2 uppercase">{{ t('accounting.taxes.total') }}</span>
                 <span class="text-15 font-semibold">

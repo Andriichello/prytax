@@ -13,7 +13,7 @@ const { totals } = defineProps<{ totals: TaxesBookYear['totals'] }>();
 </script>
 
 <template>
-    <section class="flex flex-col gap-2.5 rounded-card bg-ink p-4 text-white">
+    <section class="flex flex-col gap-2.5 rounded-card bg-panel p-4 text-white">
         <div class="flex items-baseline justify-between gap-3">
             <span class="text-12 font-semibold tracking-[0.04em] text-on-ink-3 uppercase">{{ t('accounting.books.taxesSinceStart') }}</span>
             <span class="text-15 font-semibold">

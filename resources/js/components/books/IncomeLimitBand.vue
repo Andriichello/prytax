@@ -20,7 +20,7 @@ const share = computed(() => Number(percent));
 </script>
 
 <template>
-    <section class="flex flex-col gap-2.5 rounded-card bg-ink p-4 text-white">
+    <section class="flex flex-col gap-2.5 rounded-card bg-panel p-4 text-white">
         <div class="flex items-baseline justify-between gap-3">
             <span class="text-12 font-semibold tracking-[0.04em] text-on-ink-3 uppercase">{{ t('accounting.books.incomeSinceStart') }}</span>
             <span class="text-15 font-semibold" :class="share >= 80 ? 'text-warning-on-ink' : ''">
@@ -29,7 +29,7 @@ const share = computed(() => Number(percent));
         </div>
         <span class="num text-26 font-bold">{{ formatMoney(ytd, 'UAH') }}</span>
         <div class="relative h-2 rounded-[4px] bg-divider-ink" role="progressbar" :aria-valuenow="Math.round(share)" aria-valuemin="0" aria-valuemax="100">
-            <div class="h-2 rounded-[4px]" :class="share >= 80 ? 'bg-warning-bar' : 'bg-white'" :style="{ width: `${Math.min(100, share)}%` }" />
+            <div class="h-2 rounded-[4px]" :class="share >= 80 ? 'bg-warning-bar' : 'bg-bar-on-panel'" :style="{ width: `${Math.min(100, share)}%` }" />
             <span class="absolute -top-0.75 left-[80%] h-3.5 w-0.5 bg-tick-on-ink" aria-hidden="true" />
             <span class="absolute -top-0.75 left-[90%] h-3.5 w-0.5 bg-tick-on-ink" aria-hidden="true" />
         </div>

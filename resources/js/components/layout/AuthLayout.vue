@@ -21,9 +21,9 @@ const { isDesktop, isCompact } = useBreakpoint();
 
 <template>
     <div v-if="isDesktop && !isCompact" class="fixed inset-0 flex bg-paper">
-        <div class="flex flex-1 flex-col justify-between bg-ink p-16 text-white">
+        <div class="flex flex-1 flex-col justify-between bg-panel p-16 text-white">
             <div class="flex items-center gap-3">
-                <span class="flex size-11 items-center justify-center rounded-control bg-white text-ink">
+                <span class="flex size-11 items-center justify-center rounded-control bg-surface text-ink">
                     <Icon name="logo" :size="24" />
                 </span>
                 <span class="text-28 font-bold tracking-[-0.03em]">Pry<span class="text-accent-line">Tax</span></span>
@@ -73,7 +73,7 @@ const { isDesktop, isCompact } = useBreakpoint();
         </button>
         <div class="-mt-6 flex flex-col gap-3.5">
             <div class="flex items-center gap-3">
-                <span class="flex size-12 items-center justify-center rounded-button bg-ink text-on-ink">
+                <span class="flex size-12 items-center justify-center rounded-button bg-strong text-on-ink">
                     <Icon name="logo" :size="26" />
                 </span>
                 <span class="text-[32px] font-bold tracking-[-0.03em]">Pry<span class="text-accent">Tax</span></span>

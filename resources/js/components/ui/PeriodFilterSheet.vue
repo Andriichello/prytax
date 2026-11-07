@@ -127,7 +127,7 @@ function apply(): void {
                     role="radio"
                     :aria-checked="draft.grouping === option.value ? 'true' : 'false'"
                     class="flex h-11 items-center rounded-full px-4 text-15"
-                    :class="draft.grouping === option.value ? 'bg-ink text-white' : 'border border-line-input bg-surface text-ink'"
+                    :class="draft.grouping === option.value ? 'bg-inverse text-on-inverse' : 'border border-line-input bg-surface text-ink'"
                     @click="draft.grouping = option.value"
                 >
                     {{ option.label }}

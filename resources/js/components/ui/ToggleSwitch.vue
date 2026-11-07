@@ -24,7 +24,7 @@ const checked = defineModel<boolean>({ required: true });
     >
         <span
             aria-hidden="true"
-            class="absolute top-0.75 size-6.25 rounded-full bg-white shadow-[0_1px_3px_rgb(23_25_31/0.25)] transition-[left]"
+            class="absolute top-0.75 size-6.25 rounded-full bg-surface shadow-[0_1px_3px_var(--shade-25)] transition-[left]"
             :class="checked ? 'left-[23px]' : 'left-0.75'"
         />
     </button>

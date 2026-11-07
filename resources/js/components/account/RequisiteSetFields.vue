@@ -43,7 +43,7 @@ const drag = useDragSort(() => form.value.rows, list);
                 :key="row.key"
                 data-sort-row
                 class="relative flex flex-col gap-2 bg-surface py-2.5"
-                :class="drag.dragging.value === index ? 'z-10 rounded-control shadow-[0_6px_20px_rgb(23_25_31/0.18)]' : ''"
+                :class="drag.dragging.value === index ? 'z-10 rounded-control shadow-[0_6px_20px_var(--shade-18)]' : ''"
                 :style="drag.dragging.value === index ? { transform: `translateY(${drag.offset.value}px)` } : undefined"
             >
                 <div class="flex items-center gap-1">

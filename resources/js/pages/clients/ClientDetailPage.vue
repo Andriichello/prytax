@@ -260,7 +260,7 @@ const addressLines = computed(() => clientAddressText(client.value?.address).spl
                         >
                             <span
                                 class="num rounded-md px-2 py-[3px] text-12 font-semibold"
-                                :class="project.is_active ? 'bg-ink text-white' : 'border border-line-input text-ink-2'"
+                                :class="project.is_active ? 'bg-strong text-white' : 'border border-line-input text-ink-2'"
                             >
                                 {{ project.code }}
                             </span>

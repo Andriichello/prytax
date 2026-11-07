@@ -276,7 +276,7 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
                     <ReadRow :label="t('core.common.currency')" :value="saved.default_currency" />
                     <ReadRow :label="t('settings.profile.languageShort')" :value="DOCUMENT_LOCALES.find((locale) => locale.value === saved.locale)?.label ?? saved.locale" />
                     <ReadRow :label="t('settings.profile.signaturePdfs')">
-                        <img v-if="signature" :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-8 max-w-32 object-contain">
+                        <img v-if="signature" :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-8 max-w-32 rounded-[4px] bg-white object-contain">
                         <span v-else class="text-ink-3">{{ t('settings.profile.noSignature') }}</span>
                     </ReadRow>
                     <template #edit>
@@ -284,7 +284,7 @@ const sample = (format: ProfileForm['display_format'], amount: string): string =
                         <div v-if="canConfigure" class="flex flex-col gap-1.5">
                             <span class="text-13 font-medium text-ink-2">{{ t('settings.profile.signaturePdfs') }}</span>
                             <div v-if="signature" class="flex items-center gap-3 rounded-control border border-line bg-surface p-3">
-                                <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-10 max-w-32 object-contain">
+                                <img :src="apiUrl(path(`signatures/${signature.id}/download`))" :alt="t('settings.profile.signature')" class="h-10 max-w-32 rounded-[4px] bg-white object-contain">
                                 <span class="min-w-0 flex-1 truncate text-14 text-ink-2">{{ signature.name }}</span>
                             </div>
                             <label class="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-control border border-dashed border-switch-off text-15 font-medium text-accent">

@@ -122,7 +122,7 @@ const chips = computed(() => [
 ]);
 
 const chipClass = (active: boolean): string => (active
-    ? 'border-ink bg-ink font-medium text-white'
+    ? 'border-inverse bg-inverse font-medium text-on-inverse'
     : 'border-line-input bg-surface text-ink');
 </script>
 

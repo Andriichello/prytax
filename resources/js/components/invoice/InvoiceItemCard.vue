@@ -49,7 +49,7 @@ const UNITS: Record<ItemUnit, string> = {
         @click="editable && emit('open')"
     >
         <span v-if="item.project_code || item.charge_type || editable" class="flex w-full items-center gap-1.5">
-            <span v-if="item.project_code" class="num rounded-md bg-ink px-2 py-[3px] text-12 font-semibold text-white">{{ item.project_code }}</span>
+            <span v-if="item.project_code" class="num rounded-md bg-strong px-2 py-[3px] text-12 font-semibold text-white">{{ item.project_code }}</span>
             <span v-if="item.charge_type" class="rounded-md bg-neutral-soft px-2 py-[3px] text-12 font-medium text-ink-2">{{ item.charge_type }}</span>
             <span class="flex-1" />
             <Icon v-if="editable" name="chevronRight" :size="18" class="text-ink-2" />

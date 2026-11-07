@@ -68,7 +68,7 @@ onBeforeUnmount(() => observer?.disconnect());
         <div ref="sentinel" aria-hidden="true" class="h-px" />
         <div
             class="sticky top-0 z-10 flex flex-col gap-3.5 bg-paper px-4 pb-3"
-            :class="stuck ? 'pt-2 shadow-[0_1px_0_var(--color-line),0_6px_12px_-8px_rgb(23_25_31/0.25)]' : 'pt-3'"
+            :class="stuck ? 'pt-2 shadow-[0_1px_0_var(--color-line),0_6px_12px_-8px_var(--shade-25)]' : 'pt-3'"
         >
             <div class="flex flex-col gap-0.5">
                 <div class="flex items-center justify-between gap-3">

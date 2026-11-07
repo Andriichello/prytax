@@ -12,7 +12,7 @@ const { title, count, total } = defineProps<{
 
 <template>
     <section class="flex flex-col overflow-hidden rounded-card border border-line bg-line" :aria-label="title">
-        <header class="flex items-center justify-between gap-3 bg-ink px-4 py-3 text-white">
+        <header class="flex items-center justify-between gap-3 bg-panel px-4 py-3 text-white">
             <span class="flex flex-col">
                 <span class="text-17 font-semibold">{{ title }}</span>
                 <span class="text-13 text-on-ink-2">{{ count }}</span>

@@ -210,7 +210,7 @@ const generalError = computed(() => counterBack.value
         </template>
 
         <LoadState :loading="loading && !saved" :error="loadError" @retry="reload">
-            <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-ink p-4 text-white">
+            <section v-if="preview" class="flex flex-col gap-1 rounded-card bg-panel p-4 text-white">
                 <span class="text-14 text-on-ink-2">
                     {{ t('settings.numbering.nextNumber') }}<template v-if="sampleClient"> · {{ t('settings.numbering.periodEnding', { client: sampleClient.name, date: formatDayMonth(periodEnd) }) }}</template>
                 </span>

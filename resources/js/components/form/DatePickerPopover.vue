@@ -139,7 +139,7 @@ const arrow = 'flex size-8 items-center justify-center rounded-full border borde
                         :key="item.preset"
                         type="button"
                         class="min-h-8 rounded-control border px-3 text-left text-13"
-                        :class="item.on ? 'border-ink bg-ink font-medium text-white' : 'border-line-input bg-surface text-ink'"
+                        :class="item.on ? 'border-inverse bg-inverse font-medium text-on-inverse' : 'border-line-input bg-surface text-ink'"
                         @click="applyPreset(item.preset)"
                     >
                         {{ item.label }}

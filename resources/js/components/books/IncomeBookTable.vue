@@ -47,7 +47,7 @@ const row = 'grid grid-cols-[minmax(0,1fr)_96px_104px] items-center gap-1 px-3';
             <span class="text-right">{{ t('accounting.books.sinceStart') }}</span>
         </div>
         <template v-for="quarter in book.quarters" :key="quarter.quarter">
-            <div :class="row" class="bg-ink py-3 text-white">
+            <div :class="row" class="bg-panel py-3 text-white">
                 <span class="flex flex-col">
                     <span class="text-15 font-semibold">{{ quarterLabel(quarter.quarter) }}</span>
                     <span class="text-11 text-on-ink-3">{{ quarter.current ? t('accounting.books.totalCurrent') : t('accounting.books.total') }}</span>

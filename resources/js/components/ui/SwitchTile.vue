@@ -21,7 +21,7 @@ const checked = defineModel<boolean>({ required: true });
             class="flex h-5.5 w-9.5 shrink-0 rounded-full p-0.5 transition-colors"
             :class="checked ? 'justify-end bg-accent' : 'justify-start bg-switch-off'"
         >
-            <span class="size-4.5 rounded-full bg-white shadow-[0_1px_2px_rgb(23_25_31/0.25)]" />
+            <span class="size-4.5 rounded-full bg-surface shadow-[0_1px_2px_var(--shade-25)]" />
         </span>
     </button>
 </template>

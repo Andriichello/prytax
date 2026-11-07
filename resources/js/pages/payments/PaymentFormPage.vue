@@ -735,7 +735,7 @@ const generalError = computed(() => {
 
             <label
                 v-if="isNew && paysInFull > 0"
-                class="flex items-start gap-3 rounded-button bg-positive-soft p-3.5 text-14 leading-[1.45] text-[#0f4d2d]"
+                class="flex items-start gap-3 rounded-button bg-positive-soft p-3.5 text-14 leading-[1.45] text-positive-strong"
             >
                 <input v-model="markPaid" type="checkbox" class="m-0 mt-px size-5 shrink-0 accent-positive">
                 <span class="flex flex-col gap-0.5">

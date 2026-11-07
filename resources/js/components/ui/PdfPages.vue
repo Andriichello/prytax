@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
                     v-for="(ratio, index) in ratios"
                     v-else
                     :key="index"
-                    class="w-full shrink-0 overflow-hidden rounded-[4px] bg-white shadow-[0_2px_12px_rgb(23_25_31/0.12)]"
+                    class="w-full shrink-0 overflow-hidden rounded-[4px] bg-white shadow-[0_2px_12px_var(--shade-12)]"
                     :style="{ aspectRatio: `1 / ${ratio}` }"
                 >
                     <canvas :data-page="index + 1" class="block h-full w-full" />
@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
             <div
                 role="group"
                 :aria-label="t('shell.ui.zoom')"
-                class="pointer-events-auto flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 shadow-[0_6px_20px_rgb(23_25_31/0.18)]"
+                class="pointer-events-auto flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 shadow-[0_6px_20px_var(--shade-18)]"
             >
                 <button
                     type="button"

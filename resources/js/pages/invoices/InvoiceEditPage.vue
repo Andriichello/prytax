@@ -1193,7 +1193,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
 
             <!-- Made in PryTax: the number the freeze will give, then the groups, which save the draft one by one -->
             <template v-if="form.source === 'generated'">
-                <section class="flex flex-col gap-2 rounded-card bg-ink px-4 py-3.5 text-on-ink">
+                <section class="flex flex-col gap-2 rounded-card bg-panel px-4 py-3.5 text-on-ink">
                     <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                         <span class="text-13 text-on-ink-2">{{ t('invoices.editor.numberPreviewTitle') }}</span>
                         <SegmentedControl
@@ -1296,7 +1296,7 @@ const title = computed(() => (isNew.value ? (form.source === 'external' ? t('inv
                                     type="button"
                                     class="flex min-h-10 items-center rounded-full border px-3.5 text-14"
                                     :class="form.period_start === quick.start && form.period_end === quick.end
-                                        ? 'border-ink bg-ink font-medium text-white'
+                                        ? 'border-inverse bg-inverse font-medium text-on-inverse'
                                         : 'border-line-input bg-surface text-ink'"
                                     @click="pickPeriod(quick.start, quick.end)"
                                 >

@@ -114,7 +114,7 @@ defineExpose({ place });
             role="dialog"
             :aria-label="label"
             tabindex="-1"
-            class="fixed z-70 flex flex-col overflow-y-auto rounded-card border border-line bg-surface shadow-[0_12px_32px_rgb(23_25_31/0.18)] outline-none"
+            class="fixed z-70 flex flex-col overflow-y-auto rounded-card border border-line bg-surface shadow-[0_12px_32px_var(--shade-18)] outline-none"
             :style="{ top: `${position.top}px`, left: `${position.left}px`, width: `${width}px`, maxHeight: `${position.maxHeight}px` }"
         >
             <slot :close="close" />

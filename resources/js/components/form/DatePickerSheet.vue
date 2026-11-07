@@ -105,7 +105,7 @@ const summary = computed(() => (picked.value.start && picked.value.end
     })
     : null));
 
-const chipClass = (on: boolean): string => (on ? 'border-ink bg-ink font-medium text-white' : 'border-line-input bg-surface text-ink');
+const chipClass = (on: boolean): string => (on ? 'border-inverse bg-inverse font-medium text-on-inverse' : 'border-line-input bg-surface text-ink');
 </script>
 
 <template>

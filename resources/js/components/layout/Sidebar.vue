@@ -167,7 +167,7 @@ async function leave(): Promise<void> {
         </nav>
 
         <Teleport to="body" :disabled="!isCompact">
-            <div v-if="drawerOpen" class="fixed inset-0 bg-[rgb(23_25_31/0.38)]" :style="{ zIndex: 40 + layer * 10 }" aria-hidden="true" @click="expanded = false" />
+            <div v-if="drawerOpen" class="fixed inset-0 bg-scrim" :style="{ zIndex: 40 + layer * 10 }" aria-hidden="true" @click="expanded = false" />
             <aside
                 v-if="!isCompact || expanded"
                 ref="drawer"
@@ -176,7 +176,7 @@ async function leave(): Promise<void> {
                 :aria-modal="isCompact ? 'true' : undefined"
                 :tabindex="isCompact ? -1 : undefined"
                 class="flex h-dvh w-62 shrink-0 flex-col gap-3 border-r border-line bg-surface px-3.5 pt-5 pb-4 outline-none"
-                :class="isCompact ? 'fixed inset-y-0 left-0 shadow-[16px_0_40px_rgb(23_25_31/0.2)]' : ''"
+                :class="isCompact ? 'fixed inset-y-0 left-0 shadow-[16px_0_40px_var(--shade-20)]' : ''"
                 :style="isCompact ? { zIndex: 50 + layer * 10 } : undefined"
             >
                 <button

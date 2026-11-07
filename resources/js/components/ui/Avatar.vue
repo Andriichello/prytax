@@ -13,7 +13,7 @@ const { initials, variant = 'light', size = 40 } = defineProps<{
     <span
         class="flex shrink-0 items-center justify-center rounded-full font-semibold"
         :class="{
-            'bg-ink text-on-ink': variant === 'dark',
+            'bg-strong text-on-ink': variant === 'dark',
             'bg-line text-ink': variant === 'light',
             'border border-dashed border-handle': variant === 'dashed',
         }"

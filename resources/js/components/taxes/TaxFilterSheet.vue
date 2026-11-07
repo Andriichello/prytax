@@ -88,7 +88,7 @@ function quarterClass(quarter: number): string {
         : 'border border-line-input bg-surface';
 }
 
-const chipClass = (chosen: boolean): string => (chosen ? 'bg-ink font-medium text-white' : 'border border-line-input bg-surface text-ink');
+const chipClass = (chosen: boolean): string => (chosen ? 'bg-inverse font-medium text-on-inverse' : 'border border-line-input bg-surface text-ink');
 </script>
 
 <template>

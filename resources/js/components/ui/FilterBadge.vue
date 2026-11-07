@@ -17,7 +17,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
     <button
         type="button"
         class="flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-15 whitespace-nowrap"
-        :class="period ? 'bg-ink text-white' : 'border border-line-input bg-surface text-ink'"
+        :class="period ? 'bg-inverse text-on-inverse' : 'border border-line-input bg-surface text-ink'"
         @click="emit('click', $event)"
     >
         <Icon v-if="period" name="calendar" :size="18" />

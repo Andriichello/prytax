@@ -236,7 +236,7 @@ function toggleProfile(id: number): void {
                                     role="radio"
                                     :aria-checked="form.weekday === index + 1 ? 'true' : 'false'"
                                     class="flex h-10 items-center justify-center rounded-control text-14"
-                                    :class="form.weekday === index + 1 ? 'bg-ink font-medium text-white' : 'border border-line-input bg-surface'"
+                                    :class="form.weekday === index + 1 ? 'bg-inverse font-medium text-on-inverse' : 'border border-line-input bg-surface'"
                                     @click="form.weekday = index + 1"
                                 >
                                     {{ name }}

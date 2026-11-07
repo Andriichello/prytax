@@ -51,7 +51,7 @@ const { isDesktop } = useBreakpoint();
                 tabindex="-1"
                 class="fixed flex flex-col overflow-hidden bg-paper outline-none"
                 :class="isDesktop
-                    ? 'inset-x-0 top-1/2 mx-auto max-h-[85dvh] w-130 -translate-y-1/2 rounded-3xl shadow-[0_24px_64px_rgb(23_25_31/0.28)]'
+                    ? 'inset-x-0 top-1/2 mx-auto max-h-[85dvh] w-130 -translate-y-1/2 rounded-3xl shadow-[0_24px_64px_var(--shade-28)]'
                     : 'inset-x-0 bottom-0 mx-auto max-h-[90dvh] w-full max-w-120 rounded-t-3xl'"
                 :style="{ zIndex: 50 + layer * 10 }"
             >

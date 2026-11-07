@@ -7,9 +7,9 @@
 /*
  * Design tokens of the "Simplified" screens (storage/handoff/prytax-design-handoff/tokens.css). The default palette is
  * dropped, so only the design's colours exist as utilities: bg-paper, text-ink-2, border-line, bg-accent,
- * text-positive, …
+ * text-positive, … The theme is static: theme-dark.css overrides these variables, so all of them must exist.
  */
-@theme {
+@theme static {
     --color-*: initial;
     --color-white: #ffffff;
 
@@ -28,6 +28,12 @@
     --color-on-ink: #f4f3ee;
     --color-on-ink-2: #b9bcc6;
     --color-on-ink-3: #c9cbd3;
+    /* What was one ink: dark in both themes for a card or a header, or a small mark, but inverted for a selected pill */
+    --color-panel: #17191f;
+    --color-strong: #17191f;
+    --color-inverse: #17191f;
+    --color-on-inverse: #ffffff;
+    --color-bar-on-panel: #ffffff;
 
     /* Lines */
     --color-line: #e3e1da;
@@ -49,10 +55,12 @@
     --color-handle: #c9c6bc;
     --color-rail: #dad8d0;
     --color-overlay: rgb(23 25 31 / 0.66);
+    --color-scrim: rgb(23 25 31 / 0.38);
 
     /* Meaning */
     --color-positive: #17683f;
     --color-positive-soft: #e3f2e9;
+    --color-positive-strong: #0f4d2d;
     --color-positive-on-ink: #7fd3a0;
     --color-warning: #6e3b00;
     --color-warning-text: #8a4b00;
@@ -64,6 +72,24 @@
     --color-negative: #a61b1b;
     --color-negative-soft: #fbe9e7;
     --color-neutral-soft: #eeede8;
+
+    /* A colour's dark values differ by role (theme-dark.css), so text, line and background utilities read their own */
+    --text-color-accent: var(--color-accent);
+    --text-color-accent-hover: var(--color-accent-hover);
+    --text-color-accent-line: var(--color-accent-line);
+    --text-color-switch-off: var(--color-switch-off);
+    --text-color-handle: var(--color-handle);
+    --text-color-tick: var(--color-tick);
+    --text-color-positive: var(--color-positive);
+    --text-color-negative: var(--color-negative);
+    --border-color-surface: var(--color-surface);
+    --border-color-ink-3: var(--color-ink-3);
+    --border-color-on-ink-2: var(--color-on-ink-2);
+    --border-color-accent-soft: var(--color-accent-soft);
+    --border-color-negative-soft: var(--color-negative-soft);
+    --background-color-line-input: var(--color-line-input);
+    --accent-color-accent: var(--color-accent);
+    --accent-color-positive: var(--color-positive);
 
     --font-sans: 'Geologica', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
@@ -91,7 +117,16 @@
     --radius-button: 14px;
     --radius-card: 16px;
 
-    --shadow-seg: 0 1px 2px rgb(23 25 31 / 0.08);
+    /* The colours of the shadows, by their strength: dark ones are stronger, as a shadow hardly shows on dark */
+    --shade-08: rgb(23 25 31 / 0.08);
+    --shade-12: rgb(23 25 31 / 0.12);
+    --shade-18: rgb(23 25 31 / 0.18);
+    --shade-20: rgb(23 25 31 / 0.2);
+    --shade-25: rgb(23 25 31 / 0.25);
+    --shade-28: rgb(23 25 31 / 0.28);
+    --shade-accent: rgb(43 69 184 / 0.12);
+
+    --shadow-seg: 0 1px 2px var(--shade-08);
 }
 
 @layer base {

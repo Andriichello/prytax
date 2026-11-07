@@ -53,7 +53,7 @@ const { isDesktop } = useBreakpoint();
                 tabindex="-1"
                 class="fixed flex flex-col bg-paper outline-none"
                 :class="isDesktop
-                    ? ['inset-x-0 top-1/2 mx-auto -translate-y-1/2 overflow-hidden rounded-3xl shadow-[0_24px_64px_rgb(23_25_31/0.28)]', size === 'wide' ? 'h-[min(960px,calc(100dvh-64px))] w-[min(1120px,calc(100vw-64px))]' : 'max-h-[88dvh] w-140']
+                    ? ['inset-x-0 top-1/2 mx-auto -translate-y-1/2 overflow-hidden rounded-3xl shadow-[0_24px_64px_var(--shade-28)]', size === 'wide' ? 'h-[min(960px,calc(100dvh-64px))] w-[min(1120px,calc(100vw-64px))]' : 'max-h-[88dvh] w-140']
                     : 'inset-0'"
                 :style="{ zIndex: 50 + layer * 10 }"
             >

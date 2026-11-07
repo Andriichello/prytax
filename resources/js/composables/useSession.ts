@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { api, ApiError, fetchCsrfCookie } from '@/api/client';
 import type { ApiResponse, Me, Registration, RegistrationStatus } from '@/api/types';
 import { isLocale, type Locale, locale, setLocale } from '@/i18n';
+import { isTheme, setTheme, type Theme } from '@/composables/useTheme';
 
 /**
  * The signed-in user of the SPA's session cookie, shared by the whole app.
@@ -14,13 +15,22 @@ const user = ref<Me | null>(null);
 let chosenLocale: Locale | null = null;
 
 /**
- * Remember the signed-in user, whose language the screens take.
+ * The theme chosen before signing in, which signing in keeps as the user's own.
+ */
+let chosenTheme: Theme | null = null;
+
+/**
+ * Remember the signed-in user, whose language and theme the screens take. A user who chose no theme keeps this device's.
  */
 function remember(me: Me): Me {
     user.value = me;
 
     if (isLocale(me.locale)) {
         setLocale(me.locale);
+    }
+
+    if (!chosenTheme && isTheme(me.metadata?.theme)) {
+        setTheme(me.metadata.theme);
     }
 
     return me;
@@ -106,6 +116,13 @@ async function signedIn(signed: Me): Promise<Me> {
         await switchLocale(chosen).catch(() => setLocale(chosen));
     }
 
+    const theme = chosenTheme;
+    chosenTheme = null;
+
+    if (theme) {
+        await switchTheme(theme).catch(() => undefined);
+    }
+
     return user.value ?? signed;
 }
 
@@ -158,6 +175,26 @@ async function switchLocale(value: Locale): Promise<void> {
     }
 }
 
+/**
+ * Switch the screens to the theme and, when signed in, keep it as the user's own (`PATCH auth/me/theme`), so the user's
+ * other devices follow it. Before signing in, it is kept for the account that signs in.
+ */
+async function switchTheme(value: Theme): Promise<void> {
+    setTheme(value);
+
+    if (!user.value) {
+        chosenTheme = value;
+
+        return;
+    }
+
+    if (user.value.metadata?.theme !== value) {
+        const { data } = await api.patch<ApiResponse<Me>>('auth/me/theme', { theme: value });
+
+        remember(data);
+    }
+}
+
 async function signOut(): Promise<void> {
     try {
         await api.post('auth/logout');
@@ -195,5 +232,6 @@ export function useSession() {
         forget,
         can,
         switchLocale,
+        switchTheme,
     };
 }

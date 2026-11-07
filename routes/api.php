@@ -43,6 +43,7 @@ use PryTax\Http\Controllers\TaxPaymentController;
 use PryTax\Http\Controllers\TaxPaymentRequisiteController;
 use PryTax\Http\Controllers\TaxPeriodController;
 use PryTax\Http\Controllers\TaxReportController;
+use PryTax\Http\Controllers\UserThemeController;
 
 /**
  * Register the routes of a CrudController's operations under the URI, named `{name}.{operation}`.
@@ -74,6 +75,9 @@ $crud = function (string $uri, string $controller, array $operations, string $na
 $all = ['index', 'store', 'show', 'update', 'destroy'];
 
 Route::prefix('auth')->group(fn () => AuthController::routes());
+
+// The signed-in user's theme, also before they have replaced a password someone else set
+Route::middleware('auth:sanctum')->group(fn () => UserThemeController::routes());
 
 // A new organization from the sign-in page, when `prytax.registration` allows it
 RegistrationController::routes();

@@ -9,11 +9,13 @@ import type { IconName } from '@/components/ui/icons';
 import LanguageOptions from '@/components/ui/LanguageOptions.vue';
 import NewPill from '@/components/ui/NewPill.vue';
 import Popover from '@/components/ui/Popover.vue';
+import ThemeOptions from '@/components/ui/ThemeOptions.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
 import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useOverlay } from '@/composables/useOverlay';
 import { useSession } from '@/composables/useSession';
 import { useSignedInAs } from '@/composables/useSignedInAs';
+import { THEME_ICONS, theme, themeLabel } from '@/composables/useTheme';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { tabPaths } from '@/router';
 
@@ -21,7 +23,7 @@ import { tabPaths } from '@/router';
  * The sidebar of the desktop layout (D-Home, design.md §17.2), 248 px: the ФОП card, whose «Змінити ФОП» opens the
  * ФОП popover; the sections — Головна, Інвойси, Облік, Податки, Книги and Налаштування, whose page holds the money,
  * the clients, the ФОП's and the invoices' settings and the management, and which stays current on each of them —;
- * and at the foot Довідка, the language row (its popover), who is signed in (`useSignedInAs`: nothing for the only
+ * and at the foot Довідка, the language row (its popover) with the theme's button (its popover too), who is signed in (`useSignedInAs`: nothing for the only
  * user of one person's installation), and «Вийти», which asks first. It
  * replaces the tab bar and Ще. Below 1024 px it folds into a 64 px rail (☰, the ФОП's avatar and the sections' icons,
  * and at its foot ?, 🌐 and «Вийти»), whose ☰ opens the whole sidebar over the page; a section chosen, ✕, Escape or
@@ -63,6 +65,11 @@ const languageButton = ref<HTMLElement | null>(null);
 const railLanguageButton = ref<HTMLElement | null>(null);
 /** The language popover hangs from the rail's 🌐 while the rail shows, else from the sidebar's language row. */
 const languageAnchor = computed(() => (isCompact.value && !expanded.value ? railLanguageButton.value : languageButton.value));
+
+const themeOpen = ref(false);
+const railThemeButton = ref<HTMLElement | null>(null);
+/** The theme's popover hangs from the rail's button while the rail shows, else from the language row beside its button. */
+const themeAnchor = computed(() => (isCompact.value && !expanded.value ? railThemeButton.value : languageButton.value));
 const signOutOpen = ref(false);
 const signingOut = ref(false);
 
@@ -154,6 +161,17 @@ async function leave(): Promise<void> {
                     <Icon name="globe" :size="20" />
                 </button>
                 <button
+                    ref="railThemeButton"
+                    type="button"
+                    :aria-label="themeLabel"
+                    :title="themeLabel"
+                    :aria-expanded="themeOpen ? 'true' : 'false'"
+                    class="flex size-10 items-center justify-center rounded-[10px] text-ink hover:bg-paper"
+                    @click="themeOpen = !themeOpen"
+                >
+                    <Icon :name="THEME_ICONS[theme]" :size="20" />
+                </button>
+                <button
                     type="button"
                     :aria-label="t('shell.more.signOut')"
                     :title="t('shell.more.signOut')"
@@ -234,19 +252,31 @@ async function leave(): Promise<void> {
                         <Icon name="help" :size="20" />
                         <span class="flex-1">{{ t('help.title') }}</span>
                     </RouterLink>
-                    <button
-                        ref="languageButton"
-                        type="button"
-                        :aria-label="`${t('shell.more.appLanguage')}: ${LOCALE_NAMES[locale]}`"
-                        :aria-expanded="languageOpen ? 'true' : 'false'"
-                        class="flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-14 text-ink hover:bg-paper"
-                        @click="languageOpen = !languageOpen"
-                    >
-                        <Icon name="globe" :size="20" />
-                        <span class="flex-1 text-left">{{ LOCALE_NAMES[locale] }}</span>
-                        <span class="num text-12 text-ink-3 uppercase">{{ locale }}</span>
-                        <Icon name="chevronDown" :size="16" class="text-ink-3" />
-                    </button>
+                    <div class="flex items-center gap-1">
+                        <button
+                            ref="languageButton"
+                            type="button"
+                            :aria-label="`${t('shell.more.appLanguage')}: ${LOCALE_NAMES[locale]}`"
+                            :aria-expanded="languageOpen ? 'true' : 'false'"
+                            class="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2.5 text-14 text-ink hover:bg-paper"
+                            @click="languageOpen = !languageOpen"
+                        >
+                            <Icon name="globe" :size="20" />
+                            <span class="flex-1 text-left">{{ LOCALE_NAMES[locale] }}</span>
+                            <span class="num text-12 text-ink-3 uppercase">{{ locale }}</span>
+                            <Icon name="chevronDown" :size="16" class="text-ink-3" />
+                        </button>
+                        <button
+                            type="button"
+                            :aria-label="themeLabel"
+                            :title="themeLabel"
+                            :aria-expanded="themeOpen ? 'true' : 'false'"
+                            class="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-line text-ink hover:bg-paper"
+                            @click="themeOpen = !themeOpen"
+                        >
+                            <Icon :name="THEME_ICONS[theme]" :size="18" />
+                        </button>
+                    </div>
                     <p v-if="signedInAs" class="m-0 truncate px-2.5 py-1 text-12 text-ink-3">{{ signedInAs }}</p>
                     <button
                         type="button"
@@ -279,6 +309,13 @@ async function leave(): Promise<void> {
             <div class="flex flex-col gap-3 p-3">
                 <span class="px-1 text-12 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.more.appLanguage') }}</span>
                 <LanguageOptions :note="t('shell.more.appLanguageShortNote')" @chosen="languageOpen = false" />
+            </div>
+        </Popover>
+
+        <Popover v-model:open="themeOpen" :anchor="themeAnchor" placement="top-start" :width="280" :label="t('shell.more.appTheme')">
+            <div class="flex flex-col gap-3 p-3">
+                <span class="px-1 text-12 font-semibold tracking-[0.04em] text-ink-3 uppercase">{{ t('shell.more.appTheme') }}</span>
+                <ThemeOptions :note="t('shell.more.themeNote')" @chosen="themeOpen = false" />
             </div>
         </Popover>
 

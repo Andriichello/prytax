@@ -8,6 +8,7 @@ import Avatar from '@/components/ui/Avatar.vue';
 import Icon from '@/components/ui/Icon.vue';
 import type { IconName } from '@/components/ui/icons';
 import LanguageSheet from '@/components/ui/LanguageSheet.vue';
+import ThemeSheet from '@/components/ui/ThemeSheet.vue';
 import SectionTitle from '@/components/ui/SectionTitle.vue';
 import Translated from '@/components/ui/Translated.vue';
 import { useBreakpoint } from '@/composables/useBreakpoint';
@@ -15,6 +16,7 @@ import { useCurrentProfile } from '@/composables/useCurrentProfile';
 import { useLoader } from '@/composables/useLoader';
 import { useSession } from '@/composables/useSession';
 import { useSignedInAs } from '@/composables/useSignedInAs';
+import { THEME_ICONS, theme, themeName } from '@/composables/useTheme';
 import { LOCALE_NAMES, locale, t } from '@/i18n';
 import { kyivTime, relativeDay } from '@/utils/backups';
 import { styleName } from '@/utils/invoiceStyles';
@@ -34,6 +36,7 @@ const { profile, profiles, profileId, path, reset, settings } = useCurrentProfil
 const { isDesktop } = useBreakpoint();
 
 const languageOpen = ref(false);
+const themeOpen = ref(false);
 
 const { data: counts } = useLoader(async (signal) => {
     const [accounts, clients] = await Promise.all([
@@ -204,6 +207,16 @@ async function leave(): Promise<void> {
                 </button>
                 <button
                     type="button"
+                    class="flex min-h-14 items-center gap-3.5 text-left text-ink"
+                    @click="themeOpen = true"
+                >
+                    <Icon :name="THEME_ICONS[theme]" :size="22" />
+                    <span class="flex-1 text-16">{{ t('shell.more.appTheme') }}</span>
+                    <span class="text-14 text-ink-3">{{ themeName(theme) }}</span>
+                    <Icon name="chevronRight" :size="18" class="text-ink-2" />
+                </button>
+                <button
+                    type="button"
                     class="flex min-h-14 items-center gap-3.5 text-left text-negative"
                     :disabled="signingOut"
                     @click="leave"
@@ -218,6 +231,7 @@ async function leave(): Promise<void> {
             </p>
 
             <LanguageSheet v-model:open="languageOpen" :note="t('shell.more.appLanguageNote')" />
+            <ThemeSheet v-model:open="themeOpen" :note="t('shell.more.themeNote')" />
         </template>
     </TabScreen>
 </template>

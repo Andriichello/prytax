@@ -179,6 +179,16 @@ export default {
         appLanguageShortNote: 'Only the screens. The language of invoices is in Invoice document and on the client’s card.',
         desktopTagline: 'The limit, ЄП, ВЗ and ЄСВ are counted from every receipt. The income book is always ready.',
         appLanguageBrowserNote: 'We will remember it in this browser. After signing in, it is at the foot of the sidebar.',
+        appTheme: 'Theme',
+        themeLight: 'Light',
+        themeLightHint: 'Light surfaces',
+        themeDark: 'Dark',
+        themeDarkHint: 'Islands Dark, as in PhpStorm',
+        themeSystem: 'System',
+        themeSystemHint: 'Switches along with your OS',
+        themeNote: 'Saved to your account, on all your devices. Invoices and PDFs are always light, for printing.',
+        themeGuestNote: 'We will remember it on this device. After signing in, change it in More › Theme.',
+        themeBrowserNote: 'We will remember it in this browser. After signing in, it is at the foot of the sidebar.',
     },
 
     alerts: {

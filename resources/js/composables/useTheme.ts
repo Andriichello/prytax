@@ -1,4 +1,6 @@
 import { computed, ref, watch } from 'vue';
+import type { IconName } from '@/components/ui/icons';
+import { t } from '@/i18n';
 
 /**
  * The theme of the screens (the design canvas's TH-Spec): Світла, Темна or Як у системі, which a user who chose nothing
@@ -15,8 +17,17 @@ const STORAGE_KEY = 'prytax.theme';
 /** The browser's own bars, in the colour of the page: also in app.blade.php. */
 const BAR_COLORS = { light: '#F4F3EE', dark: '#191A1C' };
 
+export const THEME_ICONS: Record<Theme, IconName> = { light: 'sun', dark: 'moon', system: 'monitor' };
+
 export function isTheme(value: unknown): value is Theme {
     return THEMES.includes(value as Theme);
+}
+
+/**
+ * The name of a theme on the screens.
+ */
+export function themeName(value: Theme): string {
+    return { light: t('shell.more.themeLight'), dark: t('shell.more.themeDark'), system: t('shell.more.themeSystem') }[value];
 }
 
 function storedTheme(): Theme {
@@ -41,6 +52,9 @@ export const theme = ref<Theme>(storedTheme());
 
 /** The look it comes to. */
 export const look = computed<'light' | 'dark'>(() => (theme.value === 'system' ? (systemIsDark.value ? 'dark' : 'light') : theme.value));
+
+/** «Тема: Темна», for the buttons that show only the theme's icon. */
+export const themeLabel = computed(() => `${t('shell.more.appTheme')}: ${themeName(theme.value)}`);
 
 /**
  * Choose the theme on this device, where it applies at once.

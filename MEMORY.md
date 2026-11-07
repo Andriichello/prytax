@@ -61,6 +61,25 @@ specs took it in on 2026-10-25 (design.md §8.5, §16.2, §16.5), and §14 steps
 `feat/tax-ledger` (see "Tax ledger"), merged into `dev` and `main` on 2026-10-27. The earlier «Simplified» handoff is `storage/handoff/prytax-simplified-design-handoff.md` with
 `storage/handoff/prytax-design-handoff/`. All of `storage/handoff/` is kept out of git, on disk only.
 
+## The dark theme (2026-11-07; branch `feat/dark-theme`, not merged, not pushed)
+
+The user: «implement the dark theme», from the canvas's page Themes (Islands Dark); `design.md` §16.8 has the rules.
+- **Colours by role, without touching most classes:** Tailwind 4 reads `--text-color-*`, `--border-color-*`,
+  `--background-color-*`, `--accent-color-*` before `--color-*`, so `resources/css/theme-dark.css` gives one token its
+  separate dark values on `<html data-theme="dark">`. `@theme` became `@theme static`, so every variable exists to be
+  overridden. A theme's `--shadow-*` is inlined into the utility, so overriding it does nothing: shadows take their colour
+  from `--shade-*` instead. `bg-ink` is gone, split by what it is: `bg-panel`, `bg-strong`, `bg-inverse` + `text-on-inverse`;
+  `bg-white` is for documents alone.
+- **Kept** on the device (`prytax.theme`, read by the script of `app.blade.php` before the first frame) and in
+  `users.metadata.theme` through `PATCH auth/me/theme` (`UserThemeController`): api-core's `PATCH auth/me` takes only the
+  name, timezone and locale, and `metadata` isn't mass assignable (`update()` changes nothing, silently: `forceFill`). The
+  route isn't under `password.updated`, as the screen for replacing a password has the switcher too.
+- **The owner's changes to `TH-Spec`:** the switcher is also on the signed-out pages, which `TH-Spec` still doesn't say.
+  Mine: «Світла» reads «Світлі поверхні», not the canvas's «…, як зараз», which is wrong while the theme is dark.
+- **Checked against the canvas:** every screen was screenshotted on the branch through `capture.mjs` with `APP_THEME`
+  (the app's own theme, no patch), against the dark boards and against the light app. The sidebar's outer edge is the line
+  colour in the app and near black on boards (the serializer turns every shadow black): the app is right.
+
 ## The design canvas synced to the app (2026-11-07; nothing in the app changed)
 
 The user: sync the current app to the Claude Design canvas (`claude.ai/artifact/3pueDRdeW1nA24x6v64pxD`), so its dark

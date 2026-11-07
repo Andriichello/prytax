@@ -34,6 +34,7 @@ departs from the design of the first sections (§0–§12), an «As built» note
   one column (since 2026-10-29), no 880 px lists, Облік's two summary cards.
 - **Not built, marked so** (§12, §16.5, §16.6, §16.7, §17.4): the XLSX exports, as `openspout/openspout` isn't
   installed: Облік exports CSV and its period archive, Книги a PDF.
+- **Тема** (§16.8): Світла, Темна, Як у системі (2026-11-07).
 - **Build order and tests** (§13, §14): steps 10–14 and v5.1 built, what is left; the tests v5.1 added.
 
 ### Changes in v5.1 (the owner's feedback from the desktop app's window, 2026-10-29/30)
@@ -1712,6 +1713,27 @@ first with their months and receipts), `GET profiles/{profile}/books/{year}/taxe
 the taxes with their segments), `GET profiles/{profile}/books/{year}/{income|taxes}/export?format=pdf|xlsx`. The PDF is
 Blade → dompdf, a portrait A4 table mirroring the screen (the owner: a mirror will do), the quarter rows dark. The XLSX
 has one sheet, real numbers; it isn't built (§12), so the export takes `format=pdf` only.
+
+### 16.8 Тема (2026-11-07; Islands Dark, the design canvas's `TH-Spec` and `TH-Map`)
+
+- **Themes:** Світла · Темна · Як у системі, the default, which follows the operating system, also as it changes.
+- **Where:** «Ще › Тема» on a phone, under «Мова застосунку» (a sheet, `M-AppTheme`); on desktop a square button after the
+  language row at the foot of the sidebar, and in the rail (a popover, `D-AppTheme`); on the signed-out pages a round button
+  after the language pill (`M-LoginTheme`, `D-LoginTheme`: the owner's change of 2026-11-07, as `TH-Spec` had
+  `prefers-color-scheme` alone before signing in). A button shows the icon of the theme chosen: sun, moon or monitor.
+- **Kept:** on the device (`prytax.theme` in `localStorage`, which the script of `app.blade.php` reads before the first
+  frame, so a dark theme doesn't flash white) and on the signed-in user (`users.metadata.theme`, `PATCH auth/me/theme`),
+  so it follows them to their other devices. A theme chosen on the signed-out page, without reloading it (as with the
+  language), becomes the user's own, over the one they had; a user who chose none keeps the device's. Signing out leaves
+  the theme as it is.
+- **Colours:** `resources/css/theme-dark.css`, on `<html data-theme="dark">`, overrides the variables of `app.css`'s
+  `@theme`. One light colour has separate dark values by role (`TH-Map`): `--color-*` holds the most common one, and
+  Tailwind's `--text-color-*`, `--border-color-*` and `--background-color-*` the others (`bg-accent` #2F6BE4, `text-accent`
+  #548AF7). What used to be `bg-ink` is now chosen by what it is: `bg-panel` (a large dark card or header, whose text stays
+  light), `bg-strong` (a small mark: an avatar, a logo, a code) or `bg-inverse` with `text-on-inverse` (a selected pill, light
+  on dark). A colour with no token (`#...`, `rgb(...)` in a class) has no dark value, so don't add one.
+- **Always light:** whatever is printed (the overrides are `@media screen` only), and documents: an invoice's PDF, a
+  style's thumbnail and preview, a signature, which is dark ink on a transparent PNG. `bg-white` is for these alone.
 
 ## 17. Desktop layout (v5, «Minimal (Desktop)»)
 

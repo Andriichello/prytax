@@ -1191,7 +1191,7 @@ components: accordion cards, the sheet or dialog, badges, the export block, the 
   avatar and the name, «Видалено 20.10 · дані й копії зітруться 19.11» in red, the text about the final copy, and
   [Відновити ФОП] (owners, confirmed) [⤓ Фінальна копія] (the download dialog).
 - **«Архів за період»** on Облік (per ФОП, not here): Облік's export block gets a third button, «🗃 Архів» (desktop
-  «🗃 Архів ZIP»), with the hint «CSV і XLSX — таблиця надходжень. Архів — усі дані й PDF за період, ZIP.». The sheet
+  «🗃 Архів ZIP»), with the hint «CSV — таблиця надходжень. Архів — усі дані й PDF за період, ZIP.». The sheet
   (a dialog on desktop): Рік / Квартал / Період (the range picker), by default Облік's quarter, with «IV квартал ще
   триває — в архіві буде все до сьогодні.» while it runs; «Що буде в архіві · 01.10 – 27.10.2026» and its text; the
   info «Це не резервна копія: з неї не відновити ФОП …»; [Скасувати] [Підготувати ZIP]; «Готуємо у фоні: архів

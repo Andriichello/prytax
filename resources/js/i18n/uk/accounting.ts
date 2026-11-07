@@ -94,7 +94,7 @@ export default {
         title: 'Архів за період',
         button: 'Архів',
         buttonWide: 'Архів ZIP',
-        blockHint: 'CSV і XLSX — таблиця надходжень. Архів — усі дані й PDF за період, ZIP.',
+        blockHint: 'CSV — таблиця надходжень. Архів — усі дані й PDF за період, ZIP.',
         year: 'Рік',
         quarter: 'Квартал',
         range: 'Період',

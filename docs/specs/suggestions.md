@@ -75,7 +75,7 @@ bring back its screen.
   blocked. Composer can't install the package on the development machine (it fails to authenticate against GitHub),
   so the owner is to run `composer require openspout/openspout`; and the desktop app's bundled PHP has no xmlwriter or
   xmlreader, which openspout may need, so it must be checked there before it ships (`builds.md` §4.1). Облік's export
-  hint on a phone already names XLSX («CSV і XLSX — таблиця надходжень…»).
+  hint on a phone names only CSV until then («CSV — таблиця надходжень…»).
 - **Backups' in-app notices** in Сповіщення, through api-core's per-user `notifications` (`backups.md` §4.8): a run
   with a failed ФОП, the organization's archive ready, a period's archive ready, a deleted ФОП's final copy. Meanwhile
   the organization archive's banner polls on its page, the period archive's sheet waits for its export and downloads

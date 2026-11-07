@@ -91,7 +91,7 @@ export default {
         title: 'Archive of a period',
         button: 'Archive',
         buttonWide: 'Archive ZIP',
-        blockHint: 'CSV and XLSX: the table of receipts. Archive: all data and PDFs of the period, ZIP.',
+        blockHint: 'CSV: the table of receipts. Archive: all data and PDFs of the period, ZIP.',
         year: 'Year',
         quarter: 'Quarter',
         range: 'Period',

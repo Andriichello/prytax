@@ -1,0 +1,101 @@
+/*
+ * The dark theme, Islands Dark (the design canvas's TH-Spec and TH-Map), on `<html data-theme="dark">`, which
+ * composables/useTheme.ts and the script of app.blade.php set. It overrides the variables of app.css's @theme: a
+ * colour's `--color-*` is the value of its most common role, and `--text-color-*`, `--border-color-*` and
+ * `--background-color-*` the ones of its other roles. Only screens: anything printed stays light, and a document
+ * (an invoice's PDF, a style's preview, a signature) is on white in both themes, through `bg-white`.
+ */
+@media screen {
+    :root[data-theme='dark'] {
+        color-scheme: dark;
+
+        /* Surfaces */
+        --color-paper: #191a1c;
+        --color-paper-light: #232427;
+        --color-surface: #1e1f22;
+        --color-sunk: #141517;
+        --color-muted: #26282c;
+
+        /* Ink */
+        --color-ink: #dfe1e5;
+        --color-ink-2: #b4b8bf;
+        --color-ink-3: #9fa2a8;
+        --color-ink-4: #6f737a;
+        --color-on-ink: #dfe1e5;
+        --color-on-ink-2: #9fa2a8;
+        --color-on-ink-3: #b4b8bf;
+        --color-panel: #2e3034;
+        --color-strong: #393b40;
+        --color-inverse: #dfe1e5;
+        --color-on-inverse: #1e1f22;
+        --color-bar-on-panel: #dfe1e5;
+
+        /* Lines */
+        --color-line: #2d2f33;
+        --color-line-input: #43454a;
+        --color-divider: #2b2d30;
+        --color-divider-ink: #393b40;
+        --color-tick: #4e5157;
+        --color-tick-on-ink: #393b40;
+
+        /* Action */
+        --color-accent: #2f6be4;
+        --color-accent-hover: #2a5fcc;
+        --color-accent-soft: #25324d;
+        --color-accent-line: #3d5a99;
+        --color-accent-faint: #222a3b;
+        --color-switch-off: #4e5157;
+        --color-handle: #4e5157;
+        --color-rail: #393b40;
+        --color-overlay: rgb(0 0 0 / 0.62);
+        --color-scrim: rgb(0 0 0 / 0.62);
+
+        /* Meaning */
+        --color-positive: #57965c;
+        --color-positive-soft: #233529;
+        --color-positive-strong: #8fcb97;
+        --color-positive-on-ink: #6aab73;
+        --color-warning: #e2be6e;
+        --color-warning-text: #d6ae58;
+        --color-warning-soft: #3d3223;
+        --color-warning-bar: #cf8e6d;
+        --color-warning-on-ink: #e0a458;
+        --color-sent-bar: #d6ae58;
+        --color-negative: #db5c5c;
+        --color-negative-soft: #402929;
+        --color-neutral-soft: #2b2d30;
+
+        /* The other roles of a colour */
+        --text-color-accent: #548af7;
+        --text-color-accent-hover: #8ab1ff;
+        --text-color-accent-line: #8ab1ff;
+        --text-color-switch-off: #73767c;
+        --text-color-handle: #6f737a;
+        --text-color-tick: #73767c;
+        --text-color-positive: #6aab73;
+        --text-color-negative: #f87a82;
+        --border-color-surface: #2d2f33;
+        --border-color-ink-3: #43454a;
+        --border-color-on-ink-2: #4e5157;
+        --border-color-accent-soft: #3d5a99;
+        --border-color-negative-soft: #db5c5c;
+        --background-color-line-input: #393b40;
+        --accent-color-accent: #548af7;
+        --accent-color-positive: #6aab73;
+
+        /* Shadows */
+        --shade-08: rgb(0 0 0 / 0.29);
+        --shade-12: rgb(0 0 0 / 0.43);
+        --shade-18: rgb(0 0 0 / 0.6);
+        --shade-20: rgb(0 0 0 / 0.6);
+        --shade-25: rgb(0 0 0 / 0.6);
+        --shade-28: rgb(0 0 0 / 0.6);
+        --shade-accent: rgb(53 116 240 / 0.12);
+    }
+
+    :root[data-theme='dark'] input::placeholder,
+    :root[data-theme='dark'] textarea::placeholder {
+        color: #73767c;
+        opacity: 1;
+    }
+}

@@ -1,5 +1,6 @@
 @import 'tailwindcss' source(none);
 @import './fonts.css';
+@import './theme-dark.css';
 
 @source '../js';
 @source '../views';
